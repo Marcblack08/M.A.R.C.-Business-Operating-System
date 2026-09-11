@@ -5,73 +5,60 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="M.A.R.C. — Business Operating System" />
   <title>M.A.R.C. — Business Operating System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
   <div id="authScreen" class="auth-screen">
     <div class="auth-card">
-      <div class="auth-brand">
-        <div class="brand-mark">M</div>
-        <div><strong>M.A.R.C.</strong><span>Business Operating System</span></div>
-      </div>
-      <div class="auth-heading">
-        <p class="eyebrow">ACCESO SEGURO</p>
-        <h1 id="authTitle">Iniciar sesión</h1>
-        <p id="authSubtitle">Ingresa a tu centro de operaciones empresarial.</p>
-      </div>
+      <div class="brand-lockup"><div class="brand-symbol">M</div><div><strong>M.A.R.C.</strong><span>Gestiona. Organiza. Crece.</span></div></div>
+      <p class="eyebrow">ACCESO SEGURO</p>
+      <h1 id="authTitle">Iniciar sesión</h1>
+      <p id="authSubtitle">Ingresa a tu centro de operaciones empresarial.</p>
       <form id="authForm" class="auth-form">
-        <label>Correo electrónico<input id="authEmail" type="email" autocomplete="email" required placeholder="tu@empresa.com" /></label>
-        <label id="passwordField">Contraseña<div class="password-wrap"><input id="authPassword" type="password" autocomplete="current-password" required minlength="6" placeholder="••••••••" /><button type="button" id="togglePassword" aria-label="Mostrar contraseña">Mostrar</button></div></label>
-        <label id="confirmPasswordField" class="auth-hidden">Confirmar contraseña<input id="authConfirmPassword" type="password" autocomplete="new-password" minlength="6" placeholder="••••••••" /></label>
-        <button type="submit" class="primary-btn auth-submit" id="authSubmit">Iniciar sesión</button>
+        <label>Correo electrónico<input id="authEmail" type="email" autocomplete="email" required placeholder="tu@empresa.com"></label>
+        <label id="passwordField">Contraseña<div class="password-wrap"><input id="authPassword" type="password" autocomplete="current-password" required minlength="6" placeholder="••••••••"><button type="button" id="togglePassword">Mostrar</button></div></label>
+        <label id="confirmPasswordField" class="auth-hidden">Confirmar contraseña<input id="authConfirmPassword" type="password" autocomplete="new-password" minlength="6"></label>
+        <button class="btn btn-primary auth-submit" id="authSubmit" type="submit">Iniciar sesión</button>
       </form>
-      <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
-      <div class="auth-links">
-        <button type="button" id="forgotPassword">¿Olvidaste tu contraseña?</button>
-        <button type="button" id="switchAuth">Crear una cuenta</button>
-      </div>
-      <div class="auth-footer">M.A.R.C. · Acceso protegido</div>
+      <div id="authMessage" class="auth-message" role="status"></div>
+      <div class="auth-links"><button id="forgotPassword" type="button">¿Olvidaste tu contraseña?</button><button id="switchAuth" type="button">Crear una cuenta</button></div>
+      <small class="auth-foot">M.A.R.C. · Tu negocio, más simple, más inteligente.</small>
     </div>
   </div>
 
-  <div class="app-shell" id="appShell" hidden>
+  <div id="appShell" class="app-shell" hidden>
     <aside class="sidebar" id="sidebar">
-      <div class="brand">
-        <div class="brand-mark">M</div>
-        <div><strong>M.A.R.C.</strong><span>Business OS</span></div>
-      </div>
-      <nav>
-        <button class="nav-item active" data-section="dashboard">⌂ <span>Dashboard</span></button>
-        <button class="nav-item" data-section="clients">♙ <span>Clientes</span></button>
-        <button class="nav-item" data-section="products">▦ <span>Productos</span></button>
-        <button class="nav-item" data-section="services">◇ <span>Servicios</span></button>
-        <button class="nav-item" data-section="inventory">▤ <span>Inventario</span></button>
-        <button class="nav-item" data-section="quotes">▧ <span>Cotizaciones</span></button>
-        <button class="nav-item" data-section="reports">☷ <span>Informes técnicos</span></button>
-        <button class="nav-item" data-section="documents">□ <span>Documentos</span></button>
-        <button class="nav-item" data-section="ai">✦ <span>IA</span></button>
-        <button class="nav-item" data-section="settings">⚙ <span>Configuración</span></button>
+      <div class="brand-lockup sidebar-brand"><div class="brand-symbol">M</div><div><strong>M.A.R.C.</strong><span>Gestiona. Organiza. Crece.</span></div></div>
+      <nav id="mainNav">
+        <button class="nav-item active" data-section="dashboard"><span>▣</span>Dashboard</button>
+        <button class="nav-item" data-section="clients"><span>♙</span>Clientes</button>
+        <button class="nav-item" data-section="products"><span>◈</span>Productos</button>
+        <button class="nav-item" data-section="services"><span>◇</span>Servicios</button>
+        <button class="nav-item" data-section="inventory"><span>▤</span>Inventario</button>
+        <button class="nav-item" data-section="quotes"><span>▧</span>Cotizaciones</button>
+        <button class="nav-item" data-section="reports"><span>☷</span>Informes técnicos</button>
+        <button class="nav-item" data-section="documents"><span>□</span>Documentos</button>
+        <button class="nav-item" data-section="ai"><span>✦</span>IA - Asistente</button>
+        <button class="nav-item" data-section="company"><span>▣</span>Mi empresa</button>
+        <button class="nav-item" data-section="settings"><span>⚙</span>Configuración</button>
       </nav>
-      <div class="sidebar-footer">v0.3 · Autenticación</div>
+      <div class="sidebar-bottom"><div class="user-mini"><div class="avatar" id="userAvatar">MJ</div><div><strong id="userName">Marc Joachin</strong><small id="userEmail"></small></div></div><button class="logout" id="signOut">↪ Cerrar sesión</button></div>
     </aside>
 
     <main class="main">
       <header class="topbar">
         <button class="menu" id="menu">☰</button>
-        <div class="breadcrumb">M.A.R.C. <span>/</span> <b id="pageTitle">Dashboard</b></div>
-        <div class="topbar-user"><span id="userEmail"></span><button id="signOut" class="signout-btn">Cerrar sesión</button></div>
+        <div class="search-box"><span>⌕</span><input id="globalSearch" placeholder="Buscar en M.A.R.C..."></div>
+        <div class="top-actions"><button class="top-link">? <span>Ayuda</span></button><button class="icon-action">♧<b>3</b></button><button class="profile"><span class="avatar">MJ</span><span class="profile-copy"><strong id="companyUser">Marc Joachin</strong><small>Mi empresa</small></span>⌄</button></div>
       </header>
-
-      <section class="content" id="content">
-        <div class="hero">
-          <div><p class="eyebrow">BUSINESS OPERATING SYSTEM</p><h1>Todo tu negocio, en un solo lugar.</h1><p>Esta es la primera base de M.A.R.C. Ahora construiremos cada módulo sobre una arquitectura sólida.</p></div>
-          <div class="hero-badge">M.A.R.C.<small>v0.3</small></div>
-        </div>
-        <div class="section-heading"><div><h2>Centro de operaciones</h2><p>Módulos preparados para crecer.</p></div></div>
-        <div class="cards" id="cards"></div>
-      </section>
+      <div class="mobile-overlay" id="overlay"></div>
+      <section class="content" id="content"></section>
     </main>
   </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./app.js"></script>
 </body>

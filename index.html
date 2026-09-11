@@ -69,6 +69,7 @@
   </div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./app.js"></script>
+  <script src="./auth-google.js"></script>
   <script>
     if ('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(error=>console.error('M.A.R.C. PWA: no se pudo registrar el Service Worker',error)));
   </script>

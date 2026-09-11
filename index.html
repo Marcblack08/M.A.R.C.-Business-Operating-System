@@ -8,7 +8,33 @@
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <div class="app-shell">
+  <div id="authScreen" class="auth-screen">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <div class="brand-mark">M</div>
+        <div><strong>M.A.R.C.</strong><span>Business Operating System</span></div>
+      </div>
+      <div class="auth-heading">
+        <p class="eyebrow">ACCESO SEGURO</p>
+        <h1 id="authTitle">Iniciar sesión</h1>
+        <p id="authSubtitle">Ingresa a tu centro de operaciones empresarial.</p>
+      </div>
+      <form id="authForm" class="auth-form">
+        <label>Correo electrónico<input id="authEmail" type="email" autocomplete="email" required placeholder="tu@empresa.com" /></label>
+        <label id="passwordField">Contraseña<div class="password-wrap"><input id="authPassword" type="password" autocomplete="current-password" required minlength="6" placeholder="••••••••" /><button type="button" id="togglePassword" aria-label="Mostrar contraseña">Mostrar</button></div></label>
+        <label id="confirmPasswordField" class="auth-hidden">Confirmar contraseña<input id="authConfirmPassword" type="password" autocomplete="new-password" minlength="6" placeholder="••••••••" /></label>
+        <button type="submit" class="primary-btn auth-submit" id="authSubmit">Iniciar sesión</button>
+      </form>
+      <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
+      <div class="auth-links">
+        <button type="button" id="forgotPassword">¿Olvidaste tu contraseña?</button>
+        <button type="button" id="switchAuth">Crear una cuenta</button>
+      </div>
+      <div class="auth-footer">M.A.R.C. · Acceso protegido</div>
+    </div>
+  </div>
+
+  <div class="app-shell" id="appShell" hidden>
     <aside class="sidebar" id="sidebar">
       <div class="brand">
         <div class="brand-mark">M</div>
@@ -26,26 +52,27 @@
         <button class="nav-item" data-section="ai">✦ <span>IA</span></button>
         <button class="nav-item" data-section="settings">⚙ <span>Configuración</span></button>
       </nav>
-      <div class="sidebar-footer">v0.1 · Base inicial</div>
+      <div class="sidebar-footer">v0.3 · Autenticación</div>
     </aside>
 
     <main class="main">
       <header class="topbar">
         <button class="menu" id="menu">☰</button>
         <div class="breadcrumb">M.A.R.C. <span>/</span> <b id="pageTitle">Dashboard</b></div>
-        <div class="status"><i></i> Sistema listo</div>
+        <div class="topbar-user"><span id="userEmail"></span><button id="signOut" class="signout-btn">Cerrar sesión</button></div>
       </header>
 
       <section class="content" id="content">
         <div class="hero">
           <div><p class="eyebrow">BUSINESS OPERATING SYSTEM</p><h1>Todo tu negocio, en un solo lugar.</h1><p>Esta es la primera base de M.A.R.C. Ahora construiremos cada módulo sobre una arquitectura sólida.</p></div>
-          <div class="hero-badge">M.A.R.C.<small>v0.1</small></div>
+          <div class="hero-badge">M.A.R.C.<small>v0.3</small></div>
         </div>
         <div class="section-heading"><div><h2>Centro de operaciones</h2><p>Módulos preparados para crecer.</p></div></div>
         <div class="cards" id="cards"></div>
       </section>
     </main>
   </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./app.js"></script>
 </body>
 </html>

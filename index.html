@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="M.A.R.C. — Business Operating System" />
+  <title>M.A.R.C. — Business Operating System</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark">M</div>
+        <div><strong>M.A.R.C.</strong><span>Business OS</span></div>
+      </div>
+      <nav>
+        <button class="nav-item active" data-section="dashboard">⌂ <span>Dashboard</span></button>
+        <button class="nav-item" data-section="clients">♙ <span>Clientes</span></button>
+        <button class="nav-item" data-section="products">▦ <span>Productos</span></button>
+        <button class="nav-item" data-section="services">◇ <span>Servicios</span></button>
+        <button class="nav-item" data-section="inventory">▤ <span>Inventario</span></button>
+        <button class="nav-item" data-section="quotes">▧ <span>Cotizaciones</span></button>
+        <button class="nav-item" data-section="reports">☷ <span>Informes técnicos</span></button>
+        <button class="nav-item" data-section="documents">□ <span>Documentos</span></button>
+        <button class="nav-item" data-section="ai">✦ <span>IA</span></button>
+        <button class="nav-item" data-section="settings">⚙ <span>Configuración</span></button>
+      </nav>
+      <div class="sidebar-footer">v0.1 · Base inicial</div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="menu" id="menu">☰</button>
+        <div class="breadcrumb">M.A.R.C. <span>/</span> <b id="pageTitle">Dashboard</b></div>
+        <div class="status"><i></i> Sistema listo</div>
+      </header>
+
+      <section class="content" id="content">
+        <div class="hero">
+          <div><p class="eyebrow">BUSINESS OPERATING SYSTEM</p><h1>Todo tu negocio, en un solo lugar.</h1><p>Esta es la primera base de M.A.R.C. Ahora construiremos cada módulo sobre una arquitectura sólida.</p></div>
+          <div class="hero-badge">M.A.R.C.<small>v0.1</small></div>
+        </div>
+        <div class="section-heading"><div><h2>Centro de operaciones</h2><p>Módulos preparados para crecer.</p></div></div>
+        <div class="cards" id="cards"></div>
+      </section>
+    </main>
+  </div>
+  <script src="./app.js"></script>
+</body>
+</html>

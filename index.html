@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="description" content="M.A.R.C. — Business Operating System" />
-  <meta name="theme-color" content="#0b4ea2" />
+  <meta name="theme-color" content="#07111f" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -17,6 +17,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./styles-v2.css" />
 </head>
 <body>
   <div id="authScreen" class="auth-screen">
@@ -31,6 +32,7 @@
         <label id="confirmPasswordField" class="auth-hidden">Confirmar contraseña<input id="authConfirmPassword" type="password" autocomplete="new-password" minlength="6"></label>
         <button class="btn btn-primary auth-submit" id="authSubmit" type="submit">Iniciar sesión</button>
       </form>
+      <button class="auth-google" id="googleSignIn" type="button"><svg class="google-mark" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M21.35 12.23c0-.74-.07-1.46-.21-2.14H12v4.05h5.24a4.48 4.48 0 0 1-1.94 2.94v2.45h3.14c1.84-1.69 2.91-4.18 2.91-7.3Z"/><path fill="#34A853" d="M12 21.7c2.63 0 4.84-.87 6.45-2.37l-3.14-2.45c-.87.58-1.98.92-3.31.92-2.54 0-4.69-1.72-5.46-4.03H3.3v2.53A9.74 9.74 0 0 0 12 21.7Z"/><path fill="#FBBC05" d="M6.54 13.77A5.85 5.85 0 0 1 6.23 12c0-.62.11-1.22.31-1.77V7.7H3.3A9.73 9.73 0 0 0 2.27 12c0 1.57.38 3.05 1.03 4.3l3.24-2.53Z"/><path fill="#EA4335" d="M12 6.2c1.43 0 2.71.49 3.72 1.46l2.79-2.79C16.84 3.27 14.63 2.3 12 2.3a9.74 9.74 0 0 0-8.7 5.4l3.24 2.53C7.31 7.92 9.46 6.2 12 6.2Z"/></svg>Continuar con Google</button>
       <div id="authMessage" class="auth-message" role="status"></div>
       <div class="auth-links"><button id="forgotPassword" type="button">¿Olvidaste tu contraseña?</button><button id="switchAuth" type="button">Crear una cuenta</button></div>
       <small class="auth-foot">M.A.R.C. · Tu negocio, más simple, más inteligente.</small>
@@ -55,7 +57,6 @@
       </nav>
       <div class="sidebar-bottom"><div class="user-mini"><div class="avatar" id="userAvatar">MJ</div><div><strong id="userName">Marc Joachin</strong><small id="userEmail"></small></div></div><button class="logout" id="signOut">↪ Cerrar sesión</button></div>
     </aside>
-
     <main class="main">
       <header class="topbar">
         <button class="menu" id="menu">☰</button>
@@ -66,16 +67,10 @@
       <section class="content" id="content"></section>
     </main>
   </div>
-
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./app.js"></script>
   <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js', { scope: './' })
-          .catch((error) => console.error('M.A.R.C. PWA: no se pudo registrar el Service Worker', error));
-      });
-    }
+    if ('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(error=>console.error('M.A.R.C. PWA: no se pudo registrar el Service Worker',error)));
   </script>
 </body>
 </html>

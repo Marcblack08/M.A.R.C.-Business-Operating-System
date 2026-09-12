@@ -1,6 +1,6 @@
 /* M.A.R.C. — fixes de navegación y persistencia */
 (function(){
-  const catalogCss=()=>{if(document.querySelector('link[data-marc-catalog-css]'))return;const l=document.createElement('link');l.rel='stylesheet';l.href='./catalogos-ui.css?v=2';l.dataset.marcCatalogCss='1';document.head.appendChild(l)};
+  const catalogCss=()=>{if(document.querySelector('link[data-marc-catalog-css]'))return;const l=document.createElement('link');l.rel='stylesheet';l.href='./catalogos-v4.css?v=1';l.dataset.marcCatalogCss='1';document.head.appendChild(l)};
   catalogCss();
   const validSections=new Set(['dashboard','clients','products','services','inventory','quotes','reports','documents','ai','company','settings']);
   let current=location.hash.replace(/^#/,'');

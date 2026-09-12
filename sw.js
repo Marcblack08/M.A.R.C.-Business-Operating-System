@@ -1,4 +1,4 @@
-const CACHE_NAME = 'marc-pwa-v14-catalog-original';
+const CACHE_NAME = 'marc-pwa-v15-catalog-stable';
 const APP_SHELL = ['/', '/index.html', '/styles.css', '/app.js', '/manifest.webmanifest', '/icons/marc.svg'];
 
 self.addEventListener('install', event => {
@@ -25,37 +25,18 @@ self.addEventListener('fetch', event => {
     try {
       const response = await fetch(request);
 
-      if (
-        (response.headers.get('content-type') || '').includes('text/html') &&
-        new URL(request.url).pathname.endsWith('/index.html')
-      ) {
-        const html = await response.text();
-        // El primer motor original es el único lector de catálogos activo.
-        const withoutOldReaders = html.replace(
-          /<script[^>]+catalogos(?:-(?:fast|v3|v4|paginas|ocr|tablas|v8|v9))?\.js[^>]*><\/script>/gi,
-          ''
-        );
-        const injected = withoutOldReaders.replace(
-          '</body>',
-          '<script src="./catalogos.js?v=original"></script></body>'
-        );
-
-        return new Response(injected, {
-          status: response.status,
-          statusText: response.statusText,
-          headers: {
-            ...Object.fromEntries(response.headers),
-            'content-type': 'text/html; charset=UTF-8',
-            'cache-control': 'no-store'
-          }
-        });
+      // HTML siempre viene de red. El Service Worker ya no modifica index.html
+      // ni inyecta lectores de catálogos: index.html es la única fuente de scripts.
+      if ((response.headers.get('content-type') || '').includes('text/html')) {
+        return response;
       }
 
       const copy = response.clone();
       caches.open(CACHE_NAME).then(cache => cache.put(request, copy)).catch(() => {});
       return response;
     } catch (e) {
-      return caches.match(request).then(cached => cached || caches.match('/index.html'));
+      const cached = await caches.match(request);
+      return cached || caches.match('/index.html');
     }
   })());
 });

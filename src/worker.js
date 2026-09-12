@@ -31,13 +31,13 @@ const CATALOG_VISION_PROMPT=`Eres M.A.R.C., especialista en lectura visual de ca
 
 REGLAS CRÍTICAS:
 1. Detecta TODOS los productos de la página. Puede haber una sola ficha, varias fichas o una tabla con muchos productos.
-2. Conserva EXACTAMENTE códigos, SKU y modelos. Ejemplos: AD-TW02, PRO-TW66, AD-C21, AD-GK133. No confundas letras/números.
+2. Conserva EXACTAMENTE códigos, SKU y modelos. No confundas letras/números.
 3. Identifica el precio SOLO cuando esté claramente rotulado como precio, especialmente PRECIO CAJA, PRECIO DOCENA o PRECIO UNIDAD. Los números de potencia, batería, capacidad, distancia, tamaño, voltaje o amperaje NO son precios.
-4. Extrae la presentación comercial: CAJA, DOCENA, UND u otra. Extrae cantidad_paquete cuando la página indique '100 unidades', '20 unidades', '50 unidades', etc.
+4. Extrae presentación comercial y cantidad_paquete cuando estén visibles.
 5. Si la página es portada/contraportada y no tiene producto, devuelve items: [].
-6. Marca: si aparece Aldeepro/Aldeepo como marca, conserva el texto visible como marca; no inventes otras marcas.
-7. Modelo: usa el código/modelo grande de la ficha cuando corresponda.
-8. Categoria debe ser práctica para inventario: Audífonos, Cargadores, Cables, Soportes, Micrófonos, Adaptadores, Mouse, Parlantes, Smart Watch, Power Bank, USB, Memorias, Teclados, etc.
+6. Marca solo si es visible. No inventes marcas.
+7. Modelo: conserva el modelo/código visible.
+8. Categoria práctica para inventario.
 9. descripcion solo con especificaciones visibles.
 10. Para catálogo PROVEEDOR: precio_compra=precio_fuente y precio_venta=0. Para catálogo PROPIO: precio_venta=precio_fuente y precio_compra=0.
 11. No inventes precios ni productos. Si un dato no es visible, usa vacío/0.
@@ -46,20 +46,27 @@ REGLAS CRÍTICAS:
 function imageFromBody(raw){const value=typeof raw==='string'?raw.trim():'';if(!value)return '';if(value.startsWith('data:image/'))return value;return `data:image/jpeg;base64,${value.startsWith('data:')?(value.split(',',2)[1]||''):value}`;}
 
 async function analyzeCatalogVision(env,image,tipo='PROVEEDOR',pagina=0){
-  const r=await env.AI.run('@cf/meta/llama-3.2-11b-vision-instruct',{
-    messages:[
-      {role:'system',content:CATALOG_VISION_PROMPT+`\nTipo de catálogo: ${tipo}. Página: ${pagina}.`},
-      {role:'user',content:'Lee visualmente TODA la página. Extrae todos los productos visibles. Responde únicamente con el JSON solicitado.'}
-    ],
-    image,
-    max_tokens:1800,
-    temperature:0,
-    stream:false,
-    response_format:{type:'json_schema',json_schema:CATALOG_SCHEMA}
-  });
-  const d=normalizeData(r?.response||r);
-  if(Array.isArray(d.items))return d.items;
-  throw new Error('La IA visual no devolvió una lista de productos.');
+  let last;
+  for(let attempt=1;attempt<=3;attempt++){
+    try{
+      const r=await env.AI.run('@cf/meta/llama-3.2-11b-vision-instruct',{
+        messages:[
+          {role:'system',content:CATALOG_VISION_PROMPT+`\nTipo de catálogo: ${tipo}. Página: ${pagina}.`},
+          {role:'user',content:'Lee visualmente TODA la página. Extrae todos los productos visibles. Responde únicamente con el JSON solicitado.'}
+        ],
+        image,
+        max_tokens:1800,
+        temperature:0,
+        stream:false,
+        response_format:{type:'json_schema',json_schema:CATALOG_SCHEMA}
+      });
+      const d=normalizeData(r?.response||r);
+      if(Array.isArray(d.items))return d.items;
+      last=new Error('La IA visual no devolvió una lista de productos.');
+    }catch(e){last=e;}
+    if(attempt<3)await new Promise(r=>setTimeout(r,1500*attempt));
+  }
+  throw new Error(`IA visual agotó 3 intentos: ${String(last?.message||last||'Error desconocido')}`);
 }
 
 async function analyzeCatalogText(env,text,tipo='PROVEEDOR'){
@@ -71,7 +78,7 @@ async function analyzeCatalogText(env,text,tipo='PROVEEDOR'){
 export default {async fetch(request,env){const url=new URL(request.url);
   if(request.method==='POST'&&url.pathname==='/api/analyze-catalog-page'){
     if(!env.AI)return Response.json({error:'Workers AI no está conectado.'},{status:503});
-    try{const body=await request.json();const image=imageFromBody(body?.image),tipo=String(body?.tipo||'PROVEEDOR'),pagina=Number(body?.pagina||0);if(!image)return Response.json({error:'Falta la imagen de la página.'},{status:400});if(image.length>12_000_000)return Response.json({error:'La imagen de la página es demasiado grande.'},{status:413});const items=await analyzeCatalogVision(env,image,tipo,pagina);return Response.json({items,model:'llama-3.2-11b-vision-instruct',pagina});}catch(e){return Response.json({error:'No se pudo analizar la página.',detail:String(e?.message||e)},{status:500});}
+    try{const body=await request.json();const image=imageFromBody(body?.image),tipo=String(body?.tipo||'PROVEEDOR'),pagina=Number(body?.pagina||0);if(!image)return Response.json({error:'Falta la imagen de la página.'},{status:400});if(image.length>12_000_000)return Response.json({error:'La imagen de la página es demasiado grande.'},{status:413});const items=await analyzeCatalogVision(env,image,tipo,pagina);return Response.json({items,model:'llama-3.2-11b-vision-instruct',pagina});}catch(e){return Response.json({error:'No se pudo analizar la página.',detail:String(e?.message||e)},{status:503});}
   }
   if(request.method==='POST'&&url.pathname==='/api/analyze-catalog'){
     if(!env.AI)return Response.json({error:'Workers AI no está conectado.'},{status:503});

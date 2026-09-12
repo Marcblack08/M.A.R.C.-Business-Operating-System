@@ -22,20 +22,14 @@ export default {
             json_schema: {
               type: "object",
               properties: {
-                codigo: { type: "string" },
-                nombre: { type: "string" },
-                marca: { type: "string" },
-                modelo: { type: "string" },
-                categoria: { type: "string" },
-                descripcion: { type: "string" },
-                precio_compra: { type: ["number", "null"] },
-                precio_venta: { type: ["number", "null"] }
+                codigo: { type: "string" }, nombre: { type: "string" }, marca: { type: "string" }, modelo: { type: "string" }, categoria: { type: "string" }, descripcion: { type: "string" }, precio_compra: { type: ["number", "null"] }, precio_venta: { type: ["number", "null"] }
               },
               required: ["codigo", "nombre", "marca", "modelo", "categoria", "descripcion", "precio_compra", "precio_venta"]
             }
           }
         });
-        return Response.json({ text: result?.response || result?.description || result?.result?.response || "" });
+        const response = result?.response ?? result?.description ?? result?.result?.response ?? {};
+        return Response.json({ text: typeof response === "string" ? response : JSON.stringify(response) });
       } catch (error) {
         return Response.json({ error: "No se pudo analizar la imagen.", detail: String(error?.message || error) }, { status: 500 });
       }

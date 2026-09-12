@@ -1,0 +1,28 @@
+/* M.A.R.C. — Catálogos: interfaz limpia y responsive */
+#catv2Panel{width:100%;max-width:1180px;margin:0 auto;background:#fff;border:1px solid #dce7f3;border-radius:18px;box-shadow:0 8px 30px rgba(20,55,90,.07);overflow:hidden}
+#catv2Panel *{box-sizing:border-box}
+#catv2Panel .cat-head{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:24px;border-bottom:1px solid #e8eff6;background:linear-gradient(135deg,#fff,#f5faff)}
+#catv2Panel .cat-head h2{margin:2px 0 6px;font-size:28px;letter-spacing:-.03em;color:#102b54}
+#catv2Panel .cat-head p:not(.eyebrow){margin:0;color:#7088a5;font-size:12px}
+#catv2Panel .cat-engine{display:flex;flex-direction:column;gap:4px;padding:11px 14px;border:1px solid #d8e8f7;border-radius:12px;background:#eef7ff;color:#1677f2;white-space:nowrap;font-size:11px}
+#catv2Panel .cat-engine span{color:#6784a3;font-size:10px}
+#catv2Panel .cat-upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:18px 24px}
+#catv2Panel .cat-upload{min-width:0;display:grid;grid-template-columns:40px 1fr auto;grid-template-rows:auto auto;column-gap:12px;align-items:center;padding:16px;border:1px solid #dce7f3;border-radius:14px;background:#fbfdff;cursor:pointer;transition:.18s}
+#catv2Panel .cat-upload:hover{border-color:#9dcaf5;box-shadow:0 6px 18px rgba(8,124,245,.08)}
+#catv2Panel .cat-upload input{display:none}
+#catv2Panel .cat-upload>span{grid-row:1/3;width:40px;height:40px;border-radius:11px;background:#eaf5ff;display:grid;place-items:center;font-size:19px}
+#catv2Panel .cat-upload b{font-size:13px;color:#24496e}
+#catv2Panel .cat-upload small{font-size:10px;color:#8097b0}
+#catv2Panel .cat-upload strong{grid-column:3;grid-row:1/3;padding:9px 12px;border-radius:9px;background:#087cf5;color:#fff;font-size:10px}
+#catv2Panel .cat-progress{margin:0 24px 16px;padding:12px 14px;border-radius:11px;background:#eef7ff;border:1px solid #d5e9fa;color:#285b89;font-size:11px;line-height:1.45}
+#catv2Panel .cat-list{padding:0 24px 24px;display:grid;gap:10px}
+#catv2Panel .cat-row{display:grid;grid-template-columns:42px minmax(0,1fr) auto auto;align-items:center;gap:12px;padding:13px;border:1px solid #e0eaf3;border-radius:12px;background:#fff}
+#catv2Panel .cat-file{width:42px;height:42px;border-radius:10px;background:#eaf5ff;color:#087cf5;display:grid;place-items:center;font-size:9px;font-weight:800}
+#catv2Panel .cat-main{min-width:0;display:grid;gap:3px}
+#catv2Panel .cat-main b{font-size:12px;color:#254a71;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#catv2Panel .cat-main span,#catv2Panel .cat-main small{font-size:10px;color:#7891ad}
+#catv2Panel .cat-row .btn{font-size:10px;padding:9px 11px}
+#catv2Panel .cat-delete{width:30px;height:30px;border:0;border-radius:8px;background:#fff1f2;color:#d43d4c;font-size:18px;line-height:1}
+#catv2Panel .cat-empty{padding:40px 15px;text-align:center;border:1px dashed #cbdceb;border-radius:12px;color:#7891ad;display:grid;gap:6px;font-size:11px}
+#catv2Panel .cat-items{margin:0 24px 24px;border-top:1px solid #e8eff6;padding-top:16px}
+@media(max-width:700px){#catv2Panel{border-radius:14px}#catv2Panel .cat-head{padding:18px;display:block}.cat-engine{margin-top:14px;width:max-content}#catv2Panel .cat-head h2{font-size:24px}#catv2Panel .cat-upload-grid{grid-template-columns:1fr;padding:14px 18px}#catv2Panel .cat-upload{grid-template-columns:36px 1fr;grid-template-rows:auto auto}#catv2Panel .cat-upload>span{width:36px;height:36px}#catv2Panel .cat-upload strong{grid-column:2;grid-row:2;width:max-content;margin-top:6px}#catv2Panel .cat-list{padding:0 18px 18px}#catv2Panel .cat-row{grid-template-columns:38px minmax(0,1fr) auto;gap:9px;padding:11px}#catv2Panel .cat-file{width:38px;height:38px}#catv2Panel .cat-row .cat-delete{grid-column:3;grid-row:1;width:28px;height:28px}#catv2Panel .cat-row .catv2-view,#catv2Panel .cat-row .catv2-resume{grid-column:2/4;grid-row:2;justify-self:start}#catv2Panel .cat-progress{margin:0 18px 14px}#catv2Panel .cat-items{margin:0 18px 18px}}

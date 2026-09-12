@@ -1,4 +1,4 @@
-const CACHE_NAME = 'marc-pwa-v10-v2-fast';
+const CACHE_NAME = 'marc-pwa-v11-catalog-v1';
 const APP_SHELL = ['/', '/index.html', '/styles.css', '/app.js', '/manifest.webmanifest', '/icons/marc.svg'];
 
 self.addEventListener('install', event => {
@@ -25,15 +25,12 @@ self.addEventListener('fetch', event => {
     try {
       const response = await fetch(request);
 
-      if (
-        (response.headers.get('content-type') || '').includes('text/html') &&
-        new URL(request.url).pathname.endsWith('/index.html')
-      ) {
+      if ((response.headers.get('content-type') || '').includes('text/html') && new URL(request.url).pathname.endsWith('/index.html')) {
         const html = await response.text();
-        const tag = '<script src="./catalogos-fast.js?v=v2fast"></script>';
-        const injected = html.includes('catalogos-fast.js')
-          ? html
-          : html.replace('</body>', `${tag}</body>`);
+        const withoutOldCatalogReaders = html.replace(/<script[^>]+catalogos-(?:fast|v3|v4|paginas|ocr|tablas|v9)\.js[^>]*><\/script>/gi, '');
+        const injected = withoutOldCatalogReaders.includes('catalogos.js')
+          ? withoutOldCatalogReaders
+          : withoutOldCatalogReaders.replace('</body>', '<script src="./catalogos.js?v=v1"></script></body>');
 
         return new Response(injected, {
           status: response.status,

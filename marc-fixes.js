@@ -43,7 +43,7 @@
     const btn=form.querySelector('button[type="submit"]');
     if(btn)btn.disabled=true;
     try{
-      const fixClient=window.supabase.createClient('https://hmnzzknuiejchypalpalpig.supabase.co','sb_publishable_mhRoYMQTWrmYpuclqzQ1MA_6TMtGikq',{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+      const fixClient=window.supabase.createClient('https://hmnzzknuiejchypalpig.supabase.co','sb_publishable_mhRoYMQTWrmYpuclqzQ1MA_6TMtGikq',{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
       const {data:{user},error:userError}=await fixClient.auth.getUser();
       if(userError||!user) throw new Error('Tu sesión no está disponible. Cierra sesión y vuelve a ingresar.');
       const fd=new FormData(form);

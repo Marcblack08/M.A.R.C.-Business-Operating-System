@@ -1,4 +1,4 @@
-const CACHE_NAME = 'marc-pwa-v12-catalog-v1-fixed';
+const CACHE_NAME = 'marc-pwa-v13-catalog-v9-fixed';
 const APP_SHELL = ['/', '/index.html', '/styles.css', '/app.js', '/manifest.webmanifest', '/icons/marc.svg'];
 
 self.addEventListener('install', event => {
@@ -30,15 +30,14 @@ self.addEventListener('fetch', event => {
         new URL(request.url).pathname.endsWith('/index.html')
       ) {
         const html = await response.text();
-        // El lector V1 debe ser el único lector de catálogos activo.
-        // Eliminamos cualquier lector experimental anterior, incluido V8.
+        // V9 es el único lector de catálogos activo.
         const withoutOldReaders = html.replace(
-          /<script[^>]+catalogos-(?:fast|v3|v4|paginas|ocr|tablas|v8|v9)\.js[^>]*><\/script>/gi,
+          /<script[^>]+catalogos(?:-(?:fast|v3|v4|paginas|ocr|tablas|v8|v9))?\.js[^>]*><\/script>/gi,
           ''
         );
         const injected = withoutOldReaders.replace(
           '</body>',
-          '<script src="./catalogos.js?v=v1fixed"></script></body>'
+          '<script src="./catalogos-v9.js?v=v9fixed"></script></body>'
         );
 
         return new Response(injected, {

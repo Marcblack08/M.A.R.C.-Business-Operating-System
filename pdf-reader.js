@@ -4,6 +4,21 @@
 (function () {
   'use strict';
 
+  // El módulo de catálogos antiguo intentaba enviar páginas sin texto a IA.
+  // El método seleccionado es PDF.js, por lo que bloqueamos esa llamada para
+  // que una página escaneada pueda pasar inmediatamente a su OCR local.
+  const nativeFetch = window.fetch.bind(window);
+  window.fetch = function (input, init) {
+    const url = typeof input === 'string' ? input : (input && input.url) || '';
+    if (url.includes('/api/analyze-catalog-page')) {
+      return Promise.resolve(new Response(
+        JSON.stringify({ error: 'IA desactivada para lectura de catálogo; usar PDF.js/OCR.' }),
+        { status: 429, headers: { 'Content-Type': 'application/json' } }
+      ));
+    }
+    return nativeFetch(input, init);
+  };
+
   const PDFJS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs';
   const PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs';
   let pdfjsPromise = null;
@@ -35,7 +50,7 @@
   }
 
   async function extractPdf(file, onProgress) {
-    if (!file || file.type !== 'application/pdf') {
+    if (!file || (file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name || ''))) {
       throw new Error('Selecciona un archivo PDF válido.');
     }
     const pdfjs = await loadPdfJs();
@@ -51,6 +66,7 @@
       pages.push({ page: pageNumber, text });
       if (text) fullText += `\n--- Página ${pageNumber} ---\n${text}`;
       if (typeof onProgress === 'function') onProgress(pageNumber, pdf.numPages);
+      page.cleanup?.();
     }
 
     return {

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'marc-pwa-v11-catalog-v1';
+const CACHE_NAME = 'marc-pwa-v12-catalog-v1-fixed';
 const APP_SHELL = ['/', '/index.html', '/styles.css', '/app.js', '/manifest.webmanifest', '/icons/marc.svg'];
 
 self.addEventListener('install', event => {
@@ -25,12 +25,21 @@ self.addEventListener('fetch', event => {
     try {
       const response = await fetch(request);
 
-      if ((response.headers.get('content-type') || '').includes('text/html') && new URL(request.url).pathname.endsWith('/index.html')) {
+      if (
+        (response.headers.get('content-type') || '').includes('text/html') &&
+        new URL(request.url).pathname.endsWith('/index.html')
+      ) {
         const html = await response.text();
-        const withoutOldCatalogReaders = html.replace(/<script[^>]+catalogos-(?:fast|v3|v4|paginas|ocr|tablas|v9)\.js[^>]*><\/script>/gi, '');
-        const injected = withoutOldCatalogReaders.includes('catalogos.js')
-          ? withoutOldCatalogReaders
-          : withoutOldCatalogReaders.replace('</body>', '<script src="./catalogos.js?v=v1"></script></body>');
+        // El lector V1 debe ser el único lector de catálogos activo.
+        // Eliminamos cualquier lector experimental anterior, incluido V8.
+        const withoutOldReaders = html.replace(
+          /<script[^>]+catalogos-(?:fast|v3|v4|paginas|ocr|tablas|v8|v9)\.js[^>]*><\/script>/gi,
+          ''
+        );
+        const injected = withoutOldReaders.replace(
+          '</body>',
+          '<script src="./catalogos.js?v=v1fixed"></script></body>'
+        );
 
         return new Response(injected, {
           status: response.status,

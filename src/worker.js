@@ -1,3 +1,17 @@
+function parseObject(value) {
+  if (value && typeof value === "object") return value;
+  const text = String(value || "").trim().replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim();
+  try { return JSON.parse(text); } catch {}
+  const match = text.match(/\{[\s\S]*\}/);
+  if (match) try { return JSON.parse(match[0]); } catch {}
+  return {};
+}
+
+function usefulFields(data) {
+  const keys = ["codigo", "nombre", "marca", "modelo", "categoria", "descripcion", "precio_compra", "precio_venta"];
+  return keys.filter(k => data?.[k] !== null && data?.[k] !== undefined && String(data[k]).trim() !== "").length;
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -12,25 +26,35 @@ export default {
         if (!image) return Response.json({ error: "La imagen no contiene datos válidos." }, { status: 400 });
         if (image.length > 8_000_000) return Response.json({ error: "La imagen es demasiado grande. Usa una foto más pequeña." }, { status: 413 });
 
-        const result = await env.AI.run("@cf/moondream/moondream3.1-9B-A2B", {
+        const question = `Lee esta imagen como si fuera una etiqueta o ficha de producto para inventario. Extrae SOLO lo que sea claramente visible. Prioriza OCR exacto de números, códigos, marca y modelo. Devuelve SOLO JSON válido con estas claves: codigo, nombre, marca, modelo, categoria, descripcion, precio_compra, precio_venta. No inventes datos. Si algo no aparece o no se puede leer con seguridad, usa "".`;
+
+        const fast = await env.AI.run("@cf/moondream/moondream3.1-9B-A2B", {
           task: "query",
           image,
-          question: "Extrae de esta foto los datos visibles del producto para inventario. Responde SOLO con JSON válido con estas claves: codigo, nombre, marca, modelo, categoria, descripcion, precio_compra, precio_venta. Si un dato no es visible, usa una cadena vacía o null. No inventes información.",
+          question,
           reasoning: false,
           temperature: 0,
-          max_tokens: 300
+          max_tokens: 500
         });
 
-        const answer = result?.answer || result?.response || "{}";
-        let data = {};
-        try {
-          data = typeof answer === "string" ? JSON.parse(answer) : answer;
-        } catch {
-          const match = String(answer).match(/\{[\s\S]*\}/);
-          if (match) {
-            try { data = JSON.parse(match[0]); } catch {}
-          }
+        let data = parseObject(fast?.answer || fast?.response || "{}");
+
+        // Si el modelo rápido no pudo extraer datos útiles, usamos Llama Vision
+        // solo como respaldo. Así mantenemos velocidad en los casos normales.
+        if (usefulFields(data) < 2) {
+          const fallback = await env.AI.run("@cf/meta/llama-3.2-11b-vision-instruct", {
+            messages: [
+              { role: "system", content: "Eres un extractor OCR de productos. No inventes información." },
+              { role: "user", content: "Lee cuidadosamente la etiqueta o ficha del producto de la imagen. Extrae código, nombre, marca, modelo, categoría, descripción, precio de compra y precio de venta. Usa cadenas vacías si no son visibles. Devuelve únicamente JSON válido." }
+            ],
+            image,
+            max_tokens: 450,
+            temperature: 0,
+            response_format: { type: "json_object" }
+          });
+          data = parseObject(fallback?.response || fallback?.result?.response || fallback || "{}");
         }
+
         return Response.json({ text: JSON.stringify(data || {}) });
       } catch (error) {
         console.error("M.A.R.C. analyze-product:", error);

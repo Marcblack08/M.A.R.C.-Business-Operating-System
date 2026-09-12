@@ -27,35 +27,36 @@ const CATALOG_SCHEMA={type:'object',properties:{items:{type:'array',items:{type:
 const SERVICE_SCHEMA={type:'object',properties:{tipo:{type:'string'},nombre:{type:'string'},descripcion:{type:'string'},unidad:{type:'string'},precio:{type:'number'}},required:['tipo','nombre','descripcion','unidad','precio']};
 
 const CATALOG_TEXT_PROMPT=`Eres M.A.R.C., extractor profesional de catálogos para inventario empresarial. Lee UNA página de catálogo y devuelve TODOS los productos claramente identificables. Conserva exactamente código/SKU/referencia y modelo. Nunca inventes datos. Si la página es una portada, índice o no contiene productos, devuelve items vacíos. Si existe un precio rotulado PRECIO CAJA, PRECIO DOCENA, PRECIO UNIDAD u otra presentación, ese es precio_fuente y unidad_precio debe ser exactamente CAJA, DOCENA, UND u otra etiqueta visible. cantidad_paquete es el número de unidades indicado en la misma presentación, si existe. No conviertas especificaciones (5A, 65W, 20000mAh, 3.1A, 1000mm, etc.) en precios. Para catálogo PROVEEDOR, precio_fuente es precio de compra. Para catálogo PROPIO, precio_fuente es precio de venta. unidad es la unidad de inventario más fiel. descripcion debe resumir solo especificaciones visibles. marca solo si es visible o claramente indicada en la página. Devuelve SOLO JSON.`;
-const CATALOG_VISION_PROMPT=`Eres M.A.R.C., especialista en lectura visual de catálogos comerciales. NO describas la imagen: conviértela en registros de inventario. Lee toda la página con máxima precisión.
+const CATALOG_VISION_PROMPT=`Eres M.A.R.C., especialista en OCR visual y lectura de catálogos comerciales. Convierte UNA página en registros de inventario. Lee toda la página con máxima precisión.
 
 REGLAS CRÍTICAS:
-1. Detecta TODOS los productos de la página. Puede haber una sola ficha, varias fichas o una tabla con muchos productos.
-2. Conserva EXACTAMENTE códigos, SKU y modelos. No confundas letras/números.
+1. Detecta TODOS los productos visibles. Puede haber una ficha, varias fichas o una tabla.
+2. Conserva EXACTAMENTE códigos, SKU y modelos. No confundas letras y números.
 3. Identifica el precio SOLO cuando esté claramente rotulado como precio, especialmente PRECIO CAJA, PRECIO DOCENA o PRECIO UNIDAD. Los números de potencia, batería, capacidad, distancia, tamaño, voltaje o amperaje NO son precios.
 4. Extrae presentación comercial y cantidad_paquete cuando estén visibles.
-5. Si la página es portada/contraportada y no tiene producto, devuelve items: [].
+5. Si es portada, índice o no hay productos, devuelve items: [].
 6. Marca solo si es visible. No inventes marcas.
 7. Modelo: conserva el modelo/código visible.
 8. Categoria práctica para inventario.
 9. descripcion solo con especificaciones visibles.
 10. No inventes precios ni productos. Si un dato no es visible, usa vacío/0.
 11. Devuelve ÚNICAMENTE JSON con {"items":[...]}.
-12. Prioriza precisión sobre cantidad de texto.`;
+12. Prioriza precisión y lectura de texto sobre explicaciones.`;
 
 function imageFromBody(raw){const value=typeof raw==='string'?raw.trim():'';if(!value)return '';if(value.startsWith('data:image/'))return value;return `data:image/jpeg;base64,${value.startsWith('data:')?(value.split(',',2)[1]||''):value}`;}
 
 async function analyzeCatalogVision(env,image,tipo='PROVEEDOR',pagina=0){
   try{
-    const r=await env.AI.run('@cf/meta/llama-3.2-11b-vision-instruct',{
+    const r=await env.AI.run('@cf/google/gemma-4-26b-a4b-it',{
       messages:[
         {role:'system',content:CATALOG_VISION_PROMPT+`\nTipo de catálogo: ${tipo}. Página: ${pagina}.`},
         {role:'user',content:'Lee visualmente TODA la página. Extrae todos los productos visibles. Responde únicamente con el JSON solicitado.'}
       ],
       image,
-      max_tokens:1200,
+      max_tokens:1000,
       temperature:0,
       stream:false,
+      chat_template_kwargs:{enable_thinking:false},
       response_format:{type:'json_schema',json_schema:CATALOG_SCHEMA}
     });
     const d=normalizeData(r?.response||r);
@@ -84,7 +85,7 @@ async function analyzeCatalogText(env,text,tipo='PROVEEDOR'){
 export default {async fetch(request,env){const url=new URL(request.url);
   if(request.method==='POST'&&url.pathname==='/api/analyze-catalog-page'){
     if(!env.AI)return Response.json({error:'Workers AI no está conectado.'},{status:503});
-    try{const body=await request.json();const image=imageFromBody(body?.image),tipo=String(body?.tipo||'PROVEEDOR'),pagina=Number(body?.pagina||0);if(!image)return Response.json({error:'Falta la imagen de la página.'},{status:400});if(image.length>12_000_000)return Response.json({error:'La imagen de la página es demasiado grande.'},{status:413});const items=await analyzeCatalogVision(env,image,tipo,pagina);return Response.json({items,model:'llama-3.2-11b-vision-instruct',pagina});}catch(e){const detail=String(e?.message||e||'Error desconocido');const quota=/LÍMITE_IA_DIARIO|3036|4006|daily free allocation|10,000 neurons/i.test(detail);return Response.json({error:quota?'Límite diario de IA alcanzado.':'No se pudo analizar la página.',detail,quota},{status:quota?429:503});}
+    try{const body=await request.json();const image=imageFromBody(body?.image),tipo=String(body?.tipo||'PROVEEDOR'),pagina=Number(body?.pagina||0);if(!image)return Response.json({error:'Falta la imagen de la página.'},{status:400});if(image.length>12_000_000)return Response.json({error:'La imagen de la página es demasiado grande.'},{status:413});const items=await analyzeCatalogVision(env,image,tipo,pagina);return Response.json({items,model:'gemma-4-26b-a4b-it',pagina});}catch(e){const detail=String(e?.message||e||'Error desconocido');const quota=/LÍMITE_IA_DIARIO|3036|4006|daily free allocation|10,000 neurons/i.test(detail);return Response.json({error:quota?'Límite diario de IA alcanzado.':'No se pudo analizar la página.',detail,quota},{status:quota?429:503});}
   }
   if(request.method==='POST'&&url.pathname==='/api/analyze-catalog'){
     if(!env.AI)return Response.json({error:'Workers AI no está conectado.'},{status:503});

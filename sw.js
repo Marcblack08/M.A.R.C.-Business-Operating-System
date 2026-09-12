@@ -1,4 +1,4 @@
-const CACHE_NAME = 'marc-pwa-v8-catalog-reader';
+const CACHE_NAME = 'marc-pwa-v9-catalog-reader';
 const APP_SHELL = ['/', '/index.html', '/styles.css', '/app.js', '/manifest.webmanifest', '/icons/marc.svg'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()));
@@ -12,11 +12,16 @@ self.addEventListener('fetch', event => {
   event.respondWith((async()=>{
     try{
       const response = await fetch(request);
-      const copy = response.clone();
-      caches.open(CACHE_NAME).then(cache => cache.put(request, copy)).catch(()=>{});
+      if((response.headers.get('content-type')||'').includes('text/html') && new URL(request.url).pathname.endsWith('/index.html')){
+        const html=await response.text();
+        const injected=html.includes('catalogos-v9.js')?html:html.replace('</body>','<script src="./catalogos-v9.js"></script></body>');
+        return new Response(injected,{status:response.status,statusText:response.statusText,headers:{...Object.fromEntries(response.headers),'content-type':'text/html; charset=UTF-8','cache-control':'no-store'}});
+      }
+      const copy=response.clone();
+      caches.open(CACHE_NAME).then(cache=>cache.put(request,copy)).catch(()=>{});
       return response;
     }catch(e){
-      return caches.match(request).then(cached => cached || caches.match('/index.html'));
+      return caches.match(request).then(cached=>cached||caches.match('/index.html'));
     }
   })());
 });

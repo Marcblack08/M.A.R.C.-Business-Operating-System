@@ -7,10 +7,65 @@ function parseObject(value) {
   return {};
 }
 
+function parseLabeledText(value) {
+  const text = String(value || "").replace(/\r/g, "").trim();
+  if (!text) return {};
+  const out = {};
+  const aliases = {
+    codigo: "codigo",
+    "código": "codigo",
+    sku: "codigo",
+    nombre: "nombre",
+    producto: "nombre",
+    marca: "marca",
+    modelo: "modelo",
+    categoria: "categoria",
+    "categoría": "categoria",
+    descripcion: "descripcion",
+    "descripción": "descripcion",
+    precio_compra: "precio_compra",
+    "precio compra": "precio_compra",
+    "precio de compra": "precio_compra",
+    precio_venta: "precio_venta",
+    "precio venta": "precio_venta",
+    "precio de venta": "precio_venta"
+  };
+  for (const line of text.split("\n")) {
+    const m = line.match(/^\s*[-*•]?\s*([^:]+)\s*:\s*(.*?)\s*$/);
+    if (!m) continue;
+    const key = aliases[m[1].trim().toLowerCase()];
+    if (key && m[2].trim()) out[key] = m[2].trim();
+  }
+  return out;
+}
+
+function normalizeData(value) {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const nested = value.response && typeof value.response === "object" ? value.response : value;
+    return nested;
+  }
+  return { ...parseObject(value), ...parseLabeledText(value) };
+}
+
 function usefulFields(data) {
   const keys = ["codigo", "nombre", "marca", "modelo", "categoria", "descripcion", "precio_compra", "precio_venta"];
   return keys.filter(k => data?.[k] !== null && data?.[k] !== undefined && String(data[k]).trim() !== "").length;
 }
+
+const PRODUCT_SCHEMA = {
+  type: "object",
+  properties: {
+    codigo: { type: "string" },
+    nombre: { type: "string" },
+    marca: { type: "string" },
+    modelo: { type: "string" },
+    categoria: { type: "string" },
+    descripcion: { type: "string" },
+    precio_compra: { type: "string" },
+    precio_venta: { type: "string" }
+  },
+  required: ["codigo", "nombre", "marca", "modelo", "categoria", "descripcion", "precio_compra", "precio_venta"]
+};
 
 export default {
   async fetch(request, env) {
@@ -28,11 +83,13 @@ export default {
         if (!base64) return Response.json({ error: "La imagen no contiene datos válidos." }, { status: 400 });
         if (base64.length > 10_000_000) return Response.json({ error: "La imagen es demasiado grande. Usa una foto más pequeña." }, { status: 413 });
 
-        const question = `Analiza esta foto de producto para inventario. Lee primero todo el texto visible mediante OCR, especialmente números, códigos, marca y modelo. Devuelve ÚNICAMENTE JSON válido con exactamente estas claves: codigo, nombre, marca, modelo, categoria, descripcion, precio_compra, precio_venta. No inventes datos. Si un dato no aparece o no puede leerse con seguridad, usa "". Conserva exactamente letras, números, guiones y puntos de códigos y modelos.`;
+        // Moondream se usa primero porque está diseñado para OCR. Pedimos campos etiquetados
+        // en texto para no depender de que el modelo genere JSON perfecto.
+        const question = `Analiza esta foto de producto para inventario y haz OCR de todo el texto visible. Identifica con máxima precisión números, códigos, marca y modelo. Responde SOLO con estas 8 líneas, una por campo, usando exactamente este formato: codigo: ; nombre: ; marca: ; modelo: ; categoria: ; descripcion: ; precio_compra: ; precio_venta: . No inventes datos. Si un campo no aparece o no puede leerse con seguridad, déjalo vacío. Conserva exactamente letras, números, guiones y puntos de los códigos y modelos.`;
 
         let data = {};
         let used = "moondream";
-
+        let moondreamError = "";
         try {
           const fast = await env.AI.run("@cf/moondream/moondream3.1-9B-A2B", {
             task: "query",
@@ -43,32 +100,44 @@ export default {
             max_tokens: 500,
             stream: false
           });
-          data = parseObject(fast?.answer || fast?.response || "{}");
+          data = normalizeData(fast?.answer || fast?.response || fast || "");
         } catch (visionError) {
-          console.warn("Moondream product OCR failed:", visionError);
+          moondreamError = String(visionError?.message || visionError);
+          console.warn("Moondream product OCR failed:", moondreamError);
         }
 
-        // Respaldo para etiquetas difíciles. Llama Vision también recibe la data URI,
-        // que es el formato documentado para imágenes en Workers AI.
+        // Respaldo Llama Vision. Cloudflare documenta este modelo para imágenes y JSON Mode.
         if (usefulFields(data) < 2) {
           used = "llama-vision";
-          const fallback = await env.AI.run("@cf/meta/llama-3.2-11b-vision-instruct", {
-            messages: [
-              { role: "system", content: "Eres un extractor OCR de productos para inventario. No inventes información." },
-              { role: "user", content: "Lee cuidadosamente toda la etiqueta, caja o ficha del producto. Extrae código/SKU, nombre, marca, modelo, categoría, descripción, precio de compra y precio de venta. Prioriza OCR exacto de números y códigos. Conserva exactamente letras, números, guiones y puntos visibles. Si un dato no aparece, usa una cadena vacía. Devuelve únicamente JSON válido con las claves codigo, nombre, marca, modelo, categoria, descripcion, precio_compra, precio_venta." }
-            ],
-            image,
-            max_tokens: 500,
-            temperature: 0,
-            response_format: { type: "json_object" }
-          });
-          const fallbackData = parseObject(fallback?.response || fallback?.result?.response || fallback || "{}");
-          if (usefulFields(fallbackData) > usefulFields(data)) data = fallbackData;
+          try {
+            const fallback = await env.AI.run("@cf/meta/llama-3.2-11b-vision-instruct", {
+              messages: [
+                { role: "system", content: "Eres un extractor OCR de productos para inventario. No inventes información. Devuelve todos los campos solicitados aunque estén vacíos." },
+                { role: "user", content: "Lee cuidadosamente toda la etiqueta, caja o ficha del producto. Extrae código/SKU, nombre, marca, modelo, categoría, descripción, precio de compra y precio de venta. Prioriza OCR exacto de números y códigos. Conserva exactamente letras, números, guiones y puntos visibles. Si un dato no aparece, usa una cadena vacía." }
+              ],
+              image,
+              max_tokens: 500,
+              temperature: 0,
+              stream: false,
+              response_format: { type: "json_schema", json_schema: PRODUCT_SCHEMA }
+            });
+            const fallbackData = normalizeData(fallback?.response || fallback?.result?.response || fallback || "{}");
+            if (usefulFields(fallbackData) > usefulFields(data)) data = fallbackData;
+          } catch (fallbackError) {
+            const detail = String(fallbackError?.message || fallbackError);
+            console.warn("Llama Vision product OCR failed:", detail);
+            if (!moondreamError) moondreamError = detail;
+          }
         }
 
         const count = usefulFields(data);
         if (count === 0) {
-          return Response.json({ error: "La IA no pudo leer datos de esta foto. Acerca la etiqueta y vuelve a intentarlo.", fields: 0, model: used }, { status: 422 });
+          return Response.json({
+            error: "La IA no pudo leer datos de esta foto.",
+            detail: moondreamError || "Los modelos de visión no devolvieron campos legibles.",
+            fields: 0,
+            model: used
+          }, { status: 422 });
         }
 
         return Response.json({ text: JSON.stringify(data), fields: count, model: used });

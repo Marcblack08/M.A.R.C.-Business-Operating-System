@@ -1,4 +1,4 @@
-const CACHE_NAME = 'marc-pwa-v6-page-reader';
+const CACHE_NAME = 'marc-pwa-v7-document-reader';
 const APP_SHELL = ['/', '/index.html', '/styles.css', '/app.js', '/manifest.webmanifest', '/icons/marc.svg'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()));
@@ -12,13 +12,6 @@ self.addEventListener('fetch', event => {
   event.respondWith((async()=>{
     try{
       const response = await fetch(request);
-      const type = response.headers.get('content-type') || '';
-      if(type.includes('text/html') && new URL(request.url).pathname.endsWith('/index.html')){
-        const html = await response.text();
-        let injected = html;
-        if(!injected.includes('catalogos-paginas.js')) injected = injected.replace('</body>', '<script src="./catalogos-paginas.js"></script></body>');
-        return new Response(injected, {status:response.status, statusText:response.statusText, headers:{...Object.fromEntries(response.headers), 'content-type':'text/html; charset=UTF-8', 'cache-control':'no-store'}});
-      }
       const copy = response.clone();
       caches.open(CACHE_NAME).then(cache => cache.put(request, copy)).catch(()=>{});
       return response;

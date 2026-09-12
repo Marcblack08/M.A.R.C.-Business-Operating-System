@@ -1,7 +1,9 @@
 /* M.A.R.C. — fixes de navegación, persistencia y compatibilidad de catálogos */
 (function(){
-  const catalogCss=()=>{if(document.querySelector('link[data-marc-catalog-css]'))return;const l=document.createElement('link');l.rel='stylesheet';l.href='./catalogos-v4.css?v=2';l.dataset.marcCatalogCss='1';document.head.appendChild(l)};
+  const catalogCss=()=>{if(document.querySelector('link[data-marc-catalog-css]'))return;const l=document.createElement('link');l.rel='stylesheet';l.href='./catalogos-v4.css?v=3';l.dataset.marcCatalogCss='1';document.head.appendChild(l)};
   catalogCss();
+  const syncScript=()=>{if(document.querySelector('script[data-marc-catalog-sync]'))return;const s=document.createElement('script');s.src='./catalogos-sync.js?v=1';s.dataset.marcCatalogSync='1';document.head.appendChild(s)};
+  syncScript();
   window.__MARC_CATALOG_TYPE='PROPIO';
   try{Object.defineProperty(window,'tipo',{configurable:true,get(){return window.__MARC_CATALOG_TYPE||'PROPIO'},set(v){window.__MARC_CATALOG_TYPE=v||'PROPIO'}})}catch{}
   document.addEventListener('change',e=>{const id=e.target?.id;if(id==='cat4Own'||id==='catOwn')window.__MARC_CATALOG_TYPE='PROPIO';if(id==='cat4Prov'||id==='catSupplier')window.__MARC_CATALOG_TYPE='PROVEEDOR'},true);

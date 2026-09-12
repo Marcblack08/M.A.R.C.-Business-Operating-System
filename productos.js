@@ -1,62 +1,3 @@
-/* M.A.R.C. — Productos: catálogo + fotos + análisis IA */
-(function(){
-  const BUCKET='product-images';
-  const esc=v=>String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-  const oldRender=window.render;
-
-  window.render=function(section='dashboard'){
-    if(section!=='products') return oldRender(section);
-    const content=document.querySelector('#content'); if(!content)return;
-    content.innerHTML=`<div class="page-head"><div><p class="eyebrow">M.A.R.C. / OPERACIONES</p><h1>Productos</h1><p>Catálogo, precios, modelos, fotos y existencias.</p></div></div><section class="panel table-panel"><div class="table-toolbar"><div class="search-box local"><span>⌕</span><input id="productsSearch" placeholder="Buscar producto..."></div><button type="button" class="btn btn-primary" id="newProductBtn">＋ Nuevo producto</button></div><div id="productsTableWrap"><div class="products-loading">Cargando productos...</div></div></section>`;
-    document.querySelector('#newProductBtn')?.addEventListener('click',()=>openProductModal());
-    loadProducts();
-  };
-
-  async function loadProducts(){
-    const wrap=document.querySelector('#productsTableWrap'); if(!wrap)return;
-    try{
-      const {data:{user}}=await supabaseClient.auth.getUser();
-      if(!user){wrap.innerHTML='<div class="products-empty">Inicia sesión para ver tus productos.</div>';return;}
-      const {data,error}=await supabaseClient.from('productos').select('id,codigo,nombre,descripcion,marca,modelo,categoria,unidad,precio_compra,precio_venta,stock,stock_minimo,imagen_url,activo').eq('user_id',user.id).order('nombre',{ascending:true});
-      if(error){wrap.innerHTML=`<div class="products-empty">No se pudieron cargar los productos.<br><small>${esc(error.message)}</small></div>`;return;}
-      const rows=data||[],imageMap={},paths=rows.map(p=>p.imagen_url).filter(Boolean);
-      if(paths.length){const signed=await supabaseClient.storage.from(BUCKET).createSignedUrls(paths,3600);if(signed.data)signed.data.forEach((x,i)=>{if(x?.signedUrl)imageMap[paths[i]]=x.signedUrl;});}
-      const draw=list=>{
-        if(!list.length){wrap.innerHTML='<div class="products-empty"><div class="products-empty-icon">◈</div><h3>No tienes productos todavía</h3><p>Agrega tu primer producto al catálogo.</p><button type="button" class="btn btn-primary" id="emptyNewProduct">＋ Agregar producto</button></div>';document.querySelector('#emptyNewProduct')?.addEventListener('click',()=>openProductModal());return;}
-        wrap.innerHTML=`<div class="table-scroll"><table><thead><tr><th>Foto</th><th>Código</th><th>Producto</th><th>Marca</th><th>Modelo</th><th>Precio venta</th><th>Stock</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${list.map(p=>{const low=Number(p.stock)<=Number(p.stock_minimo),img=imageMap[p.imagen_url];return `<tr><td>${img?`<img class="product-thumb" src="${esc(img)}" alt="">`:'<span class="product-thumb empty">◈</span>'}</td><td>${esc(p.codigo)}</td><td><strong>${esc(p.nombre)}</strong></td><td>${esc(p.marca||'—')}</td><td>${esc(p.modelo||'—')}</td><td>S/ ${Number(p.precio_venta||0).toFixed(2)}</td><td>${Number(p.stock||0)} ${esc(p.unidad||'UND')}</td><td><mark class="${!p.activo||low?'critical':''}">${!p.activo?'Inactivo':low?'Stock bajo':'Disponible'}</mark></td><td><button type="button" class="table-action product-edit" data-id="${p.id}">✎</button> <button type="button" class="table-action product-delete" data-id="${p.id}">×</button></td></tr>`}).join('')}</tbody></table></div><div class="table-foot">Mostrando ${list.length} de ${rows.length} productos</div>`;
-      };
-      draw(rows);
-      document.querySelector('#productsSearch')?.addEventListener('input',e=>{const q=e.target.value.toLowerCase().trim();draw(rows.filter(p=>[p.codigo,p.nombre,p.marca,p.modelo,p.categoria].some(v=>String(v||'').toLowerCase().includes(q))));});
-      document.querySelectorAll('.product-edit').forEach(b=>b.addEventListener('click',()=>openProductModal(rows.find(p=>p.id===b.dataset.id))));
-      document.querySelectorAll('.product-delete').forEach(b=>b.addEventListener('click',()=>deleteProduct(b.dataset.id,rows)));
-    }catch(error){wrap.innerHTML=`<div class="products-empty">Error inesperado.<br><small>${esc(error?.message||error)}</small></div>`;}
-  }
-
-  function openProductModal(p=null){
-    document.querySelector('#productModal')?.remove();
-    const modal=document.createElement('div');modal.id='productModal';modal.className='product-modal-backdrop';
-    modal.innerHTML=`<div class="product-modal"><div class="product-modal-head"><div><p class="eyebrow">M.A.R.C. / PRODUCTOS</p><h2>${p?'Editar producto':'Nuevo producto'}</h2></div><button type="button" class="product-close">×</button></div>
-    <form id="productForm" class="product-form">
-      <div class="product-photo-box"><div id="productPreview" class="product-preview">◈</div><div class="product-photo-actions"><label class="btn btn-secondary photo-label" for="productCamera">📷 Tomar foto</label><input id="productCamera" type="file" accept="image/*" capture="environment" hidden><label class="btn btn-secondary photo-label" for="productGallery">🖼️ Galería</label><input id="productGallery" type="file" accept="image/*" hidden><button type="button" class="btn btn-secondary" id="analyzeProductBtn" disabled>✨ Analizar con IA</button></div><small>La IA intentará identificar código, nombre, marca, modelo, categoría y precios visibles.</small></div>
-      <div class="product-grid"><label>Código<input name="codigo" required value="${esc(p?.codigo)}" placeholder="CAM-001"></label><label>Unidad<select name="unidad"><option ${p?.unidad==='UND'||!p?'selected':''}>UND</option><option ${p?.unidad==='MTR'?'selected':''}>MTR</option><option ${p?.unidad==='ROL'?'selected':''}>ROL</option><option ${p?.unidad==='CJ'?'selected':''}>CJ</option><option ${p?.unidad==='PAR'?'selected':''}>PAR</option></select></label></div>
-      <label>Nombre<input name="nombre" required value="${esc(p?.nombre)}" placeholder="Cámara IP 4MP"></label>
-      <div class="product-grid"><label>Marca<input name="marca" value="${esc(p?.marca)}" placeholder="Hikvision"></label><label>Modelo<input name="modelo" value="${esc(p?.modelo)}" placeholder="DS-2CD..."></label></div>
-      <div class="product-grid"><label>Categoría<input name="categoria" value="${esc(p?.categoria)}" placeholder="Cámaras"></label><label>Descripción<input name="descripcion" value="${esc(p?.descripcion)}"></label></div>
-      <div class="product-grid"><label>Precio compra (S/)<input name="precio_compra" type="number" min="0" step="0.01" value="${p?.precio_compra??0}"></label><label>Precio venta (S/)<input name="precio_venta" type="number" min="0" step="0.01" value="${p?.precio_venta??0}"></label></div>
-      <div class="product-grid"><label>Stock<input name="stock" type="number" min="0" step="0.01" value="${p?.stock??0}"></label><label>Stock mínimo<input name="stock_minimo" type="number" min="0" step="0.01" value="${p?.stock_minimo??0}"></label></div>
-      <label class="product-check"><input name="activo" type="checkbox" ${p?.activo!==false?'checked':''}> Producto activo</label>
-      <div class="product-modal-actions"><button type="button" class="btn btn-secondary product-cancel">Cancelar</button><button type="submit" class="btn btn-primary" id="saveProductBtn">${p?'Guardar cambios':'Guardar producto'}</button></div><div id="productFormMsg" class="product-form-msg"></div>
-    </form></div>`;
-    document.body.appendChild(modal);
-
-    const close=()=>modal.remove();modal.querySelector('.product-close').onclick=close;modal.querySelector('.product-cancel').onclick=close;
-    let selectedFile=null;
-    const preview=modal.querySelector('#productPreview'),camera=modal.querySelector('#productCamera'),gallery=modal.querySelector('#productGallery'),analyzeBtn=modal.querySelector('#analyzeProductBtn');
-    if(p?.imagen_url){supabaseClient.storage.from(BUCKET).createSignedUrl(p.imagen_url,3600).then(r=>{if(r.data?.signedUrl)preview.innerHTML=`<img src="${esc(r.data.signedUrl)}" alt="Producto">`;});}
-
-    const selectFile=file=>{if(!file)return;selectedFile=file;preview.innerHTML=`<img src="${URL.createObjectURL(file)}" alt="Vista previa">`;analyzeBtn.disabled=false;setMsg('Foto lista. Puedes analizarla con IA.','info');};
-    camera.addEventListener('change',()=>selectFile(camera.files?.[0]));
-    gallery.addEventListener('change',()=>selectFile(gallery.files?.[0]));
 
     analyzeBtn.addEventListener('click',async()=>{
       if(!selectedFile)return;
@@ -64,10 +5,14 @@
       try{
         const image=await compressImage(selectedFile);
         const r=await fetch('/api/analyze-product',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image})});
-        const j=await r.json();if(!r.ok)throw new Error(j.error||j.detail||'No se pudo analizar la imagen.');
+        const j=await r.json();
+        if(!r.ok){
+          const detail=j.detail?` ${j.detail}`:'';
+          throw new Error(`${j.error||'No se pudo analizar la imagen.'}${detail}`);
+        }
         const parsed=parseAI(j.text||'');
         const count=Object.values(parsed||{}).filter(v=>v!==null&&v!==undefined&&String(v).trim()!=='').length;
-        if(count<1)throw new Error('La IA no pudo leer datos claros. Toma una foto más cercana, con buena luz y enfocando la etiqueta.');
+        if(count<1)throw new Error('La IA no devolvió datos legibles.');
         fillForm(modal,parsed);setMsg(`${count} datos detectados. Revísalos antes de guardar.`,'success');
       }catch(e){setMsg(e.message,'error');}
       finally{analyzeBtn.disabled=false;analyzeBtn.textContent='✨ Analizar con IA';}
@@ -82,8 +27,6 @@
         const payload={user_id:user.id,codigo:String(fd.get('codigo')||'').trim(),nombre:String(fd.get('nombre')||'').trim(),marca:String(fd.get('marca')||'').trim()||null,modelo:String(fd.get('modelo')||'').trim()||null,categoria:String(fd.get('categoria')||'').trim()||null,descripcion:String(fd.get('descripcion')||'').trim()||null,unidad:String(fd.get('unidad')||'UND'),precio_compra:Number(fd.get('precio_compra')||0),precio_venta:Number(fd.get('precio_venta')||0),stock:Number(fd.get('stock')||0),stock_minimo:Number(fd.get('stock_minimo')||0),imagen_url:p?.imagen_url||null,activo:fd.get('activo')==='on',updated_at:new Date().toISOString()};
         let newImagePath=null;
         if(selectedFile){
-          // No subimos el File original: en móviles puede cerrarse su stream después de usarlo para IA.
-          // Convertimos la misma imagen comprimida a ArrayBuffer estable antes de subirla.
           const dataUrl=await compressImage(selectedFile);
           const bytes=dataUrlToArrayBuffer(dataUrl);
           newImagePath=`${user.id}/${crypto.randomUUID()}.jpg`;

@@ -34,8 +34,7 @@ function normalizeData(value) {
     const nested = value.response && typeof value.response === "object" ? value.response : value;
     return nested;
   }
-  const text = String(value || "");
-  return { ...parseObject(text), ...parseLabeledText(text) };
+  return { ...parseObject(value), ...parseLabeledText(value) };
 }
 
 function usefulFields(data) {
@@ -59,62 +58,58 @@ export default {
         if (!base64) return Response.json({ error: "La imagen no contiene datos válidos." }, { status: 400 });
         if (base64.length > 10_000_000) return Response.json({ error: "La imagen es demasiado grande. Usa una foto más pequeña." }, { status: 413 });
 
-        const question = `Haz OCR de esta foto de producto. Lee con máxima precisión todo texto visible, especialmente marca, modelo, códigos y números. Responde SOLO con estas líneas y no agregues explicaciones:\ncodigo: \nnombre: \nmarca: \nmodelo: \ncategoria: \ndescripcion: \nprecio_compra: \nprecio_venta: \nNo inventes datos. Si un campo no aparece, déjalo vacío. Conserva exactamente letras, números, guiones y puntos de códigos y modelos.`;
+        const question = `Analiza esta foto de producto para inventario y haz OCR de todo el texto visible. Identifica con máxima precisión números, códigos, marca y modelo. Responde SOLO con estas 8 líneas, una por campo, usando exactamente este formato: codigo: ; nombre: ; marca: ; modelo: ; categoria: ; descripcion: ; precio_compra: ; precio_venta: . No inventes datos. Si un campo no aparece o no puede leerse con seguridad, déjalo vacío. Conserva exactamente letras, números, guiones y puntos de los códigos y modelos.`;
 
         let data = {};
         let used = "moondream";
-        const errors = [];
+        let moondreamError = "";
 
         try {
-          const result = await env.AI.run("@cf/moondream/moondream3.1-9B-A2B", {
-            task: "query",
-            image,
-            question,
-            reasoning: false,
-            temperature: 0,
-            max_tokens: 700,
-            stream: false
+          const fast = await env.AI.run("@cf/moondream/moondream3.1-9B-A2B", {
+            task: "query", image, question, reasoning: false, temperature: 0, max_tokens: 500, stream: false
           });
-          data = normalizeData(result?.answer || result?.response || result || "");
-        } catch (error) {
-          errors.push(`Moondream: ${String(error?.message || error)}`);
+          data = normalizeData(fast?.answer || fast?.response || fast || "");
+        } catch (visionError) {
+          moondreamError = String(visionError?.message || visionError);
+          console.warn("Moondream product OCR failed:", moondreamError);
         }
 
         if (usefulFields(data) < 2) {
           used = "llama-vision";
+          let llamaError = "";
           try {
-            // La primera llamada acepta la licencia de Meta para este modelo.
-            // Cloudflare indica que es necesaria antes de usar Llama 3.2 Vision.
+            // Cloudflare exige una solicitud inicial con prompt=agree para habilitar Llama 3.2 Vision.
             try {
               await env.AI.run("@cf/meta/llama-3.2-11b-vision-instruct", { prompt: "agree" });
-            } catch (licenseError) {
-              // Si ya fue aceptada, esta llamada puede devolver un error benigno; continuamos.
-              console.warn("Llama license handshake:", String(licenseError?.message || licenseError));
+            } catch (agreementError) {
+              const msg = String(agreementError?.message || agreementError);
+              if (!/already|agreed|agreement|terms/i.test(msg)) throw agreementError;
             }
 
             const fallback = await env.AI.run("@cf/meta/llama-3.2-11b-vision-instruct", {
               messages: [
-                { role: "system", content: "Eres un extractor OCR para inventario. No inventes información. Lee exactamente la imagen." },
-                { role: "user", content: question }
+                { role: "system", content: "Eres un extractor OCR de productos para inventario. No inventes información. Devuelve solamente datos visibles en la imagen." },
+                { role: "user", content: "Lee cuidadosamente toda la etiqueta, caja o ficha del producto. Extrae código/SKU, nombre, marca, modelo, categoría, descripción, precio de compra y precio de venta. Prioriza OCR exacto de números y códigos. Conserva exactamente letras, números, guiones y puntos visibles. Responde SOLO con estas líneas: codigo: ; nombre: ; marca: ; modelo: ; categoria: ; descripcion: ; precio_compra: ; precio_venta: . Si un dato no aparece, déjalo vacío." }
               ],
               image,
-              max_tokens: 700,
+              max_tokens: 500,
               temperature: 0,
               stream: false
             });
-            const fallbackText = fallback?.response || fallback?.result?.response || fallback || "";
-            const fallbackData = normalizeData(fallbackText);
+            const fallbackData = normalizeData(fallback?.response || fallback?.result?.response || fallback || "");
             if (usefulFields(fallbackData) > usefulFields(data)) data = fallbackData;
-          } catch (error) {
-            errors.push(`Llama Vision: ${String(error?.message || error)}`);
+          } catch (fallbackError) {
+            llamaError = String(fallbackError?.message || fallbackError);
+            console.warn("Llama Vision product OCR failed:", llamaError);
           }
+          if (usefulFields(data) === 0 && llamaError) moondreamError = [moondreamError, llamaError].filter(Boolean).join(" | ");
         }
 
         const count = usefulFields(data);
         if (count === 0) {
           return Response.json({
             error: "La IA no pudo leer datos de esta foto.",
-            detail: errors.join(" | ") || "Los modelos de visión no devolvieron campos legibles.",
+            detail: moondreamError || "Los modelos de visión no devolvieron campos legibles.",
             fields: 0,
             model: used
           }, { status: 422 });
@@ -122,6 +117,7 @@ export default {
 
         return Response.json({ text: JSON.stringify(data), fields: count, model: used });
       } catch (error) {
+        console.error("M.A.R.C. analyze-product:", error);
         return Response.json({ error: "No se pudo analizar la imagen.", detail: String(error?.message || error) }, { status: 500 });
       }
     }

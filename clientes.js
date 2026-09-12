@@ -32,7 +32,37 @@
     const modal=document.createElement('div');modal.id='clientModal';modal.className='client-modal-backdrop';
     modal.innerHTML=`<div class="client-modal"><div class="client-modal-head"><div><p class="eyebrow">M.A.R.C. / CLIENTES</p><h2>${c?'Editar cliente':'Nuevo cliente'}</h2></div><button type="button" class="client-close">×</button></div><form id="clientForm" class="client-form"><div class="client-grid"><label>Tipo de documento<select name="tipo_documento"><option ${c?.tipo_documento==='RUC'?'selected':''}>RUC</option><option ${c?.tipo_documento==='DNI'?'selected':''}>DNI</option><option ${c?.tipo_documento==='CE'?'selected':''}>CE</option><option ${c?.tipo_documento==='OTRO'?'selected':''}>OTRO</option></select></label><label>Número de documento<input name="documento" required value="${esc(c?.documento)}" placeholder="20678901234"></label></div><label>Nombre / razón social<input name="nombre_razon_social" required value="${esc(c?.nombre_razon_social)}" placeholder="Empresa o persona"></label><div class="client-grid"><label>Contacto<input name="nombre_contacto" value="${esc(c?.nombre_contacto)}"></label><label>Teléfono<input name="telefono" value="${esc(c?.telefono)}"></label></div><div class="client-grid"><label>Correo<input type="email" name="correo" value="${esc(c?.correo)}"></label><label>Dirección<input name="direccion" value="${esc(c?.direccion)}"></label></div><label>Notas<textarea name="notas" rows="3">${esc(c?.notas)}</textarea></label><div class="client-modal-actions"><button type="button" class="btn btn-secondary client-cancel">Cancelar</button><button type="submit" class="btn btn-primary">${c?'Guardar cambios':'Guardar cliente'}</button></div><div id="clientFormMsg" class="client-form-msg"></div></form></div>`;
     document.body.appendChild(modal);const close=()=>modal.remove();modal.querySelector('.client-close').onclick=close;modal.querySelector('.client-cancel').onclick=close;
-    modal.querySelector('#clientForm').addEventListener('submit',async e=>{e.preventDefault();const {data:{user}}=await supabaseClient.auth.getUser();if(!user)return;const fd=new FormData(e.currentTarget);const payload={user_id:user.id,tipo_documento:fd.get('tipo_documento'),documento:String(fd.get('documento')).trim(),nombre_razon_social:String(fd.get('nombre_razon_social')).trim(),nombre_contacto:String(fd.get('nombre_contacto')).trim()||null,telefono:String(fd.get('telefono')).trim()||null,correo:String(fd.get('correo')).trim()||null,direccion:String(fd.get('direccion')).trim()||null,notas:String(fd.get('notas')).trim()||null,updated_at:new Date().toISOString()};const r=c?await supabaseClient.from('clientes').update(payload).eq('id',c.id).eq('user_id',user.id):await supabaseClient.from('clientes').insert(payload);if(r.error){const m=modal.querySelector('#clientFormMsg');m.textContent=r.error.message;m.className='client-form-msg error';return;}close();loadClients();});
+    modal.querySelector('#clientForm').addEventListener('submit',async e=>{
+      e.preventDefault();
+      const form=e.currentTarget;
+      const msg=modal.querySelector('#clientFormMsg');
+      const btn=form.querySelector('button[type="submit"]');
+      if(btn)btn.disabled=true;
+      try{
+        const {data:{user},error:userError}=await supabaseClient.auth.getUser();
+        if(userError||!user)throw new Error('Tu sesión no está disponible. Cierra sesión y vuelve a ingresar.');
+        const fd=new FormData(form);
+        const documento=String(fd.get('documento')||'').trim();
+        const nombre=String(fd.get('nombre_razon_social')||'').trim();
+        if(!documento||!nombre)throw new Error('Completa el documento y el nombre o razón social.');
+        const payload={tipo_documento:String(fd.get('tipo_documento')||'RUC'),documento,nombre_razon_social:nombre,nombre_contacto:String(fd.get('nombre_contacto')||'').trim()||null,telefono:String(fd.get('telefono')||'').trim()||null,correo:String(fd.get('correo')||'').trim()||null,direccion:String(fd.get('direccion')||'').trim()||null,notas:String(fd.get('notas')||'').trim()||null,updated_at:new Date().toISOString()};
+        let result;
+        if(c){
+          result=await supabaseClient.from('clientes').update(payload).eq('id',c.id).eq('user_id',user.id).select('id').single();
+        }else{
+          result=await supabaseClient.from('clientes').insert({...payload,user_id:user.id}).select('id').single();
+        }
+        if(result.error){
+          if(result.error.code==='23505')throw new Error('Ya existe otro cliente con ese tipo y número de documento.');
+          throw result.error;
+        }
+        close();
+        loadClients();
+      }catch(err){
+        msg.textContent=err?.message||'No se pudo guardar el cliente.';
+        msg.className='client-form-msg error';
+      }finally{if(btn)btn.disabled=false;}
+    });
   }
   async function deleteClient(id,rows){const c=rows.find(x=>x.id===id);if(!c)return;if(!window.confirm(`¿Eliminar a ${c.nombre_razon_social}?`))return;const {data:{user}}=await supabaseClient.auth.getUser();if(!user)return;const {error}=await supabaseClient.from('clientes').delete().eq('id',id).eq('user_id',user.id);if(error)window.alert(error.message);else loadClients();}
   const s=document.createElement('style');s.textContent='.clients-loading,.clients-empty{padding:55px 20px;text-align:center;color:#7891ad;font-size:12px}.clients-empty-icon{width:64px;height:64px;margin:0 auto 12px;border-radius:18px;background:#eaf5ff;color:#087cf5;display:grid;place-items:center;font-size:27px}.clients-empty h3{margin:0 0 6px;color:#24496e;font-size:16px}.clients-empty p{margin:0 auto 15px}.client-modal-backdrop{position:fixed;inset:0;background:#071d38aa;backdrop-filter:blur(6px);z-index:100;display:grid;place-items:center;padding:18px}.client-modal{width:min(650px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:20px;padding:24px}.client-modal-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px}.client-modal-head h2{margin:0;color:#102b54;font-size:23px}.client-close{border:0;background:#eef5fb;color:#557493;border-radius:9px;width:34px;height:34px;font-size:22px}.client-form{display:grid;gap:13px}.client-form label{display:grid;gap:6px;color:#536b89;font-size:11px;font-weight:700}.client-form input,.client-form select,.client-form textarea{width:100%;border:1px solid #d2e0ec;border-radius:10px;background:#f8fbfe;color:#173452;padding:11px;font-size:12px}.client-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px}.client-modal-actions{display:flex;justify-content:flex-end;gap:9px}.client-form-msg{min-height:17px;font-size:10px}.client-form-msg.error{color:#d13d4e}@media(max-width:600px){.client-grid{grid-template-columns:1fr}.client-modal{padding:19px}}';document.head.appendChild(s);

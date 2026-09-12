@@ -1,4 +1,4 @@
-const CACHE_NAME = 'marc-pwa-v2-ocr';
+const CACHE_NAME = 'marc-pwa-v3-gemma';
 const APP_SHELL = ['/', '/index.html', '/styles.css', '/app.js', '/manifest.webmanifest', '/icons/marc.svg'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()));

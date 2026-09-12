@@ -1,7 +1,17 @@
-/* M.A.R.C. — fixes de navegación y persistencia */
+/* M.A.R.C. — fixes de navegación, persistencia y compatibilidad de catálogos */
 (function(){
-  const catalogCss=()=>{if(document.querySelector('link[data-marc-catalog-css]'))return;const l=document.createElement('link');l.rel='stylesheet';l.href='./catalogos-v4.css?v=1';l.dataset.marcCatalogCss='1';document.head.appendChild(l)};
+  const catalogCss=()=>{if(document.querySelector('link[data-marc-catalog-css]'))return;const l=document.createElement('link');l.rel='stylesheet';l.href='./catalogos-v4.css?v=2';l.dataset.marcCatalogCss='1';document.head.appendChild(l)};
   catalogCss();
+
+  // Compatibilidad con copias antiguas del importador que usaban `tipo` como variable global.
+  window.__MARC_CATALOG_TYPE='PROPIO';
+  try{Object.defineProperty(window,'tipo',{configurable:true,get(){return window.__MARC_CATALOG_TYPE||'PROPIO'},set(v){window.__MARC_CATALOG_TYPE=v||'PROPIO'}})}catch{}
+  document.addEventListener('change',e=>{
+    const id=e.target?.id;
+    if(id==='cat4Own'||id==='catOwn')window.__MARC_CATALOG_TYPE='PROPIO';
+    if(id==='cat4Prov'||id==='catSupplier')window.__MARC_CATALOG_TYPE='PROVEEDOR';
+  },true);
+
   const validSections=new Set(['dashboard','clients','products','services','inventory','quotes','reports','documents','ai','company','settings']);
   let current=location.hash.replace(/^#/,'');
   if(!validSections.has(current)) current='dashboard';
@@ -41,7 +51,7 @@
     window.FormData=function(form,...args){
       if(form && !(form instanceof HTMLFormElement)) form=document.querySelector('#productForm')||form;
       if(!form) form=document.querySelector('#productForm')||undefined;
-      return form===undefined ? new NativeFormData(...args) : new NativeFormData(form,...args);
+      return form===undefined ? new NativeFormData(...args) : new NativeFormData(form);
     };
     window.FormData.prototype=NativeFormData.prototype;
   }

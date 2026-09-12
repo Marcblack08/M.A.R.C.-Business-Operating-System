@@ -46,8 +46,20 @@ REGLAS CRÍTICAS:
 function imageFromBody(raw){const value=typeof raw==='string'?raw.trim():'';if(!value)return '';if(value.startsWith('data:image/'))return value;return `data:image/jpeg;base64,${value.startsWith('data:')?(value.split(',',2)[1]||''):value}`;}
 
 async function analyzeCatalogVision(env,image,tipo='PROVEEDOR',pagina=0){
-  const r=await env.AI.run('@cf/google/gemma-4-26b-a4b-it',{messages:[{role:'system',content:CATALOG_VISION_PROMPT+`\nTipo de catálogo: ${tipo}. Página: ${pagina}.`},{role:'user',content:[{type:'text',text:'Lee visualmente la página completa. Prioriza exactitud de código, precio y presentación. Devuelve todos los productos.'},{type:'image_url',image_url:{url:image}}]}],max_completion_tokens:5000,temperature:0,stream:false,chat_template_kwargs:{enable_thinking:false}});
-  const d=normalizeData(r?.response||r);if(Array.isArray(d.items))return d.items;throw new Error('La IA visual no devolvió una lista de productos.');
+  const r=await env.AI.run('@cf/meta/llama-3.2-11b-vision-instruct',{
+    messages:[
+      {role:'system',content:CATALOG_VISION_PROMPT+`\nTipo de catálogo: ${tipo}. Página: ${pagina}.`},
+      {role:'user',content:'Lee visualmente TODA la página. Extrae todos los productos visibles. Responde únicamente con el JSON solicitado.'}
+    ],
+    image,
+    max_tokens:1800,
+    temperature:0,
+    stream:false,
+    response_format:{type:'json_schema',json_schema:CATALOG_SCHEMA}
+  });
+  const d=normalizeData(r?.response||r);
+  if(Array.isArray(d.items))return d.items;
+  throw new Error('La IA visual no devolvió una lista de productos.');
 }
 
 async function analyzeCatalogText(env,text,tipo='PROVEEDOR'){
@@ -59,7 +71,7 @@ async function analyzeCatalogText(env,text,tipo='PROVEEDOR'){
 export default {async fetch(request,env){const url=new URL(request.url);
   if(request.method==='POST'&&url.pathname==='/api/analyze-catalog-page'){
     if(!env.AI)return Response.json({error:'Workers AI no está conectado.'},{status:503});
-    try{const body=await request.json();const image=imageFromBody(body?.image),tipo=String(body?.tipo||'PROVEEDOR'),pagina=Number(body?.pagina||0);if(!image)return Response.json({error:'Falta la imagen de la página.'},{status:400});if(image.length>14_000_000)return Response.json({error:'La imagen de la página es demasiado grande.'},{status:413});const items=await analyzeCatalogVision(env,image,tipo,pagina);return Response.json({items,model:'gemma-4-26b-a4b-it',pagina});}catch(e){return Response.json({error:'No se pudo analizar la página.',detail:String(e?.message||e)},{status:500});}
+    try{const body=await request.json();const image=imageFromBody(body?.image),tipo=String(body?.tipo||'PROVEEDOR'),pagina=Number(body?.pagina||0);if(!image)return Response.json({error:'Falta la imagen de la página.'},{status:400});if(image.length>12_000_000)return Response.json({error:'La imagen de la página es demasiado grande.'},{status:413});const items=await analyzeCatalogVision(env,image,tipo,pagina);return Response.json({items,model:'llama-3.2-11b-vision-instruct',pagina});}catch(e){return Response.json({error:'No se pudo analizar la página.',detail:String(e?.message||e)},{status:500});}
   }
   if(request.method==='POST'&&url.pathname==='/api/analyze-catalog'){
     if(!env.AI)return Response.json({error:'Workers AI no está conectado.'},{status:503});
@@ -71,11 +83,11 @@ export default {async fetch(request,env){const url=new URL(request.url);
   }
   if(request.method==='POST'&&url.pathname==='/api/analyze-service'){
     if(!env.AI)return Response.json({error:'Workers AI no está conectado.'},{status:503});
-    try{const body=await request.json(),text=String(body?.text||'').trim();if(!text)return Response.json({error:'Falta la descripción del servicio.'},{status:400});const r=await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fast',{messages:[{role:'system',content:'Eres M.A.R.C., especialista en servicios empresariales. Devuelve SOLO JSON.'},{role:'user',content:`Convierte esto en tipo,nombre,descripcion,unidad,precio. No inventes precio. Tipo: CCTV, COMPUTACION, REDES, MANTENIMIENTO, INSTALACION, SOPORTE u OTROS.\n${text}`}],max_tokens:500,temperature:0,response_format:{type:'json_schema',json_schema:SERVICE_SCHEMA}});return Response.json({data:normalizeData(r?.response||r)});}catch(e){return Response.json({error:'No se pudo analizar el servicio.',detail:String(e?.message||e)},{status:500});}
+    try{const body=await request.json(),text=String(body?.text||'').trim();if(!text)return Response.json({error:'Falta la descripción del servicio.'},{status:400});const r=await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fast',{messages:[{role:'system',content:'Eres M.A.R.C., especialista en servicios empresariales. Devuelve SOLO JSON.'},{role:'user',content:`Convierte esto en tipo,nombre,descripcion,unidad,precio. No inventes precio. Tipo: CCTV, COMPUTACION, REDES, MANTENIMIENTO, INSTALACION, SOPORTE u OTROS.\n${text}`}],max_tokens:500,temperature:0,response_format:{type:'json_schema',json_schema:SERVICE_SCHEMA}});return Response.json({data:normalizeData(r?.response||r)});}catch(e){return Response.json({error:'No se pudo analizar el servicio.',detail:String(e?.message||e)});}
   }
   if(request.method==='POST'&&url.pathname==='/api/ai'){
     if(!env.AI)return Response.json({error:'Workers AI no está conectado.'},{status:503});
-    try{const body=await request.json(),message=String(body?.message||'').trim();if(!message)return Response.json({error:'Falta el mensaje.'},{status:400});const r=await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fast',{messages:[{role:'system',content:'Eres M.A.R.C., asistente empresarial. Responde en español, claro y práctico.'},{role:'user',content:message}],max_tokens:700});return Response.json({text:r?.response||'No pude generar una respuesta.'});}catch(e){return Response.json({error:'No se pudo procesar la solicitud de IA.',detail:String(e?.message||e)},{status:500});}
+    try{const body=await request.json(),message=String(body?.message||'').trim();if(!message)return Response.json({error:'Falta el mensaje.'},{status:400});const r=await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fast',{messages:[{role:'system',content:'Eres M.A.R.C., asistente empresarial. Responde en español, claro y práctico.'},{role:'user',content:message}],max_tokens:700});return Response.json({text:r?.response||'No pude generar una respuesta.'});}catch(e){return Response.json({error:'No se pudo procesar la solicitud de IA.',detail:String(e?.message||e)});}
   }
   return env.ASSETS.fetch(request);
 }};

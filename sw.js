@@ -1,4 +1,4 @@
-const CACHE_NAME = 'marc-pwa-v4-text-pdf';
+const CACHE_NAME = 'marc-pwa-v5-tables';
 const APP_SHELL = ['/', '/index.html', '/styles.css', '/app.js', '/manifest.webmanifest', '/icons/marc.svg'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()));
@@ -16,8 +16,7 @@ self.addEventListener('fetch', event => {
       if(type.includes('text/html') && new URL(request.url).pathname.endsWith('/index.html')){
         const html = await response.text();
         let injected = html;
-        if(!injected.includes('catalogos-ocr.js')) injected = injected.replace('</body>', '<script src="./catalogos-ocr.js"></script></body>');
-        if(!injected.includes('catalogos-texto.js')) injected = injected.replace('</body>', '<script src="./catalogos-texto.js"></script></body>');
+        if(!injected.includes('catalogos-tablas.js')) injected = injected.replace('</body>', '<script src="./catalogos-tablas.js"></script></body>');
         return new Response(injected, {status:response.status, statusText:response.statusText, headers:{...Object.fromEntries(response.headers), 'content-type':'text/html; charset=UTF-8', 'cache-control':'no-store'}});
       }
       const copy = response.clone();

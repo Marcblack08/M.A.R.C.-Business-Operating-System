@@ -8,26 +8,30 @@ export default {
         const body = await request.json();
         const rawImage = typeof body?.image === "string" ? body.image.trim() : "";
         if (!rawImage) return Response.json({ error: "Falta la imagen del producto." }, { status: 400 });
-
-        // Workers AI espera el contenido base64 de la imagen, no el prefijo data:image/...;base64,.
         const image = rawImage.includes(",") ? rawImage.split(",", 2)[1] : rawImage;
         if (!image) return Response.json({ error: "La imagen no contiene datos válidos." }, { status: 400 });
-        if (image.length > 14_000_000) return Response.json({ error: "La imagen es demasiado grande. Usa una foto de hasta 10 MB." }, { status: 413 });
+        if (image.length > 8_000_000) return Response.json({ error: "La imagen es demasiado grande. Usa una foto más pequeña." }, { status: 413 });
 
-        const result = await env.AI.run("@cf/meta/llama-3.2-11b-vision-instruct", {
-          messages: [
-            { role: "system", content: "Eres un extractor de datos de productos para inventario. Solo usa información visible y nunca inventes datos." },
-            { role: "user", content: "Analiza la foto. Extrae código/SKU, nombre, marca, modelo, categoría, descripción y precios claramente visibles. Si un dato no aparece, devuelve una cadena vacía o null. Devuelve únicamente JSON válido." }
-          ],
+        const result = await env.AI.run("@cf/moondream/moondream3.1-9B-A2B", {
+          task: "query",
           image,
-          max_tokens: 700,
-          temperature: 0.1,
-          response_format: { type: "json_object" }
+          question: "Extrae de esta foto los datos visibles del producto para inventario. Responde SOLO con JSON válido con estas claves: codigo, nombre, marca, modelo, categoria, descripcion, precio_compra, precio_venta. Si un dato no es visible, usa una cadena vacía o null. No inventes información.",
+          reasoning: false,
+          temperature: 0,
+          max_tokens: 300
         });
 
-        const response = result?.response ?? result?.description ?? result?.result?.response ?? {};
-        const text = typeof response === "string" ? response : JSON.stringify(response);
-        return Response.json({ text });
+        const answer = result?.answer || result?.response || "{}";
+        let data = {};
+        try {
+          data = typeof answer === "string" ? JSON.parse(answer) : answer;
+        } catch {
+          const match = String(answer).match(/\{[\s\S]*\}/);
+          if (match) {
+            try { data = JSON.parse(match[0]); } catch {}
+          }
+        }
+        return Response.json({ text: JSON.stringify(data || {}) });
       } catch (error) {
         console.error("M.A.R.C. analyze-product:", error);
         return Response.json({ error: "No se pudo analizar la imagen.", detail: String(error?.message || error) }, { status: 500 });

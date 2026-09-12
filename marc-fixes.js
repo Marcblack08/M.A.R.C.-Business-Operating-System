@@ -34,4 +34,16 @@
     const section=location.hash.replace(/^#/,'');
     if(validSections.has(section)){current=section;if(typeof window.render==='function')window.render(section);}
   });
+
+  // Fix: recupera el formulario de Productos cuando event.currentTarget
+  // deja de ser un HTMLFormElement al crear FormData en el flujo async.
+  const NativeFormData=window.FormData;
+  if(NativeFormData){
+    window.FormData=function(form,...args){
+      if(form && !(form instanceof HTMLFormElement)) form=document.querySelector('#productForm')||form;
+      if(!form) form=document.querySelector('#productForm')||undefined;
+      return form===undefined ? new NativeFormData(...args) : new NativeFormData(form,...args);
+    };
+    window.FormData.prototype=NativeFormData.prototype;
+  }
 })();

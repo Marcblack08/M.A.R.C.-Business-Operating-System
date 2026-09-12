@@ -22,43 +22,42 @@ export default {
         const body = await request.json();
         const rawImage = typeof body?.image === "string" ? body.image.trim() : "";
         if (!rawImage) return Response.json({ error: "Falta la imagen del producto." }, { status: 400 });
-        const image = rawImage.includes(",") ? rawImage.split(",", 2)[1] : rawImage;
-        if (!image) return Response.json({ error: "La imagen no contiene datos válidos." }, { status: 400 });
-        if (image.length > 8_000_000) return Response.json({ error: "La imagen es demasiado grande. Usa una foto más pequeña." }, { status: 413 });
 
-        const question = `Lee esta imagen como si fuera una etiqueta o ficha de producto para inventario. Extrae SOLO lo que sea claramente visible. Prioriza OCR exacto de números, códigos, marca y modelo. Devuelve SOLO JSON válido con estas claves: codigo, nombre, marca, modelo, categoria, descripcion, precio_compra, precio_venta. No inventes datos. Si algo no aparece o no se puede leer con seguridad, usa "".`;
+        // Moondream espera una URL pública o una data URI base64.
+        // El navegador ya envía data:image/jpeg;base64,...; no debemos quitar ese prefijo.
+        const image = rawImage.startsWith("data:image/")
+          ? rawImage
+          : `data:image/jpeg;base64,${rawImage.replace(/^data:[^,]+,/, "")}`;
 
-        const fast = await env.AI.run("@cf/moondream/moondream3.1-9B-A2B", {
+        if (image.length > 10_000_000) return Response.json({ error: "La imagen es demasiado grande. Usa una foto más pequeña." }, { status: 413 });
+
+        const question = `Analiza esta foto de producto para inventario. Lee primero cualquier texto visible de la etiqueta o caja (OCR), especialmente números y códigos. Extrae únicamente datos que realmente puedas leer: codigo, nombre, marca, modelo, categoria, descripcion, precio_compra y precio_venta. Los códigos y modelos deben conservar exactamente letras, números, guiones y puntos visibles. Si un dato no aparece o no se puede leer con seguridad, usa una cadena vacía. Devuelve ÚNICAMENTE un objeto JSON válido, sin markdown ni explicaciones, con exactamente estas claves: codigo, nombre, marca, modelo, categoria, descripcion, precio_compra, precio_venta.`;
+
+        const result = await env.AI.run("@cf/moondream/moondream3.1-9B-A2B", {
           task: "query",
           image,
           question,
           reasoning: false,
           temperature: 0,
-          max_tokens: 500
+          max_tokens: 450
         });
 
-        let data = parseObject(fast?.answer || fast?.response || "{}");
+        const data = parseObject(result?.answer || result?.response || "{}");
+        const count = usefulFields(data);
 
-        // Si el modelo rápido no pudo extraer datos útiles, usamos Llama Vision
-        // solo como respaldo. Así mantenemos velocidad en los casos normales.
-        if (usefulFields(data) < 2) {
-          const fallback = await env.AI.run("@cf/meta/llama-3.2-11b-vision-instruct", {
-            messages: [
-              { role: "system", content: "Eres un extractor OCR de productos. No inventes información." },
-              { role: "user", content: "Lee cuidadosamente la etiqueta o ficha del producto de la imagen. Extrae código, nombre, marca, modelo, categoría, descripción, precio de compra y precio de venta. Usa cadenas vacías si no son visibles. Devuelve únicamente JSON válido." }
-            ],
-            image,
-            max_tokens: 450,
-            temperature: 0,
-            response_format: { type: "json_object" }
-          });
-          data = parseObject(fallback?.response || fallback?.result?.response || fallback || "{}");
+        if (count === 0) {
+          return Response.json({
+            error: "La IA no pudo leer datos de esta foto. Acerca la etiqueta, mejora la iluminación y vuelve a intentarlo."
+          }, { status: 422 });
         }
 
-        return Response.json({ text: JSON.stringify(data || {}) });
+        return Response.json({ text: JSON.stringify(data), fields: count });
       } catch (error) {
         console.error("M.A.R.C. analyze-product:", error);
-        return Response.json({ error: "No se pudo analizar la imagen.", detail: String(error?.message || error) }, { status: 500 });
+        return Response.json({
+          error: "No se pudo analizar la imagen.",
+          detail: String(error?.message || error)
+        }, { status: 500 });
       }
     }
 

@@ -6,31 +6,30 @@ export default {
       if (!env.AI) return Response.json({ error: "Workers AI no está conectado en Cloudflare." }, { status: 503 });
       try {
         const body = await request.json();
-        const image = typeof body?.image === "string" ? body.image : "";
-        if (!image) return Response.json({ error: "Falta la imagen del producto." }, { status: 400 });
+        const rawImage = typeof body?.image === "string" ? body.image.trim() : "";
+        if (!rawImage) return Response.json({ error: "Falta la imagen del producto." }, { status: 400 });
+
+        // Workers AI espera el contenido base64 de la imagen, no el prefijo data:image/...;base64,.
+        const image = rawImage.includes(",") ? rawImage.split(",", 2)[1] : rawImage;
+        if (!image) return Response.json({ error: "La imagen no contiene datos válidos." }, { status: 400 });
         if (image.length > 14_000_000) return Response.json({ error: "La imagen es demasiado grande. Usa una foto de hasta 10 MB." }, { status: 413 });
+
         const result = await env.AI.run("@cf/meta/llama-3.2-11b-vision-instruct", {
           messages: [
             { role: "system", content: "Eres un extractor de datos de productos para inventario. Solo usa información visible y nunca inventes datos." },
-            { role: "user", content: "Analiza la foto. Extrae código/SKU, nombre, marca, modelo, categoría, descripción y precios claramente visibles. Si un dato no aparece, devuelve una cadena vacía o null." }
+            { role: "user", content: "Analiza la foto. Extrae código/SKU, nombre, marca, modelo, categoría, descripción y precios claramente visibles. Si un dato no aparece, devuelve una cadena vacía o null. Devuelve únicamente JSON válido." }
           ],
           image,
           max_tokens: 700,
           temperature: 0.1,
-          response_format: {
-            type: "json_schema",
-            json_schema: {
-              type: "object",
-              properties: {
-                codigo: { type: "string" }, nombre: { type: "string" }, marca: { type: "string" }, modelo: { type: "string" }, categoria: { type: "string" }, descripcion: { type: "string" }, precio_compra: { type: ["number", "null"] }, precio_venta: { type: ["number", "null"] }
-              },
-              required: ["codigo", "nombre", "marca", "modelo", "categoria", "descripcion", "precio_compra", "precio_venta"]
-            }
-          }
+          response_format: { type: "json_object" }
         });
+
         const response = result?.response ?? result?.description ?? result?.result?.response ?? {};
-        return Response.json({ text: typeof response === "string" ? response : JSON.stringify(response) });
+        const text = typeof response === "string" ? response : JSON.stringify(response);
+        return Response.json({ text });
       } catch (error) {
+        console.error("M.A.R.C. analyze-product:", error);
         return Response.json({ error: "No se pudo analizar la imagen.", detail: String(error?.message || error) }, { status: 500 });
       }
     }

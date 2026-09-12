@@ -10,8 +10,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="M.A.R.C." />
   <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="icon" href="./icons/marc.svg" type="image/svg+xml" />
-  <link rel="apple-touch-icon" href="./icons/marc.svg" />
+  <link rel="icon" href="./icons/marc-tech.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./icons/marc-tech.svg" />
   <title>M.A.R.C. — Business Operating System</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,6 +20,7 @@
   <link rel="stylesheet" href="./styles-v2.css" />
   <link rel="stylesheet" href="./login-v2.css" />
   <link rel="stylesheet" href="./login-v3.css" />
+  <link rel="stylesheet" href="./login-tech.css" />
 </head>
 <body>
   <div id="authScreen" class="auth-screen">
@@ -37,7 +38,6 @@
       </div>
       <div class="auth-security"><div class="auth-security-icon">✓</div><div><strong>Datos seguros en la nube</strong><span>Tu información siempre protegida</span></div></div>
     </section>
-
     <div class="auth-card">
       <span class="auth-version">v2.0</span>
       <div class="brand-lockup"><div class="brand-symbol">M</div><div><strong>M.A.R.C.</strong><span>BUSINESS OPERATING SYSTEM</span></div></div>
@@ -56,7 +56,6 @@
       <div class="auth-links"><button id="forgotPassword" type="button">¿Olvidaste tu contraseña?</button><button id="switchAuth" type="button">Crear una cuenta →</button></div>
       <small class="auth-foot">M.A.R.C. · Tu negocio, más simple, más inteligente.</small>
     </div>
-
     <div class="auth-benefits">
       <div class="auth-benefit"><i>ϟ</i><div><strong>Rápido</strong><span>Optimiza tu tiempo</span></div></div>
       <div class="auth-benefit"><i>☁</i><div><strong>En la nube</strong><span>Accede desde cualquier lugar</span></div></div>
@@ -64,13 +63,10 @@
       <div class="auth-benefit"><i>▯</i><div><strong>En cualquier dispositivo</strong><span>PC, tablet o móvil</span></div></div>
     </div>
   </div>
-
   <div id="appShell" class="app-shell" hidden>
     <aside class="sidebar" id="sidebar">
       <div class="brand-lockup sidebar-brand"><div class="brand-symbol">M</div><div><strong>M.A.R.C.</strong><span>Gestiona. Organiza. Crece.</span></div></div>
-      <nav id="mainNav">
-        <button class="nav-item active" data-section="dashboard"><span>▣</span>Dashboard</button><button class="nav-item" data-section="clients"><span>♙</span>Clientes</button><button class="nav-item" data-section="products"><span>◈</span>Productos</button><button class="nav-item" data-section="services"><span>◇</span>Servicios</button><button class="nav-item" data-section="inventory"><span>▤</span>Inventario</button><button class="nav-item" data-section="quotes"><span>▧</span>Cotizaciones</button><button class="nav-item" data-section="reports"><span>☷</span>Informes técnicos</button><button class="nav-item" data-section="documents"><span>□</span>Documentos</button><button class="nav-item" data-section="ai"><span>✦</span>IA - Asistente</button><button class="nav-item" data-section="company"><span>▣</span>Mi empresa</button><button class="nav-item" data-section="settings"><span>⚙</span>Configuración</button>
-      </nav>
+      <nav id="mainNav"><button class="nav-item active" data-section="dashboard"><span>▣</span>Dashboard</button><button class="nav-item" data-section="clients"><span>♙</span>Clientes</button><button class="nav-item" data-section="products"><span>◈</span>Productos</button><button class="nav-item" data-section="services"><span>◇</span>Servicios</button><button class="nav-item" data-section="inventory"><span>▤</span>Inventario</button><button class="nav-item" data-section="quotes"><span>▧</span>Cotizaciones</button><button class="nav-item" data-section="reports"><span>☷</span>Informes técnicos</button><button class="nav-item" data-section="documents"><span>□</span>Documentos</button><button class="nav-item" data-section="ai"><span>✦</span>IA - Asistente</button><button class="nav-item" data-section="company"><span>▣</span>Mi empresa</button><button class="nav-item" data-section="settings"><span>⚙</span>Configuración</button></nav>
       <div class="sidebar-bottom"><div class="user-mini"><div class="avatar" id="userAvatar">MJ</div><div><strong id="userName">Marc Joachin</strong><small id="userEmail"></small></div></div><button class="logout" id="signOut">↪ Cerrar sesión</button></div>
     </aside>
     <main class="main"><header class="topbar"><button class="menu" id="menu">☰</button><div class="search-box"><span>⌕</span><input id="globalSearch" placeholder="Buscar en M.A.R.C..."></div><div class="top-actions"><button class="top-link">? <span>Ayuda</span></button><button class="icon-action">♧<b>3</b></button><button class="profile"><span class="avatar">MJ</span><span class="profile-copy"><strong id="companyUser">Marc Joachin</strong><small>Mi empresa</small></span>⌄</button></div></header><div class="mobile-overlay" id="overlay"></div><section class="content" id="content"></section></main>

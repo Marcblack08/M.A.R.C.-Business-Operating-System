@@ -68,6 +68,42 @@ const SERVICE_SCHEMA = {
 
 const SERVICE_PROMPT = `Convierte la descripción hablada de un servicio empresarial en datos estructurados. Responde SOLO JSON. No inventes precios: si no se menciona, usa 0. El tipo debe ser exactamente uno de CCTV, COMPUTACION, REDES, MANTENIMIENTO, INSTALACION, SOPORTE u OTROS. La unidad debe ser SERVICIO, HORA, VISITA, INSTALACION o MANTENIMIENTO. Genera un nombre profesional y una descripción breve basada únicamente en lo dicho. Campos: tipo, nombre, descripcion, unidad, precio.`;
 
+async function analyzeServiceWithAI(env, text) {
+  const messages = [
+    { role: "system", content: "Eres M.A.R.C., especialista en catalogación de servicios empresariales. Responde únicamente con los campos solicitados." },
+    { role: "user", content: `${SERVICE_PROMPT}\n\nDescripción hablada:\n${text}` }
+  ];
+  let firstError = null;
+  try {
+    const result = await env.AI.run("@cf/meta/llama-3.1-8b-instruct-fast", {
+      messages,
+      max_tokens: 400,
+      temperature: 0,
+      response_format: { type: "json_schema", json_schema: SERVICE_SCHEMA }
+    });
+    const data = normalizeData(result?.response || result);
+    if (data && (data.nombre || data.descripcion || data.tipo)) return data;
+    firstError = new Error("La IA devolvió una respuesta vacía.");
+  } catch (error) {
+    firstError = error;
+  }
+  try {
+    const fallback = await env.AI.run("@cf/meta/llama-3.1-8b-instruct-fast", {
+      messages: [
+        { role: "system", content: "Eres M.A.R.C. Devuelve SOLO un JSON válido, sin markdown ni explicaciones." },
+        { role: "user", content: `${SERVICE_PROMPT}\nUsa exactamente este formato: {"tipo":"CCTV","nombre":"","descripcion":"","unidad":"SERVICIO","precio":0}\nDescripción hablada: ${text}` }
+      ],
+      max_tokens: 300,
+      temperature: 0
+    });
+    const data = normalizeData(fallback?.response || fallback);
+    if (data && (data.nombre || data.descripcion || data.tipo)) return data;
+    throw new Error("La IA no devolvió datos utilizables.");
+  } catch (fallbackError) {
+    throw new Error(`IA no disponible: ${String(firstError?.message || firstError || fallbackError?.message || fallbackError)}`);
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -100,14 +136,15 @@ export default {
         const body = await request.json();
         const text = typeof body?.text === "string" ? body.text.trim() : "";
         if (!text) return Response.json({ error: "Falta la descripción del servicio." }, { status: 400 });
-        const result = await env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
-          messages: [{ role: "system", content: "Eres M.A.R.C., especialista en catalogación de servicios empresariales." }, { role: "user", content: `${SERVICE_PROMPT}\n\nDescripción hablada:\n${text}` }],
-          max_tokens: 400,
-          temperature: 0,
-          response_format: { type: "json_schema", json_schema: SERVICE_SCHEMA }
-        });
-        const data = normalizeData(result?.response || result);
-        return Response.json({ data });
+        const data = await analyzeServiceWithAI(env, text);
+        const normalized = {
+          tipo: ["CCTV","COMPUTACION","REDES","MANTENIMIENTO","INSTALACION","SOPORTE","OTROS"].includes(String(data.tipo||"")) ? String(data.tipo) : "OTROS",
+          nombre: String(data.nombre||"").trim(),
+          descripcion: String(data.descripcion||"").trim(),
+          unidad: ["SERVICIO","HORA","VISITA","INSTALACION","MANTENIMIENTO"].includes(String(data.unidad||"")) ? String(data.unidad) : "SERVICIO",
+          precio: Number(data.precio)||0
+        };
+        return Response.json({ data: normalized });
       } catch(error){return Response.json({error:"No se pudo analizar el servicio con IA.",detail:String(error?.message||error)},{status:500});}
     }
 
@@ -116,7 +153,7 @@ export default {
       try {
         const body=await request.json(); const message=typeof body?.message==="string"?body.message.trim():"";
         if(!message)return Response.json({error:"Falta el mensaje."},{status:400});
-        const result=await env.AI.run("@cf/meta/llama-3.1-8b-instruct",{messages:[{role:"system",content:"Eres M.A.R.C., el asistente inteligente de un sistema operativo empresarial. Responde en español de forma clara, profesional y práctica."},{role:"user",content:message}],max_tokens:700});
+        const result=await env.AI.run("@cf/meta/llama-3.1-8b-instruct-fast",{messages:[{role:"system",content:"Eres M.A.R.C., el asistente inteligente de un sistema operativo empresarial. Responde en español de forma clara, profesional y práctica."},{role:"user",content:message}],max_tokens:700});
         return Response.json({text:result?.response||"No pude generar una respuesta."});
       } catch(error){return Response.json({error:"No se pudo procesar la solicitud de IA.",detail:String(error?.message||error)},{status:500});}
     }

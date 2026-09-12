@@ -40,15 +40,16 @@ export default {
             question,
             reasoning: false,
             temperature: 0,
-            max_tokens: 500
+            max_tokens: 500,
+            stream: false
           });
           data = parseObject(fast?.answer || fast?.response || "{}");
         } catch (visionError) {
           console.warn("Moondream product OCR failed:", visionError);
         }
 
-        // Para etiquetas difíciles, usamos Llama Vision como respaldo.
-        // Llama recibe el base64 sin el prefijo data:image/.
+        // Respaldo para etiquetas difíciles. Llama Vision también recibe la data URI,
+        // que es el formato documentado para imágenes en Workers AI.
         if (usefulFields(data) < 2) {
           used = "llama-vision";
           const fallback = await env.AI.run("@cf/meta/llama-3.2-11b-vision-instruct", {
@@ -56,7 +57,7 @@ export default {
               { role: "system", content: "Eres un extractor OCR de productos para inventario. No inventes información." },
               { role: "user", content: "Lee cuidadosamente toda la etiqueta, caja o ficha del producto. Extrae código/SKU, nombre, marca, modelo, categoría, descripción, precio de compra y precio de venta. Prioriza OCR exacto de números y códigos. Conserva exactamente letras, números, guiones y puntos visibles. Si un dato no aparece, usa una cadena vacía. Devuelve únicamente JSON válido con las claves codigo, nombre, marca, modelo, categoria, descripcion, precio_compra, precio_venta." }
             ],
-            image: base64,
+            image,
             max_tokens: 500,
             temperature: 0,
             response_format: { type: "json_object" }

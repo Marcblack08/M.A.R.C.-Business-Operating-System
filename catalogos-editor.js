@@ -25,10 +25,10 @@ async function sendSelected(){collect();const u=await uid();const rows=[...docum
   try{
    const old=map.get(codigo);
    if(old){
-    const r=await supabaseClient.from('productos').update(payload).eq('id',old.id).eq('user_id',u);
+    const r=await supabaseClient.from('productos').update(payload).eq('id',old.id).eq('user_id',u.id);
     if(r.error)throw r.error;updated++;imported.push(codigo);
    }else{
-    const r=await supabaseClient.from('productos').insert({user_id:u,codigo,...payload,stock:0,stock_minimo:0}).select('id,codigo').single();
+    const r=await supabaseClient.from('productos').insert({user_id:u.id,codigo,...payload,stock:0,stock_minimo:0}).select('id,codigo').single();
     if(r.error)throw r.error;
     created++;imported.push(codigo);map.set(codigo,r.data);
    }

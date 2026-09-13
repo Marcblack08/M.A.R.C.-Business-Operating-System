@@ -1,4 +1,4 @@
-/* M.A.R.C. — Inventario: movimientos y stock */
+/* M.A.R.C. — Inventario: movimientos, stock y eliminación segura */
 (function(){
   const esc=v=>String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
   const oldRender=window.render;
@@ -15,7 +15,7 @@
     const wrap=document.querySelector('#inventoryTableWrap');if(!wrap)return;
     try{
       const user=await getUser();
-      const {data,error}=await supabaseClient.from('productos').select('id,codigo,nombre,marca,modelo,unidad,stock,stock_minimo,activo').eq('user_id',user.id).order('nombre');
+      const {data,error}=await supabaseClient.from('productos').select('id,codigo,nombre,marca,modelo,unidad,stock,stock_minimo,activo').eq('user_id',user.id).eq('activo',true).order('nombre');
       if(error)throw error;
       const rows=data||[];
       const low=rows.filter(p=>Number(p.stock||0)>0&&Number(p.stock||0)<=Number(p.stock_minimo||0));
@@ -28,10 +28,24 @@
       document.querySelector('#inventorySearch')?.addEventListener('input',e=>{const q=e.target.value.toLowerCase().trim();draw(rows.filter(p=>[p.codigo,p.nombre,p.marca,p.modelo].some(v=>String(v||'').toLowerCase().includes(q))));});
       function draw(list){
         if(!list.length){wrap.innerHTML='<div class="inventory-empty"><div class="inventory-empty-icon">▤</div><h3>No hay productos en el inventario</h3><p>Agrega productos desde Productos para comenzar a controlar el stock.</p></div>';return;}
-        wrap.innerHTML=`<div class="table-scroll"><table><thead><tr><th>Código</th><th>Producto</th><th>Stock</th><th>Mínimo</th><th>Estado</th><th>Acción</th></tr></thead><tbody>${list.map(p=>{const stock=Number(p.stock||0),min=Number(p.stock_minimo||0);const status=stock<=0?'Agotado':stock<=min?'Bajo':'Disponible';return `<tr><td><strong>${esc(p.codigo||'—')}</strong></td><td><strong>${esc(p.nombre)}</strong><br><small>${esc([p.marca,p.modelo].filter(Boolean).join(' · '))}</small></td><td><strong>${stock}</strong> ${esc(p.unidad||'UND')}</td><td>${min}</td><td><mark class="${status==='Agotado'?'critical':status==='Bajo'?'warning':''}">${status}</mark></td><td><button type="button" class="table-action inv-move" data-id="${p.id}">＋/−</button></td></tr>`;}).join('')}</tbody></table></div>`;
+        wrap.innerHTML=`<div class="table-scroll"><table><thead><tr><th>Código</th><th>Producto</th><th>Stock</th><th>Mínimo</th><th>Estado</th><th>Acción</th></tr></thead><tbody>${list.map(p=>{const stock=Number(p.stock||0),min=Number(p.stock_minimo||0),status=stock<=0?'Agotado':stock<=min?'Bajo':'Disponible';return `<tr><td><strong>${esc(p.codigo||'—')}</strong></td><td><strong>${esc(p.nombre)}</strong><br><small>${esc([p.marca,p.modelo].filter(Boolean).join(' · '))}</small></td><td><strong>${stock}</strong> ${esc(p.unidad||'UND')}</td><td>${min}</td><td><mark class="${status==='Agotado'?'critical':status==='Bajo'?'warning':''}">${status}</mark></td><td><button type="button" class="table-action inv-move" data-id="${p.id}" title="Movimiento">＋/−</button> <button type="button" class="table-action inv-delete" data-id="${p.id}" title="Eliminar del inventario">🗑</button></td></tr>`;}).join('')}</tbody></table></div>`;
         wrap.querySelectorAll('.inv-move').forEach(b=>b.addEventListener('click',()=>openMovementModal(rows.find(p=>p.id===b.dataset.id))));
+        wrap.querySelectorAll('.inv-delete').forEach(b=>b.addEventListener('click',()=>removeFromInventory(b.dataset.id,rows.find(p=>p.id===b.dataset.id))));
       }
     }catch(err){wrap.innerHTML=`<div class="inventory-empty">No se pudo cargar el inventario.<br><small>${esc(err.message)}</small></div>`;}
+  }
+  async function removeFromInventory(id,product){
+    if(!id||!product)return;
+    const name=product.nombre||product.codigo||'este producto';
+    const ok=window.confirm(`¿Quitar "${name}" del inventario?\n\nEl producto dejará de aparecer en Inventario, pero se conservará en Productos y no se borrará su historial.`);
+    if(!ok)return;
+    try{
+      const user=await getUser();
+      const {error}=await supabaseClient.from('productos').update({activo:false}).eq('id',id).eq('user_id',user.id);
+      if(error)throw error;
+      await loadInventory();
+      window.alert(`"${name}" fue retirado del inventario.`);
+    }catch(err){window.alert(`No se pudo retirar el producto: ${err.message||err}`);}
   }
   async function openMovementModal(product=null){
     const user=await getUser();
@@ -45,5 +59,5 @@
     const form=modal.querySelector('#inventoryForm');
     form.addEventListener('submit',async e=>{e.preventDefault();const btn=form.querySelector('button[type="submit"]'),msg=form.querySelector('#inventoryFormMsg');btn.disabled=true;msg.textContent='Guardando...';try{const fd=new FormData(form);const {error}=await supabaseClient.rpc('registrar_movimiento_inventario',{p_producto_id:fd.get('producto'),p_tipo:fd.get('tipo'),p_cantidad:Number(fd.get('cantidad')),p_motivo:fd.get('motivo'),p_referencia:fd.get('referencia')});if(error)throw error;close();loadInventory();}catch(err){msg.textContent=err.message;msg.className='inventory-form-msg error';btn.disabled=false;}});
   }
-  const style=document.createElement('style');style.textContent='.inventory-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:0 0 16px}.inventory-kpi{background:#fff;border:1px solid #e0eaf3;border-radius:14px;padding:16px;display:grid;gap:5px}.inventory-kpi small{font-size:10px;color:#7891ad}.inventory-kpi strong{font-size:24px;color:#183b60}.inventory-kpi.warning strong{color:#a66a00}.inventory-kpi.critical strong{color:#c83d4e}.inventory-loading,.inventory-empty{text-align:center;padding:50px 20px;color:#7891ad;font-size:12px}.inventory-empty-icon{width:58px;height:58px;border-radius:16px;background:#eaf5ff;color:#087cf5;display:grid;place-items:center;margin:0 auto 12px;font-size:25px}.inventory-empty h3{margin:0 0 6px;color:#24496e;font-size:16px}.inventory-empty p{margin:0}.inventory-modal-backdrop{position:fixed;inset:0;background:#071d38aa;backdrop-filter:blur(6px);z-index:100;display:grid;place-items:center;padding:18px}.inventory-modal{width:min(560px,100%);background:#fff;border-radius:20px;padding:24px;max-height:92vh;overflow:auto}.inventory-modal-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px}.inventory-modal-head h2{margin:0;color:#102b54;font-size:23px}.inventory-close{border:0;background:#eef5fb;color:#557493;border-radius:9px;width:34px;height:34px;font-size:22px}.inventory-form{display:grid;gap:13px}.inventory-form label{display:grid;gap:6px;color:#536b89;font-size:11px;font-weight:700}.inventory-form input,.inventory-form select{width:100%;border:1px solid #d2e0ec;border-radius:10px;background:#f8fbfe;color:#173452;padding:11px;font-size:12px}.inventory-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px}.inventory-modal-actions{display:flex;justify-content:flex-end;gap:9px}.inventory-form-msg{min-height:18px;font-size:10px;color:#607b96}.inventory-form-msg.error{color:#d13d4e}@media(max-width:650px){.inventory-kpis{grid-template-columns:1fr 1fr}.inventory-grid{grid-template-columns:1fr}.page-head>.btn{margin-top:8px}}@media(max-width:420px){.inventory-kpis{gap:8px}.inventory-kpi{padding:12px}.inventory-kpi strong{font-size:20px}}';document.head.appendChild(style);
+  const style=document.createElement('style');style.textContent='.inventory-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:0 0 16px}.inventory-kpi{background:#fff;border:1px solid #e0eaf3;border-radius:14px;padding:16px;display:grid;gap:5px}.inventory-kpi small{font-size:10px;color:#7891ad}.inventory-kpi strong{font-size:24px;color:#183b60}.inventory-kpi.warning strong{color:#a66a00}.inventory-kpi.critical strong{color:#c83d4e}.inventory-loading,.inventory-empty{text-align:center;padding:50px 20px;color:#7891ad;font-size:12px}.inventory-empty-icon{width:58px;height:58px;border-radius:16px;background:#eaf5ff;color:#087cf5;display:grid;place-items:center;margin:0 auto 12px;font-size:25px}.inventory-empty h3{margin:0 0 6px;color:#24496e;font-size:16px}.inventory-modal-backdrop{position:fixed;inset:0;background:#071d38aa;backdrop-filter:blur(6px);z-index:100;display:grid;place-items:center;padding:18px}.inventory-modal{width:min(560px,100%);background:#fff;border-radius:20px;padding:24px;max-height:92vh;overflow:auto}.inventory-modal-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px}.inventory-modal-head h2{margin:0;color:#102b54;font-size:23px}.inventory-close{border:0;background:#eef5fb;color:#557493;border-radius:9px;width:34px;height:34px;font-size:22px}.inventory-form{display:grid;gap:13px}.inventory-form label{display:grid;gap:6px;color:#536b89;font-size:11px;font-weight:700}.inventory-form input,.inventory-form select{width:100%;border:1px solid #d2e0ec;border-radius:10px;background:#f8fbfe;color:#173452;padding:11px;font-size:12px}.inventory-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px}.inventory-modal-actions{display:flex;justify-content:flex-end;gap:9px}.inventory-form-msg{min-height:18px;font-size:10px;color:#607b96}.inventory-form-msg.error{color:#d13d4e}.inv-delete{color:#c83d4e}@media(max-width:650px){.inventory-kpis{grid-template-columns:1fr 1fr}.inventory-grid{grid-template-columns:1fr}.page-head>.btn{margin-top:8px}}@media(max-width:420px){.inventory-kpis{gap:8px}.inventory-kpi{padding:12px}.inventory-kpi strong{font-size:20px}}';document.head.appendChild(style);
 })();

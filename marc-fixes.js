@@ -4,6 +4,8 @@
   catalogCss();
   const syncScript=()=>{if(document.querySelector('script[data-marc-catalog-sync]'))return;const s=document.createElement('script');s.src='./catalogos-sync.js?v=2';s.dataset.marcCatalogSync='1';document.head.appendChild(s)};
   syncScript();
+  const precisionScript=()=>{if(document.querySelector('script[data-marc-catalog-v5]'))return;const s=document.createElement('script');s.src='./catalogos-v5.js?v=1';s.dataset.marcCatalogV5='1';document.head.appendChild(s)};
+  precisionScript();
   window.__MARC_CATALOG_TYPE='PROPIO';
   try{Object.defineProperty(window,'tipo',{configurable:true,get(){return window.__MARC_CATALOG_TYPE||'PROPIO'},set(v){window.__MARC_CATALOG_TYPE=v||'PROPIO'}})}catch{}
   document.addEventListener('change',e=>{const id=e.target?.id;if(id==='cat4Own'||id==='catOwn')window.__MARC_CATALOG_TYPE='PROPIO';if(id==='cat4Prov'||id==='catSupplier')window.__MARC_CATALOG_TYPE='PROVEEDOR'},true);

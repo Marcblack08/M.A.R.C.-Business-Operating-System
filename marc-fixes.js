@@ -1,15 +1,10 @@
 /* M.A.R.C. — fixes de navegación, persistencia y compatibilidad */
 (function(){
-  const add=(id,href)=>{if(document.querySelector(`link[data-marc="${id}"]`))return;const l=document.createElement('link');l.rel='stylesheet';l.href=href; l.dataset.marc=id;document.head.appendChild(l)};
-  add('catalog-css','./catalogos-v4.css?v=5');
-  add('editor-css','./catalogos-editor.css?v=1');
+  const add=(id,href)=>{if(document.querySelector(`link[data-marc="${id}"]`))return;const l=document.createElement('link');l.rel='stylesheet';l.href=href;l.dataset.marc=id;document.head.appendChild(l)};
+  add('catalog-css','./catalogos-v4.css?v=6');add('editor-css','./catalogos-editor.css?v=2');
   const load=(id,src)=>{if(document.querySelector(`script[data-marc="${id}"]`))return;const s=document.createElement('script');s.src=src;s.dataset.marc=id;document.head.appendChild(s)};
-  load('catalog-sync','./catalogos-sync.js?v=3');
-  load('catalog-v5','./catalogos-v5.js?v=3');
-  load('catalog-editor','./catalogos-editor.js?v=1');
-  load('inventory-tools','./inventario-tools.js?v=1');
-  window.__MARC_CATALOG_TYPE='PROPIO';
-  try{Object.defineProperty(window,'tipo',{configurable:true,get(){return window.__MARC_CATALOG_TYPE||'PROPIO'},set(v){window.__MARC_CATALOG_TYPE=v||'PROPIO'}})}catch{}
+  load('catalog-sync','./catalogos-sync.js?v=4');load('catalog-v5','./catalogos-v5.js?v=4');load('catalog-editor','./catalogos-editor.js?v=2');load('inventory-tools','./inventario-tools.js?v=2');
+  window.__MARC_CATALOG_TYPE='PROPIO';try{Object.defineProperty(window,'tipo',{configurable:true,get(){return window.__MARC_CATALOG_TYPE||'PROPIO'},set(v){window.__MARC_CATALOG_TYPE=v||'PROPIO'}})}catch{}
   document.addEventListener('change',e=>{const id=e.target?.id;if(id==='cat4Own'||id==='catOwn')window.__MARC_CATALOG_TYPE='PROPIO';if(id==='cat4Prov'||id==='catSupplier')window.__MARC_CATALOG_TYPE='PROVEEDOR'},true);
   const validSections=new Set(['dashboard','clients','products','services','inventory','quotes','reports','documents','ai','company','settings']);let current=location.hash.replace(/^#/,'');if(!validSections.has(current))current='dashboard';
   function syncCatalogVisibility(){const panel=document.querySelector('#cat4Panel');if(!panel)return;const inventoryActive=current==='inventory'||!!document.querySelector('.nav-item[data-section="inventory"].active');panel.hidden=!inventoryActive;panel.style.display=inventoryActive?'':'none'}

@@ -16,7 +16,7 @@
   function parseSmart(raw){
     raw=String(raw||'').trim();if(!raw)return;
     const n=qty(raw),items=[];
-    const camera=unitAfter(raw,[/(?:precio|valor|costo)\s+(?:de\s+)?c[aá]maras?\s*(?:IP)?[^\d]{0,30}([\d.,]+)\s*(?:soles?|s\/\.?|pen)?/i,/c[aá]mara(?:s)?\s*(?:IP)?[^\d]{0,20}([\d.,]+)\s*(?:soles?|s\/\.?|pen)\b/i]);
+    const camera=unitAfter(raw,[/(?:precio|valor|costo)\s+(?:de\s+)?c[aá]maras?\s*(?:IP)?[^\d]{0,30}([\d.,]+)\s*(?:soles?|s\/\.?|pen)?/i,/c[aá]mara(?:s)?\s*(?:IP)?[^\d]{0,20}([\d.,]+)\s*(?:soles?|s\/\.?|pen)\b/i,/(?:cada\s+)?c[aá]mara(?:s)?\s+(?:IP\s+)?(?:vale|cuesta|sale|a)\s*([\d.,]+)\s*(?:soles?|s\/\.?|pen)?/i]);
     if(camera!=null)items.push({type:'PRODUCTO',name:'Cámara IP',qty:n,unitPrice:camera});
     const material=unitAfter(raw,[/(?:materiales?|material)\s*(?:por\s+c[aá]mara)?[^\d]{0,35}([\d.,]+)\s*(?:soles?|s\/\.?|pen)?/i,/([\d.,]+)\s*(?:soles?|s\/\.?|pen)\s*(?:cada\s+uno\s+)?(?:de\s+)?material(?:es)?/i]);
     if(material!=null)items.push({type:'SERVICIO',name:'Materiales por cámara',qty:n,unitPrice:material});

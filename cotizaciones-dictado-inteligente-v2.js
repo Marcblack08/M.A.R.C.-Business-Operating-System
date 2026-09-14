@@ -1,4 +1,4 @@
-/* M.A.R.C. — Dictado inteligente V3: lenguaje comercial → cotización estructurada */
+/* M.A.R.C. — Dictado inteligente V4: lenguaje comercial → cotización estructurada */
 (function(){
   'use strict';
   const norm=v=>String(v||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\p{L}\p{N}]+/gu,' ').trim();
@@ -12,7 +12,7 @@
   function unitAfter(raw,patterns){for(const p of patterns){const m=raw.match(p);if(m){const n=parseNum(m[1]);if(n!=null)return n}}return null}
   function selectClient(raw){
     const sel=document.getElementById('qv3client');if(!sel)return null;
-    const cm=raw.match(/\bcliente\s+(?:es\s+)?(.+?)(?=\s+ubicaci[oó]n\b|\s+precio\b|\s+instalaci[oó]n\b|\s+materiales?\b|\s+cada\s+|$)/i);
+    const cm=raw.match(/\bcliente\s+(?:es\s+)?(.+?)(?=\s+ubicaci[oó]n\b|\s+precio\b|\s+instalaci[oó]n\b|\s+materiales?\b|\s+accesorios?\b|\s+cada\s+|$)/i);
     const text=cm?.[1]?.trim()||'';
     const bn=raw.match(/\bbloque\s*(\d+)\b/i);
     let opt=null;
@@ -25,13 +25,26 @@
   function parseSmart(raw){
     raw=String(raw||'').trim();if(!raw)return;
     const n=qty(raw),items=[];
-    const camera=unitAfter(raw,[/(?:precio|valor|costo)\s+(?:de\s+)?c[aá]maras?\s*(?:IP)?[^\d]{0,45}([\d.,]+)/i,/(?:cada\s+)?c[aá]mara(?:s)?\s*(?:IP\s+)?(?:vale|cuesta|sale|a)\s*([\d.,]+)/i,/(?:precio\s+de\s+)?c[aá]mara(?:s)?\s+([\d.,]+)\s*(?:soles?|s\/\.?|pen)\s+por\s+cada/i]);
+    const camera=unitAfter(raw,[
+      /(?:precio|valor|costo)\s+(?:de\s+)?(?:cada\s+)?c[aá]maras?\s*(?:IP)?[^\d]{0,45}([\d.,]+)\s*(?:soles?|s\/\.?|pen)?/i,
+      /(?:precio|valor|costo)\s+de\s+cada\s+c[aá]mara(?:s)?(?:\s+IP)?[^\d]{0,30}([\d.,]+)/i,
+      /(?:cada\s+)?c[aá]mara(?:s)?\s*(?:IP\s+)?(?:vale|cuesta|sale|a)\s*([\d.,]+)\s*(?:soles?|s\/\.?|pen)?/i,
+      /(?:precio\s+de\s+)?c[aá]mara(?:s)?\s+([\d.,]+)\s*(?:soles?|s\/\.?|pen)\s+por\s+(?:cada|unidad)/i
+    ]);
     if(camera!=null)items.push({type:'PRODUCTO',name:'Cámara IP',qty:n,unitPrice:camera});
-    const material=unitAfter(raw,[/(?:materiales?|material)\s*(?:por\s+c[aá]mara)?\s*(?:son|de|:)?\s*([\d.,]+)\s*(?:soles?|s\/\.?|pen)\b/i,/([\d.,]+)\s*(?:soles?|s\/\.?|pen)\s+de\s+material(?:es)?\b/i,/([\d.,]+)\s*(?:soles?|s\/\.?|pen)\s+(?:cada\s+uno\s+)?(?:de\s+)?material(?:es)?\b/i]);
+    const material=unitAfter(raw,[
+      /(?:precio\s+de\s+)?(?:accesorios?|materiales?|material)\s*(?:por\s+c[aá]mara|por\s+unidad)?\s*(?:son|de|:)?\s*([\d.,]+)\s*(?:soles?|s\/\.?|pen)\b/i,
+      /([\d.,]+)\s*(?:soles?|s\/\.?|pen)\s*(?:por\s+)?(?:cada\s+)?(?:c[aá]mara\s+de\s+)?(?:accesorios?|materiales?|material)\b/i,
+      /(?:accesorios?|materiales?|material)\s+([\d.,]+)\s*(?:soles?|s\/\.?|pen)\s+por\s+c[aá]mara\b/i
+    ]);
     if(material!=null)items.push({type:'SERVICIO',name:'Materiales por cámara',qty:n,unitPrice:material});
-    const install=unitAfter(raw,[/(?:precio|costo|valor)\s+(?:de\s+)?(?:la\s+)?instalaci[oó]n\s*(?:es|de|:)?\s*([\d.,]+)/i,/([\d.,]+)\s*(?:soles?|s\/\.?|pen)\s+(?:por\s+)?instalaci[oó]n\b/i,/instalaci[oó]n\s*(?:por|de)\s+(?:cada\s+una|cada\s+c[aá]mara|c[aá]mara)\s*(?:a|de)?\s*([\d.,]+)\s*(?:soles?|s\/\.?|pen)?/i]);
+    const install=unitAfter(raw,[
+      /(?:precio|costo|valor)\s+(?:de\s+)?(?:la\s+)?instalaci[oó]n\s*(?:es|de|:)?\s*([\d.,]+)\s*(?:soles?|s\/\.?|pen)?/i,
+      /([\d.,]+)\s*(?:soles?|s\/\.?|pen)\s+(?:por\s+)?instalaci[oó]n\b/i,
+      /instalaci[oó]n\s*(?:por|de)\s+(?:cada\s+una|cada\s+c[aá]mara|c[aá]mara)\s*(?:a|de)?\s*([\d.,]+)\s*(?:soles?|s\/\.?|pen)?/i
+    ]);
     if(install!=null)items.push({type:'SERVICIO',name:'Instalación de cámara IP',qty:n,unitPrice:install});
-    const location=(raw.match(/ubicaci[oó]n\s*(?:es|:|-)?\s*(.+?)(?=\s+(?:materiales?|precio|instalaci[oó]n|cliente|cada\s+c[aá]mara|$))/i)||[])[1];
+    const location=(raw.match(/ubicaci[oó]n\s*(?:es|:|-)?\s*(.+?)(?=\s+(?:materiales?|accesorios?|precio|instalaci[oó]n|cliente|cada\s+c[aá]mara|$))/i)||[])[1];
     if(location)setField('qv3location',location.trim());
     const cn=selectClient(raw);
     if(items.length){
@@ -50,7 +63,7 @@
     const gain=document.getElementById('qv3gain');if(gain)gain.textContent=money(0);const margin=document.getElementById('qv3margin');if(margin)margin.textContent='Partidas calculadas por dictado';
   }
   function voice(){const R=window.SpeechRecognition||window.webkitSpeechRecognition;if(!R)return alert('Tu navegador no soporta reconocimiento de voz.');const r=new R();r.lang='es-PE';r.continuous=false;r.interimResults=false;r.onstart=()=>setMsg('Escuchando…');r.onresult=e=>{const t=e.results[0][0].transcript;const ta=document.getElementById('qv3text');if(ta)ta.value=t;parseSmart(t)};r.onend=()=>{};r.onerror=()=>setMsg('No se pudo reconocer el audio.');r.start()}
-  function install(){const modal=document.getElementById('qv3modal');if(!modal||modal.dataset.smartV3==='1')return;modal.dataset.smartV3='1';const p=document.getElementById('qv3parse');if(p)p.onclick=()=>parseSmart(document.getElementById('qv3text')?.value||'');const v=document.getElementById('qv3voice');if(v)v.onclick=voice}
+  function install(){const modal=document.getElementById('qv3modal');if(!modal||modal.dataset.smartV4==='1')return;modal.dataset.smartV4='1';const p=document.getElementById('qv3parse');if(p)p.onclick=()=>parseSmart(document.getElementById('qv3text')?.value||'');const v=document.getElementById('qv3voice');if(v)v.onclick=voice}
   const obs=new MutationObserver(()=>install());if(document.body)obs.observe(document.body,{childList:true,subtree:true});setInterval(install,500);
   const originalFrom=window.supabaseClient?.from?.bind(window.supabaseClient);
   if(originalFrom){window.supabaseClient.from=function(table){const b=originalFrom(table);if(table==='cotizaciones'){const oi=b.insert.bind(b);b.insert=function(payload){const q=state();if(q){const p=Array.isArray(payload)?payload[0]:payload;if(p){p.subtotal=q.total;p.total=q.total;p.igv=0}}return oi(payload)}}if(table==='cotizacion_items'){const oi=b.insert.bind(b);b.insert=function(payload){const q=state();if(q){const base=Array.isArray(payload)?payload[0]:payload;const rows=q.items.map((x,i)=>({...base,cotizacion_id:base?.cotizacion_id,user_id:base?.user_id,tipo:x.type,producto_id:null,servicio_id:null,codigo:'DICTADO',nombre:x.name,descripcion:'Generado desde dictado: '+q.raw,unidad:'UND',cantidad:x.qty,precio_venta:x.unitPrice,precio_compra:0,costo_total:0,importe:x.qty*x.unitPrice,utilidad:x.qty*x.unitPrice,utilidad_pct:100,orden:i}));return oi(rows)}}}return b}};

@@ -7,12 +7,12 @@
   const setSelect=(id,value,fire=true)=>{const el=document.getElementById(id);if(!el)return false;el.value=value;if(fire)el.dispatchEvent(new Event('change',{bubbles:true}));return true};
   function numberFromSpeech(s){
     let x=String(s||'').toLowerCase().replace(/\b(soles?|sol|pen)\b/g,'').trim();
+    const m=x.match(/(\d+)\s*mil\s*(\d+)?/);if(m)return Number(m[1])*1000+Number(m[2]||0);
     const direct=x.match(/\d[\d\s.,]*/);if(direct){
       const raw=direct[0].trim();
-      if(/\d+\.\d{3}(?:\D|$)/.test(raw)||/\d+\.\d{3}$/.test(raw))return Number(raw.replace(/\./g,'').replace(/,/g,'.'));
+      if(/\d+\.\d{3}(?:\D|$)/.test(raw))return Number(raw.replace(/\./g,''));
       return Number(raw.replace(/\s/g,'').replace(/\./g,'').replace(/,/g,'.'));
     }
-    const m=x.match(/(\d+)\s*mil\s*(\d+)?/);if(m)return Number(m[1])*1000+Number(m[2]||0);
     return null;
   }
   function extract(raw,patterns){for(const p of patterns){const m=raw.match(p);if(m?.[1])return m[1].trim().replace(/[.;]$/,'').trim()}return ''}

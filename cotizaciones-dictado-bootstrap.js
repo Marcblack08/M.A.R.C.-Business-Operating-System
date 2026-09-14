@@ -1,0 +1,2 @@
+/* M.A.R.C. — Bootstrap del interprete de cotizaciones tras autenticación */
+(function(){'use strict';let reloaded=false;function hook(){const b=document.querySelector('#qv3new');if(!b||b.dataset.dictadoBootstrap)return;b.dataset.dictadoBootstrap='1';b.addEventListener('click',()=>{if(reloaded)return;reloaded=true;setTimeout(()=>{const s=document.createElement('script');s.src='./cotizaciones-dictado-v4.js?v=2&ts='+Date.now();document.body.appendChild(s)},150)})}setInterval(hook,500);})();

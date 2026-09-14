@@ -1,4 +1,4 @@
-/* M.A.R.C. — Dictado inteligente V4: lenguaje comercial → cotización estructurada */
+/* M.A.R.C. — Dictado inteligente V5: lenguaje comercial → cotización estructurada */
 (function(){
   'use strict';
   const norm=v=>String(v||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\p{L}\p{N}]+/gu,' ').trim();
@@ -6,18 +6,15 @@
   const state=()=>window.__MARC_SMART_QUOTE||null;
   const setMsg=t=>{const e=document.getElementById('qv3voiceMsg');if(e)e.textContent=t};
   const setField=(id,v)=>{const e=document.getElementById(id);if(!e)return false;e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));return true};
-  const numberWords={cero:0,una:1,uno:1,un:1,dos:2,tres:3,cuatro:4,cinco:5,seis:6,siete:7,ocho:8,nueve:9,diez:10,once:11,doce:12,trece:13,catorce:14,quince:15,dieciseis:16,dieciséis:16,diecisiete:17,dieciocho:18,diecinueve:19,veinte:20};
-  function parseNum(s){let x=String(s||'').toLowerCase().replace(/\b(soles?|sol|pen)\b/g,'').trim();let m=x.match(/(\d+)\s*mil\s*(\d+)?/);if(m)return Number(m[1])*1000+Number(m[2]||0);m=x.match(/\d[\d\s.,]*/);if(!m)return null;let r=m[0].trim();if(/\d+\.\d{3}$/.test(r))return Number(r.replace(/\./g,''));return Number(r.replace(/\s/g,'').replace(/\.(?=\d{3}(?:\D|$))/g,'').replace(',','.'))}
-  function qty(raw){let m=raw.match(/(?:instalaci[oó]n|instalar|colocaci[oó]n|colocar)\s+de\s+(\d+)\s+(?:c[aá]maras?|unidades?)/i);if(m)return Number(m[1]);m=raw.match(/(?:instalaci[oó]n|instalar|colocaci[oó]n|colocar)\s+de\s+(una|uno|un|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\s+(?:c[aá]maras?|unidades?)/i);if(m)return numberWords[norm(m[1])]??1;m=raw.match(/(\d+|una|uno|un|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\s+(?:c[aá]maras?|unidades?)\s*IP/i);return m?(numberWords[norm(m[1])]??Number(m[1])):1}
+  const numberWords={cero:0,una:1,uno:1,un:1,dos:2,tres:3,cuatro:4,cinco:5,seis:6,siete:7,ocho:8,nueve:9,diez:10,once:11,doce:12,trece:13,catorce:14,quince:15,dieciseis:16,dieciséis:16,diecisiete:17,dieciocho:18,diecinueve:19,veinte:20,veintiuno:21,veintidos:22,veintidós:22,veintitres:23,veintitrés:23,veinticuatro:24,veinticinco:25};
+  function parseNum(s){let x=String(s||'').toLowerCase().replace(/\b(soles?|sol|pen)\b/g,'').trim();let m=x.match(/(\d+)\s*mil\s*(\d+)?/);if(m)return Number(m[1])*1000+Number(m[2]||0);m=x.match(/\d[\d\s.,]*/);if(!m)return null;let r=m[0].trim();if(/^\d+\.\d{3}$/.test(r))return Number(r.replace(/\./g,''));return Number(r.replace(/\s/g,'').replace(/\.(?=\d{3}(?:\D|$))/g,'').replace(',','.'))}
+  function qty(raw){let m=raw.match(/(?:instalaci[oó]n|instalar|colocaci[oó]n|colocar)\s+de\s+(\d+)\s+(?:c[aá]maras?|unidades?)/i);if(m)return Number(m[1]);m=raw.match(/(?:instalaci[oó]n|instalar|colocaci[oó]n|colocar)\s+de\s+(una|uno|un|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|dieciséis|veinte)\s+(?:c[aá]maras?|unidades?)/i);if(m)return numberWords[norm(m[1])]??1;m=raw.match(/(\d+|una|uno|un|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|veinte)\s+(?:c[aá]maras?|unidades?)\s*IP/i);return m?(numberWords[norm(m[1])]??Number(m[1])):1}
   function unitAfter(raw,patterns){for(const p of patterns){const m=raw.match(p);if(m){const n=parseNum(m[1]);if(n!=null)return n}}return null}
   function selectClient(raw){
     const sel=document.getElementById('qv3client');if(!sel)return null;
     const cm=raw.match(/\bcliente\s+(?:es\s+)?(.+?)(?=\s+ubicaci[oó]n\b|\s+precio\b|\s+instalaci[oó]n\b|\s+materiales?\b|\s+accesorios?\b|\s+cada\s+|$)/i);
-    const text=cm?.[1]?.trim()||'';
-    const bn=raw.match(/\bbloque\s*(\d+)\b/i);
-    let opt=null;
-    if(bn)opt=[...sel.options].find(o=>new RegExp('\\bbloque\\s*'+bn[1]+'\\b','i').test(norm(o.textContent)));
-    if(!opt&&text){const target=norm(text);opt=[...sel.options].find(o=>norm(o.textContent).includes(target)||target.includes(norm(o.textContent.split(' · ')[0])))}
+    const text=cm?.[1]?.trim()||''; let opt=null;
+    if(text){const target=norm(text);opt=[...sel.options].find(o=>{const ot=norm(o.textContent);return ot===target||ot.startsWith(target+' ')||target===ot.split(' · ')[0]})}
     if(!opt&&text){opt=document.createElement('option');opt.value='__dictado_smart__';opt.textContent=text+' · (dictado)';sel.appendChild(opt)}
     if(opt){sel.value=opt.value;sel.dispatchEvent(new Event('change',{bubbles:true}));return opt.textContent.split(' · ')[0]}
     return text||null;
@@ -26,22 +23,22 @@
     raw=String(raw||'').trim();if(!raw)return;
     const n=qty(raw),items=[];
     const camera=unitAfter(raw,[
-      /(?:precio|valor|costo)\s+(?:de\s+)?(?:cada\s+)?c[aá]maras?\s*(?:IP)?[^\d]{0,45}([\d.,]+)\s*(?:soles?|s\/\.?|pen)?/i,
-      /(?:precio|valor|costo)\s+de\s+cada\s+c[aá]mara(?:s)?(?:\s+IP)?[^\d]{0,30}([\d.,]+)/i,
-      /(?:cada\s+)?c[aá]mara(?:s)?\s*(?:IP\s+)?(?:vale|cuesta|sale|a)\s*([\d.,]+)\s*(?:soles?|s\/\.?|pen)?/i,
+      /(?:precio|valor|costo)\s+(?:de\s+)?(?:cada\s+)?c[aá]maras?\s*(?:IP)?[^\d]{0,55}([\d.,]+)\s*(?:soles?|s\/\.?|pen)?/i,
+      /(?:cada\s+)?c[aá]mara(?:s)?\s*(?:IP\s*)?(?:vale|cuesta|sale|a)\s*([\d.,]+)\s*(?:soles?|s\/\.?|pen)?/i,
       /(?:precio\s+de\s+)?c[aá]mara(?:s)?\s+([\d.,]+)\s*(?:soles?|s\/\.?|pen)\s+por\s+(?:cada|unidad)/i
     ]);
     if(camera!=null)items.push({type:'PRODUCTO',name:'Cámara IP',qty:n,unitPrice:camera});
     const material=unitAfter(raw,[
-      /(?:precio\s+de\s+)?(?:accesorios?|materiales?|material)\s*(?:por\s+c[aá]mara|por\s+unidad)?\s*(?:son|de|:)?\s*([\d.,]+)\s*(?:soles?|s\/\.?|pen)\b/i,
-      /([\d.,]+)\s*(?:soles?|s\/\.?|pen)\s*(?:por\s+)?(?:cada\s+)?(?:c[aá]mara\s+de\s+)?(?:accesorios?|materiales?|material)\b/i,
-      /(?:accesorios?|materiales?|material)\s+([\d.,]+)\s*(?:soles?|s\/\.?|pen)\s+por\s+c[aá]mara\b/i
+      /(?:precio\s+de\s+)?(?:accesorios?|materiales?|material)(?:\s+(?:necesarios?|requeridos?|necesarias?|requeridas?))?[^\d]{0,35}([\d.,]+)\s*(?:soles?|s\/\.?|pen)\b(?:\s+(?:de\s+)?material)?/i,
+      /([\d.,]+)\s*(?:soles?|s\/\.?|pen)\s+(?:de\s+)?(?:materiales?|material|accesorios?)\b/i,
+      /(?:accesorios?|materiales?|material)\s+(?:necesarios?\s+)?([\d.,]+)\s*(?:soles?|s\/\.?|pen)\s+por\s+c[aá]mara\b/i
     ]);
     if(material!=null)items.push({type:'SERVICIO',name:'Materiales por cámara',qty:n,unitPrice:material});
     const install=unitAfter(raw,[
-      /(?:precio|costo|valor)\s+(?:de\s+)?(?:la\s+)?instalaci[oó]n\s*(?:es|de|:)?\s*([\d.,]+)\s*(?:soles?|s\/\.?|pen)?/i,
+      /(?:precio|costo|valor)\s+(?:de\s+)?(?:la\s+)?instalaci[oó]n\s*(?:por\s+(?:cada\s+)?(?:c[aá]mara|una|uno)|es|de|:)?\s*([\d.,]+)\s*(?:soles?|s\/\.?|pen)?/i,
+      /(?:precio|costo|valor)\s+(?:de\s+)?(?:la\s+)?instalaci[oó]n[^\d]{0,40}([\d.,]+)\s*(?:soles?|s\/\.?|pen)?/i,
       /([\d.,]+)\s*(?:soles?|s\/\.?|pen)\s+(?:por\s+)?instalaci[oó]n\b/i,
-      /instalaci[oó]n\s*(?:por|de)\s+(?:cada\s+una|cada\s+c[aá]mara|c[aá]mara)\s*(?:a|de)?\s*([\d.,]+)\s*(?:soles?|s\/\.?|pen)?/i
+      /instalaci[oó]n\s*(?:por\s+)?(?:cada\s+(?:una|c[aá]mara)|por\s+c[aá]mara|a)\s*([\d.,]+)\s*(?:soles?|s\/\.?|pen)?/i
     ]);
     if(install!=null)items.push({type:'SERVICIO',name:'Instalación de cámara IP',qty:n,unitPrice:install});
     const location=(raw.match(/ubicaci[oó]n\s*(?:es|:|-)?\s*(.+?)(?=\s+(?:materiales?|accesorios?|precio|instalaci[oó]n|cliente|cada\s+c[aá]mara|$))/i)||[])[1];

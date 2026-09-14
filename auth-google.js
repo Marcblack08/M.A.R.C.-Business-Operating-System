@@ -1,6 +1,8 @@
 const MARC_SUPABASE_URL='https://hmnzzknuiejchypalpig.supabase.co';
 const MARC_SUPABASE_PUBLISHABLE_KEY='sb_publishable_mhRoYMQTWrmYpuclqzQ1MA_6TMtGikq';
 const marcGoogleClient=window.supabase.createClient(MARC_SUPABASE_URL,MARC_SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+// Compatibilidad: los módulos de M.A.R.C. consumen el cliente desde window.
+window.supabaseClient=marcGoogleClient;
 
 const googleSignInButton=document.querySelector('#googleSignIn');
 if(googleSignInButton){

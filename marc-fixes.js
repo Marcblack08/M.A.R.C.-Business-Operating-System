@@ -3,9 +3,6 @@
   const add=(id,href)=>{if(document.querySelector(`link[data-marc="${id}"]`))return;const l=document.createElement('link');l.rel='stylesheet';l.href=href;l.dataset.marc=id;document.head.appendChild(l)};
   add('catalog-css','./catalogos-v4.css?v=8');add('editor-css','./catalogos-editor.css?v=6');
   const load=(id,src)=>{if(document.querySelector(`script[data-marc="${id}"]`))return;const s=document.createElement('script');s.src=src;s.dataset.marc=id;document.head.appendChild(s)};
-  /* El módulo general debe cargarse ANTES que V7 para interceptar el PDF
-     y mostrar la información general (proveedor/rubro/contacto/delivery).
-     Después dispara el change de continuación para que V7 procese el archivo. */
   load('catalog-sync','./catalogos-sync.js?v=6');
   load('catalog-general','./catalogo-general.js?v=2');
   load('catalog-v7','./catalogos-v7.js?v=3');
@@ -13,6 +10,7 @@
   load('inventory-tools','./inventario-tools.js?v=4');
   load('inventory-history','./inventario-historial.js?v=1');
   load('inventory-detail','./inventario-detalle.js?v=1');
+  load('products-tools','./productos-tools.js?v=1');
   window.__MARC_CATALOG_TYPE='PROPIO';try{Object.defineProperty(window,'tipo',{configurable:true,get(){return window.__MARC_CATALOG_TYPE||'PROPIO'},set(v){window.__MARC_CATALOG_TYPE=v||'PROPIO'}})}catch{}
   document.addEventListener('change',e=>{const id=e.target?.id;if(id==='cat4Own'||id==='catOwn')window.__MARC_CATALOG_TYPE='PROPIO';if(id==='cat4Prov'||id==='catSupplier')window.__MARC_CATALOG_TYPE='PROVEEDOR'},true);
   const validSections=new Set(['dashboard','clients','products','services','inventory','quotes','reports','documents','ai','company','settings']);let current=location.hash.replace(/^#/,'');if(!validSections.has(current))current='dashboard';

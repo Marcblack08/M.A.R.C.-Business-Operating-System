@@ -13,6 +13,7 @@ const clean = value => {
   const s=value.trim().replace(/^```(?:json)?/i,'').replace(/```$/,'').trim();
   try{return JSON.parse(s)}catch{return null}
 };
+
 const normalize = j => {
   const x=j||{};
   return {
@@ -32,12 +33,25 @@ const normalize = j => {
     ambiguedades:Array.isArray(x.ambiguedades)?x.ambiguedades.map(String):[]
   };
 };
+
+// El frontend puede enviar miles de productos/servicios. Eso vuelve lento el prompt y no es necesario
+// para entender el dictado. Conservamos solo los campos útiles y un conjunto pequeño de candidatos.
+const compact = (arr, fields, max=160) => (Array.isArray(arr)?arr:[]).slice(0,max).map(x=>{
+  const o={};for(const k of fields)if(x?.[k]!==undefined&&x?.[k]!==null&&String(x[k]).trim()!=='')o[k]=x[k];return o;
+});
+
+const compactContext = ctx => ({
+  clientes:compact(ctx?.clientes,['id','nombre','documento'],300),
+  productos:compact(ctx?.productos,['id','codigo','nombre','marca','modelo','unidad','precio_venta'],160),
+  servicios:compact(ctx?.servicios,['id','codigo','nombre','categoria','unidad','precio'],120)
+});
+
 const promptFor = (text,ctx) => `Eres el motor semántico de M.A.R.C., un sistema empresarial de cotizaciones. Interpreta el dictado completo y devuelve SOLO JSON válido.
 
 REGLAS CRÍTICAS:
 1. Extrae cliente, ubicación, duración, modalidad de costo y partidas.
 2. Usa únicamente clientes/productos/servicios que aparecen en el contexto. Nunca inventes IDs. Si no hay coincidencia, usa una cadena vacía en el ID correspondiente y conserva el texto hablado.
-3. No confundas cliente con ubicación. Frases como "cliente es bloque 2" identifican cliente; frases después de "ubicación" identifican ubicación.
+3. No confundas cliente con ubicación. "cliente es X" identifica cliente; "ubicación X" identifica ubicación. Si el dictado dice primero un lugar y luego "bloque 8", no conviertas automáticamente el bloque en cliente: conserva cada dato según sus marcadores y, si no queda claro, agrega ambigüedad.
 4. La cantidad global se aplica a las partidas cuando el dictado habla de varias unidades, por ejemplo "instalación de tres cámaras".
 5. Un precio es POR UNIDAD si el dictado dice "cada", "por cámara", "por unidad", "por equipo", "por pieza", "por metro", "por hora" o equivalente. En esos casos alcance_precio="unitario".
 6. Si dice solamente "materiales 80 soles" o "instalación 300", sin indicar por unidad, alcance_precio="global" y NO multipliques por la cantidad.
@@ -47,18 +61,13 @@ REGLAS CRÍTICAS:
 10. Si una frase es ambigua, no adivines: agrega una entrada en ambiguedades.
 11. confianza debe reflejar la claridad del dictado, entre 0 y 1.
 12. precio_total_explicito debe ser 0 cuando no se mencionó un total final explícito. Los IDs no encontrados deben ser cadenas vacías.
+13. Si se dice "dos cámaras IP precio de cámara por unidad 250", crea una partida de producto/equipo con cantidad 2 y precio unitario 250. Si se dice además "materiales 80" e "instalación 300" sin "por cámara"/"por unidad", crea esas partidas como globales: 80 y 300, sin multiplicarlas.
 
 DICTADO:
 ${String(text||'').slice(0,12000)}
 
-CLIENTES DISPONIBLES:
-${JSON.stringify(ctx?.clientes||[]).slice(0,30000)}
-
-PRODUCTOS DISPONIBLES:
-${JSON.stringify(ctx?.productos||[]).slice(0,30000)}
-
-SERVICIOS DISPONIBLES:
-${JSON.stringify(ctx?.servicios||[]).slice(0,20000)}`;
+CONTEXTO DISPONIBLE (solo candidatos reales; no inventes IDs):
+${JSON.stringify(compactContext(ctx))}`;
 
 export async function onRequestPost(context) {
   const headers={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'};
@@ -73,7 +82,7 @@ export async function onRequestPost(context) {
       if(parsed)return new Response(JSON.stringify({quote:normalize(parsed),modelo:'@cf/meta/llama-3.3-70b-instruct-fp8-fast'}),{status:200,headers});
     }
     if(context.env.GEMINI_API_KEY){
-      const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key='+encodeURIComponent(context.env.GEMINI_API_KEY),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{role:'user',parts:[{text:prompt}]}],generationConfig:{responseMimeType:'application/json',responseSchema:schema,maxOutputTokens:5000}})});
+      const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key='+encodeURIComponent(context.env.GEMINI_API_KEY),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{role:'user',parts:[{text:prompt}]}],generationConfig:{responseMimeType:'application/json',responseSchema:schema,maxOutputTokens:2500}})});
       const j=await r.json();
       if(r.ok){const raw=j?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')||'';const parsed=clean(raw);if(parsed)return new Response(JSON.stringify({quote:normalize(parsed),modelo:'gemini-3.6-flash'}),{status:200,headers});}
     }

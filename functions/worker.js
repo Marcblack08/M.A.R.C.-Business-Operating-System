@@ -1,5 +1,6 @@
 import { onRequestPost as transcribeQuote } from './api/transcribe-quote.js';
 import { onRequestPost as interpretQuote } from './api/interpret-quote.js';
+import { onRequestPost as improveQuoteDescription } from './api/improve-quote-description.js';
 
 const json = (body, status=404) => new Response(JSON.stringify(body), {
   status,
@@ -18,6 +19,11 @@ export default {
     if (url.pathname === '/api/interpret-quote') {
       if (request.method !== 'POST') return json({error:'Método no permitido'}, 405);
       return interpretQuote({request, env, waitUntil: ctx.waitUntil.bind(ctx), next: async () => new Response(null, {status:404})});
+    }
+
+    if (url.pathname === '/api/improve-quote-description') {
+      if (request.method !== 'POST') return json({error:'Método no permitido'}, 405);
+      return improveQuoteDescription({request, env, waitUntil: ctx.waitUntil.bind(ctx), next: async () => new Response(null, {status:404})});
     }
 
     if (url.pathname.startsWith('/api/')) {

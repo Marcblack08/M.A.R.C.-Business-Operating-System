@@ -1,6 +1,10 @@
 name = "marc-business-operating-system"
-pages_build_output_dir = "."
+main = "functions/worker.js"
 compatibility_date = "2026-09-15"
 
 [ai]
 binding = "AI"
+
+[assets]
+directory = "."
+run_worker_first = ["/api/*"]

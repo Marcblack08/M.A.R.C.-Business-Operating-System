@@ -34,34 +34,31 @@ const normalize = j => {
   };
 };
 
-// El frontend puede enviar miles de productos/servicios. Eso vuelve lento el prompt y no es necesario
-// para entender el dictado. Conservamos solo los campos útiles y un conjunto pequeño de candidatos.
 const compact = (arr, fields, max=160) => (Array.isArray(arr)?arr:[]).slice(0,max).map(x=>{
   const o={};for(const k of fields)if(x?.[k]!==undefined&&x?.[k]!==null&&String(x[k]).trim()!=='')o[k]=x[k];return o;
 });
-
 const compactContext = ctx => ({
   clientes:compact(ctx?.clientes,['id','nombre','documento'],300),
   productos:compact(ctx?.productos,['id','codigo','nombre','marca','modelo','unidad','precio_venta'],160),
   servicios:compact(ctx?.servicios,['id','codigo','nombre','categoria','unidad','precio'],120)
 });
 
-const promptFor = (text,ctx) => `Eres el motor semántico de M.A.R.C., un sistema empresarial de cotizaciones. Interpreta el dictado completo y devuelve SOLO JSON válido.
+const promptFor = (text,ctx) => `Eres el motor semántico de M.A.R.C., un sistema empresarial de cotizaciones en Perú. Interpreta el dictado completo y devuelve SOLO JSON válido.
 
 REGLAS CRÍTICAS:
 1. Extrae cliente, ubicación, duración, modalidad de costo y partidas.
 2. Usa únicamente clientes/productos/servicios que aparecen en el contexto. Nunca inventes IDs. Si no hay coincidencia, usa una cadena vacía en el ID correspondiente y conserva el texto hablado.
-3. No confundas cliente con ubicación. "cliente es X" identifica cliente; "ubicación X" identifica ubicación. Si el dictado dice primero un lugar y luego "bloque 8", no conviertas automáticamente el bloque en cliente: conserva cada dato según sus marcadores y, si no queda claro, agrega ambigüedad.
-4. La cantidad global se aplica a las partidas cuando el dictado habla de varias unidades, por ejemplo "instalación de tres cámaras".
+3. No confundas cliente con ubicación. "cliente es X" identifica cliente; "ubicación X" identifica ubicación. Si no existe marcador suficiente, conserva el texto y agrega una ambigüedad en vez de adivinar.
+4. "instalación de dos cámaras IP" significa cantidad 2 para la partida correspondiente.
 5. Un precio es POR UNIDAD si el dictado dice "cada", "por cámara", "por unidad", "por equipo", "por pieza", "por metro", "por hora" o equivalente. En esos casos alcance_precio="unitario".
 6. Si dice solamente "materiales 80 soles" o "instalación 300", sin indicar por unidad, alcance_precio="global" y NO multipliques por la cantidad.
 7. "TODO COSTO" solamente cuando el usuario lo dice o lo expresa inequívocamente. En TODO COSTO crea una única partida global con el total explícito y no inventes productos, materiales ni servicios.
 8. Si existen partidas detalladas y además un precio total explícito, conserva ambos. No modifiques las partidas para hacerlas coincidir con el total.
-9. Interpreta números hablados: "13.500" significa 13500 en contexto monetario peruano; "8 mil 200" significa 8200.
-10. Si una frase es ambigua, no adivines: agrega una entrada en ambiguedades.
+9. Interpreta números hablados y formato peruano: "13.500"=13500 y "8 mil 200"=8200.
+10. Si el usuario describe características del equipo (por ejemplo 4 megapíxeles, ColorVu, tubular), intégralas en nombre/descripcion de la partida. No inventes un modelo exacto.
 11. confianza debe reflejar la claridad del dictado, entre 0 y 1.
 12. precio_total_explicito debe ser 0 cuando no se mencionó un total final explícito. Los IDs no encontrados deben ser cadenas vacías.
-13. Si se dice "dos cámaras IP precio de cámara por unidad 250", crea una partida de producto/equipo con cantidad 2 y precio unitario 250. Si se dice además "materiales 80" e "instalación 300" sin "por cámara"/"por unidad", crea esas partidas como globales: 80 y 300, sin multiplicarlas.
+13. Para "dos cámaras IP, precio por cámara 250, materiales 80, instalación 300", devuelve cámara cantidad 2 precio unitario 250, materiales global 80 e instalación global 300.
 
 DICTADO:
 ${String(text||'').slice(0,12000)}
@@ -75,17 +72,20 @@ export async function onRequestPost(context) {
     const body=await context.request.json();
     const text=String(body?.text||'').trim();
     if(!text)return new Response(JSON.stringify({error:'Falta el texto del dictado'}),{status:400,headers});
+    const apiKey=String(context.env?.GEMINI_API_KEY||'').trim();
+    if(!apiKey)return new Response(JSON.stringify({error:'GEMINI_API_KEY no está configurada en Cloudflare'}),{status:503,headers});
+
     const prompt=promptFor(text,body?.context||{});
-    if(context.env.AI){
-      const result=await context.env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast',{messages:[{role:'system',content:'Devuelve únicamente JSON válido. Respeta exactamente el esquema solicitado.'},{role:'user',content:prompt}],response_format:{type:'json_schema',json_schema:{name:'quote',schema,strict:true}}});
-      const parsed=clean(result?.response??result?.result?.response??result);
-      if(parsed)return new Response(JSON.stringify({quote:normalize(parsed),modelo:'@cf/meta/llama-3.3-70b-instruct-fp8-fast'}),{status:200,headers});
+    const url='https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key='+encodeURIComponent(apiKey);
+    const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{role:'user',parts:[{text:prompt}]}],generationConfig:{responseMimeType:'application/json',responseSchema:schema,maxOutputTokens:2500,temperature:0.1}})});
+    const j=await r.json();
+    if(!r.ok){
+      const detail=j?.error?.message||'Gemini rechazó la solicitud';
+      return new Response(JSON.stringify({error:`Gemini: ${detail}`}),{status:502,headers});
     }
-    if(context.env.GEMINI_API_KEY){
-      const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key='+encodeURIComponent(context.env.GEMINI_API_KEY),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{role:'user',parts:[{text:prompt}]}],generationConfig:{responseMimeType:'application/json',responseSchema:schema,maxOutputTokens:2500}})});
-      const j=await r.json();
-      if(r.ok){const raw=j?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')||'';const parsed=clean(raw);if(parsed)return new Response(JSON.stringify({quote:normalize(parsed),modelo:'gemini-3.6-flash'}),{status:200,headers});}
-    }
-    return new Response(JSON.stringify({error:'No hay motor de interpretación disponible'}),{status:503,headers});
+    const raw=j?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')||'';
+    const parsed=clean(raw);
+    if(!parsed)return new Response(JSON.stringify({error:'Gemini respondió sin JSON válido'}),{status:502,headers});
+    return new Response(JSON.stringify({quote:normalize(parsed),modelo:'gemini-3.6-flash'}),{status:200,headers});
   }catch(error){return new Response(JSON.stringify({error:String(error?.message||error)}),{status:503,headers});}
 }

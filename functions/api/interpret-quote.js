@@ -2,10 +2,11 @@ const schema = {
   type:'object',
   properties:{
     cliente_id:{type:'string'},cliente_texto:{type:'string'},ubicacion:{type:'string'},duracion:{type:'string'},modalidad_costo:{type:'string'},precio_total_explicito:{type:'number'},currency:{type:'string'},cantidad_global:{type:'number'},
+    descripcion_trabajo:{type:'string'},
     partidas:{type:'array',items:{type:'object',properties:{tipo:{type:'string'},nombre:{type:'string'},producto_id:{type:'string'},servicio_id:{type:'string'},cantidad:{type:'number'},unidad:{type:'string'},precio_unitario:{type:'number'},alcance_precio:{type:'string'},descripcion:{type:'string'}},required:['tipo','nombre','producto_id','servicio_id','cantidad','unidad','precio_unitario','alcance_precio','descripcion']}},
     confianza:{type:'number'},ambiguedades:{type:'array',items:{type:'string'}}
   },
-  required:['cliente_id','cliente_texto','ubicacion','duracion','modalidad_costo','precio_total_explicito','currency','cantidad_global','partidas','confianza','ambiguedades']
+  required:['cliente_id','cliente_texto','ubicacion','duracion','modalidad_costo','precio_total_explicito','currency','cantidad_global','descripcion_trabajo','partidas','confianza','ambiguedades']
 };
 
 const clean = value => {
@@ -25,6 +26,7 @@ const normalize = j => {
     precio_total_explicito:Number(x.precio_total_explicito||0)||null,
     currency:String(x.currency||'PEN'),
     cantidad_global:Number(x.cantidad_global||1),
+    descripcion_trabajo:String(x.descripcion_trabajo||'').trim(),
     partidas:Array.isArray(x.partidas)?x.partidas.map(p=>({
       tipo:String(p.tipo||'SERVICIO').toUpperCase(),nombre:String(p.nombre||'').trim(),producto_id:p.producto_id?String(p.producto_id):null,servicio_id:p.servicio_id?String(p.servicio_id):null,
       cantidad:Number(p.cantidad||1),unidad:String(p.unidad||'UND'),precio_unitario:Number(p.precio_unitario||0),alcance_precio:String(p.alcance_precio||'global').toLowerCase(),descripcion:String(p.descripcion||'')
@@ -46,21 +48,24 @@ const compactContext = ctx => ({
 const promptFor = (text,ctx) => `Eres el motor semántico de M.A.R.C., un sistema empresarial de cotizaciones en Perú. Interpreta el dictado completo y devuelve SOLO JSON válido.
 
 REGLAS CRÍTICAS:
-1. Extrae cliente, ubicación, duración, modalidad de costo y TODAS las partidas con precio.
-2. El catálogo es SOLO una fuente opcional de IDs y datos de referencia. NUNCA descartes una partida porque no exista en productos o servicios. Si el usuario dice "cámara IP 250", "materiales 80" o "instalación 140" y no existe en el catálogo, crea igualmente la partida con producto_id="", servicio_id="" y conserva exactamente el nombre y precio indicado.
-3. Para clientes sí usa únicamente candidatos reales del contexto. Nunca inventes IDs. Si no hay coincidencia, usa cliente_id="" y conserva el texto hablado en cliente_texto. Para productos/servicios, si no hay coincidencia, los IDs deben quedar vacíos pero la partida DEBE mantenerse como partida libre.
-4. No confundas cliente con ubicación. "cliente es X" identifica cliente; "ubicación X" identifica ubicación. Si no existe marcador suficiente, conserva el texto y agrega una ambigüedad en vez de adivinar.
-5. "instalación de dos cámaras IP" significa cantidad 2 para la partida correspondiente. Si luego se indica "cada cámara vale 250", aplica 250 como precio unitario a esa partida.
-6. Un precio es POR UNIDAD si el dictado dice "cada", "por cámara", "por unidad", "por equipo", "por pieza", "por metro", "por hora" o equivalente. En esos casos alcance_precio="unitario".
-7. Si dice solamente "materiales 80 soles" o "instalación 300", sin indicar por unidad, alcance_precio="global" y NO multipliques por la cantidad.
-8. "TODO COSTO" solamente cuando el usuario lo dice o lo expresa inequívocamente. En TODO COSTO crea una única partida global con el total explícito y no inventes productos, materiales ni servicios.
-9. Si existen partidas detalladas y además un precio total explícito, conserva ambos. No modifiques las partidas para hacerlas coincidir con el total.
-10. Interpreta números hablados y formato peruano: "13.500"=13500 y "8 mil 200"=8200.
-11. Si el usuario describe características del equipo (por ejemplo 4 megapíxeles, ColorVu, tubular), intégralas en nombre/descripcion de la partida. No inventes un modelo exacto.
-12. confianza debe reflejar la claridad del dictado, entre 0 y 1.
-13. precio_total_explicito debe ser 0 cuando no se mencionó un total final explícito. Los IDs no encontrados deben ser cadenas vacías.
-14. Para "dos cámaras IP, precio por cámara 250, materiales 80, instalación 300", devuelve cámara cantidad 2 precio unitario 250, materiales global 80 e instalación global 300, aunque ninguno de esos nombres exista en el catálogo.
-15. La salida debe representar lo que el usuario sabe y está cotizando, no lo que existe en la base de datos. El usuario puede conocer precios manualmente; esos precios tienen prioridad sobre los precios del catálogo.
+1. Extrae cliente, ubicación, duración, modalidad de costo, una DESCRIPCIÓN DEL TRABAJO y TODAS las partidas con precio.
+2. descripcion_trabajo debe ser una redacción profesional, clara y breve del trabajo que el cliente está solicitando. Debe explicar qué se hará, dónde se hará, qué se instalará o realizará y el objetivo o resultado cuando el usuario lo haya dicho. NO inventes ángulos, alturas, materiales, marcas, modelos, cantidades, zonas, procedimientos ni características que el usuario no haya mencionado. Si el dictado dice "instalación de dos cámaras IP en la puerta frontal y exterior para visualizar el acceso", redacta una descripción profesional con esos datos.
+3. La descripción debe integrar los hechos del dictado en párrafos naturales, no una lista de precios. Los precios y cantidades detallados deben permanecer además en partidas.
+4. El catálogo es SOLO una fuente opcional de IDs y datos de referencia. NUNCA descartes una partida porque no exista en productos o servicios. Si el usuario dice "cámara IP 250", "materiales 80" o "instalación 140" y no existe en el catálogo, crea igualmente la partida con producto_id="", servicio_id="" y conserva exactamente el nombre y precio indicado.
+5. Para clientes sí usa únicamente candidatos reales del contexto. Nunca inventes IDs. Si no hay coincidencia, usa cliente_id="" y conserva el texto hablado en cliente_texto. Para productos/servicios, si no hay coincidencia, los IDs deben quedar vacíos pero la partida DEBE mantenerse como partida libre.
+6. No confundas cliente con ubicación. "cliente es X" identifica cliente; "ubicación X" identifica ubicación. Si no existe marcador suficiente, conserva el texto y agrega una ambigüedad en vez de adivinar.
+7. "instalación de dos cámaras IP" significa cantidad 2 para la partida correspondiente. Si luego se indica "cada cámara vale 250", aplica 250 como precio unitario a esa partida.
+8. Un precio es POR UNIDAD si el dictado dice "cada", "por cámara", "por unidad", "por equipo", "por pieza", "por metro", "por hora" o equivalente. En esos casos alcance_precio="unitario".
+9. Si dice solamente "materiales 80 soles" o "instalación 300", sin indicar por unidad, alcance_precio="global" y NO multipliques por la cantidad.
+10. "TODO COSTO" solamente cuando el usuario lo dice o lo expresa inequívocamente. En TODO COSTO crea una única partida global con el total explícito y no inventes productos, materiales ni servicios.
+11. Si existen partidas detalladas y además un precio total explícito, conserva ambos. No modifiques las partidas para hacerlas coincidir con el total.
+12. Interpreta números hablados y formato peruano: "13.500"=13500 y "8 mil 200"=8200.
+13. Si el usuario describe características del equipo (por ejemplo 4 megapíxeles, ColorVu, tubular), intégralas en nombre/descripcion de la partida. No inventes un modelo exacto.
+14. confianza debe reflejar la claridad del dictado, entre 0 y 1.
+15. precio_total_explicito debe ser 0 cuando no se mencionó un total final explícito. Los IDs no encontrados deben ser cadenas vacías.
+16. Para "dos cámaras IP, precio por cámara 250, materiales 80, instalación 300", devuelve cámara cantidad 2 precio unitario 250, materiales global 80 e instalación global 300, aunque ninguno de esos nombres exista en el catálogo.
+17. La salida debe representar lo que el usuario sabe y está cotizando, no lo que existe en la base de datos. El usuario puede conocer precios manualmente; esos precios tienen prioridad sobre los precios del catálogo.
+18. Si el usuario habla de un trabajo sin suficientes detalles técnicos, redacta la descripción con lo que sí dijo y no rellenes los huecos con suposiciones.
 
 DICTADO:
 ${String(text||'').slice(0,12000)}

@@ -1,10 +1,6 @@
 name = "marc-business-operating-system"
-main = "src/worker-gemini.js"
-compatibility_date = "2026-09-11"
+pages_build_output_dir = "."
+compatibility_date = "2026-09-15"
 
 [ai]
 binding = "AI"
-
-[assets]
-directory = "."
-run_worker_first = ["/api/*"]

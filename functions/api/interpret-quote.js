@@ -43,7 +43,36 @@ const compactContext = ctx => ({
   servicios:compact(ctx?.servicios,['id','codigo','nombre','categoria','unidad','precio'],120)
 });
 
-const promptFor = (text,ctx) => `Eres el motor semántico de M.A.R.C., un sistema empresarial de cotizaciones en Perú. Interpreta el dictado completo y devuelve SOLO JSON válido.\n\nREGLAS CRÍTICAS:\n1. Extrae cliente, ubicación, duración, modalidad de costo y partidas.\n2. Usa únicamente clientes/productos/servicios que aparecen en el contexto. Nunca inventes IDs. Si no hay coincidencia, usa una cadena vacía en el ID correspondiente y conserva el texto hablado.\n3. No confundas cliente con ubicación. "cliente es X" identifica cliente; "ubicación X" identifica ubicación. Si no existe marcador suficiente, conserva el texto y agrega una ambigüedad en vez de adivinar.\n4. "instalación de dos cámaras IP" significa cantidad 2 para la partida correspondiente.\n5. Un precio es POR UNIDAD si el dictado dice "cada", "por cámara", "por unidad", "por equipo", "por pieza", "por metro", "por hora" o equivalente. En esos casos alcance_precio="unitario".\n6. Si dice solamente "materiales 80 soles" o "instalación 300", sin indicar por unidad, alcance_precio="global" y NO multipliques por la cantidad.\n7. "TODO COSTO" solamente cuando el usuario lo dice o lo expresa inequívocamente. En TODO COSTO crea una única partida global con el total explícito y no inventes productos, materiales ni servicios.\n8. Si existen partidas detalladas y además un precio total explícito, conserva ambos. No modifiques las partidas para hacerlas coincidir con el total.\n9. Interpreta números hablados y formato peruano: "13.500"=13500 y "8 mil 200"=8200.\n10. Si el usuario describe características del equipo (por ejemplo 4 megapíxeles, ColorVu, tubular), intégralas en nombre/descripcion de la partida. No inventes un modelo exacto.\n11. confianza debe reflejar la claridad del dictado, entre 0 y 1.\n12. precio_total_explicito debe ser 0 cuando no se mencionó un total final explícito. Los IDs no encontrados deben ser cadenas vacías.\n13. Para "dos cámaras IP, precio por cámara 250, materiales 80, instalación 300", devuelve cámara cantidad 2 precio unitario 250, materiales global 80 e instalación global 300.\n\nDICTADO:\n${String(text||'').slice(0,12000)}\n\nCONTEXTO DISPONIBLE (solo candidatos reales; no inventes IDs):\n${JSON.stringify(compactContext(ctx))}`;
+const promptFor = (text,ctx) => `Eres el motor semántico de M.A.R.C., un sistema empresarial de cotizaciones en Perú. Interpreta el dictado completo y devuelve SOLO JSON válido.
+
+REGLAS CRÍTICAS:
+1. Extrae cliente, ubicación, duración, modalidad de costo y partidas.
+2. Usa únicamente clientes/productos/servicios que aparecen en el contexto. Nunca inventes IDs. Si no hay coincidencia, usa una cadena vacía en el ID correspondiente y conserva el texto hablado.
+3. No confundas cliente con ubicación. "cliente es X" identifica cliente; "ubicación X" identifica ubicación. Si no existe marcador suficiente, conserva el texto y agrega una ambigüedad en vez de adivinar.
+4. "instalación de dos cámaras IP" significa cantidad 2 para la partida correspondiente.
+5. Un precio es POR UNIDAD si el dictado dice "cada", "por cámara", "por unidad", "por equipo", "por pieza", "por metro", "por hora" o equivalente. En esos casos alcance_precio="unitario".
+6. Si dice solamente "materiales 80 soles" o "instalación 300", sin indicar por unidad, alcance_precio="global" y NO multipliques por la cantidad.
+7. "TODO COSTO" solamente cuando el usuario lo dice o lo expresa inequívocamente. En TODO COSTO crea una única partida global con el total explícito y no inventes productos, materiales ni servicios.
+8. Si existen partidas detalladas y además un precio total explícito, conserva ambos. No modifiques las partidas para hacerlas coincidir con el total.
+9. Interpreta números hablados y formato peruano: "13.500"=13500 y "8 mil 200"=8200.
+10. Si el usuario describe características del equipo (por ejemplo 4 megapíxeles, ColorVu, tubular), intégralas en nombre/descripcion de la partida. No inventes un modelo exacto.
+11. confianza debe reflejar la claridad del dictado, entre 0 y 1.
+12. precio_total_explicito debe ser 0 cuando no se mencionó un total final explícito. Los IDs no encontrados deben ser cadenas vacías.
+13. Para "dos cámaras IP, precio por cámara 250, materiales 80, instalación 300", devuelve cámara cantidad 2 precio unitario 250, materiales global 80 e instalación global 300.
+
+DICTADO:
+${String(text||'').slice(0,12000)}
+
+CONTEXTO DISPONIBLE (solo candidatos reales; no inventes IDs):
+${JSON.stringify(compactContext(ctx))}`;
+
+const callGemini = async (apiKey, model, prompt) => {
+  const url='https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent';
+  const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':apiKey},body:JSON.stringify({contents:[{role:'user',parts:[{text:prompt}]}],generationConfig:{responseMimeType:'application/json',responseSchema:schema,maxOutputTokens:2500}})});
+  const j=await r.json();
+  const raw=j?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')||'';
+  return {ok:r.ok, status:r.status, detail:j?.error?.message||'', parsed:clean(raw)};
+};
 
 export async function onRequestPost(context) {
   const headers={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'};
@@ -51,23 +80,18 @@ export async function onRequestPost(context) {
     const body=await context.request.json();
     const text=String(body?.text||'').trim();
     if(!text)return new Response(JSON.stringify({error:'Falta el texto del dictado'}),{status:400,headers});
-
-    // GEMINI_API_KEY2 está reservado exclusivamente para la interpretación semántica de cotizaciones de M.A.R.C.
-    // GEMINI_API_KEY queda reservado para la función de normalización/procesamiento de PDF y no se reutiliza aquí.
     const apiKey=String(context.env?.GEMINI_API_KEY2||'').trim();
     if(!apiKey)return new Response(JSON.stringify({error:'GEMINI_API_KEY2 no está configurada en Cloudflare'}),{status:503,headers});
 
     const prompt=promptFor(text,body?.context||{});
-    const url='https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key='+encodeURIComponent(apiKey);
-    const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{role:'user',parts:[{text:prompt}]}],generationConfig:{responseMimeType:'application/json',responseSchema:schema,maxOutputTokens:2500,temperature:0.1}})});
-    const j=await r.json();
-    if(!r.ok){
-      const detail=j?.error?.message||'Gemini rechazó la solicitud';
-      return new Response(JSON.stringify({error:`Gemini: ${detail}`}),{status:502,headers});
+    const models=['gemini-3.6-flash','gemini-3.5-flash-lite'];
+    let lastDetail='';
+    for(const model of models){
+      const result=await callGemini(apiKey,model,prompt);
+      if(result.ok&&result.parsed)return new Response(JSON.stringify({quote:normalize(result.parsed),modelo:model}),{status:200,headers});
+      lastDetail=result.detail||`HTTP ${result.status}`;
+      if(result.status!==429&&result.status!==503)break;
     }
-    const raw=j?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')||'';
-    const parsed=clean(raw);
-    if(!parsed)return new Response(JSON.stringify({error:'Gemini respondió sin JSON válido'}),{status:502,headers});
-    return new Response(JSON.stringify({quote:normalize(parsed),modelo:'gemini-3.6-flash'}),{status:200,headers});
+    return new Response(JSON.stringify({error:`Gemini no disponible temporalmente: ${lastDetail}`}),{status:502,headers});
   }catch(error){return new Response(JSON.stringify({error:String(error?.message||error)}),{status:503,headers});}
 }

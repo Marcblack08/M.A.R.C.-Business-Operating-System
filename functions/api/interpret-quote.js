@@ -1,8 +1,8 @@
 const schema = {
   type:'object',
   properties:{
-    cliente_id:{type:['string','null']},cliente_texto:{type:'string'},ubicacion:{type:'string'},duracion:{type:'string'},modalidad_costo:{type:'string'},precio_total_explicito:{type:['number','null']},currency:{type:'string'},cantidad_global:{type:'number'},
-    partidas:{type:'array',items:{type:'object',properties:{tipo:{type:'string'},nombre:{type:'string'},producto_id:{type:['string','null']},servicio_id:{type:['string','null']},cantidad:{type:'number'},unidad:{type:'string'},precio_unitario:{type:'number'},alcance_precio:{type:'string'},descripcion:{type:'string'}},required:['tipo','nombre','producto_id','servicio_id','cantidad','unidad','precio_unitario','alcance_precio','descripcion']}},
+    cliente_id:{type:'string'},cliente_texto:{type:'string'},ubicacion:{type:'string'},duracion:{type:'string'},modalidad_costo:{type:'string'},precio_total_explicito:{type:'number'},currency:{type:'string'},cantidad_global:{type:'number'},
+    partidas:{type:'array',items:{type:'object',properties:{tipo:{type:'string'},nombre:{type:'string'},producto_id:{type:'string'},servicio_id:{type:'string'},cantidad:{type:'number'},unidad:{type:'string'},precio_unitario:{type:'number'},alcance_precio:{type:'string'},descripcion:{type:'string'}},required:['tipo','nombre','producto_id','servicio_id','cantidad','unidad','precio_unitario','alcance_precio','descripcion']}},
     confianza:{type:'number'},ambiguedades:{type:'array',items:{type:'string'}}
   },
   required:['cliente_id','cliente_texto','ubicacion','duracion','modalidad_costo','precio_total_explicito','currency','cantidad_global','partidas','confianza','ambiguedades']
@@ -16,16 +16,16 @@ const clean = value => {
 const normalize = j => {
   const x=j||{};
   return {
-    cliente_id:x.cliente_id||null,
+    cliente_id:x.cliente_id?String(x.cliente_id):null,
     cliente_texto:String(x.cliente_texto||''),
     ubicacion:String(x.ubicacion||''),
     duracion:String(x.duracion||''),
     modalidad_costo:String(x.modalidad_costo||'DESGLOSADO').toUpperCase(),
-    precio_total_explicito:x.precio_total_explicito==null?null:Number(x.precio_total_explicito)||0,
+    precio_total_explicito:Number(x.precio_total_explicito||0)||null,
     currency:String(x.currency||'PEN'),
     cantidad_global:Number(x.cantidad_global||1),
     partidas:Array.isArray(x.partidas)?x.partidas.map(p=>({
-      tipo:String(p.tipo||'SERVICIO').toUpperCase(),nombre:String(p.nombre||'').trim(),producto_id:p.producto_id||null,servicio_id:p.servicio_id||null,
+      tipo:String(p.tipo||'SERVICIO').toUpperCase(),nombre:String(p.nombre||'').trim(),producto_id:p.producto_id?String(p.producto_id):null,servicio_id:p.servicio_id?String(p.servicio_id):null,
       cantidad:Number(p.cantidad||1),unidad:String(p.unidad||'UND'),precio_unitario:Number(p.precio_unitario||0),alcance_precio:String(p.alcance_precio||'global').toLowerCase(),descripcion:String(p.descripcion||'')
     })).filter(p=>p.nombre&&p.precio_unitario>=0):[],
     confianza:Math.max(0,Math.min(1,Number(x.confianza||0))),
@@ -36,7 +36,7 @@ const promptFor = (text,ctx) => `Eres el motor semántico de M.A.R.C., un sistem
 
 REGLAS CRÍTICAS:
 1. Extrae cliente, ubicación, duración, modalidad de costo y partidas.
-2. Usa únicamente clientes/productos/servicios que aparecen en el contexto. Nunca inventes IDs. Si no hay coincidencia, usa null y conserva el texto hablado.
+2. Usa únicamente clientes/productos/servicios que aparecen en el contexto. Nunca inventes IDs. Si no hay coincidencia, usa una cadena vacía en el ID correspondiente y conserva el texto hablado.
 3. No confundas cliente con ubicación. Frases como "cliente es bloque 2" identifican cliente; frases después de "ubicación" identifican ubicación.
 4. La cantidad global se aplica a las partidas cuando el dictado habla de varias unidades, por ejemplo "instalación de tres cámaras".
 5. Un precio es POR UNIDAD si el dictado dice "cada", "por cámara", "por unidad", "por equipo", "por pieza", "por metro", "por hora" o equivalente. En esos casos alcance_precio="unitario".
@@ -46,6 +46,7 @@ REGLAS CRÍTICAS:
 9. Interpreta números hablados: "13.500" significa 13500 en contexto monetario peruano; "8 mil 200" significa 8200.
 10. Si una frase es ambigua, no adivines: agrega una entrada en ambiguedades.
 11. confianza debe reflejar la claridad del dictado, entre 0 y 1.
+12. precio_total_explicito debe ser 0 cuando no se mencionó un total final explícito. Los IDs no encontrados deben ser cadenas vacías.
 
 DICTADO:
 ${String(text||'').slice(0,12000)}

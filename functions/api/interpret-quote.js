@@ -46,19 +46,21 @@ const compactContext = ctx => ({
 const promptFor = (text,ctx) => `Eres el motor semántico de M.A.R.C., un sistema empresarial de cotizaciones en Perú. Interpreta el dictado completo y devuelve SOLO JSON válido.
 
 REGLAS CRÍTICAS:
-1. Extrae cliente, ubicación, duración, modalidad de costo y partidas.
-2. Usa únicamente clientes/productos/servicios que aparecen en el contexto. Nunca inventes IDs. Si no hay coincidencia, usa una cadena vacía en el ID correspondiente y conserva el texto hablado.
-3. No confundas cliente con ubicación. "cliente es X" identifica cliente; "ubicación X" identifica ubicación. Si no existe marcador suficiente, conserva el texto y agrega una ambigüedad en vez de adivinar.
-4. "instalación de dos cámaras IP" significa cantidad 2 para la partida correspondiente.
-5. Un precio es POR UNIDAD si el dictado dice "cada", "por cámara", "por unidad", "por equipo", "por pieza", "por metro", "por hora" o equivalente. En esos casos alcance_precio="unitario".
-6. Si dice solamente "materiales 80 soles" o "instalación 300", sin indicar por unidad, alcance_precio="global" y NO multipliques por la cantidad.
-7. "TODO COSTO" solamente cuando el usuario lo dice o lo expresa inequívocamente. En TODO COSTO crea una única partida global con el total explícito y no inventes productos, materiales ni servicios.
-8. Si existen partidas detalladas y además un precio total explícito, conserva ambos. No modifiques las partidas para hacerlas coincidir con el total.
-9. Interpreta números hablados y formato peruano: "13.500"=13500 y "8 mil 200"=8200.
-10. Si el usuario describe características del equipo (por ejemplo 4 megapíxeles, ColorVu, tubular), intégralas en nombre/descripcion de la partida. No inventes un modelo exacto.
-11. confianza debe reflejar la claridad del dictado, entre 0 y 1.
-12. precio_total_explicito debe ser 0 cuando no se mencionó un total final explícito. Los IDs no encontrados deben ser cadenas vacías.
-13. Para "dos cámaras IP, precio por cámara 250, materiales 80, instalación 300", devuelve cámara cantidad 2 precio unitario 250, materiales global 80 e instalación global 300.
+1. Extrae cliente, ubicación, duración, modalidad de costo y TODAS las partidas con precio.
+2. El catálogo es SOLO una fuente opcional de IDs y datos de referencia. NUNCA descartes una partida porque no exista en productos o servicios. Si el usuario dice "cámara IP 250", "materiales 80" o "instalación 140" y no existe en el catálogo, crea igualmente la partida con producto_id="", servicio_id="" y conserva exactamente el nombre y precio indicado.
+3. Para clientes sí usa únicamente candidatos reales del contexto. Nunca inventes IDs. Si no hay coincidencia, usa cliente_id="" y conserva el texto hablado en cliente_texto. Para productos/servicios, si no hay coincidencia, los IDs deben quedar vacíos pero la partida DEBE mantenerse como partida libre.
+4. No confundas cliente con ubicación. "cliente es X" identifica cliente; "ubicación X" identifica ubicación. Si no existe marcador suficiente, conserva el texto y agrega una ambigüedad en vez de adivinar.
+5. "instalación de dos cámaras IP" significa cantidad 2 para la partida correspondiente. Si luego se indica "cada cámara vale 250", aplica 250 como precio unitario a esa partida.
+6. Un precio es POR UNIDAD si el dictado dice "cada", "por cámara", "por unidad", "por equipo", "por pieza", "por metro", "por hora" o equivalente. En esos casos alcance_precio="unitario".
+7. Si dice solamente "materiales 80 soles" o "instalación 300", sin indicar por unidad, alcance_precio="global" y NO multipliques por la cantidad.
+8. "TODO COSTO" solamente cuando el usuario lo dice o lo expresa inequívocamente. En TODO COSTO crea una única partida global con el total explícito y no inventes productos, materiales ni servicios.
+9. Si existen partidas detalladas y además un precio total explícito, conserva ambos. No modifiques las partidas para hacerlas coincidir con el total.
+10. Interpreta números hablados y formato peruano: "13.500"=13500 y "8 mil 200"=8200.
+11. Si el usuario describe características del equipo (por ejemplo 4 megapíxeles, ColorVu, tubular), intégralas en nombre/descripcion de la partida. No inventes un modelo exacto.
+12. confianza debe reflejar la claridad del dictado, entre 0 y 1.
+13. precio_total_explicito debe ser 0 cuando no se mencionó un total final explícito. Los IDs no encontrados deben ser cadenas vacías.
+14. Para "dos cámaras IP, precio por cámara 250, materiales 80, instalación 300", devuelve cámara cantidad 2 precio unitario 250, materiales global 80 e instalación global 300, aunque ninguno de esos nombres exista en el catálogo.
+15. La salida debe representar lo que el usuario sabe y está cotizando, no lo que existe en la base de datos. El usuario puede conocer precios manualmente; esos precios tienen prioridad sobre los precios del catálogo.
 
 DICTADO:
 ${String(text||'').slice(0,12000)}
@@ -71,7 +73,7 @@ const callGemini = async (apiKey, model, prompt) => {
   const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':apiKey},body:JSON.stringify({contents:[{role:'user',parts:[{text:prompt}]}],generationConfig:{responseMimeType:'application/json',responseSchema:schema,maxOutputTokens:2500}})});
   const j=await r.json();
   const raw=j?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')||'';
-  return {ok:r.ok, status:r.status, detail:j?.error?.message||'', parsed:clean(raw)};
+  return {ok:r.ok,status:r.status,detail:j?.error?.message||'',parsed:clean(raw)};
 };
 
 export async function onRequestPost(context) {
@@ -82,7 +84,6 @@ export async function onRequestPost(context) {
     if(!text)return new Response(JSON.stringify({error:'Falta el texto del dictado'}),{status:400,headers});
     const apiKey=String(context.env?.GEMINI_API_KEY2||'').trim();
     if(!apiKey)return new Response(JSON.stringify({error:'GEMINI_API_KEY2 no está configurada en Cloudflare'}),{status:503,headers});
-
     const prompt=promptFor(text,body?.context||{});
     const models=['gemini-3.6-flash','gemini-3.5-flash-lite'];
     let lastDetail='';

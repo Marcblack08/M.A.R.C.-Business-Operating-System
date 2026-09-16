@@ -2,13 +2,10 @@
 (function(){
   'use strict';
 
-  // Google login must have its own Supabase client so it does not depend
-  // on the application bootstrap completing before the button is clicked.
-  const MARC_SUPABASE_URL='https://hmnzzknuiejchypalpig.supabase.co';
-  const MARC_SUPABASE_PUBLISHABLE_KEY='sb_publishable_mhRoYMQTWrmYpuclqzQ1MA_6TMtGikq';
-
+  // Google must use the SAME Supabase client as app.js. Two independent
+  // clients can race while restoring the OAuth callback session.
   let bound=false;
-  let marcGoogleClient=null;
+  let sessionWatcherBound=false;
 
   function message(text,type){
     if(typeof window.authMsg==='function')window.authMsg(text,type);
@@ -18,15 +15,59 @@
     }
   }
 
-  function createClient(){
-    if(marcGoogleClient)return marcGoogleClient;
-    if(!window.supabase||typeof window.supabase.createClient!=='function')return null;
-    marcGoogleClient=window.supabase.createClient(
-      MARC_SUPABASE_URL,
-      MARC_SUPABASE_PUBLISHABLE_KEY,
-      {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}
-    );
-    return marcGoogleClient;
+  function getClient(){
+    return window.supabaseClient||null;
+  }
+
+  function revealApp(session){
+    if(!session)return false;
+
+    // Prefer the application's own function when available.
+    if(typeof window.marcShowApp==='function'){
+      window.marcShowApp(session);
+      return true;
+    }
+
+    // Fallback for the current app.js, whose showApp is not global yet.
+    const authScreen=document.querySelector('#authScreen');
+    const appShell=document.querySelector('#appShell');
+    if(!authScreen||!appShell)return false;
+
+    authScreen.hidden=true;
+    appShell.hidden=false;
+    const email=session.user?.email||'';
+    const emailEl=document.querySelector('#userEmail');
+    const companyEl=document.querySelector('#companyUser');
+    const nameEl=document.querySelector('#userName');
+    const name=email.split('@')[0]||'Usuario';
+    if(emailEl)emailEl.textContent=email;
+    if(companyEl)companyEl.textContent=name;
+    if(nameEl)nameEl.textContent=name;
+    if(typeof window.render==='function')window.render('dashboard');
+    return true;
+  }
+
+  async function restoreSession(){
+    const client=getClient();
+    if(!client)return false;
+
+    try{
+      const {data,error}=await client.auth.getSession();
+      if(error)throw error;
+      if(data?.session)return revealApp(data.session);
+    }catch(error){
+      console.error('M.A.R.C. Google session restore:',error);
+    }
+    return false;
+  }
+
+  function watchSession(){
+    const client=getClient();
+    if(!client||sessionWatcherBound)return;
+    sessionWatcherBound=true;
+    client.auth.onAuthStateChange((event,session)=>{
+      if(session)revealApp(session);
+    });
   }
 
   async function login(e){
@@ -35,7 +76,7 @@
     if(!button)return;
     if(button.dataset.busy==='1')return;
 
-    const client=createClient();
+    const client=getClient();
     if(!client){
       message('M.A.R.C. todavía está inicializando la autenticación. Inténtalo nuevamente.','error');
       return;
@@ -53,6 +94,7 @@
       });
       if(error)throw error;
       if(!data?.url)throw new Error('Google no devolvió la URL de autenticación.');
+      window.location.assign(data.url);
     }catch(error){
       console.error('M.A.R.C. Google OAuth:',error);
       message(error?.message||'No se pudo iniciar sesión con Google.','error');
@@ -77,17 +119,21 @@
   }
 
   function start(){
-    if(bind())return;
-    const timer=setInterval(()=>{if(bind())clearInterval(timer)},100);
-    setTimeout(()=>clearInterval(timer),10000);
-  }
+    const timer=setInterval(()=>{
+      const client=getClient();
+      if(client){
+        watchSession();
+        restoreSession();
+      }
+      if(bind()&&client)clearInterval(timer);
+    },100);
+    setTimeout(()=>clearInterval(timer),15000);
 
-  // Keep the existing app authentication flow untouched. This client only
-  // handles the Google OAuth entry point and can initialize independently.
-  const bootstrapTimer=setInterval(()=>{
-    if(createClient())clearInterval(bootstrapTimer);
-  },100);
-  setTimeout(()=>clearInterval(bootstrapTimer),10000);
+    // Explicit callback recovery attempts. Supabase's detectSessionInUrl
+    // handles the OAuth URL; these calls make the UI wait for that session
+    // instead of immediately remaining on the login screen.
+    [250,750,1500,3000].forEach(ms=>setTimeout(()=>restoreSession(),ms));
+  }
 
   start();
 })();

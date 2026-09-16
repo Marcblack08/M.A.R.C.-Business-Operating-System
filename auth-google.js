@@ -1,24 +1,26 @@
-/* M.A.R.C. — Google OAuth / single Supabase session */
+/* M.A.R.C. — Google OAuth + session bootstrap, single Supabase client */
 (function(){
   'use strict';
 
-  let bound=false;
-  let watcherBound=false;
+  let googleBound=false;
+  let sessionBound=false;
 
-  function client(){
-    return window.supabaseClient||null;
+  function getClient(){
+    return window.supabaseClient || null;
   }
 
-  function message(text,type){
-    if(typeof window.authMsg==='function')window.authMsg(text,type);
-    else{
-      const el=document.querySelector('#authMessage');
-      if(el){el.textContent=text;el.className=`auth-message ${type||''}`;}
-    }
+  function showMessage(text,type=''){
+    const el=document.querySelector('#authMessage');
+    if(el){el.textContent=text;el.className=`auth-message ${type}`;}
   }
 
-  function setUser(session){
-    const email=session?.user?.email||'';
+  function applySession(session){
+    if(!session)return false;
+    const auth=document.querySelector('#authScreen');
+    const shell=document.querySelector('#appShell');
+    if(!auth||!shell)return false;
+
+    const email=session.user?.email||'';
     const name=email.split('@')[0]||'Usuario';
     const emailEl=document.querySelector('#userEmail');
     const companyEl=document.querySelector('#companyUser');
@@ -26,144 +28,104 @@
     if(emailEl)emailEl.textContent=email;
     if(companyEl)companyEl.textContent=name;
     if(nameEl)nameEl.textContent=name;
-  }
 
-  function showShell(session){
-    if(!session)return false;
-    const authScreen=document.querySelector('#authScreen');
-    const appShell=document.querySelector('#appShell');
-    if(!authScreen||!appShell)return false;
-    setUser(session);
-    authScreen.hidden=true;
-    appShell.hidden=false;
+    auth.hidden=true;
+    shell.hidden=false;
     return true;
   }
 
-  function renderDashboard(){
+  function renderAfterAuth(){
     const content=document.querySelector('#content');
-    if(!content||typeof window.render!=='function')return false;
-    try{
-      window.render('dashboard');
-      return !!content.innerHTML.trim();
-    }catch(error){
-      console.error('M.A.R.C. dashboard render error:',error);
-      // Do not send the user back to authentication because a UI module failed.
-      // Keep the authenticated shell visible; the exact runtime error stays in the console.
-      return false;
-    }
-  }
-
-  function revealApp(session){
-    if(!session)return false;
-    if(!showShell(session))return false;
-
-    const attempt=()=>{
-      if(!showShell(session))return false;
-      return renderDashboard();
-    };
-
-    if(document.readyState==='complete'){
-      attempt();
-      [150,500,1200,2500].forEach(ms=>setTimeout(attempt,ms));
-    }else{
-      window.addEventListener('load',()=>{
-        attempt();
-        [150,500,1200].forEach(ms=>setTimeout(attempt,ms));
-      },{once:true});
-    }
-    return true;
+    if(!content||typeof window.render!=='function')return;
+    try{window.render('dashboard');}
+    catch(error){console.error('M.A.R.C. render:',error);}
   }
 
   async function restoreSession(){
-    const sb=client();
-    if(!sb)return false;
+    const sb=getClient();
+    if(!sb)return;
     try{
       const {data,error}=await sb.auth.getSession();
       if(error)throw error;
-      return data?.session?revealApp(data.session):false;
+      if(data?.session){
+        applySession(data.session);
+        // Render only after all scripts in index.html have been evaluated.
+        if(document.readyState==='complete')renderAfterAuth();
+        else window.addEventListener('load',renderAfterAuth,{once:true});
+      }
     }catch(error){
-      console.error('M.A.R.C. session restore error:',error);
-      return false;
+      console.error('M.A.R.C. session restore:',error);
     }
   }
 
-  function watchSession(){
-    const sb=client();
-    if(!sb||watcherBound)return;
-    watcherBound=true;
+  function bindSession(){
+    const sb=getClient();
+    if(!sb||sessionBound)return;
+    sessionBound=true;
     sb.auth.onAuthStateChange((event,session)=>{
-      if(session)revealApp(session);
-      else if(event==='SIGNED_OUT'){
-        const authScreen=document.querySelector('#authScreen');
-        const appShell=document.querySelector('#appShell');
-        if(authScreen)authScreen.hidden=false;
-        if(appShell)appShell.hidden=true;
+      if(session){
+        applySession(session);
+        if(document.readyState==='complete')renderAfterAuth();
+        else window.addEventListener('load',renderAfterAuth,{once:true});
+      }else if(event==='SIGNED_OUT'){
+        const auth=document.querySelector('#authScreen');
+        const shell=document.querySelector('#appShell');
+        if(auth)auth.hidden=false;
+        if(shell)shell.hidden=true;
       }
     });
   }
 
-  async function login(e){
-    if(e){e.preventDefault();e.stopPropagation();}
+  async function googleLogin(event){
+    event?.preventDefault();
+    event?.stopPropagation();
+
     const button=document.querySelector('#googleSignIn');
-    const sb=client();
+    const sb=getClient();
     if(!button||button.dataset.busy==='1')return;
     if(!sb){
-      message('M.A.R.C. todavía está cargando. Intenta nuevamente.','error');
+      showMessage('La autenticación todavía está iniciando. Espera un momento y vuelve a intentarlo.','error');
       return;
     }
+
     button.dataset.busy='1';
     button.disabled=true;
-    message('Conectando con Google...');
+    showMessage('Conectando con Google...');
+
     try{
       const redirectTo=window.location.origin+window.location.pathname;
       const {data,error}=await sb.auth.signInWithOAuth({
         provider:'google',
-        options:{redirectTo,skipBrowserRedirect:false}
+        options:{redirectTo}
       });
       if(error)throw error;
-      if(data?.url && !window.location.href.startsWith(data.url)){
-        // Normally Supabase performs the browser redirect itself.
-        window.location.assign(data.url);
-      }
+      if(data?.url)window.location.assign(data.url);
     }catch(error){
-      console.error('M.A.R.C. Google OAuth error:',error);
-      message(error?.message||'No se pudo iniciar sesión con Google.','error');
+      console.error('M.A.R.C. Google OAuth:',error);
+      showMessage(error?.message||'No se pudo iniciar sesión con Google.','error');
       button.dataset.busy='0';
       button.disabled=false;
     }
   }
 
-  function bind(){
+  function bindGoogle(){
     const button=document.querySelector('#googleSignIn');
-    if(!button||bound)return !!button;
-    bound=true;
-    button.addEventListener('click',login,false);
-    const sync=()=>{
-      button.hidden=document.querySelector('#authTitle')?.textContent==='Recuperar contraseña';
-    };
-    const title=document.querySelector('#authTitle');
-    if(title)new MutationObserver(sync).observe(title,{childList:true,characterData:true,subtree:true});
-    sync();
-    return true;
+    if(!button||googleBound)return;
+    googleBound=true;
+    button.addEventListener('click',googleLogin,false);
   }
 
-  function start(){
-    const boot=()=>{
-      const sb=client();
-      if(sb)watchSession();
-      bind();
-      if(sb)restoreSession();
-    };
-
-    if(document.readyState==='complete')boot();
-    else window.addEventListener('load',boot,{once:true});
-
-    [100,300,800,1500,3000].forEach(ms=>setTimeout(()=>{
-      const sb=client();
-      if(sb){watchSession();restoreSession();}
-      bind();
-    },ms));
+  function boot(){
+    // app.js is responsible for creating the single Supabase client and
+    // for email/password authentication. This file only adds Google + restore.
+    bindGoogle();
+    bindSession();
+    restoreSession();
   }
 
-  start();
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',boot,{once:true});
+  }else{
+    boot();
+  }
 })();

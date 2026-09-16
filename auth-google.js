@@ -1,4 +1,4 @@
-/* M.A.R.C. — Google OAuth */
+/* M.A.R.C. — Google OAuth + session bootstrap */
 (function(){
   'use strict';
 
@@ -6,6 +6,7 @@
   const SUPABASE_KEY='sb_publishable_mhRoYMQTWrmYpuclqzQ1MA_6TMtGikq';
   let bound=false;
   let client=null;
+  let lastSessionId=null;
 
   function message(text,type){
     if(typeof window.authMsg==='function')window.authMsg(text,type);
@@ -19,24 +20,18 @@
     if(window.supabaseClient)return window.supabaseClient;
     if(client)return client;
     if(!window.supabase||typeof window.supabase.createClient!=='function')return null;
-    client=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
-    // If app.js failed to publish its client, let the rest of M.A.R.C. use this one.
-    window.supabaseClient=client;
-    return client;
+    try{
+      client=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+      window.supabaseClient=client;
+      return client;
+    }catch(error){
+      console.error('M.A.R.C. Supabase client:',error);
+      return null;
+    }
   }
 
-  function revealApp(session){
-    if(!session)return false;
-    if(typeof window.marcShowApp==='function'){
-      window.marcShowApp(session);
-      return true;
-    }
-    const authScreen=document.querySelector('#authScreen');
-    const appShell=document.querySelector('#appShell');
-    if(!authScreen||!appShell)return false;
-    authScreen.hidden=true;
-    appShell.hidden=false;
-    const email=session.user?.email||'';
+  function setUser(session){
+    const email=session?.user?.email||'';
     const name=email.split('@')[0]||'Usuario';
     const emailEl=document.querySelector('#userEmail');
     const companyEl=document.querySelector('#companyUser');
@@ -44,7 +39,61 @@
     if(emailEl)emailEl.textContent=email;
     if(companyEl)companyEl.textContent=name;
     if(nameEl)nameEl.textContent=name;
-    if(typeof window.render==='function')window.render('dashboard');
+  }
+
+  function showShell(session){
+    if(!session)return false;
+    const authScreen=document.querySelector('#authScreen');
+    const appShell=document.querySelector('#appShell');
+    if(!authScreen||!appShell)return false;
+    setUser(session);
+    authScreen.hidden=true;
+    appShell.hidden=false;
+    return true;
+  }
+
+  function renderDashboard(){
+    const content=document.querySelector('#content');
+    if(!content)return false;
+    try{
+      if(typeof window.render==='function'){
+        window.render('dashboard');
+        return !!content.innerHTML.trim();
+      }
+      if(typeof render==='function'){
+        render('dashboard');
+        return !!content.innerHTML.trim();
+      }
+    }catch(error){
+      console.error('M.A.R.C. dashboard render:',error);
+      content.innerHTML='<section class="panel" style="margin:24px"><h2>M.A.R.C. inició sesión correctamente</h2><p>La sesión está activa. Cargando el panel de operaciones…</p></section>';
+      return false;
+    }
+    return false;
+  }
+
+  function revealApp(session){
+    if(!session)return false;
+    const sessionId=session.access_token||session.user?.id||'';
+    lastSessionId=sessionId;
+    if(!showShell(session))return false;
+
+    // The authentication callback can finish before the rest of the M.A.R.C.
+    // modules have completed loading. Render again after the page is ready.
+    const attempt=()=>{
+      if(!showShell(session))return false;
+      return renderDashboard();
+    };
+
+    if(document.readyState==='complete'){
+      attempt();
+      [100,400,1000,2000].forEach(ms=>setTimeout(attempt,ms));
+    }else{
+      window.addEventListener('load',()=>{
+        attempt();
+        [100,400,1000].forEach(ms=>setTimeout(attempt,ms));
+      },{once:true});
+    }
     return true;
   }
 
@@ -54,7 +103,8 @@
     try{
       const {data,error}=await sb.auth.getSession();
       if(error)throw error;
-      return data?.session?revealApp(data.session):false;
+      if(data?.session)return revealApp(data.session);
+      return false;
     }catch(error){
       console.error('M.A.R.C. session restore:',error);
       return false;
@@ -67,6 +117,12 @@
     sb.__marcGoogleWatcher=true;
     sb.auth.onAuthStateChange((event,session)=>{
       if(session)revealApp(session);
+      else if(event==='SIGNED_OUT'){
+        const authScreen=document.querySelector('#authScreen');
+        const appShell=document.querySelector('#appShell');
+        if(authScreen)authScreen.hidden=false;
+        if(appShell)appShell.hidden=true;
+      }
     });
   }
 
@@ -111,11 +167,15 @@
   function start(){
     const timer=setInterval(()=>{
       const sb=getClient();
-      if(sb){watchSession();restoreSession();}
-      if(bind()&&sb)clearInterval(timer);
+      if(sb)watchSession();
+      bind();
+      if(sb&&bound)clearInterval(timer);
     },100);
     setTimeout(()=>clearInterval(timer),15000);
-    [0,250,750,1500,3000].forEach(ms=>setTimeout(restoreSession,ms));
+
+    [0,300,800,1500,3000].forEach(ms=>setTimeout(()=>{
+      restoreSession();
+    },ms));
   }
 
   start();

@@ -1,6 +1,9 @@
 -- M.A.R.C. — estados comerciales de cotizaciones
--- Permite el flujo: BORRADOR -> APROBADO -> ENVIADO -> FINALIZADO.
--- Conserva los estados históricos anteriores para no romper registros existentes.
+-- Flujo: BORRADOR -> APROBADO -> ENVIADO -> FINALIZADO -> COBRADO.
+-- Se conservan estados históricos para no romper registros existentes.
+
+alter table public.cotizaciones
+  add column if not exists cobrado_at timestamptz;
 
 alter table public.cotizaciones
   drop constraint if exists cotizaciones_estado_chk;
@@ -12,6 +15,7 @@ alter table public.cotizaciones
     'APROBADO'::text,
     'ENVIADO'::text,
     'FINALIZADO'::text,
+    'COBRADO'::text,
     'ENVIADA'::text,
     'ACEPTADA'::text,
     'RECHAZADA'::text,

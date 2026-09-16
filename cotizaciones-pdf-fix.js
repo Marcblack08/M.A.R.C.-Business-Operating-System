@@ -1,54 +1,27 @@
-/* M.A.R.C. — PDF estable para cotizaciones */
+/* M.A.R.C. — PDF comercial moderno para cotizaciones */
 (function(){
 'use strict';
-const SOURCES=[
- 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js',
- 'https://unpkg.com/jspdf@2.5.2/dist/jspdf.umd.min.js'
-];
+const SOURCES=['https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js','https://unpkg.com/jspdf@2.5.2/dist/jspdf.umd.min.js'];
 let loading=null;
 const money=v=>'S/ '+Number(v||0).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
-function loadPdf(){
- if(window.jspdf?.jsPDF)return Promise.resolve(window.jspdf.jsPDF);
- if(loading)return loading;
- loading=(async()=>{
-   for(const src of SOURCES){
-     try{
-       await new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.async=true;s.onload=ok;s.onerror=no;document.head.appendChild(s)});
-       if(window.jspdf?.jsPDF)return window.jspdf.jsPDF;
-     }catch{}
-   }
-   throw Error('No se pudo cargar el motor PDF. Comprueba la conexión a Internet.');
- })();
- return loading;
-}
-async function data(id){
- const sb=window.supabaseClient;if(!sb)throw Error('No hay conexión con Supabase');
- const u=(await sb.auth.getUser()).data?.user;if(!u)throw Error('Necesita iniciar sesión');
- const a=await sb.from('cotizaciones').select('*').eq('id',id).eq('user_id',u.id).single();if(a.error)throw Error(a.error.message);
- const b=await sb.from('cotizacion_items').select('*').eq('cotizacion_id',id).eq('user_id',u.id).order('orden');if(b.error)throw Error(b.error.message);
- return{q:a.data,items:b.data||[]};
-}
-function current(){
- const q=window.__MARC_AI_QUOTE,m=q?._modal||document.querySelector('#qv3modal');if(!q||!m)return null;
- const items=(q.partidas||[]).map((p,i)=>{const price=Number(m.querySelector(`[data-ai-price="${i}"]`)?.value??p.precio_unitario??0);const qty=p.alcance_precio==='global'?1:Number(m.querySelector(`[data-ai-qty="${i}"]`)?.value??p.cantidad??1);return{nombre:p.nombre,descripcion:p.descripcion||'',cantidad:qty,precio_venta:price,importe:price*qty,orden:i}});
- const total=items.reduce((s,x)=>s+x.importe,0);return{q:{numero:'BORRADOR',cliente_snapshot:{nombre_razon_social:q.cliente_texto||'Venta directa'},ubicacion:q.ubicacion||'',observaciones:window.__MARC_QUOTE_DESCRIPTION||q.descripcion_trabajo||'',subtotal:total,igv:0,total,empresa_nombre:null},items};
-}
-async function make(id){
- const d=id?await data(id):current();if(!d)throw Error('No hay una cotización para generar');
- const JsPDF=await loadPdf(),q=d.q,items=d.items||[],doc=new JsPDF({unit:'mm',format:'a4'}),M=14,W=210,C=W-M*2;let y=16;
- doc.setTextColor(25,52,79);doc.setFont('helvetica','bold');doc.setFontSize(19);doc.text(String(q.empresa_nombre||'Proforma comercial'),M,y);doc.setFontSize(9);doc.text('COTIZACIÓN',W-M,y,{align:'right'});doc.setTextColor(8,124,245);doc.setFontSize(15);doc.text(String(q.numero||''),W-M,y+6,{align:'right'});y+=17;
- doc.setDrawColor(8,124,245);doc.line(M,y,W-M,y);y+=9;doc.setTextColor(25,52,79);doc.setFontSize(9);doc.setFont('helvetica','bold');doc.text('CLIENTE',M,y);doc.setFont('helvetica','normal');doc.setFontSize(11);doc.text(String(q.cliente_snapshot?.nombre_razon_social||'Venta directa'),M,y+6);doc.setFontSize(9);doc.text('Ubicación: '+String(q.ubicacion||'—'),M,y+12);y+=21;
- if(q.observaciones){doc.setFont('helvetica','bold');doc.setFontSize(10);doc.text('Descripción del trabajo',M,y);y+=5;doc.setFont('helvetica','normal');doc.setFontSize(9);const ls=doc.splitTextToSize(String(q.observaciones),C);doc.text(ls,M,y);y+=ls.length*4.3+5}
- doc.setFillColor(234,244,255);doc.rect(M,y,C,8,'F');doc.setTextColor(25,52,79);doc.setFont('helvetica','bold');doc.setFontSize(8);doc.text('CONCEPTO',M+3,y+5);doc.text('CANT.',M+94,y+5);doc.text('P. UNIT.',M+122,y+5);doc.text('IMPORTE',W-M-3,y+5,{align:'right'});y+=8;doc.setFont('helvetica','normal');
- for(const it of items){const ls=doc.splitTextToSize(String(it.nombre||''),85),h=Math.max(8,ls.length*4+3);if(y+h>270){doc.addPage();y=18}doc.text(ls,M+3,y+5);doc.text(String(it.cantidad??0),M+94,y+5);doc.text(money(it.precio_venta),M+122,y+5);doc.text(money(it.importe),W-M-3,y+5,{align:'right'});doc.setDrawColor(225,232,239);doc.line(M,y+h,W-M,y+h);y+=h}
- y+=8;if(y>265){doc.addPage();y=18}doc.setFontSize(9);doc.text('Subtotal',W-M-65,y);doc.text(money(q.subtotal),W-M,y,{align:'right'});y+=6;doc.text('IGV',W-M-65,y);doc.text(money(q.igv),W-M,y,{align:'right'});y+=8;doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(8,124,245);doc.text('TOTAL',W-M-65,y);doc.text(money(q.total),W-M,y,{align:'right'});
- const name=(q.numero||'cotizacion').replace(/[^a-z0-9_-]+/gi,'_')+'.pdf';doc.save(name);return name;
-}
-window.MARC_GENERATE_QUOTE_PDF=async id=>{const msg=document.getElementById('qv3voiceMsg');try{if(msg)msg.textContent='📄 Generando PDF…';const f=await make(id);if(msg)msg.textContent='✓ PDF descargado: '+f;return f}catch(e){if(msg)msg.textContent='⚠ PDF: '+e.message;alert('No se pudo generar el PDF: '+e.message);throw e}};
-function wire(){
- document.querySelectorAll('[data-vpdf]').forEach(b=>{b.type='button';b.title='Descargar PDF';b.classList.add('marc-pdf-btn');});
- const m=document.querySelector('#qv3modal');if(m&&!m.dataset.pdfFix){m.dataset.pdfFix='1';const a=m.querySelector('.qv3actions');if(a&&!m.querySelector('#qv3downloadPdf')){const b=document.createElement('button');b.type='button';b.className='btn btn-secondary';b.id='qv3downloadPdf';b.textContent='⬇ Descargar PDF';b.onclick=()=>window.MARC_GENERATE_QUOTE_PDF(window.__MARC_AI_SAVED_ID||null).catch(()=>{});a.insertBefore(b,a.firstChild)}}
-}
+const txt=v=>String(v??'').trim();
+function loadPdf(){if(window.jspdf?.jsPDF)return Promise.resolve(window.jspdf.jsPDF);if(loading)return loading;loading=(async()=>{for(const src of SOURCES){try{await new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.async=true;s.onload=ok;s.onerror=no;document.head.appendChild(s)});if(window.jspdf?.jsPDF)return window.jspdf.jsPDF}catch{}}throw Error('No se pudo cargar el motor PDF. Comprueba la conexión a Internet.')})();return loading}
+async function data(id){const sb=window.supabaseClient;if(!sb)throw Error('No hay conexión con Supabase');const u=(await sb.auth.getUser()).data?.user;if(!u)throw Error('Necesita iniciar sesión');const a=await sb.from('cotizaciones').select('*').eq('id',id).eq('user_id',u.id).single();if(a.error)throw Error(a.error.message);const b=await sb.from('cotizacion_items').select('*').eq('cotizacion_id',id).eq('user_id',u.id).order('orden');if(b.error)throw Error(b.error.message);return{q:a.data,items:b.data||[]}}
+function current(){const q=window.__MARC_AI_QUOTE,m=q?._modal||document.querySelector('#qv3modal');if(!q||!m)return null;const items=(q.partidas||[]).map((p,i)=>{const price=Number(m.querySelector(`[data-ai-price="${i}"]`)?.value??p.precio_unitario??0);const qty=p.alcance_precio==='global'?1:Number(m.querySelector(`[data-ai-qty="${i}"]`)?.value??p.cantidad??1);return{nombre:p.nombre,descripcion:p.descripcion||'',cantidad:qty,precio_venta:price,importe:price*qty,orden:i}});const total=items.reduce((s,x)=>s+x.importe,0);return{q:{numero:'BORRADOR',cliente_snapshot:{nombre_razon_social:q.cliente_texto||'Venta directa'},ubicacion:q.ubicacion||'',observaciones:window.__MARC_QUOTE_DESCRIPTION||q.descripcion_trabajo||'',subtotal:total,igv:0,total,empresa_nombre:null,empresa_logo:localStorage.getItem('marc_quote_logo')||null},items}}
+function addLogo(doc,q,M,y){const logo=txt(q.empresa_logo||'');if(!logo.startsWith('data:image/'))return false;try{doc.addImage(logo,'PNG',M,y-8,27,18,undefined,'FAST');return true}catch{return false}}
+function header(doc,q,M,W){const blue=[8,124,245],navy=[25,52,79],light=[235,245,255];doc.setFillColor(...blue);doc.rect(0,0,W,9,'F');doc.setFillColor(...navy);doc.roundedRect(M,15, W-M*2,32,4,4,'F');let logo=addLogo(doc,q,M+4,25);const left=logo?M+35:M+8;doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(17);doc.text(txt(q.empresa_nombre)||'Proforma comercial',left,28);doc.setFontSize(8);doc.setFont('helvetica','normal');doc.text('PROPUESTA COMERCIAL',left,35);doc.setFont('helvetica','bold');doc.setFontSize(9);doc.text('COTIZACIÓN',W-M-8,25,{align:'right'});doc.setFontSize(13);doc.setTextColor(120,205,255);doc.text(txt(q.numero)||'BORRADOR',W-M-8,32,{align:'right'});return 56}
+function card(doc,x,y,w,h,title,lines,blue){doc.setFillColor(248,251,254);doc.setDrawColor(220,231,241);doc.roundedRect(x,y,w,h,3,3,'FD');doc.setTextColor(...(blue||[8,124,245]));doc.setFont('helvetica','bold');doc.setFontSize(7);doc.text(title.toUpperCase(),x+6,y+7);doc.setTextColor(25,52,79);doc.setFont('helvetica','normal');doc.setFontSize(9);let yy=y+14;for(const line of lines){const ls=doc.splitTextToSize(txt(line),w-12);doc.text(ls,x+6,yy);yy+=Math.max(4.2,ls.length*4.2)+1.5}}
+async function make(id){const d=id?await data(id):current();if(!d)throw Error('No hay una cotización para generar');const JsPDF=await loadPdf(),q=d.q,items=d.items||[],doc=new JsPDF({unit:'mm',format:'a4',putOnlyUsedFonts:true}),M=14,W=210,C=W-M*2;let y=header(doc,q,M,W);
+ const client=txt(q.cliente_snapshot?.nombre_razon_social)||'Venta directa',loc=txt(q.ubicacion)||'No especificada';card(doc,M,y,C/2-3,30,'Cliente',[client],null);card(doc,M+C/2+3,y,C/2-3,30,'Trabajo / ubicación',[loc],null);y+=38;
+ if(txt(q.observaciones)){const ls=doc.splitTextToSize(txt(q.observaciones),C-12);const h=Math.max(25,ls.length*4.2+17);card(doc,M,y,C,h,'Descripción del trabajo',[],null);doc.setTextColor(55,72,90);doc.setFont('helvetica','normal');doc.setFontSize(8.8);doc.text(ls,M+6,y+14);y+=h+8}
+ const tableHead=()=>{doc.setFillColor(8,124,245);doc.roundedRect(M,y,C,9,2,2,'F');doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.text('CONCEPTO',M+5,y+6);doc.text('CANT.',M+103,y+6,{align:'center'});doc.text('P. UNIT.',M+137,y+6,{align:'right'});doc.text('IMPORTE',W-M-5,y+6,{align:'right'});y+=9};
+ tableHead();doc.setFont('helvetica','normal');
+ for(let i=0;i<items.length;i++){const it=items[i],name=txt(it.nombre)||'Partida',desc=txt(it.descripcion),lines=doc.splitTextToSize(name,86),extra=desc?doc.splitTextToSize(desc,86):[],h=Math.max(10,lines.length*4+(extra.length?extra.length*3.5+3:0)+5);if(y+h>267){doc.addPage();y=18;tableHead()}if(i%2===0){doc.setFillColor(248,251,254);doc.rect(M,y,C,h,'F')}doc.setTextColor(25,52,79);doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.text(lines,M+5,y+6);if(extra.length){doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(105,121,137);doc.text(extra,M+5,y+6+lines.length*4)}doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(45,62,80);doc.text(String(it.cantidad??0),M+103,y+6,{align:'center'});doc.text(money(it.precio_venta),M+137,y+6,{align:'right'});doc.text(money(it.importe),W-M-5,y+6,{align:'right'});doc.setDrawColor(226,234,242);doc.line(M,y+h,W-M,y+h);y+=h}
+ y+=8;if(y>250){doc.addPage();y=20}const boxW=72,boxX=W-M-boxW;doc.setFillColor(248,251,254);doc.setDrawColor(220,231,241);doc.roundedRect(boxX,y,boxW,36,4,4,'FD');doc.setTextColor(90,106,122);doc.setFont('helvetica','normal');doc.setFontSize(8);doc.text('SUBTOTAL',boxX+7,y+9);doc.text(money(q.subtotal),W-M-7,y+9,{align:'right'});doc.text('IGV',boxX+7,y+16);doc.text(money(q.igv),W-M-7,y+16,{align:'right'});doc.setFillColor(8,124,245);doc.roundedRect(boxX+4,y+21,boxW-8,11,2,2,'F');doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(9);doc.text('TOTAL',boxX+8,y+28);doc.text(money(q.total),W-M-11,y+28,{align:'right'});
+ const footerY=287;doc.setDrawColor(220,231,241);doc.line(M,footerY,W-M,footerY);doc.setTextColor(120,137,153);doc.setFont('helvetica','normal');doc.setFontSize(7);doc.text('Documento generado desde la cotización registrada.',M,footerY+5);doc.text('Página '+doc.internal.getNumberOfPages(),W-M,footerY+5,{align:'right'});
+ const name=(q.numero||'cotizacion').replace(/[^a-z0-9_-]+/gi,'_')+'.pdf';doc.save(name);return name}
+window.MARC_GENERATE_QUOTE_PDF=async id=>{const msg=document.getElementById('qv3voiceMsg');try{if(msg)msg.textContent='📄 Generando PDF moderno…';const f=await make(id);if(msg)msg.textContent='✓ PDF descargado: '+f;return f}catch(e){if(msg)msg.textContent='⚠ PDF: '+e.message;alert('No se pudo generar el PDF: '+e.message);throw e}};
+function wire(){document.querySelectorAll('[data-vpdf]').forEach(b=>{b.type='button';b.title='Descargar PDF';b.classList.add('marc-pdf-btn')});const m=document.querySelector('#qv3modal');if(m&&!m.dataset.pdfFix){m.dataset.pdfFix='1';const a=m.querySelector('.qv3actions');if(a&&!m.querySelector('#qv3downloadPdf')){const b=document.createElement('button');b.type='button';b.className='btn btn-secondary';b.id='qv3downloadPdf';b.textContent='⬇ Descargar PDF';b.onclick=()=>window.MARC_GENERATE_QUOTE_PDF(window.__MARC_AI_SAVED_ID||null).catch(()=>{});a.insertBefore(b,a.firstChild)}}}
 if(!document.body.dataset.marcPdfDelegated){document.body.dataset.marcPdfDelegated='1';document.addEventListener('click',e=>{const b=e.target.closest?.('[data-vpdf]');if(b){e.preventDefault();e.stopPropagation();window.MARC_GENERATE_QUOTE_PDF(b.dataset.vpdf).catch(()=>{})}},true)}
 new MutationObserver(wire).observe(document.body,{childList:true,subtree:true});setInterval(wire,700);setTimeout(wire,400);
 })();

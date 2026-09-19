@@ -380,7 +380,7 @@ async function inventoryPdfModal(){
           if(error)throw new Error(error.message||"No se pudo importar el lote.");
           if(!data||data.status!=="IMPORTED")throw new Error("Supabase no confirmó la importación.");
 
-          toast("Inventario actualizado: "+data.created+" nuevos, "+data.updated+" actualizados.","ok");
+          toast("Importación completa: "+data.total+" procesados, "+data.created+" nuevos, "+data.updated+" actualizados, "+(data.reactivated||0)+" reactivados.","ok");
           status.className="msg ok";
           status.textContent="Importación completada. "+data.total+" productos procesados.";
           close();

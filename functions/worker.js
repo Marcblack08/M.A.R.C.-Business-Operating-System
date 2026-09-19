@@ -399,7 +399,29 @@ async function telegramStatus(request,env){
   const {token,user}=await authUser(request,env);
   const rows=await sb(env,token,"marc_channel_identities?select=id,channel,external_user_id,chat_id,username,status,linked_at,last_seen_at&channel=eq.TELEGRAM&user_id=eq."+encodeURIComponent(user.id)+"&limit=1");
   const access=await entitlement(env,token,user.id);
-  return json({linked:Boolean(rows?.[0]?.status==="LINKED"),identity:rows?.[0]||null,entitlement:access},200,corsHeaders(request));
+  let webhook=null;
+  if(access.kind==="master"||access.kind==="paid"){
+    if(env.TELEGRAM_BOT_TOKEN){
+      const wr=await fetch("https://api.telegram.org/bot"+env.TELEGRAM_BOT_TOKEN+"/getWebhookInfo");
+      const wd=await wr.json().catch(()=>null);
+      if(wd?.ok)webhook=wd.result||null;
+      else webhook={error:wd?.description||"Telegram no devolvió información del webhook."};
+    }else webhook={error:"TELEGRAM_BOT_TOKEN no configurado."};
+  }
+  return json({
+    linked:Boolean(rows?.[0]?.status==="LINKED"),
+    identity:rows?.[0]||null,
+    entitlement:access,
+    webhook:webhook?{
+      url:webhook.url||"",
+      pending_update_count:Number(webhook.pending_update_count||0),
+      last_error_date:webhook.last_error_date||null,
+      last_error_message:webhook.last_error_message||null,
+      max_connections:webhook.max_connections||null,
+      has_custom_certificate:Boolean(webhook.has_custom_certificate),
+      error:webhook.error||null
+    }:null
+  },200,corsHeaders(request));
 }
 async function telegramLink(request,env){
   const {token,user}=await authUser(request,env);

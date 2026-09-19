@@ -1559,3 +1559,23 @@ body,
 /* AI review action */
 #reviewQuote{border-color:#aabbd0;font-weight:700}
 [data-theme="dark"] #reviewQuote{background:#132235;border-color:#35506d;color:#d7e5f4}
+
+/* ===== QUOTE EDITOR MOBILE POLISH ===== */
+[data-theme="dark"] .quote-line{background:#0d1927;border-color:#263a50}
+[data-theme="dark"] .quote-summary{border-color:#263a50}
+@media(max-width:560px){
+  .quote-line{padding:10px;margin:8px 0;border-radius:12px}
+  .quote-line-top{grid-template-columns:1fr 34px;gap:7px}
+  .quote-line-top select,.quote-line-top input{width:100%;min-height:40px}
+  .quote-line-fields{grid-template-columns:1fr 1fr;gap:7px}
+  .quote-line-fields input,.quote-line-fields select{min-height:40px;width:100%}
+  .quote-description-wrap input{min-height:42px}
+  .quote-ai-line{min-height:40px!important}
+  .quote-summary{padding:10px 2px 0}
+  .quote-summary>div{font-size:11px;padding:5px 0}
+  .quote-summary .grand{font-size:16px}
+}
+@media(max-width:380px){
+  .quote-line-fields{grid-template-columns:1fr}
+  .quote-line-top{grid-template-columns:1fr 32px}
+}

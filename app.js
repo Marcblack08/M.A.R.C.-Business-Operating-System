@@ -681,6 +681,7 @@ async function inventoryPdfModal(){
       // Conservamos el primer registro y completamos campos faltantes con datos posteriores.
       const mergedItems=[];
       const mergedByKey=new Map();
+      const duplicateGroups=[];
       const normalizeKey=v=>String(v||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();
       for(const rawItem of detected){
         const item=Object.assign({},rawItem);
@@ -691,16 +692,32 @@ async function inventoryPdfModal(){
         if(!identity||identity==="name:")continue;
         const existing=mergedByKey.get(identity);
         if(existing){
+          existing._sourcePages=Array.from(new Set([...(existing._sourcePages||[]),Number(item.page_number||1)]));
+          existing._duplicateCount=(existing._duplicateCount||0)+1;
+          if(!existing._duplicateSources)existing._duplicateSources=[];
+          existing._duplicateSources.push({page:Number(item.page_number||1),name:item.name,sku:item.sku,price:item.price});
           ["sku","name","brand","model","category","unit","cost","price","stock","min_stock","page_number"].forEach(k=>{
             if((existing[k]===null||existing[k]===undefined||existing[k]==="")&&(item[k]!==null&&item[k]!==undefined&&item[k]!==""))existing[k]=item[k];
           });
           continue;
         }
+        item._sourcePages=[Number(item.page_number||1)];
+        item._duplicateCount=0;
+        item._duplicateSources=[];
         mergedByKey.set(identity,item);
         mergedItems.push(item);
       }
+      for(const item of mergedItems){
+        if(item._duplicateCount)duplicateGroups.push(item);
+      }
       const listItems=mergedItems;
       const duplicateCount=Math.max(0,detected.length-listItems.length);
+      const duplicateDetail=duplicateGroups.map(x=>{
+        const pages=(x._sourcePages||[]).sort((a,b)=>a-b).join(", ");
+        return '<details class="pdf-duplicate-detail"><summary>'+esc(x.name)+' · '+x._duplicateCount+' duplicado(s) · páginas '+esc(pages)+'</summary><div>'+
+          (x._duplicateSources||[]).map(d=>'P'+Number(d.page||1)+' · '+esc([d.sku,d.price!=null?"S/ "+Number(d.price).toFixed(2):""].filter(Boolean).join(" · "))).join("<br>")+
+          '</div></details>';
+      }).join("");
       const preview=$("#pdfImportPreview");
       const missingPriceCount=listItems.filter(x=>x.price==null||Number.isNaN(Number(x.price))).length;
       const missingSkuCount=listItems.filter(x=>!String(x.sku||"").trim()).length;

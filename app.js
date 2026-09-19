@@ -108,49 +108,181 @@ function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inven
 async function view(x){st.view=x;title(x);$("#sidebar").classList.remove("open");if(x==="home")return home();if(x==="clients")return clients();if(x==="inventory")return inventory();if(x==="quotes")return quotes();if(x==="communications")return communications();return settings()}
 async function home(){const c=$("#content"),[cl,iv,qt]=await Promise.all([S.from("marc_clients").select("*",{count:"exact"}).eq("user_id",st.u.id),S.from("marc_inventory").select("*").eq("user_id",st.u.id).eq("active",true).order("name"),S.from("marc_quotes").select("*").eq("user_id",st.u.id).order("created_at",{ascending:false}).limit(6)]);const low=(iv.data||[]).filter(x=>Number(x.stock)<=Number(x.min_stock));c.innerHTML=`<div class="head"><div><div class="eyebrow2">CENTRO DE OPERACIONES</div><h1>Tu negocio, desde una sola conversación.</h1><p>M.A.R.C. conecta clientes, inventario, cotizaciones y comunicaciones.</p></div><button id="askHome" class="primary">✦ Preguntar</button></div><div class="grid4"><div class="card kpi"><small>Clientes</small><strong>${cl.count||0}</strong><em>Base operativa</em></div><div class="card kpi"><small>Productos</small><strong>${iv.data?.length||0}</strong><em>En inventario</em></div><div class="card kpi"><small>Stock bajo</small><strong>${low.length}</strong><em>Requieren atención</em></div><div class="card kpi"><small>Cotizaciones</small><strong>${qt.data?.length||0}</strong><em>Recientes</em></div></div><div class="cols"><section class="card panel"><h3>Acciones rápidas</h3><p>Las operaciones frecuentes están a un toque.</p><div class="quick"><button data-q="client"><b>＋ Nuevo cliente</b><small>Guardar un contacto</small></button><button data-q="inventory"><b>＋ Producto</b><small>Agregar al inventario</small></button><button data-q="quote"><b>＋ Cotización</b><small>Preparar una propuesta</small></button><button data-q="chat"><b>✦ Preguntar</b><small>Hablar con M.A.R.C.</small></button></div></section><section class="card panel"><h3>Inventario crítico</h3><p>Productos que merecen atención.</p><div class="list">${low.slice(0,5).map(x=>`<div class="row"><div><b>${esc(x.name)}</b><small>${esc([x.brand,x.model].filter(Boolean).join(" · "))}</small></div><span class="badge ${Number(x.stock)<=0?"out":"low"}">${Number(x.stock)<=0?"Agotado":x.stock}</span></div>`).join("")||'<div class="empty">Todo en orden.</div>'}</div></section></div><section class="card panel" style="margin-top:13px"><h3>Actividad reciente</h3><div class="list">${(qt.data||[]).map(x=>`<div class="row"><div><b>${esc(x.number)} · ${esc(x.title)}</b><small>${esc(x.status)}</small></div><b>${money(x.total)}</b></div>`).join("")||'<div class="empty">Crea tu primera cotización.</div>'}</div></section>`;$("#askHome").onclick=openChat;$$(".quick button",c).forEach(b=>b.onclick=()=>b.dataset.q==="client"?clientModal():b.dataset.q==="inventory"?inventoryModal():b.dataset.q==="quote"?quoteModal():openChat())}
 async function clients(){const {data}=await S.from("marc_clients").select("*").eq("user_id",st.u.id).order("name");const c=$("#content");c.innerHTML=`<div class="head"><div><div class="eyebrow2">CLIENTES</div><h1>Relaciones y contexto.</h1><p>Los clientes son memoria operativa de M.A.R.C.</p></div><button id="new" class="primary">＋ Nuevo cliente</button></div><section class="card table"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar…"></div><button id="ask" class="secondary">Preguntar</button></div><div class="scroll"><table class="data"><thead><tr><th>Cliente</th><th>Contacto</th><th>Correo</th><th>Teléfono</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></section>`;const rows=$("#rows"),draw=list=>rows.innerHTML=list.map(x=>`<tr><td><b>${esc(x.name)}</b><br><small>${esc(x.document_number||"")}</small></td><td>${esc(x.contact_name||"—")}</td><td>${esc(x.email||"—")}</td><td>${esc(x.phone||"—")}</td><td><button class="secondary" data-id="${x.id}">Editar</button></td></tr>`).join("")||'<tr><td colspan="5" class="empty">Aún no tienes clientes.</td></tr>';draw(data||[]);$("#search").oninput=e=>{const q=e.target.value.toLowerCase();draw((data||[]).filter(x=>[x.name,x.email,x.phone,x.document_number].some(v=>String(v||"").toLowerCase().includes(q))))};$("#new").onclick=()=>clientModal();$("#ask").onclick=()=>openChat();$$("[data-id]",c).forEach(b=>b.onclick=()=>clientModal((data||[]).find(x=>x.id===b.dataset.id)))}
+async function ensurePdfJs(){
+  if(window.pdfjsLib)return window.pdfjsLib;
+  throw new Error("No se pudo cargar el lector PDF. Recarga la página e inténtalo nuevamente.");
+}
+
+function pdfProgressHtml(page,total,count){
+  const pct=total?Math.round(page*100/total):0;
+  return '<div class="pdf-progress-wrap">'+
+    '<div class="pdf-progress-top"><b id="pdfProgressText">Leyendo página '+page+' de '+total+'</b><strong id="pdfProgressCount">'+count+' productos detectados</strong></div>'+
+    '<div class="pdf-progress"><i id="pdfProgressBar" style="width:'+pct+'%"></i></div>'+
+    '</div>';
+}
+
 async function inventoryPdfModal(){
   const close=modal(
-    '<div class="modal-head"><div><h2>📄 Importar inventario desde PDF</h2><p>Gemini analizará el catálogo y preparará una vista previa.</p></div><button class="close" id="x">×</button></div>'+
+    '<div class="modal-head"><div><h2>📄 Importar inventario desde PDF</h2><p>Ahora M.A.R.C. lee el catálogo página por página para detectar cada producto con mayor control.</p></div><button class="close" id="x">×</button></div>'+
     '<form id="pdfInventoryForm">'+
     '<label>Catálogo PDF<input id="inventoryPdfFile" type="file" accept="application/pdf" required></label>'+
-    '<div class="pdf-import-hint">Hasta 20 MB. Se detectan nombre, SKU, marca, modelo, categoría, costo, precio, stock y unidad cuando aparecen en el documento.</div>'+
-    '<label style="display:flex;align-items:center;gap:8px"><input id="updateExisting" type="checkbox" checked style="width:auto"> Actualizar productos que coincidan por SKU o por nombre + marca + modelo</label>'+
+    '<div class="pdf-import-hint">Hasta 20 MB. M.A.R.C. mostrará la página que está leyendo, cuántos productos detecta y la lista exacta antes de importar.</div>'+
     '<div id="pdfImportStatus" class="msg"></div>'+
+    '<div id="pdfImportProgress"></div>'+
+    '<div id="pdfLiveItems" class="pdf-live-items hidden"></div>'+
     '<div id="pdfImportPreview" class="pdf-import-preview hidden"></div>'+
-    '<div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button type="submit" class="primary" id="analyzePdf">Analizar PDF</button></div>'+
+    '<div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button type="submit" class="primary" id="analyzePdf">Analizar catálogo</button></div>'+
     '</form>'
   );
   $("#x").onclick=close;$("#cancel").onclick=close;
-  $("#pdfInventoryForm").onsubmit=async e=>{
+
+  const form=$("#pdfInventoryForm"),btn=$("#analyzePdf"),status=$("#pdfImportStatus");
+  let working=false;
+
+  form.onsubmit=async function(e){
     e.preventDefault();
-    const file=$("#inventoryPdfFile").files?.[0],btn=$("#analyzePdf"),status=$("#pdfImportStatus"),preview=$("#pdfImportPreview");
+    if(working)return;
+    const file=$("#inventoryPdfFile").files?.[0];
     if(!file)return toast("Selecciona un PDF.","err");
     if(file.size>20*1024*1024)return toast("El PDF supera el límite de 20 MB.","err");
-    btn.disabled=true;status.className="msg";status.textContent="Subiendo y analizando el catálogo con Gemini…";preview.classList.add("hidden");
+
+    working=true;btn.disabled=true;
+    status.className="msg";status.textContent="Abriendo el catálogo y contando páginas…";
+    $("#pdfImportPreview").classList.add("hidden");
+    $("#pdfLiveItems").classList.add("hidden");
+
     try{
-      const fd=new FormData();fd.append("file",file);
-      const r=await fetch("/api/inventory/pdf-preview",{method:"POST",headers:{Authorization:"Bearer "+st.session?.access_token},body:fd});
-      const j=await r.json();
-      if(!r.ok)throw new Error(j.message||j.error||"No se pudo analizar el PDF.");
-      if(!j.items?.length)throw new Error("No se encontraron productos.");
-      preview.innerHTML='<b>Vista previa · '+j.count+' productos</b><div class="pdf-product-list">'+j.items.slice(0,12).map((x,i)=>'<div class="pdf-product-row"><span>'+(i+1)+'. '+esc(x.name)+'</span><small>'+esc([x.sku,x.brand,x.model].filter(Boolean).join(" · ")||"Sin código")+(x.price!=null?" · S/ "+Number(x.price).toFixed(2):"")+'</small></div>').join("")+'</div>'+(j.count>12?'<small>Se muestran los primeros 12. Se importarán los '+j.count+'.</small>':'');
+      const pdfjs=await ensurePdfJs();
+      if(!pdfjs.GlobalWorkerOptions.workerSrc){
+        pdfjs.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+      }
+
+      const buffer=await file.arrayBuffer();
+      const pdf=await pdfjs.getDocument({data:buffer}).promise;
+      const totalPages=pdf.numPages;
+
+      status.textContent="Catálogo abierto. M.A.R.C. procesará "+totalPages+" páginas una por una.";
+      $("#pdfImportProgress").innerHTML=pdfProgressHtml(0,totalPages,0);
+
+      const start=await fetch("/api/inventory/pdf-start",{
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json",
+          Authorization:"Bearer "+st.session?.access_token
+        },
+        body:JSON.stringify({filename:file.name,totalPages})
+      });
+      const sj=await start.json();
+      if(!start.ok)throw new Error(sj.message||sj.error||"No se pudo iniciar el análisis.");
+      const pendingId=sj.pendingId;
+      if(!pendingId)throw new Error("No se pudo crear la sesión de análisis.");
+
+      const detected=[];
+      const live=$("#pdfLiveItems");
+      live.classList.remove("hidden");
+      live.innerHTML='<div class="pdf-live-title">Productos detectados hasta ahora</div><div id="pdfLiveRows"></div>';
+      const liveRows=$("#pdfLiveRows");
+
+      for(let pageNumber=1;pageNumber<=totalPages;pageNumber++){
+        const page=await pdf.getPage(pageNumber);
+        let viewport=page.getViewport({scale:1.5});
+        if(viewport.width>1800){
+          viewport=page.getViewport({scale:1.5*(1800/viewport.width)});
+        }
+        const canvas=document.createElement("canvas");
+        const ctx=canvas.getContext("2d",{alpha:false});
+        canvas.width=Math.ceil(viewport.width);
+        canvas.height=Math.ceil(viewport.height);
+        await page.render({canvasContext:ctx,viewport}).promise;
+        const image=canvas.toDataURL("image/jpeg",0.82);
+
+        status.textContent="Gemini está leyendo la página "+pageNumber+" de "+totalPages+"…";
+        $("#pdfProgressText").textContent="Leyendo página "+pageNumber+" de "+totalPages;
+        $("#pdfProgressCount").textContent=detected.length+" productos detectados";
+        $("#pdfProgressBar").style.width=Math.round((pageNumber-1)*100/totalPages)+"%";
+
+        let analyzed=null,lastError=null;
+        for(let retry=0;retry<2;retry++){
+          try{
+            const pr=await fetch("/api/inventory/pdf-page",{
+              method:"POST",
+              headers:{
+                "Content-Type":"application/json",
+                Authorization:"Bearer "+st.session?.access_token
+              },
+              body:JSON.stringify({pendingId,pageNumber,totalPages,image})
+            });
+            const pj=await pr.json();
+            if(!pr.ok)throw new Error(pj.message||pj.error||("No se pudo analizar la página "+pageNumber));
+            analyzed=pj;
+            break;
+          }catch(err){lastError=err;if(retry===0)status.textContent="Reintentando página "+pageNumber+"…"}
+        }
+        if(!analyzed)throw new Error((lastError?.message||"No se pudo analizar la página")+" Revisa tu conexión y vuelve a intentarlo.");
+
+        const pageItems=Array.isArray(analyzed.items)?analyzed.items:[];
+        detected.push(...pageItems);
+        const recent=pageItems.slice(0,8).map((x,ix)=>'<div class="pdf-live-row"><span>P'+pageNumber+' · '+(ix+1)+'</span><b>'+esc(x.name)+'</b><small>'+esc([x.brand,x.model,x.sku].filter(Boolean).join(" · ")||"Sin código")+'</small></div>').join("");
+        liveRows.insertAdjacentHTML("afterbegin",recent);
+        $("#pdfProgressCount").textContent=detected.length+" productos detectados";
+        $("#pdfProgressBar").style.width=Math.round(pageNumber*100/totalPages)+"%";
+      }
+
+      status.className="msg ok";
+      status.textContent="Análisis terminado. Revisa exactamente qué productos serán procesados antes de importarlos.";
+      $("#pdfProgressText").textContent="Lectura terminada · "+totalPages+" páginas";
+      $("#pdfProgressCount").textContent=detected.length+" productos detectados";
+
+      const finalizeFd=new FormData();
+      finalizeFd.append("pendingId",pendingId);
+      finalizeFd.append("file",file,file.name);
+      const fr=await fetch("/api/inventory/pdf-finalize",{
+        method:"POST",
+        headers:{Authorization:"Bearer "+st.session?.access_token},
+        body:finalizeFd
+      });
+      const fj=await fr.json();
+      if(!fr.ok)throw new Error(fj.message||fj.error||"No se pudo preparar la importación.");
+
+      const listItems=detected.length?detected:fj.items||[];
+      const preview=$("#pdfImportPreview");
+      preview.innerHTML=
+        '<div class="pdf-final-summary"><strong>Se procesarán '+listItems.length+' productos</strong><span>'+totalPages+' páginas revisadas</span></div>'+
+        '<div class="pdf-product-list">'+
+          listItems.map((x,i)=>'<div class="pdf-product-row"><span><b>'+(i+1)+'.</b> '+esc(x.name)+'</span><small>Página '+Number(x.page_number||1)+' · '+esc([x.sku,x.brand,x.model].filter(Boolean).join(" · ")||"Sin código")+(x.price!=null?" · S/ "+Number(x.price).toFixed(2):"")+'</small></div>').join("")+
+        '</div>';
       preview.classList.remove("hidden");
-      status.className="msg ok";status.textContent="PDF analizado. Revisa la vista previa y confirma.";
-      btn.textContent="Importar productos";
-      btn.onclick=async ()=>{
+      btn.textContent="Importar "+listItems.length+" productos";
+      btn.onclick=async function(){
         if(btn.dataset.importing==="1")return;
-        btn.dataset.importing="1";btn.disabled=true;status.className="msg";status.textContent="Importando productos…";
+        btn.dataset.importing="1";btn.disabled=true;
+        status.className="msg";status.textContent="Importando "+listItems.length+" productos al inventario…";
         try{
-          const ir=await fetch("/api/inventory/pdf-import",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({pendingId:j.pendingId,updateExisting:$("#updateExisting").checked})});
+          const ir=await fetch("/api/inventory/pdf-import",{
+            method:"POST",
+            headers:{
+              "Content-Type":"application/json",
+              Authorization:"Bearer "+st.session?.access_token
+            },
+            body:JSON.stringify({pendingId:fj.pendingId,updateExisting:true})
+          });
           const ij=await ir.json();
           if(!ir.ok)throw new Error(ij.message||ij.error||"No se pudo importar.");
           toast("Inventario actualizado: "+ij.created+" nuevos, "+ij.updated+" actualizados.","ok");
           close();await trial();await inventory();
-        }catch(err){status.className="msg error";status.textContent=err.message||"No se pudo importar.";btn.disabled=false}
-        finally{btn.dataset.importing=""}
+        }catch(err){
+          status.className="msg error";
+          status.textContent=err.message||"No se pudo importar.";
+          btn.disabled=false;
+        }finally{
+          btn.dataset.importing="";
+        }
       };
     }catch(err){
-      status.className="msg error";status.textContent=err.message||"No se pudo analizar el PDF.";
+      status.className="msg error";
+      status.textContent=err.message||"No se pudo analizar el catálogo.";
+      $("#pdfImportProgress").innerHTML="";
+      working=false;
       btn.disabled=false;
     }
   };

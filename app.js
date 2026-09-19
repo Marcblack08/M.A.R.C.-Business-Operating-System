@@ -2179,28 +2179,32 @@ function wire(){
   // M.A.R.C. is a client-side app, so the implicit flow avoids a PKCE
   // verifier mismatch when the browser returns from Google.
   let authEventSeen=false;
+  let authEventSession=null;
   S.auth.onAuthStateChange((ev,s)=>{
     authEventSeen=true;
+    authEventSession=s||null;
     console.info("[M.A.R.C. auth]",ev,!!s,s?.user?.id||"");
+    // Supabase advises keeping the auth callback synchronous. Calling
+    // database/auth APIs directly from this callback can deadlock the client.
     if(s){
-      enter(s);
+      setTimeout(()=>enter(s),0);
       return;
     }
-    if(ev==="SIGNED_OUT")resetUiToLogin();
+    if(ev==="SIGNED_OUT")setTimeout(()=>resetUiToLogin(),0);
   });
 
   const bootAuth=async()=>{
     const current=await S.auth.getSession();
     if(current.error)throw current.error;
     if(current.data?.session){
-      await enter(current.data.session);
+      if(!authEventSession)await enter(current.data.session);
       return;
     }
     await new Promise(r=>setTimeout(r,1200));
     const retry=await S.auth.getSession();
     if(retry.error)throw retry.error;
     if(retry.data?.session){
-      await enter(retry.data.session);
+      if(!authEventSession)await enter(retry.data.session);
       return;
     }
     msg(authDiag(authEventSeen

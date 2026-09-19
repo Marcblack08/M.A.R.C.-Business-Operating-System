@@ -1932,9 +1932,10 @@ async function cash(){
   const expense=movements.filter(x=>x.type==="EXPENSE").reduce((s,x)=>s+Number(x.amount||0),0);
   const expected=Number(open?.opening_amount||0)+income-expense;
 
-  // Informe de los dos últimos meses calendario, con todos los cierres y movimientos.
+  // Informe configurable de 2 a 6 meses calendario.
   const now=new Date();
-  const reportStart=new Date(now.getFullYear(),now.getMonth()-1,1);
+  const reportMonthsCount=Math.min(6,Math.max(2,Number(new URLSearchParams(location.search).get("cashMonths")||2)));
+  const reportStart=new Date(now.getFullYear(),now.getMonth()-(reportMonthsCount-1),1);
   const reportEnd=new Date(now.getFullYear(),now.getMonth()+1,1);
   const closedTwoMonths=(closed||[]).filter(x=>{
     const d=new Date(x.closed_at||x.opened_at);
@@ -1950,10 +1951,7 @@ async function cash(){
 
   const monthKey=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
   const monthLabel=d=>d.toLocaleDateString("es-PE",{month:"short",year:"numeric"}).replace(".","");
-  const reportMonths=[
-    new Date(now.getFullYear(),now.getMonth()-1,1),
-    new Date(now.getFullYear(),now.getMonth(),1)
-  ];
+  const reportMonths=Array.from({length:reportMonthsCount},(_,i)=>new Date(now.getFullYear(),now.getMonth()-(reportMonthsCount-1-i),1));
   const monthly=reportMonths.map(m=>{
     const key=monthKey(m);
     const regs=closedTwoMonths.filter(x=>monthKey(new Date(x.closed_at||x.opened_at))===key);
@@ -1984,8 +1982,8 @@ async function cash(){
   }).join("");
 
   c.innerHTML=`
-    <div class="head"><div><div class="eyebrow2">CAJA</div><h1>Cierre de caja.</h1><p>Controla efectivo, ingresos, egresos, diferencias e informes de los últimos 2 meses.</p></div>
-      <div style="display:flex;gap:7px;flex-wrap:wrap"><button id="downloadCashExcel" class="secondary">▣ Excel · 2 meses</button>${open?'<button id="closeCashTop" class="primary">✓ Cerrar caja</button>':'<button id="openCashTop" class="primary">＋ Abrir caja</button>'}</div>
+    <div class="head"><div><div class="eyebrow2">CAJA</div><h1>Cierre de caja.</h1><p>Controla efectivo, ingresos, egresos, diferencias e informes con un máximo de 6 meses.</p></div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center"><label class="cash-period-select">Informe <select id="cashReportMonths" class="secondary">${[2,3,4,5,6].map(n=>`<option value="${n}" ${n===reportMonthsCount?"selected":""}>${n} meses</option>`).join("")}</select></label><button id="downloadCashExcel" class="secondary">▣ Excel · ${reportMonthsCount} meses</button>${open?'<button id="closeCashTop" class="primary">✓ Cerrar caja</button>':'<button id="openCashTop" class="primary">＋ Abrir caja</button>'}</div>
     </div>
 
     <section class="cash-kpis">
@@ -1997,7 +1995,7 @@ async function cash(){
     </section>
 
     <section class="card panel cash-report-panel">
-      <div class="panel-title-row"><div><div class="eyebrow2">INFORME AUTOMÁTICO</div><h3>Últimos 2 meses</h3><small class="finance-subtitle">Desde ${reportStart.toLocaleDateString("es-PE")} hasta ${new Date(reportEnd.getTime()-86400000).toLocaleDateString("es-PE")}</small></div><button id="downloadCashExcel2" class="secondary">Descargar Excel</button></div>
+      <div class="panel-title-row"><div><div class="eyebrow2">INFORME AUTOMÁTICO</div><h3>Últimos ${reportMonthsCount} meses</h3><small class="finance-subtitle">Desde ${reportStart.toLocaleDateString("es-PE")} hasta ${new Date(reportEnd.getTime()-86400000).toLocaleDateString("es-PE")}</small></div><button id="downloadCashExcel2" class="secondary">Descargar Excel</button></div>
       <div class="cash-report-summary">
         <div><span>CIERRES</span><strong>${closedTwoMonths.length}</strong></div>
         <div><span>INGRESOS</span><strong class="cash-in">${money(monthly.reduce((s,x)=>s+x.income,0))}</strong></div>
@@ -2028,6 +2026,7 @@ async function cash(){
   const exportExcel=()=>downloadCashExcel(report);
   $("#downloadCashExcel").onclick=exportExcel;
   $("#downloadCashExcel2").onclick=exportExcel;
+  $("#cashReportMonths").onchange=e=>{const n=Math.min(6,Math.max(2,Number(e.target.value)||2));const u=new URL(location.href);u.searchParams.set("cashMonths",String(n));history.replaceState({},document.title,u.toString());cash()};
 
   if(open)$("#closeCashTop").onclick=()=>closeCashModal(open,expected);
   else $("#openCashTop").onclick=()=>openCashModal();
@@ -2079,6 +2078,15 @@ function downloadCashExcel(report){
   if(movRows.length>1)wsMov["!autofilter"]={ref:"A1:F"+movRows.length};
   XLSX.utils.book_append_sheet(wb,wsMov,"Movimientos");
 
+  // Hojas adicionales para un informe de auditoría detallado.
+  const dailyMap=new Map();
+  for(const m of (report.movements||[])){const d=new Date(m.created_at);if(!Number.isFinite(d.getTime()))continue;const key=d.toISOString().slice(0,10);if(!dailyMap.has(key))dailyMap.set(key,{date:d,inc:0,exp:0,count:0});const row=dailyMap.get(key);row.count++;if(m.type==="INCOME")row.inc+=Number(m.amount||0);else if(m.type==="EXPENSE")row.exp+=Number(m.amount||0)}
+  const dailyRows=[["Fecha","Movimientos","Ingresos","Egresos","Neto","Promedio por movimiento"],...[...dailyMap.values()].sort((a,b)=>a.date-b.date).map(x=>[x.date.toLocaleDateString("es-PE"),x.count,Number(x.inc.toFixed(2)),Number(x.exp.toFixed(2)),Number((x.inc-x.exp).toFixed(2)),Number(((x.inc+x.exp)/Math.max(1,x.count)).toFixed(2))])];
+  const wsDaily=XLSX.utils.aoa_to_sheet(dailyRows);wsDaily["!cols"]=[{wch:15},{wch:14},{wch:16},{wch:16},{wch:16},{wch:24}];if(dailyRows.length>1)wsDaily["!autofilter"]={ref:"A1:F"+dailyRows.length};XLSX.utils.book_append_sheet(wb,wsDaily,"Diario");
+  const auditRows=[["Control","Valor"],["Meses exportados",report.months.length],["Máximo permitido",6],["Cierres exportados",report.registers.length],["Movimientos exportados",(report.movements||[]).length],["Ingresos",Number(report.months.reduce((s,x)=>s+x.income,0).toFixed(2))],["Egresos",Number(report.months.reduce((s,x)=>s+x.expense,0).toFixed(2))],["Neto",Number(report.months.reduce((s,x)=>s+x.net,0).toFixed(2))],["Diferencia acumulada",Number(report.months.reduce((s,x)=>s+x.difference,0).toFixed(2))],["Comprobación neto",Math.abs(report.months.reduce((s,x)=>s+x.net,0)-report.months.reduce((s,x)=>s+x.income-x.expense,0))<0.005?"OK":"REVISAR"]];
+  const wsAudit=XLSX.utils.aoa_to_sheet(auditRows);wsAudit["!cols"]=[{wch:36},{wch:24}];XLSX.utils.book_append_sheet(wb,wsAudit,"Control");
+  const rawRows=[["ID movimiento","ID caja","Fecha","Tipo","Concepto","Referencia","Monto"],...(report.movements||[]).map(x=>[x.id,x.cash_register_id,x.created_at,x.type,x.concept||"",x.reference||"",Number(x.amount||0)])];
+  const wsRaw=XLSX.utils.aoa_to_sheet(rawRows);wsRaw["!cols"]=[{wch:38},{wch:38},{wch:25},{wch:12},{wch:40},{wch:30},{wch:14}];if(rawRows.length>1)wsRaw["!autofilter"]={ref:"A1:G"+rawRows.length};XLSX.utils.book_append_sheet(wb,wsRaw,"Datos trazables");
   const filename="MARC_Cierre_Caja_"+report.start.getFullYear()+"-"+String(report.start.getMonth()+1).padStart(2,"0")+"_"+String(report.end.getFullYear())+"-"+String(report.end.getMonth()+1).padStart(2,"0")+".xlsx";
   XLSX.writeFile(wb,filename);
   toast("Excel generado correctamente","ok");

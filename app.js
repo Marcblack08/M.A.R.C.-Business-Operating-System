@@ -2,7 +2,34 @@
 function msg(t,c=""){const e=$("#authMsg");e.textContent=t;e.className="msg "+c}
 function mode(m){authMode=m;$("#authForm").reset();$("#confirmBox").classList.toggle("hidden",m!=="signup");$("#confirm").required=m==="signup";$("#forgot").classList.toggle("hidden",m!=="login");$("#switchAuth").textContent=m==="signup"?"Ya tengo una cuenta":m==="reset"?"Volver al inicio de sesión":"Crear una cuenta";$("#authTitle").textContent=m==="signup"?"Crea tu cuenta":m==="reset"?"Recupera tu contraseña":"Inicia sesión en M.A.R.C.";$("#authSub").textContent=m==="signup"?"Empieza tu prueba gratuita de 7 días.":m==="reset"?"Te enviaremos un enlace seguro.":"Convierte conversaciones en operaciones reales de tu negocio.";$("#authSubmit").textContent=m==="signup"?"Crear cuenta":m==="reset"?"Enviar enlace":"Iniciar sesión";$("#password").disabled=m==="reset";$("#password").required=m!=="reset";msg("")}
 async function ensure(){const u=st.u;if(!u)return;await S.from("marc_accounts").upsert({id:u.id,display_name:u.email?.split("@")[0]||"Usuario"},{onConflict:"id"});const {data:t}=await S.from("marc_trials").select("id").eq("user_id",u.id).maybeSingle();if(!t)await S.from("marc_trials").insert({user_id:u.id});const {data:c}=await S.from("marc_conversations").select("id").eq("user_id",u.id).eq("channel","WEB").order("updated_at",{ascending:false}).limit(1).maybeSingle();st.cid=c?.id||(await S.from("marc_conversations").insert({user_id:u.id,channel:"WEB",title:"Conversación principal"}).select("id").single()).data?.id}
-async function enter(s){st.session=s;if(st.entering||(st.u?.id===s.user?.id&&!$("#auth").classList.contains("hidden")))return;st.entering=true;try{st.u=s.user;$("#auth").classList.add("hidden");$("#app").classList.remove("hidden");const n=st.u.email?.split("@")[0]||"Usuario";$("#name").textContent=n;$("#mail").textContent=st.u.email;$("#avatar").textContent=initials(n);await ensure();await trial();await chatLoad();await view("home")}finally{st.entering=false}}
+async function enter(s){
+  if(!s?.user)return;
+  // Single UI state: authentication screen OR application, never both.
+  st.session=s;
+  st.u=s.user;
+  if(st.entering)return;
+  st.entering=true;
+  const auth=$("#auth"), app=$("#app");
+  try{
+    auth.classList.add("hidden");
+    app.classList.add("hidden");
+    await ensure();
+    await trial();
+    await chatLoad();
+    app.classList.remove("hidden");
+    await view("home");
+  }catch(e){
+    // If initialization fails, keep the user on the login screen instead of
+    // leaving a partially rendered application visible.
+    st.u=null;
+    st.session=null;
+    app.classList.add("hidden");
+    auth.classList.remove("hidden");
+    msg(e?.message||"No se pudo cargar M.A.R.C.","error");
+  }finally{
+    st.entering=false;
+  }
+}
 async function submit(e){e.preventDefault();try{$("#authSubmit").disabled=true;msg("Procesando…");const email=$("#email").value.trim(),p=$("#password").value;if(authMode==="reset"){const {error}=await S.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});if(error)throw error;msg("Revisa tu correo.","ok");return}if(authMode==="signup"){if(p!==$("#confirm").value)throw new Error("Las contraseñas no coinciden.");const {data,error}=await S.auth.signUp({email,password:p});if(error)throw error;if(!data.session){msg("Cuenta creada. Revisa tu correo.","ok");return}await enter(data.session)}else{const {data,error}=await S.auth.signInWithPassword({email,password:p});if(error)throw error;await enter(data.session)}}catch(e){msg(e.message||"No se pudo completar.","error")}finally{$("#authSubmit").disabled=false}}
 async function trial(){
   const {data:role}=await S.from("marc_user_roles").select("role,active").eq("user_id",st.u.id).eq("role","MASTER").eq("active",true).maybeSingle();

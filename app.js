@@ -120,11 +120,35 @@ async function printQuote(id){
   if(!q)return toast("No se encontró la cotización.","err");
   const items=(await S.from("marc_quote_items").select("*").eq("quote_id",id).eq("user_id",st.u.id).order("created_at")).data||[];
   const client=q.marc_clients||{};
+  const rows=items.map(x=>"<tr><td>"+esc(x.name)+"</td><td>"+esc(x.description||"")+"</td><td>"+x.quantity+"</td><td>"+money(x.unit_price)+"</td><td>"+money(x.line_total)+"</td></tr>").join("");
   const w=window.open("","_blank","width=900,height=1100");
   if(!w)return toast("El navegador bloqueó la ventana de impresión.","err");
-  const rows=items.map(x=>'<tr><td>'+esc(x.name)+'</td><td>'+esc(x.description||"")+'</td><td>'+x.quantity+'</td><td>'+money(x.unit_price)+'</td><td>'+money(x.line_total)+'</td></tr>').join("");
-  w.document.write('<!doctype html><html lang="es"><head><meta charset="utf-8"><title>'+esc(q.number)+'</title><style>body{font-family:Arial,sans-serif;color:#172033;margin:40px}h1{margin:0;font-size:30px}.muted{color:#677085}.top{display:flex;justify-content:space-between;border-bottom:2px solid #172033;padding-bottom:18px;margin-bottom:24px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}.box{border:1px solid #dfe4ec;border-radius:10px;padding:14px}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:10px;border-bottom:1px solid #e8ebf0;text-align:left}th{background:#f6f8fb}.totals{margin-left:auto;width:300px;margin-top:22px}.totals div{display:flex;justify-content:space-between;padding:6px}.grand{font-size:18px;font-weight:700;border-top:2px solid #172033;margin-top:6px;padding-top:10px}@media print{body{margin:15mm}}</style></head><body><div class="top"><div><div class="muted">M.A.R.C. · COTIZACIÓN</div><h1>'+esc(q.number)+'</h1><div class="muted">'+new Date(q.created_at).toLocaleDateString("es-PE")+'</div></div><div style="text-align:right"><b>'+esc(q.title)+'</b><div class="muted">Estado: '+esc(q.status)+'</div></div></div><div class="grid"><div class="box"><b>Cliente</b><p>'+esc(client.name||"Sin cliente")+'</p><div class="muted">'+esc(client.document_type&&client.document_number?client.document_type+" "+client.document_number:"")+'</div><div>'+esc(client.email||"")+'</div><div>'+esc(client.phone||"")+'</div><div>'+esc(client.address||"")+'</div></div><div class="box"><b>Condiciones</b><p>Moneda: '+esc(q.currency||"PEN")+'</p><p>IGV: '+(q.tax_enabled?esc(q.tax_rate)+"%":"No incluido")+'</p></div></div><table><thead><tr><th>Concepto</th><th>Descripción</th><th>Cant.</th><th>Precio</th><th>Total</th></tr></thead><tbody>'+rows+'</tbody></table><div class="totals"><div><span>Subtotal</span><b>'+money(q.subtotal)+'</b></div><div><span>IGV</span><b>'+money(q.tax)+'</b></div><div class="grand"><span>Total</span><b>'+money(q.total)+'</b></div></div><h3>Notas</h3><p>'+esc(q.notes||"Sin observaciones.")+'</p><script>window.onload=()=>setTimeout(()=>window.print(),250)</script></body></html>');
-  w.document.close();
+  const html=\`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>\${esc(q.number)}</title>
+  <style>
+  body{font-family:Arial,sans-serif;color:#172033;margin:40px}
+  h1{margin:0;font-size:30px}.muted{color:#677085}
+  .top{display:flex;justify-content:space-between;border-bottom:2px solid #172033;padding-bottom:18px;margin-bottom:24px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+  .box{border:1px solid #dfe4ec;border-radius:10px;padding:14px}
+  table{width:100%;border-collapse:collapse;margin-top:20px}
+  th,td{padding:10px;border-bottom:1px solid #e8ebf0;text-align:left}
+  th{background:#f6f8fb}.totals{margin-left:auto;width:300px;margin-top:22px}
+  .totals div{display:flex;justify-content:space-between;padding:6px}
+  .grand{font-size:18px;font-weight:700;border-top:2px solid #172033;margin-top:6px;padding-top:10px}
+  @media print{body{margin:15mm}}
+  </style></head><body>
+  <div class="top"><div><div class="muted">M.A.R.C. · COTIZACIÓN</div><h1>\${esc(q.number)}</h1><div class="muted">\${new Date(q.created_at).toLocaleDateString("es-PE")}</div></div>
+  <div style="text-align:right"><b>\${esc(q.title)}</b><div class="muted">Estado: \${esc(q.status)}</div></div></div>
+  <div class="grid"><div class="box"><b>Cliente</b><p>\${esc(client.name||"Sin cliente")}</p>
+  <div class="muted">\${esc(client.document_type&&client.document_number?client.document_type+" "+client.document_number:"")}</div>
+  <div>\${esc(client.email||"")}</div><div>\${esc(client.phone||"")}</div><div>\${esc(client.address||"")}</div></div>
+  <div class="box"><b>Condiciones</b><p>Moneda: \${esc(q.currency||"PEN")}</p><p>IGV: \${q.tax_enabled?esc(q.tax_rate)+"%":"No incluido"}</p></div></div>
+  <table><thead><tr><th>Concepto</th><th>Descripción</th><th>Cant.</th><th>Precio</th><th>Total</th></tr></thead><tbody>\${rows}</tbody></table>
+  <div class="totals"><div><span>Subtotal</span><b>\${money(q.subtotal)}</b></div><div><span>IGV</span><b>\${money(q.tax)}</b></div>
+  <div class="grand"><span>Total</span><b>\${money(q.total)}</b></div></div>
+  <h3>Notas</h3><p>\${esc(q.notes||"Sin observaciones.")}</p>
+  <script>window.onload=()=>setTimeout(()=>window.print(),250)</script></body></html>\`;
+  w.document.open();w.document.write(html);w.document.close();
 }
 function wire(){mode("login");$("#authForm").onsubmit=submit;$("#switchAuth").onclick=()=>mode(authMode==="signup"?"login":"signup");$("#forgot").onclick=()=>mode("reset");$("#togglePass").onclick=()=>{const x=$("#password");x.type=x.type==="password"?"text":"password";$("#togglePass").textContent=x.type==="password"?"Mostrar":"Ocultar"};$("#logout").onclick=()=>S.auth.signOut();$("#askTop").onclick=openChat;$("#closeChat").onclick=closeChat;$("#menu").onclick=()=>$("#sidebar").classList.toggle("open");$$(".sidebar nav button").forEach(b=>b.onclick=()=>view(b.dataset.view));$("#chatForm").onsubmit=e=>{e.preventDefault();const v=$("#chatInput").value.trim();if(v){$("#chatInput").value="";chatSend(v)}};$("#chatInput").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("#chatForm").requestSubmit()}};$$(".chips button").forEach(b=>b.onclick=()=>{$("#chatInput").value=b.dataset.q;$("#chatInput").focus()});S.auth.onAuthStateChange((ev,s)=>{st.session=s||null;if(s)enter(s);else if(ev==="SIGNED_OUT"){st.u=null;st.session=null;$("#app").classList.add("hidden");$("#auth").classList.remove("hidden")}});S.auth.getSession().then(({data})=>data.session&&enter(data.session))}
 wire()})();

@@ -1827,14 +1827,28 @@ async function aiQuoteModal(){
     '<div class="modal-head"><div><h2>✦ Crear cotización con IA</h2><p>Describe el trabajo y M.A.R.C. prepara la cotización.</p></div><button class="close" id="x">×</button></div>'+
     '<form id="aiQuoteForm">'+
     '<label>Cliente<select name="client_id"><option value="">Sin cliente</option>'+cls.map(x=>'<option value="'+x.id+'">'+esc(x.name)+'</option>').join("")+'</select></label>'+
-    '<label>Descripción del trabajo<textarea name="description" rows="7" required placeholder="Ej.: Reparación de cámara WiFi Ezviz. Revisar fuente, configurar nuevamente y dejar operativa. A todo costo S/ 180.00"></textarea></label>'+
+    '<label>Descripción del trabajo<textarea id="aiDescription" name="description" rows="7" required placeholder="Escribe el trabajo tal como lo tengas. Ej.: Podar árbol de pino de 15 m, retirarlo desde la raíz, retirar residuos y dejar el jardín limpio. A todo costo S/ 500.00"></textarea></label>'+
+    '<div class="ai-description-actions"><button type="button" class="secondary" id="improveDescription">✦ Mejorar descripción con IA</button><span>La IA ordenará y profesionalizará el texto sin inventar datos.</span></div>'+
     '<label style="display:flex;align-items:center;gap:8px"><input name="all_cost" type="checkbox" checked style="width:auto"> A todo costo · una sola partida de trabajo</label>'+
-    '<div class="ai-hint">Puedes escribir todo en una sola descripción. La IA extraerá el título y el precio cuando aparezca. No inventará precios.</div>'+
+    '<div class="ai-hint">Primero puedes mejorar la descripción y después generar la cotización. Los precios y datos técnicos no se inventan.</div>'+
     '<div id="aiQuoteMsg" class="msg"></div>'+
     '<div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary" id="generateAi">✦ Generar cotización</button></div>'+
     '</form>'
   );
   $("#x").onclick=close;$("#cancel").onclick=close;
+  $("#improveDescription").onclick=async()=>{
+    const btn=$("#improveDescription"),box=$("#aiDescription"),msgBox=$("#aiQuoteMsg");
+    const description=String(box.value||"").trim();
+    if(!description)return toast("Escribe primero la descripción del trabajo.","err");
+    btn.disabled=true;msgBox.className="msg";msgBox.textContent="M.A.R.C. está mejorando la descripción…";
+    try{
+      const r=await fetch("/api/quote-ai",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({description,improveOnly:true})});
+      const j=await r.json(); if(!r.ok)throw new Error(j.message||j.error||"No se pudo mejorar la descripción.");
+      if(j.improved?.description)box.value=j.improved.description;
+      msgBox.className="msg ok";msgBox.textContent=j.improved?.title?"Título sugerido: "+j.improved.title:"Descripción mejorada.";
+    }catch(err){msgBox.className="msg error";msgBox.textContent=err.message||"No se pudo mejorar."}
+    finally{btn.disabled=false}
+  };
   $("#aiQuoteForm").onsubmit=async e=>{
     e.preventDefault();
     const d=new FormData(e.currentTarget);

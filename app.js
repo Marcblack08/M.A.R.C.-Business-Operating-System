@@ -736,14 +736,15 @@ async function inventoryPdfModal(){
             for(const item of byPage[pageKey]){
               try{
                 const centerY=viewport.height-(Number(item.pdf_y)||0)*1.5;
-                const halfH=Math.max(24,Number(item.pdf_radius||22))*1.5+18;
+                const halfH=Math.max(24,Number(item.pdf_radius||22))*1.5+12;
                 const y=Math.max(0,Math.round(centerY-halfH));
                 const h=Math.min(canvas.height-y,Math.round(halfH*2));
                 if(h<20){skipped++;continue;}
 
                 const scale=1.5;
                 const x=Math.max(0,Math.round(Number(item.pdf_x||0)*scale));
-                const w=Math.min(canvas.width-x,Math.round(Number(item.pdf_width||canvas.width/scale)*scale));
+                const rawWidth=Number(item.pdf_width||canvas.width/scale);
+                const w=Math.min(canvas.width-x,Math.max(80,Math.round(rawWidth*scale)));
                 if(w<80){skipped++;continue;}
 
                 const crop=document.createElement("canvas");
@@ -758,8 +759,10 @@ async function inventoryPdfModal(){
                 // 1) SKU exacto: es el identificador más fiable.
                 if(item.sku){
                   const q=await S.from("marc_inventory").select("id,image_url,name,sku,brand,model")
-                    .eq("user_id",st.u.id).eq("sku",item.sku).limit(5);
-                  found=(q.data||[]).find(x=>!x.image_url)||q.data?.[0]||null;
+                    .eq("user_id",st.u.id).ilike("sku",item.sku).limit(10);
+                  const skuCandidates=q.data||[];
+                  found=skuCandidates.find(x=>!x.image_url)||null;
+                  if(!found&&skuCandidates.length===1)found=skuCandidates[0];
                 }
 
                 // 2) Fallback: nombre normalizado + modelo.
@@ -767,9 +770,9 @@ async function inventoryPdfModal(){
                   const q=await S.from("marc_inventory").select("id,image_url,name,sku,brand,model")
                     .eq("user_id",st.u.id).ilike("name",item.name.slice(0,80)).limit(20);
                   const candidates=(q.data||[]).filter(x=>!x.image_url);
-                  found=candidates.find(x=>normalize(x.name)===normalize(item.name)&&(!item.model||normalize(x.model)===normalize(item.model)))
-                    ||candidates.find(x=>normalize(x.name)===normalize(item.name))
-                    ||candidates[0]||null;
+                  const exact=candidates.filter(x=>normalize(x.name)===normalize(item.name));
+                  const exactModel=exact.filter(x=>!item.model||normalize(x.model)===normalize(item.model));
+                  found=exactModel.length===1?exactModel[0]:(exact.length===1?exact[0]:(candidates.length===1?candidates[0]:null));
                 }
 
                 if(!found||found.image_url){skipped++;continue;}

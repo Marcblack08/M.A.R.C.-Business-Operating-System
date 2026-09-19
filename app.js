@@ -149,12 +149,99 @@ async function unlinkTelegram(){
     await refreshTelegramSettings();
   }catch(e){toast(e.message||"No se pudo desconectar.","err")}
 }
+async function getCompanyProfile(){
+  try{
+    const r=await fetch("/api/company/profile",{headers:{Authorization:"Bearer "+st.session?.access_token}});
+    const j=await r.json();
+    if(!r.ok)throw new Error(j.message||j.error||"No se pudo cargar la empresa.");
+    return j.profile||{};
+  }catch(e){return {error:e.message||"No se pudo cargar la empresa."}}
+}
+function resizeLogo(file){
+  return new Promise((resolve,reject)=>{
+    if(!file||!file.type.startsWith("image/"))return reject(new Error("Selecciona una imagen válida."));
+    const reader=new FileReader();
+    reader.onerror=()=>reject(new Error("No se pudo leer el logo."));
+    reader.onload=()=>{
+      const img=new Image();
+      img.onerror=()=>reject(new Error("La imagen del logo no es válida."));
+      img.onload=()=>{
+        const max=900,scale=Math.min(1,max/Math.max(img.width,img.height));
+        const canvas=document.createElement("canvas");
+        canvas.width=Math.max(1,Math.round(img.width*scale));
+        canvas.height=Math.max(1,Math.round(img.height*scale));
+        const ctx=canvas.getContext("2d");
+        ctx.drawImage(img,0,0,canvas.width,canvas.height);
+        resolve(canvas.toDataURL("image/jpeg",.88));
+      };
+      img.src=reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+async function companySettings(){
+  const c=$("#content"),profile=await getCompanyProfile();
+  if(profile.error){toast(profile.error,"err");return}
+  c.innerHTML=\`<div class="head"><div><div class="eyebrow2">EMPRESA</div><h1>Marca y datos comerciales.</h1><p>Tu logo y datos aparecerán automáticamente en las cotizaciones PDF.</p></div></div>
+  <section class="card panel company-branding">
+    <div class="company-logo-preview" id="companyLogoPreview">\${profile.logo_data?\`<img src="\${profile.logo_data}" alt="Logo de empresa">\`:'<div class="company-logo-empty">LOGO</div>'}</div>
+    <div class="company-branding-copy">
+      <div class="eyebrow2">BRANDING PARA PDF</div>
+      <h3>Logo de la empresa</h3>
+      <p>Disponible para cuentas MASTER y planes pagados. La imagen se optimiza automáticamente para los documentos.</p>
+      <div class="company-actions">
+        <label class="secondary file-btn">Seleccionar logo<input id="companyLogo" type="file" accept="image/png,image/jpeg,image/webp" hidden></label>
+        <button id="removeLogo" class="secondary" type="button">Quitar logo</button>
+      </div>
+      <small id="logoStatus" class="muted-small"></small>
+    </div>
+  </section>
+  <section class="card panel" style="margin-top:12px">
+    <div class="eyebrow2">DATOS DE LA EMPRESA</div>
+    <form id="companyForm" class="form-grid">
+      <label>Nombre comercial<input name="business_name" value="\${esc(profile.business_name||"")}" placeholder="Tecnovigilancia Marc"></label>
+      <label>Razón social<input name="legal_name" value="\${esc(profile.legal_name||"")}" placeholder="Razón social"></label>
+      <label>RUC<input name="ruc" value="\${esc(profile.ruc||"")}" placeholder="20xxxxxxxxx"></label>
+      <label>Teléfono<input name="phone" value="\${esc(profile.phone||"")}" placeholder="+51 ..."></label>
+      <label>Correo<input name="email" value="\${esc(profile.email||"")}" placeholder="ventas@empresa.com"></label>
+      <label>Dirección<input name="address" value="\${esc(profile.address||"")}" placeholder="Dirección comercial"></label>
+      <div class="modal-actions" style="grid-column:1/-1"><button type="submit" class="primary" id="saveCompany">Guardar datos de empresa</button></div>
+    </form>
+  </section>\`;
+  let logoData=profile.logo_data||null;
+  $("#companyLogo").onchange=async e=>{
+    const file=e.target.files?.[0];if(!file)return;
+    try{
+      logoData=await resizeLogo(file);
+      $("#companyLogoPreview").innerHTML='<img src="'+logoData+'" alt="Logo de empresa">';
+      $("#logoStatus").textContent="Logo listo para guardar.";
+    }catch(err){toast(err.message||"No se pudo preparar el logo.","err")}
+  };
+  $("#removeLogo").onclick=()=>{logoData=null;$("#companyLogoPreview").innerHTML='<div class="company-logo-empty">LOGO</div>';$("#logoStatus").textContent="El logo será eliminado al guardar."};
+  $("#companyForm").onsubmit=async e=>{
+    e.preventDefault();
+    const d=new FormData(e.currentTarget),btn=$("#saveCompany");
+    btn.disabled=true;
+    try{
+      const body={business_name:d.get("business_name"),legal_name:d.get("legal_name"),ruc:d.get("ruc"),phone:d.get("phone"),email:d.get("email"),address:d.get("address"),logo_data:logoData};
+      const r=await fetch("/api/company/profile",{method:"POST",headers:{Authorization:"Bearer "+st.session?.access_token,"Content-Type":"application/json"},body:JSON.stringify(body)});
+      const j=await r.json();
+      if(!r.ok)throw new Error(j.message||j.error||"No se pudo guardar.");
+      toast("Datos de empresa guardados","ok");
+      await settings();
+      setTimeout(companySettings,50);
+    }catch(err){toast(err.message||"No se pudo guardar.","err")}
+    finally{btn.disabled=false}
+  };
+}
+
 async function settings(){
   const {data:a}=await S.from("marc_accounts").select("*").eq("id",st.u.id).single();
   const {data:master}=await S.from("marc_user_roles").select("role,active").eq("user_id",st.u.id).eq("role","MASTER").eq("active",true).maybeSingle();
   const {data:sub}=await S.from("marc_subscriptions").select("plan,status,current_period_end,provider").eq("user_id",st.u.id).eq("status","active").order("current_period_end",{ascending:false}).limit(1).maybeSingle();
   $("#content").innerHTML=`<div class="head"><div><div class="eyebrow2">CONFIGURACIÓN</div><h1>Cuenta y conexiones.</h1><p>La suscripción pertenece a tu cuenta M.A.R.C.; los canales solo la utilizan.</p></div></div>
-  <div class="settings">
+  <div class="settings"><div class="settings-company-card card panel" style="grid-column:1/-1"><div class="eyebrow2">EMPRESA</div><h3 style="margin:0">Marca y datos para cotizaciones.</h3><p>Configura tu logo y los datos que aparecerán en tus PDF.</p><button class="primary" id="companyProfileBtn">Configurar empresa</button></div>
+
     <section class="card panel">
       <div class="eyebrow2">SUSCRIPCIÓN</div>
       <h3 style="font-size:17px;margin:0">${master?"M.A.R.C. MASTER":sub?"M.A.R.C. "+esc(sub.plan):"Prueba gratuita"}</h3>
@@ -185,6 +272,7 @@ async function settings(){
   </div>`;
   $("#out2").onclick=()=>S.auth.signOut();
   $("#plans").onclick=()=>toast("El checkout se conecta después de validar precios y proveedor de pago.","");
+  $("#companyProfileBtn").onclick=companySettings;
   $("#connectTelegram").onclick=connectTelegram;
   $("#unlinkTelegram").onclick=unlinkTelegram;
   $("#refreshTelegram").onclick=refreshTelegramSettings;
@@ -366,15 +454,21 @@ async function downloadQuotePdf(id){
   if(ir.error)throw new Error("No se pudieron leer las partidas: "+ir.error.message);
   const items=ir.data||[];
   const client=q.marc_clients||{};
+  const company=await getCompanyProfile();
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({unit:"mm",format:"a4"});
   const pageW=210,margin=14;
   let y=18;
-  doc.setFont("helvetica","bold");doc.setFontSize(20);doc.text("M.A.R.C.",margin,y);
-  doc.setFontSize(9);doc.setFont("helvetica","normal");doc.text("Business Operating System",margin,y+5);
+  if(company?.logo_data){try{doc.addImage(company.logo_data,"JPEG",margin,y-3,30,18,"logo","FAST")}catch{}}
+  const brandX=company?.logo_data?margin+35:margin;
+  doc.setFont("helvetica","bold");doc.setFontSize(18);doc.text(String(company?.business_name||"M.A.R.C."),brandX,y+2);
+  doc.setFont("helvetica","normal");doc.setFontSize(8);
+  const companyMeta=[company?.legal_name,company?.ruc?("RUC "+company.ruc):"",company?.phone,company?.email].filter(Boolean).join(" · ");
+  if(companyMeta)doc.text(doc.splitTextToSize(companyMeta,95),brandX,y+7);
+  if(company?.address)doc.text(doc.splitTextToSize(company.address,95),brandX,y+12);
   doc.setFont("helvetica","bold");doc.setFontSize(16);doc.text(String(q.number||"COTIZACIÓN"),pageW-margin,y,{align:"right"});
   doc.setFont("helvetica","normal");doc.setFontSize(9);doc.text(new Date(q.created_at).toLocaleDateString("es-PE"),pageW-margin,y+5,{align:"right"});
-  y+=15;doc.setDrawColor(210);doc.line(margin,y,pageW-margin,y);y+=9;
+  y+=23;doc.setDrawColor(210);doc.line(margin,y,pageW-margin,y);y+=9;
   const box=(x,yy,w,h,title,lines)=>{
     doc.setDrawColor(225);doc.roundedRect(x,yy,w,h,3,3);
     doc.setFont("helvetica","bold");doc.setFontSize(9);doc.text(title,x+4,yy+6);

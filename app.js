@@ -202,10 +202,10 @@ function pdfProgressHtml(page,total,count){
 
 async function inventoryPdfModal(){
   const close=modal(
-    '<div class="modal-head"><div><h2>📄 Importar inventario desde PDF</h2><p>Ahora M.A.R.C. lee el catálogo página por página para detectar cada producto con mayor control.</p></div><button class="close" id="x">×</button></div>'+
+    '<div class="modal-head"><div><h2>📄 Importar inventario desde PDF</h2><p>M.A.R.C. lee el catálogo página por página y detecta los productos antes de importarlos.</p></div><button class="close" id="x">×</button></div>'+
     '<form id="pdfInventoryForm">'+
     '<label>Catálogo PDF<input id="inventoryPdfFile" type="file" accept="application/pdf" required></label>'+
-    '<div class="pdf-import-hint">Hasta 20 MB. M.A.R.C. mostrará la página que está leyendo, cuántos productos detecta y la lista exacta antes de importar.</div>'+
+    '<div class="pdf-import-hint">Hasta 20 MB. Para catálogos con tablas de texto, M.A.R.C. hace la lectura directamente en el dispositivo para mayor velocidad y precisión.</div>'+
     '<div id="pdfImportStatus" class="msg"></div>'+
     '<div id="pdfImportProgress"></div>'+
     '<div id="pdfLiveItems" class="pdf-live-items hidden"></div>'+
@@ -213,20 +213,26 @@ async function inventoryPdfModal(){
     '<div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button type="submit" class="primary" id="analyzePdf">Analizar catálogo</button></div>'+
     '</form>'
   );
-  $("#x").onclick=close;$("#cancel").onclick=close;
+  $("#x").onclick=close;
+  $("#cancel").onclick=close;
 
-  const form=$("#pdfInventoryForm"),btn=$("#analyzePdf"),status=$("#pdfImportStatus");
+  const form=$("#pdfInventoryForm");
+  const btn=$("#analyzePdf");
+  const status=$("#pdfImportStatus");
   let working=false;
 
   form.onsubmit=async function(e){
     e.preventDefault();
     if(working)return;
+
     const file=$("#inventoryPdfFile").files?.[0];
     if(!file)return toast("Selecciona un PDF.","err");
     if(file.size>20*1024*1024)return toast("El PDF supera el límite de 20 MB.","err");
 
-    working=true;btn.disabled=true;
-    status.className="msg";status.textContent="Abriendo el catálogo y contando páginas…";
+    working=true;
+    btn.disabled=true;
+    status.className="msg";
+    status.textContent="Abriendo el catálogo y contando páginas…";
     $("#pdfImportPreview").classList.add("hidden");
     $("#pdfLiveItems").classList.add("hidden");
 
@@ -240,21 +246,8 @@ async function inventoryPdfModal(){
       const pdf=await pdfjs.getDocument({data:buffer}).promise;
       const totalPages=pdf.numPages;
 
-      status.textContent="Catálogo abierto. M.A.R.C. procesará "+totalPages+" páginas una por una.";
+      status.textContent="Catálogo abierto. Procesando "+totalPages+" páginas…";
       $("#pdfImportProgress").innerHTML=pdfProgressHtml(0,totalPages,0);
-
-      const start=await fetch("/api/inventory/pdf-start",{
-        method:"POST",
-        headers:{
-          "Content-Type":"application/json",
-          Authorization:"Bearer "+st.session?.access_token
-        },
-        body:JSON.stringify({filename:file.name,totalPages})
-      });
-      const sj=await start.json();
-      if(!start.ok)throw new Error(sj.message||sj.error||"No se pudo iniciar el análisis.");
-      const pendingId=sj.pendingId;
-      if(!pendingId)throw new Error("No se pudo crear la sesión de análisis.");
 
       const detected=[];
       const live=$("#pdfLiveItems");
@@ -267,7 +260,7 @@ async function inventoryPdfModal(){
         const batch=[];
         for(let p=0;p<CONCURRENCY&&batchStart+p<=totalPages;p++)batch.push(batchStart+p);
 
-        status.textContent="Leyendo páginas "+batch[0]+"–"+batch[batch.length-1]+" de "+totalPages+"…";
+        status.textContent="M.A.R.C. está leyendo páginas "+batch[0]+"–"+batch[batch.length-1]+" de "+totalPages+"…";
         $("#pdfProgressText").textContent="Leyendo páginas "+batch[0]+"–"+batch[batch.length-1]+" de "+totalPages;
         $("#pdfProgressCount").textContent=detected.length+" productos detectados";
         $("#pdfProgressBar").style.width=Math.round((batch[0]-1)*100/totalPages)+"%";
@@ -280,6 +273,7 @@ async function inventoryPdfModal(){
             return {pageNumber,items:local.rows,mode:"LECTURA DIRECTA"};
           }
 
+          // Solo los PDFs sin tabla de texto utilizan Gemini.
           const text=local.text||await extractPdfPageText(page);
           let image="";
           let viewport=page.getViewport({scale:1.25});
@@ -300,7 +294,7 @@ async function inventoryPdfModal(){
                   "Content-Type":"application/json",
                   Authorization:"Bearer "+st.session?.access_token
                 },
-                body:JSON.stringify({pendingId,pageNumber,totalPages,text,image})
+                body:JSON.stringify({pendingId:null,pageNumber,totalPages,text,image})
               });
               const pj=await pr.json();
               if(!pr.ok)throw new Error(pj.message||pj.error||("No se pudo analizar la página "+pageNumber));
@@ -335,19 +329,7 @@ async function inventoryPdfModal(){
       $("#pdfProgressText").textContent="Lectura terminada · "+totalPages+" páginas";
       $("#pdfProgressCount").textContent=detected.length+" productos detectados";
 
-      const finalizeFd=new FormData();
-      finalizeFd.append("pendingId",pendingId);
-      finalizeFd.append("file",file,file.name);
-      finalizeFd.append("items",JSON.stringify(detected));
-      const fr=await fetch("/api/inventory/pdf-finalize",{
-        method:"POST",
-        headers:{Authorization:"Bearer "+st.session?.access_token},
-        body:finalizeFd
-      });
-      const fj=await fr.json();
-      if(!fr.ok)throw new Error(fj.message||fj.error||"No se pudo preparar la importación.");
-
-      const listItems=detected.length?detected:fj.items||[];
+      const listItems=detected;
       const preview=$("#pdfImportPreview");
       preview.innerHTML=
         '<div class="pdf-final-summary"><strong>Se procesarán '+listItems.length+' productos</strong><span>'+totalPages+' páginas revisadas</span></div>'+
@@ -355,27 +337,32 @@ async function inventoryPdfModal(){
           listItems.map((x,i)=>'<div class="pdf-product-row"><span><b>'+(i+1)+'.</b> '+esc(x.name)+'</span><small>Página '+Number(x.page_number||1)+' · '+esc([x.sku,x.brand,x.model].filter(Boolean).join(" · ")||"Sin código")+(x.price!=null?" · S/ "+Number(x.price).toFixed(2):"")+'</small></div>').join("")+
         '</div>';
       preview.classList.remove("hidden");
+
       btn.type="button";
       btn.disabled=false;
       btn.textContent="Importar "+listItems.length+" productos";
       btn.dataset.ready="1";
       btn.onclick=async function(){
-        if(btn.dataset.importing==="1")return;
-        btn.dataset.importing="1";btn.disabled=true;
-        status.className="msg";status.textContent="Importando "+listItems.length+" productos al inventario…";
+        if(btn.dataset.importing==="1"||!btn.dataset.ready)return;
+        btn.dataset.importing="1";
+        btn.disabled=true;
+        status.className="msg";
+        status.textContent="Importando "+listItems.length+" productos directamente al inventario…";
+
         try{
-          const ir=await fetch("/api/inventory/pdf-import",{
-            method:"POST",
-            headers:{
-              "Content-Type":"application/json",
-              Authorization:"Bearer "+st.session?.access_token
-            },
-            body:JSON.stringify({pendingId:fj.pendingId,updateExisting:true})
+          const {data,error}=await S.rpc("marc_import_inventory_batch",{
+            p_items:listItems,
+            p_update_existing:true
           });
-          const ij=await ir.json();
-          if(!ir.ok)throw new Error(ij.message||ij.error||"No se pudo importar.");
-          toast("Inventario actualizado: "+ij.created+" nuevos, "+ij.updated+" actualizados.","ok");
-          close();await trial();await inventory();
+          if(error)throw new Error(error.message||"No se pudo importar el lote.");
+          if(!data||data.status!=="IMPORTED")throw new Error("Supabase no confirmó la importación.");
+
+          toast("Inventario actualizado: "+data.created+" nuevos, "+data.updated+" actualizados.","ok");
+          status.className="msg ok";
+          status.textContent="Importación completada. "+data.total+" productos procesados.";
+          close();
+          await trial();
+          await inventory();
         }catch(err){
           status.className="msg error";
           status.textContent=err.message||"No se pudo importar.";
@@ -394,6 +381,7 @@ async function inventoryPdfModal(){
     }
   };
 }
+
 
 async function inventory(){const {data}=await S.from("marc_inventory").select("*").eq("user_id",st.u.id).eq("active",true).order("name");const c=$("#content");c.innerHTML=`<div class="head"><div><div class="eyebrow2">INVENTARIO</div><h1>Productos + stock.</h1><p>Todo producto vive dentro del inventario.</p></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button id="importPdf" class="secondary">📄 Importar PDF</button><button id="new" class="primary">＋ Nuevo producto</button></div></div><section class="card table"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar producto…"></div><button id="ask" class="secondary">Preguntar</button></div><div class="scroll"><table class="data"><thead><tr><th>Producto</th><th>Marca/modelo</th><th>Stock</th><th>Precio</th><th>Estado</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></section>`;const rows=$("#rows"),draw=list=>rows.innerHTML=list.map(x=>{const s=Number(x.stock),m=Number(x.min_stock),cls=s<=0?"out":s<=m?"low":"ok";return`<tr><td><b>${esc(x.name)}</b><br><small>${esc(x.sku||"Sin código")}</small></td><td>${esc([x.brand,x.model].filter(Boolean).join(" · ")||"—")}</td><td><b>${s}</b> ${esc(x.unit)}</td><td>${money(x.price)}</td><td><span class="badge ${cls}">${s<=0?"Agotado":s<=m?"Bajo":"Disponible"}</span></td><td><button class="secondary" data-id="${x.id}">Editar</button></td></tr>`}).join("")||'<tr><td colspan="6" class="empty">Agrega tu primer producto.</td></tr>';draw(data||[]);$("#search").oninput=e=>{const q=e.target.value.toLowerCase();draw((data||[]).filter(x=>[x.name,x.sku,x.brand,x.model,x.category].some(v=>String(v||"").toLowerCase().includes(q))))};$("#new").onclick=()=>inventoryModal();$("#importPdf").onclick=inventoryPdfModal;$("#ask").onclick=openChat;$$("[data-id]",c).forEach(b=>b.onclick=()=>inventoryModal((data||[]).find(x=>x.id===b.dataset.id)))}
 async function quotes(){

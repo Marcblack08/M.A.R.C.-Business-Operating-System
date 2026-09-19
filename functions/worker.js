@@ -790,16 +790,26 @@ async function importPendingInventory(env,adminToken,userId,pendingId,updateExis
   const items=sanitizePdfItems(pending.items);
   let created=0,updated=0;
   for(const item of items){
-    const row={
-      user_id:userId,sku:item.sku,name:item.name,brand:item.brand,model:item.model,category:item.category,
-      unit:item.unit,cost:item.cost??0,price:item.price??0,stock:item.stock??0,min_stock:item.min_stock??0,
-      active:true,updated_at:new Date().toISOString()
-    };
     const existing=updateExisting?await findExistingInventory(env,adminToken,userId,item):null;
     if(existing){
-      await sb(env,adminToken,"marc_inventory?id=eq."+encodeURIComponent(existing.id)+"&user_id=eq."+encodeURIComponent(userId),{method:"PATCH",body:row});
+      // El PDF puede no contener precio, costo o stock. En un producto existente,
+      // nunca reemplazar datos reales por null/0 solo porque el catálogo no los muestra.
+      const patch={
+        sku:item.sku,name:item.name,brand:item.brand,model:item.model,category:item.category,
+        unit:item.unit,active:true,updated_at:new Date().toISOString()
+      };
+      if(item.cost!==null&&item.cost!==undefined)patch.cost=item.cost;
+      if(item.price!==null&&item.price!==undefined)patch.price=item.price;
+      if(item.min_stock!==null&&item.min_stock!==undefined)patch.min_stock=item.min_stock;
+      if(item.stock!==null&&item.stock!==undefined)patch.stock=item.stock;
+      await sb(env,adminToken,"marc_inventory?id=eq."+encodeURIComponent(existing.id)+"&user_id=eq."+encodeURIComponent(userId),{method:"PATCH",body:patch});
       updated++;
     }else{
+      const row={
+        user_id:userId,sku:item.sku,name:item.name,brand:item.brand,model:item.model,category:item.category,
+        unit:item.unit,cost:item.cost??0,price:item.price??0,stock:item.stock??0,min_stock:item.min_stock??0,
+        active:true,updated_at:new Date().toISOString()
+      };
       await sb(env,adminToken,"marc_inventory",{method:"POST",body:row});
       created++;
     }

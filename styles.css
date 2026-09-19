@@ -145,3 +145,51 @@ body{background:radial-gradient(circle at 72% -10%,#ddebff 0,#f3f6fb 32%,#eef3f9
   .kpi-icon{width:34px;height:34px;font-size:13px}
   .panel-title-row h3{font-size:12px}
 }
+
+
+/* ===== Financial statistics dashboard ===== */
+.kpi-profit .kpi-icon{background:#f0edff;color:#705ae3}
+.finance-dashboard{display:grid;gap:12px}
+.finance-heading{display:flex;justify-content:space-between;align-items:flex-end;gap:15px;padding:4px 2px}
+.finance-heading h2{margin:0;font-size:19px;letter-spacing:-.035em}
+.finance-heading p{margin:4px 0 0;color:#7d8da0;font-size:8px;line-height:1.5}
+.finance-summary{min-width:150px;text-align:right}
+.finance-summary span{display:block;color:#8998a9;font-size:7px;font-weight:800;text-transform:uppercase;letter-spacing:.1em}
+.finance-summary strong{display:block;margin-top:2px;font-size:20px;color:#1478ea}
+.finance-summary small{display:block;margin-top:3px;color:#7f8f9f;font-size:7px}
+.finance-grid{display:grid;grid-template-columns:1.35fr .65fr;gap:18px}
+.profit-chart-panel,.margin-panel{padding:19px}
+.finance-subtitle{display:block;margin-top:3px;color:#8b99aa;font-size:7px}
+.finance-dot{display:flex;align-items:center;gap:5px;color:#7a8a9c;font-size:7px;font-weight:800}
+.finance-dot i{width:7px;height:7px;border-radius:50%;background:#167de4;display:block}
+.profit-bars{height:230px;display:grid;grid-template-columns:repeat(6,1fr);gap:10px;align-items:end;margin-top:20px;padding-top:10px}
+.profit-bar-col{height:100%;display:grid;grid-template-rows:22px 1fr 20px;gap:5px;align-items:end;text-align:center;min-width:0}
+.profit-value{font-size:7px;font-weight:800;color:#73869a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.profit-bar-track{height:100%;border-radius:10px 10px 4px 4px;background:#eef3f8;display:flex;align-items:flex-end;overflow:hidden}
+.profit-bar-fill{width:100%;min-height:5px;border-radius:10px 10px 3px 3px;background:linear-gradient(180deg,#5cc7ff,#1478ea);transition:height .3s}
+.profit-bar-fill.current{background:linear-gradient(180deg,#a58cff,#6d53db)}
+.profit-bar-col>b{font-size:7px;color:#8493a3}
+.margin-panel{min-height:300px}
+.margin-ring-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;height:230px;gap:17px}
+.margin-ring{--ring:0%;width:132px;height:132px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(#705ae3 var(--ring),#edf1f6 0)}
+.margin-ring:after{content:"";position:absolute}
+.margin-ring>div{width:100px;height:100px;border-radius:50%;background:#fff;display:grid;place-items:center;align-content:center;box-shadow:0 5px 18px #24466f0d}
+.margin-ring strong{font-size:26px;line-height:1;color:#18324f}.margin-ring span{font-size:7px;color:#8795a5;margin-top:5px;text-transform:uppercase;letter-spacing:.1em;font-weight:800}
+.margin-copy{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:100%}
+.margin-copy div{padding:8px 7px;background:#f8fafc;border:1px solid #e8edf3;border-radius:10px;text-align:center}
+.margin-copy span{display:block;font-size:6px;color:#8494a5;text-transform:uppercase;font-weight:800}
+.margin-copy b{display:block;margin-top:3px;font-size:8px;color:#173453}
+@media(max-width:1060px){
+  .finance-grid{grid-template-columns:1fr}
+  .margin-panel{min-height:260px}
+}
+@media(max-width:520px){
+  .finance-heading{align-items:flex-start;flex-direction:column}
+  .finance-summary{text-align:left}
+  .profit-bars{gap:6px;height:200px}
+  .profit-value{font-size:6px}
+  .profit-bar-col>b{font-size:6px}
+  .margin-ring{width:118px;height:118px}
+  .margin-ring>div{width:88px;height:88px}
+  .margin-ring strong{font-size:23px}
+}

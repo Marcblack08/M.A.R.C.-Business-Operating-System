@@ -162,8 +162,8 @@ function closeChat(){
   $("#chat").classList.add("closed");
   $("#app").classList.add("chat-closed");
 }
-function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",quotes:"Cotizaciones",settings:"Configuración"}[x]||"Inicio";$$(".sidebar nav button, #mobileNav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
-async function view(x){st.view=x;title(x);$("#sidebar").classList.remove("open");document.body.style.overflow="";if(window.innerWidth<=780)window.scrollTo(0,0);$$(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x));if(x==="home")return home();if(x==="clients")return clients();if(x==="inventory")return inventory();if(x==="quotes")return quotes();return settings()}
+function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",quotes:"Cotizaciones",settings:"Configuración",cash:"Cierre de caja"}[x]||"Inicio";$$(".sidebar nav button, #mobileNav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
+async function view(x){st.view=x;title(x);$("#sidebar").classList.remove("open");document.body.style.overflow="";if(window.innerWidth<=780)window.scrollTo(0,0);$$(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x));if(x==="home")return home();if(x==="clients")return clients();if(x==="inventory")return inventory();if(x==="quotes")return quotes();if(x==="cash")return cash();return settings()}
 async function home(){
   const c=$("#content");
   const [cl,iv,qt]=await Promise.all([
@@ -1912,6 +1912,60 @@ async function companySettings(){
   };
 }
 
+async function cash(){
+  const c=$("#content");
+  const {data:open,error:openError}=await S.from("marc_cash_registers").select("*").eq("user_id",st.u.id).eq("status","OPEN").order("opened_at",{ascending:false}).limit(1).maybeSingle();
+  if(openError)return toast(openError.message,"err");
+  const {data:closed}=await S.from("marc_cash_registers").select("*").eq("user_id",st.u.id).eq("status","CLOSED").order("closed_at",{ascending:false}).limit(10);
+  let movements=[];
+  if(open){
+    const r=await S.from("marc_cash_movements").select("*").eq("user_id",st.u.id).eq("cash_register_id",open.id).order("created_at",{ascending:false});
+    if(r.error)return toast(r.error.message,"err");
+    movements=r.data||[];
+  }
+  const income=movements.filter(x=>x.type==="INCOME").reduce((s,x)=>s+Number(x.amount||0),0);
+  const expense=movements.filter(x=>x.type==="EXPENSE").reduce((s,x)=>s+Number(x.amount||0),0);
+  const expected=Number(open?.opening_amount||0)+income-expense;
+  c.innerHTML=`
+    <div class="head"><div><div class="eyebrow2">CAJA</div><h1>Cierre de caja.</h1><p>Controla efectivo, ingresos, egresos y diferencias del turno.</p></div>
+      ${open?'<button id="closeCashTop" class="primary">✓ Cerrar caja</button>':'<button id="openCashTop" class="primary">＋ Abrir caja</button>'}
+    </div>
+    <section class="cash-kpis">
+      <article class="card cash-kpi"><span>ESTADO</span><strong>${open?"ABIERTA":"CERRADA"}</strong><small>${open?(new Date(open.opened_at)).toLocaleString("es-PE"):"Abre una nueva caja para comenzar"}</small></article>
+      <article class="card cash-kpi"><span>APERTURA</span><strong>${money(open?.opening_amount||0)}</strong><small>Efectivo inicial</small></article>
+      <article class="card cash-kpi"><span>INGRESOS</span><strong class="cash-in">${money(income)}</strong><small>${movements.filter(x=>x.type==="INCOME").length} movimientos</small></article>
+      <article class="card cash-kpi"><span>EGRESOS</span><strong class="cash-out">${money(expense)}</strong><small>${movements.filter(x=>x.type==="EXPENSE").length} movimientos</small></article>
+      <article class="card cash-kpi cash-total"><span>EFECTIVO ESPERADO</span><strong>${money(expected)}</strong><small>Apertura + ingresos − egresos</small></article>
+    </section>
+    ${open?`
+      <section class="card panel cash-actions"><div class="panel-title-row"><div><div class="eyebrow2">MOVIMIENTOS</div><h3>Registrar operación</h3></div></div>
+        <div class="cash-action-grid"><button id="cashIncome" class="cash-action income">＋ Ingreso de efectivo<small>Venta, cobro u otro ingreso</small></button><button id="cashExpense" class="cash-action expense">− Egreso de efectivo<small>Compra, transporte, gasto u otro</small></button></div>
+      </section>
+      <section class="card panel cash-movements"><div class="panel-title-row"><div><div class="eyebrow2">MOVIMIENTOS DE HOY</div><h3>Detalle de caja</h3></div></div>
+      <div class="scroll"><table class="data"><thead><tr><th>Hora</th><th>Tipo</th><th>Concepto</th><th>Referencia</th><th>Monto</th></tr></thead><tbody>
+      ${movements.map(x=>`<tr><td>${new Date(x.created_at).toLocaleTimeString("es-PE",{hour:"2-digit",minute:"2-digit"})}</td><td><span class="cash-type ${x.type==="INCOME"?"in":"out"}">${x.type==="INCOME"?"Ingreso":"Egreso"}</span></td><td><b>${esc(x.concept)}</b></td><td>${esc(x.reference||"—")}</td><td class="${x.type==="INCOME"?"cash-in":"cash-out"}"><b>${x.type==="INCOME"?"+":"−"} ${money(x.amount)}</b></td></tr>`).join("")||'<tr><td colspan="5" class="empty">Aún no hay movimientos.</td></tr>'}
+      </tbody></table></div></section>
+    `:'<section class="card panel cash-closed-empty"><div class="empty-state"><span>▣</span><b>No hay una caja abierta</b><small>Abre caja indicando el efectivo inicial para comenzar el turno.</small></div></section>'}
+    <section class="card panel"><div class="panel-title-row"><div><div class="eyebrow2">HISTORIAL</div><h3>Últimos cierres</h3></div></div>
+      <div class="cash-history">${(closed||[]).map(x=>`<div class="cash-history-row"><div><b>${new Date(x.closed_at).toLocaleDateString("es-PE")}</b><small>Esperado ${money(x.expected_amount)} · Contado ${money(x.closing_amount)}</small></div><strong class="${Number(x.difference||0)===0?"cash-in":"cash-out"}">${Number(x.difference||0)>=0?"+":""}${money(x.difference)}</strong></div>`).join("")||'<div class="empty">Todavía no hay cierres registrados.</div>'}</div>
+    </section>`;
+  if(open)$("#closeCashTop").onclick=()=>closeCashModal(open,expected);
+  else $("#openCashTop").onclick=()=>openCashModal();
+  if(open){$("#cashIncome").onclick=()=>cashMovementModal(open,"INCOME");$("#cashExpense").onclick=()=>cashMovementModal(open,"EXPENSE");}
+}
+function openCashModal(){
+  const close=modal(`<div class="modal-head"><div><h2>Abrir caja</h2><p>Registra el efectivo físico con el que empiezas.</p></div><button class="close" id="x">×</button></div><form id="cashOpenForm"><label>Efectivo inicial<input name="amount" type="number" min="0" step="0.01" value="0" required></label><label>Nota<textarea name="notes" rows="3" placeholder="Ej. turno mañana"></textarea></label><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Abrir caja</button></div></form>`);
+  $("#x").onclick=close;$("#cancel").onclick=close;$("#cashOpenForm").onsubmit=async e=>{e.preventDefault();const d=new FormData(e.currentTarget);const {error}=await S.rpc("marc_cash_open",{p_opening_amount:Number(d.get("amount")||0),p_notes:d.get("notes")||null});if(error)return toast(error.message,"err");close();toast("Caja abierta","ok");cash()};
+}
+function cashMovementModal(open,type){
+  const income=type==="INCOME";
+  const close=modal(`<div class="modal-head"><div><h2>${income?"Registrar ingreso":"Registrar egreso"}</h2><p>${income?"Aumentará el efectivo esperado.":"Reducirá el efectivo esperado."}</p></div><button class="close" id="x">×</button></div><form id="cashMoveForm"><label>Monto<input name="amount" type="number" min="0.01" step="0.01" required></label><label>Concepto<input name="concept" required placeholder="${income?"Cobro de cliente":"Compra de material"}"></label><label>Referencia<input name="reference" placeholder="N.º de cotización, comprobante, etc."></label><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">${income?"Registrar ingreso":"Registrar egreso"}</button></div></form>`);
+  $("#x").onclick=close;$("#cancel").onclick=close;$("#cashMoveForm").onsubmit=async e=>{e.preventDefault();const d=new FormData(e.currentTarget);const {error}=await S.from("marc_cash_movements").insert({user_id:st.u.id,cash_register_id:open.id,type,amount:Number(d.get("amount")),concept:String(d.get("concept")).trim(),reference:String(d.get("reference")||"").trim()||null});if(error)return toast(error.message,"err");close();toast(income?"Ingreso registrado":"Egreso registrado","ok");cash()};
+}
+function closeCashModal(open,expected){
+  const close=modal(`<div class="modal-head"><div><h2>Cerrar caja</h2><p>Cuenta el efectivo físico y compara contra lo esperado.</p></div><button class="close" id="x">×</button></div><div class="cash-close-summary"><div><span>Esperado</span><b>${money(expected)}</b></div></div><form id="cashCloseForm"><label>Efectivo contado<input name="amount" type="number" min="0" step="0.01" value="${Number(expected).toFixed(2)}" required></label><label>Nota del cierre<textarea name="notes" rows="3" placeholder="Observaciones del turno"></textarea></label><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Confirmar cierre</button></div></form>`);
+  $("#x").onclick=close;$("#cancel").onclick=close;$("#cashCloseForm").onsubmit=async e=>{e.preventDefault();const d=new FormData(e.currentTarget);const amount=Number(d.get("amount"));if(!confirm("¿Confirmas el cierre de caja con "+money(amount)+" contados?"))return;const {data,error}=await S.rpc("marc_cash_close",{p_closing_amount:amount,p_notes:d.get("notes")||null});if(error)return toast(error.message,"err");close();toast("Caja cerrada · diferencia "+money(data?.difference||0),"ok");cash()};
+}
 async function settings(){
   const {data:a}=await S.from("marc_accounts").select("*").eq("id",st.u.id).single();
   const {data:master}=await S.from("marc_user_roles").select("role,active").eq("user_id",st.u.id).eq("role","MASTER").eq("active",true).maybeSingle();

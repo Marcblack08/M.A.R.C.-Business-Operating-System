@@ -808,37 +808,80 @@ async function inventory(){
   S.from("marc_inventory").select("*").eq("user_id",st.u.id).eq("active",true).order("name").then(({data,error})=>{
     if(error)return toast(error.message,"err");
     const c=$("#content");
-    c.innerHTML=`<div class="head"><div><div class="eyebrow2">INVENTARIO</div><h1>Productos + stock.</h1><p>Todo producto vive dentro del inventario.</p></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button id="importPdf" class="secondary">📄 Importar PDF</button><button id="new" class="primary">＋ Nuevo producto</button></div></div><section class="card table"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar producto…"></div><button id="ask" class="secondary">Preguntar</button></div><div class="scroll"><table class="data"><thead><tr><th>Producto</th><th>Marca/modelo</th><th>Stock</th><th>Precio</th><th>Estado</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></section>`;
-    const rows=$("#rows");
-    const draw=list=>rows.innerHTML=(list||[]).map(x=>{
-      const stock=Number(x.stock),min=Number(x.min_stock),cls=stock<=0?"out":stock<=min?"low":"ok";
-      return `<tr><td><b>${esc(x.name)}</b><br><small>${esc(x.sku||"Sin código")}</small></td><td>${esc([x.brand,x.model].filter(Boolean).join(" · ")||"—")}</td><td><b>${stock}</b> ${esc(x.unit)}</td><td>${money(x.price)}</td><td><span class="badge ${cls}">${stock<=0?"Agotado":stock<=min?"Bajo":"Disponible"}</span></td><td style="display:flex;gap:5px;flex-wrap:wrap"><button class="secondary" type="button" data-action="edit-inventory" data-id="${x.id}">Editar</button><button class="danger" type="button" data-action="delete-inventory" data-id="${x.id}">Eliminar</button></td></tr>`;
-    }).join("")||'<tr><td colspan="6" class="empty">Agrega tu primer producto.</td></tr>';
+    c.innerHTML=`<div class="head"><div><div class="eyebrow2">INVENTARIO</div><h1>Productos + stock.</h1><p>Todo producto vive dentro del inventario.</p></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button id="importPdf" class="secondary">📄 Importar PDF</button><button id="new" class="primary">＋ Nuevo producto</button></div></div>
+    <section class="card table">
+      <div class="toolbar"><div class="search"><input id="search" placeholder="Buscar producto…"></div><button id="ask" class="secondary">Preguntar</button></div>
+      <div id="bulkBar" class="bulk-bar" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0 0 10px;padding:10px 12px;border:1px solid #d7e5f7;border-radius:12px;background:#f7fbff">
+        <div style="display:flex;align-items:center;gap:10px"><label style="display:flex;align-items:center;gap:8px;font-weight:800;cursor:pointer"><input id="selectAll" type="checkbox"> Seleccionar todos</label><span id="selectedCount" style="font-weight:800;color:#1373e6">0 seleccionados</span></div>
+        <button id="bulkDelete" class="danger" type="button" disabled>🗑 Eliminar seleccionados</button>
+      </div>
+      <div class="scroll"><table class="data"><thead><tr><th style="width:45px;text-align:center"></th><th>Producto</th><th>Marca/modelo</th><th>Stock</th><th>Precio</th><th>Estado</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
+    </section>`;
+
+    const rows=$("#rows"), selected=new Set();
+    const currentList=()=>{const q=String($("#search").value||"").toLowerCase();return (data||[]).filter(x=>[x.name,x.sku,x.brand,x.model,x.category].some(v=>String(v||"").toLowerCase().includes(q)))};
+    const sync=()=>{
+      const visible=currentList(), checked=visible.filter(x=>selected.has(x.id)).length, all=visible.length>0&&checked===visible.length;
+      const top=$("#selectAll"); if(top){top.checked=all;top.indeterminate=checked>0&&!all}
+      $("#selectedCount").textContent=selected.size+" seleccionado"+(selected.size===1?"":"s");
+      $("#bulkDelete").disabled=selected.size===0;
+    };
+    const draw=list=>{
+      rows.innerHTML=(list||[]).map(x=>{
+        const stock=Number(x.stock),min=Number(x.min_stock),cls=stock<=0?"out":stock<=min?"low":"ok";
+        return `<tr><td style="text-align:center"><input class="inventory-check" type="checkbox" data-id="${x.id}" ${selected.has(x.id)?"checked":""}></td><td><b>${esc(x.name)}</b><br><small>${esc(x.sku||"Sin código")}</small></td><td>${esc([x.brand,x.model].filter(Boolean).join(" · ")||"—")}</td><td><b>${stock}</b> ${esc(x.unit)}</td><td>${money(x.price)}</td><td><span class="badge ${cls}">${stock<=0?"Agotado":stock<=min?"Bajo":"Disponible"}</span></td><td style="display:flex;gap:5px;flex-wrap:wrap"><button class="secondary" type="button" data-action="edit-inventory" data-id="${x.id}">Editar</button><button class="danger" type="button" data-action="delete-inventory" data-id="${x.id}">Eliminar</button></td></tr>`;
+      }).join("")||'<tr><td colspan="7" class="empty">Agrega tu primer producto.</td></tr>';
+      sync();
+    };
     draw(data||[]);
-    $("#search").oninput=e=>{const q=String(e.target.value||"").toLowerCase();draw((data||[]).filter(x=>[x.name,x.sku,x.brand,x.model,x.category].some(v=>String(v||"").toLowerCase().includes(q))))};
+
+    $("#search").oninput=()=>draw(currentList());
     $("#new").onclick=()=>inventoryModal();
     $("#importPdf").onclick=inventoryPdfModal;
     $("#ask").onclick=openChat;
+
+    $("#selectAll").onchange=e=>{
+      const visible=currentList();
+      if(e.target.checked)visible.forEach(x=>selected.add(x.id));else visible.forEach(x=>selected.delete(x.id));
+      draw(visible);
+    };
+    rows.onchange=e=>{
+      const cb=e.target.closest(".inventory-check"); if(!cb)return;
+      if(cb.checked)selected.add(cb.dataset.id);else selected.delete(cb.dataset.id);
+      sync();
+    };
+
+    $("#bulkDelete").onclick=async()=>{
+      const ids=[...selected]; if(!ids.length)return;
+      const chosen=(data||[]).filter(x=>ids.includes(x.id));
+      if(!confirm("¿Eliminar "+ids.length+" producto(s) del inventario?\n\nLos productos desaparecerán del inventario activo, pero se conservarán para el historial."))return;
+      const b=$("#bulkDelete"); b.disabled=true;
+      try{
+        const result=await S.from("marc_inventory").update({active:false,updated_at:new Date().toISOString()}).in("id",ids).eq("user_id",st.u.id);
+        if(result.error)throw result.error;
+        selected.clear();
+        toast(ids.length+" producto(s) eliminado(s)","ok");
+        await inventory();
+      }catch(err){toast(err.message||"No se pudieron eliminar los productos seleccionados.","err");b.disabled=false}
+    };
+
     rows.onclick=async e=>{
       const b=e.target.closest("button[data-action]"); if(!b)return;
       const item=(data||[]).find(x=>x.id===b.dataset.id); if(!item)return;
       if(b.dataset.action==="edit-inventory")return inventoryModal(item);
       if(b.dataset.action==="delete-inventory"){
-        if(!confirm("¿Eliminar \""+item.name+"\" del inventario?\n\nDejará de aparecer del inventario activo, pero se conservará el registro para el historial."))return;
+        if(!confirm("¿Eliminar \""+item.name+"\" del inventario?\n\nEl producto desaparecerá del inventario activo, pero se conservará para el historial."))return;
         b.disabled=true;
         try{
           const result=await S.from("marc_inventory").update({active:false,updated_at:new Date().toISOString()}).eq("id",item.id).eq("user_id",st.u.id);
           if(result.error)throw result.error;
-          toast("Producto eliminado del inventario","ok");
-          await inventory();
-        }catch(err){
-          toast(err.message||"No se pudo eliminar el producto.","err");
-          b.disabled=false;
-        }
+          toast("Producto eliminado","ok"); await inventory();
+        }catch(err){toast(err.message||"No se pudo eliminar el producto.","err");b.disabled=false}
       }
     };
   });
 }
+
 async function quotes(){
   const {data,error}=await S.from("marc_quotes").select("*,marc_clients(name)").eq("user_id",st.u.id).is("deleted_at",null).order("created_at",{ascending:false});
   if(error)return toast(error.message,"err");

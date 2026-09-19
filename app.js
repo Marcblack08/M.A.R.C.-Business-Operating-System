@@ -5,10 +5,12 @@ function applyTheme(theme,save=true){
   const t=theme==="dark"?"dark":"light";
   document.documentElement.dataset.theme=t;
   if(save)localStorage.setItem(THEME_KEY,t);
-  const b=$("#themeToggle"),i=$("#themeIcon"),l=$("#themeLabel");
+  const b=$("#themeToggle"),ab=$("#authThemeToggle"),i=$("#themeIcon"),l=$("#themeLabel");
   if(i)i.textContent=t==="dark"?"☀":"☾";
+  if(ab)ab.querySelector("span").textContent=t==="dark"?"☀":"☾";
   if(l)l.textContent=t==="dark"?"Claro":"Oscuro";
   if(b)b.setAttribute("aria-label",t==="dark"?"Cambiar a modo claro":"Cambiar a modo oscuro");
+  if(ab)ab.setAttribute("aria-label",t==="dark"?"Cambiar a modo claro":"Cambiar a modo oscuro");
 }
 function initTheme(){
   const saved=localStorage.getItem(THEME_KEY);
@@ -2178,7 +2180,9 @@ function authDiag(prefix){
 }
 function wire(){
   initTheme();
-  $("#themeToggle").onclick=()=>applyTheme(document.documentElement.dataset.theme==="dark"?"light":"dark");
+  const toggleTheme=()=>applyTheme(document.documentElement.dataset.theme==="dark"?"light":"dark");
+  $("#themeToggle").onclick=toggleTheme;
+  $("#authThemeToggle").onclick=toggleTheme;
   mode("login");
   $("#googleLogin").onclick=signInGoogle;
   $("#logout").onclick=async()=>{resetUiToLogin();await S.auth.signOut();};

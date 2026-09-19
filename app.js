@@ -58,12 +58,16 @@ async function connectTelegram(){
   const b=$("#connectTelegram");
   if(b)b.disabled=true;
   try{
-    const r=await fetch("/api/telegram/link",{method:"POST",headers:{Authorization:"Bearer "+st.session?.access_token,"Content-Type":"application/json"}});
+    const h={Authorization:"Bearer "+st.session?.access_token,"Content-Type":"application/json"};
+    const setup=await fetch("/api/telegram/setup",{method:"POST",headers:h});
+    const sj=await setup.json();
+    if(!setup.ok)throw new Error(sj.message||sj.error||"No se pudo activar el webhook de Telegram.");
+    const r=await fetch("/api/telegram/link",{method:"POST",headers:h});
     const j=await r.json();
     if(!r.ok)throw new Error(j.message||j.error||"No se pudo generar el enlace.");
     if(j.deepLink){
       window.location.href=j.deepLink;
-      toast("Abriendo Telegram…","ok");
+      toast("Telegram listo. Abriendo el bot…","ok");
     }
   }catch(e){toast(e.message||"No se pudo conectar Telegram.","err")}
   finally{if(b)b.disabled=false}

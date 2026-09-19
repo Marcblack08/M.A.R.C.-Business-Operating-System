@@ -1545,3 +1545,10 @@ body,
   .ai-description-actions button{width:100%}
   .ai-description-actions span{font-size:7px}
 }
+
+/* ===== AI IMPROVER PER QUOTE LINE ===== */
+.quote-description-wrap{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;min-width:0}
+.quote-description-wrap input{min-width:0}
+.quote-ai-line{white-space:nowrap;min-height:38px;padding:8px 10px!important;font-size:8px!important}
+[data-theme="dark"] .quote-ai-line{background:#132235;color:#b7c9da;border-color:#294059}
+@media(max-width:560px){.quote-description-wrap{grid-template-columns:1fr}.quote-ai-line{width:100%;min-height:36px}}

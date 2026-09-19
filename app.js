@@ -727,13 +727,18 @@ async function inventoryPdfModal(){
         if(existing.price!=null&&item.price!=null&&Number(existing.price)!==Number(item.price)){
           existing._priceConflict=true;
           if(!existing._priceConflicts)existing._priceConflicts=[];
-          existing._priceConflicts.push({
-            page:Number(item.page_number||1),
-            price:Number(item.price),
-            previous:Number(existing.price)
-          });
+          existing._priceConflicts.push({page:Number(item.page_number||1),price:Number(item.price),previous:Number(existing.price)});
         }
-        ["sku","name","brand","model","category","unit","cost","price","stock","min_stock","page_number"].forEach(k=>{
+        ["sku","name","brand","model","category"].forEach(k=>{
+          const a=normalizeKey(existing[k]), b=normalizeKey(item[k]);
+          if(a&&b&&a!==b){
+            existing._fieldConflicts=existing._fieldConflicts||{};
+            existing._fieldConflicts[k]=existing._fieldConflicts[k]||[{page:Number(existing.page_number||1),value:existing[k]}];
+            existing._fieldConflicts[k].push({page:Number(item.page_number||1),value:item[k]});
+          }
+          if(!a&&b)existing[k]=item[k];
+        });
+        ["unit","cost","stock","min_stock","price","page_number"].forEach(k=>{
           if((existing[k]===null||existing[k]===undefined||existing[k]==="")&&(item[k]!==null&&item[k]!==undefined&&item[k]!==""))existing[k]=item[k];
         });
       };
@@ -765,6 +770,19 @@ async function inventoryPdfModal(){
       }
       const listItems=mergedItems;
       const duplicateCount=Math.max(0,detected.length-listItems.length);
+      const fieldConflictCount=duplicateGroups.filter(x=>x._fieldConflicts&&Object.keys(x._fieldConflicts).length).length;
+      const fieldLabels={sku:"SKU",name:"nombre",brand:"marca",model:"modelo",category:"categoría"};
+      const fieldConflictDetail=duplicateGroups.map(x=>{
+        const fields=Object.keys(x._fieldConflicts||{});
+        if(!fields.length)return "";
+        const options=fields.map(k=>{
+          const vals=x._fieldConflicts[k]||[];
+          const unique=[];
+          vals.forEach(v=>{if(v.value!=null&&!unique.some(u=>normalizeKey(u.value)===normalizeKey(v.value)))unique.push(v)});
+          return '<div class="pdf-field-choice"><b>'+fieldLabels[k]+'</b>'+unique.map((v,i)=>'<label><input type="radio" name="pdf-field-'+normalizeKey(x.sku||x.name)+'-'+k+'" data-pdf-field-product="'+normalizeKey(x.sku||x.name)+'" data-pdf-field="'+k+'" data-pdf-field-value="'+esc(String(v.value))+'" '+(i===0?'checked':'')+'> '+esc(String(v.value))+' <small>(P'+Number(v.page||1)+')</small></label>').join("")+'</div>';
+        }).join("");
+        return '<details class="pdf-duplicate-detail"><summary>'+esc(x.name)+' · conflictos de datos</summary><div>'+options+'</div></details>';
+      }).join("");
       const priceConflictCount=duplicateGroups.filter(x=>x._priceConflict).length;
       const duplicateDetail=duplicateGroups.map(x=>{
         const pages=(x._sourcePages||[]).sort((a,b)=>a-b).join(", ");
@@ -789,6 +807,7 @@ async function inventoryPdfModal(){
           '<span>🏷️ '+(listItems.length-missingSkuCount)+' con SKU</span>'+
           '<span>📷 '+photoReadyCount+' con zona de foto detectada</span>'+
         '</div>'+
+        (fieldConflictCount?'<div class="msg error">⚠️ '+fieldConflictCount+' producto(s) tienen diferencias de SKU, nombre, marca, modelo o categoría. Revísalas en “conflictos de datos”.</div>':'')+
         (priceConflictCount?'<div class="msg error">⚠️ '+priceConflictCount+' producto(s) aparecen con precios diferentes en distintas páginas. M.A.R.C. conserva el primer precio detectado y los marca para revisión.</div>':'')+
         (missingPriceCount?'<div class="msg error">⚠️ '+missingPriceCount+' producto(s) no tienen precio detectado. Puedes importarlos y completar el precio después.</div>':'')+
         '<label class="pdf-photo-option"><input type="checkbox" id="keepPdfProductPhotos" checked> Conservar la foto del producto desde el PDF cuando la página contenga imágenes</label>'+
@@ -806,6 +825,14 @@ async function inventoryPdfModal(){
         '</div>'+
         (duplicateGroups.length?'<div class="pdf-duplicates"><strong>Duplicados consolidados</strong>'+duplicateDetail+'</div>':'');
       preview.classList.remove("hidden");
+
+      preview.querySelectorAll("input[data-pdf-field]").forEach(function(input){
+        input.addEventListener("change",function(){
+          const productKey=input.dataset.pdfFieldProduct, field=input.dataset.pdfField, value=input.dataset.pdfFieldValue;
+          const product=listItems.find(x=>normalizeKey(x.sku||x.name)===productKey);
+          if(product&&field)value&&(product[field]=value);
+        });
+      });
 
       preview.querySelectorAll("input[data-pdf-price]").forEach(function(input){
         input.addEventListener("change",function(){

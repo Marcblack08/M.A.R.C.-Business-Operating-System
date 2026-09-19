@@ -130,8 +130,8 @@ async function home(){
 
   const monthly=months.map(m=>{
     const key=monthKey(m);
-    const projected=validFinance.filter(x=>monthKey(new Date(x.created_at))===key).reduce((s,x)=>s+Number(x.ganancia??x.profit??0),0);
-    const collected=realizedFinance.filter(x=>monthKey(new Date(x.created_at))===key).reduce((s,x)=>s+Number(x.ganancia??x.profit??0),0);
+    const projected=validFinance.filter(x=>monthKey(new Date(x.created_at))===key).reduce((s,x)=>s+Number(x.profit||0),0);
+    const collected=realizedFinance.filter(x=>monthKey(new Date(x.created_at))===key).reduce((s,x)=>s+Number(x.profit||0),0);
     const sales=validFinance.filter(x=>monthKey(new Date(x.created_at))===key).reduce((s,x)=>s+Number(x.total||0),0);
     return {key,label:monthLabel(m),projected,collected,sales};
   });
@@ -218,7 +218,7 @@ async function home(){
         </div>
         <div class="finance-grid">
           <article class="dashboard-panel profit-chart-panel">
-            <div class="panel-title-row"><div><h3>Tendencia de ganancia</h3><small class="finance-subtitle">Ganancia proyectada por mes</small></div><span class="finance-dot"><i></i> Proyectada</span></div>
+            <div class="panel-title-row"><div><h3>Tendencia de ganancia</h3><small class="finance-subtitle">Ganancia registrada por mes</small></div><span class="finance-dot"><i></i> Proyectada</span></div>
             <div class="profit-bars">
               ${monthly.map((m,i)=>{
                 const h=Math.max(5,Math.round((m.projected/maxGain)*100));

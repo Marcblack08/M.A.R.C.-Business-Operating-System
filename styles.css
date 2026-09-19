@@ -560,3 +560,154 @@ body{overflow-x:hidden}
   .mobile-bottom-nav button b{font-size:6.5px}
   .mobile-bottom-nav button span{width:35px;height:32px;font-size:18px}
 }
+
+
+/* ===== Final mobile navigation polish ===== */
+.mobile-scrim{display:none}
+.mobile-bottom-nav{display:none}
+
+@media(max-width:780px){
+  .app{position:relative;display:block;min-height:100svh;width:100%;overflow-x:hidden}
+  .main{position:relative;z-index:1;width:100%;min-height:100svh}
+  .top{position:sticky;top:0;z-index:40}
+  .content{
+    position:relative;
+    z-index:1;
+    width:100%;
+    padding-top:14px;
+    padding-bottom:96px;
+  }
+
+  .sidebar{
+    width:min(288px,82vw);
+    max-width:288px;
+    top:0;
+    bottom:0;
+    z-index:110;
+    border-right:1px solid #ffffff16;
+    box-shadow:20px 0 55px #03162d55;
+    transform:translate3d(-105%,0,0);
+    will-change:transform;
+  }
+  .sidebar.open{transform:translate3d(0,0,0)}
+  .mobile-scrim{
+    display:block;
+    position:fixed;
+    inset:0;
+    z-index:100;
+    border:0;
+    padding:0;
+    margin:0;
+    background:rgba(3,18,36,.42);
+    opacity:0;
+    visibility:hidden;
+    pointer-events:none;
+    transition:opacity .18s ease,visibility .18s ease;
+    backdrop-filter:blur(2px);
+  }
+  #sidebar.open~.mobile-scrim{
+    opacity:1;
+    visibility:visible;
+    pointer-events:auto;
+  }
+
+  .mobile-bottom-nav{
+    position:fixed;
+    left:0;
+    right:0;
+    bottom:0;
+    z-index:70;
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
+    gap:2px;
+    padding:7px 5px max(7px,env(safe-area-inset-bottom));
+    min-height:68px;
+    background:rgba(255,255,255,.95);
+    border-top:1px solid #dfe8f1;
+    box-shadow:0 -12px 30px rgba(24,60,92,.10);
+    backdrop-filter:blur(16px);
+  }
+  .mobile-bottom-nav button{
+    border:0;
+    background:transparent;
+    min-width:0;
+    min-height:54px;
+    padding:6px 3px 5px;
+    border-radius:14px;
+    color:#65788d;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:3px;
+    font-weight:700;
+    transition:.15s ease;
+  }
+  .mobile-bottom-nav button span{
+    width:30px;
+    height:30px;
+    display:grid;
+    place-items:center;
+    border-radius:10px;
+    font-size:17px;
+    line-height:1;
+  }
+  .mobile-bottom-nav button b{
+    display:block;
+    max-width:100%;
+    font-size:7px;
+    line-height:1.1;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .mobile-bottom-nav button.active{
+    color:#1478ea;
+    background:#eaf4ff;
+  }
+  .mobile-bottom-nav button.active span{
+    background:#d9edff;
+    color:#1478ea;
+  }
+
+  .dashboard-shell{gap:12px}
+  .dashboard-hero{
+    min-height:0;
+    padding:20px 17px 18px;
+    border-radius:18px;
+  }
+  .dashboard-hero h1{font-size:27px}
+  .dashboard-hero p{font-size:10px;margin:10px 0 15px}
+  .hero-actions{display:grid;grid-template-columns:1fr;gap:8px}
+  .hero-primary,.hero-secondary{width:100%;min-height:42px}
+  .dashboard-kpis{grid-template-columns:1fr 1fr;gap:8px}
+  .kpi-modern{min-height:86px;padding:11px 9px;border-radius:14px}
+  .kpi-modern strong{font-size:19px}
+  .dashboard-main-grid{grid-template-columns:1fr;gap:12px}
+  .quick-modern-grid{grid-template-columns:1fr 1fr;gap:8px}
+  .quick-modern-grid button{min-height:64px;padding:9px}
+  .quick-modern-grid b{font-size:8px}
+  .quick-modern-grid small{font-size:6px}
+  .quick-icon{width:32px;height:32px;font-size:13px}
+
+  .finance-grid{grid-template-columns:1fr;gap:12px}
+  .profit-bars{height:175px}
+  .margin-ring{width:116px;height:116px}
+  .margin-ring>div{width:86px;height:86px}
+
+  .table .toolbar{position:sticky;top:60px;z-index:5;background:#ffffffef;backdrop-filter:blur(10px)}
+  .toolbar{gap:7px}
+  .toolbar .search{flex:1 1 100%;max-width:none}
+
+  .modal-root{z-index:140}
+  .chat{z-index:130}
+}
+
+@media(max-width:390px){
+  .mobile-bottom-nav button b{font-size:6.5px}
+  .mobile-bottom-nav button span{font-size:16px;width:28px;height:28px}
+  .dashboard-hero h1{font-size:25px}
+  .kpi-modern{min-height:82px}
+  .kpi-modern strong{font-size:18px}
+  .quick-modern-grid{grid-template-columns:1fr}
+}

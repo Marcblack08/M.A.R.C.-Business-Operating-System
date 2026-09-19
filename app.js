@@ -512,7 +512,7 @@ async function inventoryPdfModal(){
         $("#pdfProgressCount").textContent=detected.length+" productos detectados";
         $("#pdfProgressBar").style.width=Math.round((batch[0]-1)*100/totalPages)+"%";
 
-        const results=await Promise.all(batch.map(async pageNumber=>{
+        const settled=await Promise.allSettled(batch.map(async pageNumber=>{
           const page=await pdf.getPage(pageNumber);
           const local=await extractPdfCatalogRows(page);
 
@@ -557,6 +557,8 @@ async function inventoryPdfModal(){
           return {pageNumber,items:Array.isArray(analyzed.items)?analyzed.items:[],mode:analyzed.mode||"GEMINI"};
         }));
 
+        const failedPages=settled.filter(x=>x.status==="rejected").map((x,idx)=>({pageNumber:batch[idx],error:x.reason?.message||"Error desconocido"}));
+        const results=settled.filter(x=>x.status==="fulfilled").map(x=>x.value);
         results.sort((a,b)=>a.pageNumber-b.pageNumber);
         for(const result of results){
           const pageNumber=result.pageNumber;
@@ -572,6 +574,12 @@ async function inventoryPdfModal(){
         $("#pdfProgressBar").style.width=Math.round(done*100/totalPages)+"%";
       }
 
+      if(failedPages.length){
+        status.className="msg error";
+        status.textContent="No se pudo analizar "+failedPages.length+" página(s): "+failedPages.map(x=>"P"+x.pageNumber).join(", ")+". No se habilitará la importación para evitar productos faltantes.";
+        $("#pdfProgressCount").textContent=detected.length+" productos detectados · "+failedPages.length+" páginas con error";
+        throw new Error("No se pudieron analizar todas las páginas del catálogo. Revisa: "+failedPages.map(x=>"página "+x.pageNumber).join(", ")+".");
+      }
       status.className="msg ok";
       status.textContent="Análisis terminado. Revisa exactamente qué productos serán procesados antes de importarlos.";
       $("#pdfProgressText").textContent="Lectura terminada · "+totalPages+" páginas";

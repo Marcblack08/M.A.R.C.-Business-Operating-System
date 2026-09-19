@@ -183,49 +183,64 @@ async function inventoryPdfModal(){
       live.innerHTML='<div class="pdf-live-title">Productos detectados hasta ahora</div><div id="pdfLiveRows"></div>';
       const liveRows=$("#pdfLiveRows");
 
-      for(let pageNumber=1;pageNumber<=totalPages;pageNumber++){
-        const page=await pdf.getPage(pageNumber);
-        let viewport=page.getViewport({scale:1.5});
-        if(viewport.width>1800){
-          viewport=page.getViewport({scale:1.5*(1800/viewport.width)});
-        }
-        const canvas=document.createElement("canvas");
-        const ctx=canvas.getContext("2d",{alpha:false});
-        canvas.width=Math.ceil(viewport.width);
-        canvas.height=Math.ceil(viewport.height);
-        await page.render({canvasContext:ctx,viewport}).promise;
-        const image=canvas.toDataURL("image/jpeg",0.82);
+      const CONCURRENCY=3;
+      for(let batchStart=1;batchStart<=totalPages;batchStart+=CONCURRENCY){
+        const batch=[];
+        for(let p=0;p<CONCURRENCY&&batchStart+p<=totalPages;p++)batch.push(batchStart+p);
 
-        status.textContent="Gemini está leyendo la página "+pageNumber+" de "+totalPages+"…";
-        $("#pdfProgressText").textContent="Leyendo página "+pageNumber+" de "+totalPages;
+        status.textContent="Gemini está leyendo páginas "+batch[0]+"–"+batch[batch.length-1]+" de "+totalPages+"…";
+        $("#pdfProgressText").textContent="Leyendo páginas "+batch[0]+"–"+batch[batch.length-1]+" de "+totalPages;
         $("#pdfProgressCount").textContent=detected.length+" productos detectados";
-        $("#pdfProgressBar").style.width=Math.round((pageNumber-1)*100/totalPages)+"%";
+        $("#pdfProgressBar").style.width=Math.round((batch[0]-1)*100/totalPages)+"%";
 
-        let analyzed=null,lastError=null;
-        for(let retry=0;retry<2;retry++){
-          try{
-            const pr=await fetch("/api/inventory/pdf-page",{
-              method:"POST",
-              headers:{
-                "Content-Type":"application/json",
-                Authorization:"Bearer "+st.session?.access_token
-              },
-              body:JSON.stringify({pendingId,pageNumber,totalPages,image})
-            });
-            const pj=await pr.json();
-            if(!pr.ok)throw new Error(pj.message||pj.error||("No se pudo analizar la página "+pageNumber));
-            analyzed=pj;
-            break;
-          }catch(err){lastError=err;if(retry===0)status.textContent="Reintentando página "+pageNumber+"…"}
+        const results=await Promise.all(batch.map(async pageNumber=>{
+          const page=await pdf.getPage(pageNumber);
+          let viewport=page.getViewport({scale:1.5});
+          if(viewport.width>1800)viewport=page.getViewport({scale:1.5*(1800/viewport.width)});
+          const canvas=document.createElement("canvas");
+          const ctx=canvas.getContext("2d",{alpha:false});
+          canvas.width=Math.ceil(viewport.width);
+          canvas.height=Math.ceil(viewport.height);
+          await page.render({canvasContext:ctx,viewport}).promise;
+          const image=canvas.toDataURL("image/jpeg",0.82);
+
+          let analyzed=null,lastError=null;
+          for(let retry=0;retry<2;retry++){
+            try{
+              const pr=await fetch("/api/inventory/pdf-page",{
+                method:"POST",
+                headers:{
+                  "Content-Type":"application/json",
+                  Authorization:"Bearer "+st.session?.access_token
+                },
+                body:JSON.stringify({pendingId,pageNumber,totalPages,image})
+              });
+              const pj=await pr.json();
+              if(!pr.ok)throw new Error(pj.message||pj.error||("No se pudo analizar la página "+pageNumber));
+              analyzed=pj;
+              break;
+            }catch(err){
+              lastError=err;
+              if(retry===0)status.textContent="Reintentando página "+pageNumber+"…";
+            }
+          }
+          if(!analyzed)throw new Error((lastError?.message||"No se pudo analizar la página")+" Revisa tu conexión.");
+          return {pageNumber,items:Array.isArray(analyzed.items)?analyzed.items:[]};
+        }));
+
+        results.sort((a,b)=>a.pageNumber-b.pageNumber);
+        for(const result of results){
+          const pageNumber=result.pageNumber;
+          const pageItems=result.items;
+          detected.push(...pageItems);
+          const recent=pageItems.slice(0,8).map((x,ix)=>'<div class="pdf-live-row"><span>P'+pageNumber+' · '+(ix+1)+'</span><b>'+esc(x.name)+'</b><small>'+esc([x.brand,x.model,x.sku].filter(Boolean).join(" · ")||"Sin código")+'</small></div>').join("");
+          liveRows.insertAdjacentHTML("beforeend",recent);
         }
-        if(!analyzed)throw new Error((lastError?.message||"No se pudo analizar la página")+" Revisa tu conexión y vuelve a intentarlo.");
 
-        const pageItems=Array.isArray(analyzed.items)?analyzed.items:[];
-        detected.push(...pageItems);
-        const recent=pageItems.slice(0,8).map((x,ix)=>'<div class="pdf-live-row"><span>P'+pageNumber+' · '+(ix+1)+'</span><b>'+esc(x.name)+'</b><small>'+esc([x.brand,x.model,x.sku].filter(Boolean).join(" · ")||"Sin código")+'</small></div>').join("");
-        liveRows.insertAdjacentHTML("afterbegin",recent);
+        const done=Math.min(batchStart+batch.length-1,totalPages);
+        $("#pdfProgressText").textContent="Leídas páginas "+done+" de "+totalPages;
         $("#pdfProgressCount").textContent=detected.length+" productos detectados";
-        $("#pdfProgressBar").style.width=Math.round(pageNumber*100/totalPages)+"%";
+        $("#pdfProgressBar").style.width=Math.round(done*100/totalPages)+"%";
       }
 
       status.className="msg ok";

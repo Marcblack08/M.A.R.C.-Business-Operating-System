@@ -834,6 +834,18 @@ async function inventoryPdfStart(request,env){
   return json({pendingId:rows?.[0]?.id||null,filename},200,corsHeaders(request));
 }
 
+async function geminiGenerateText(env,text,prompt,options={}){
+  const messages=[{
+    role:"system",
+    content:"Eres un extractor de catálogos. Usa únicamente el texto proporcionado. Devuelve una línea por producto con este formato exacto: NOMBRE || SKU || MARCA || MODELO || PRECIO. Una línea por producto, sin encabezado, sin explicaciones. Conserva el nombre completo del producto y sus variantes."
+  },{
+    role:"user",
+    content:String(prompt)+"\n\nTEXTO DE LA PÁGINA:\n"+String(text||"")
+  }];
+  const out=await geminiGenerate(env,messages,{maxTokens:options.maxTokens||3200});
+  return out?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("")||"";
+}
+
 async function geminiGenerateImage(env,imageBase64,prompt,options={}){
   const apiKeys=[env.GEMINI_API_KEY,env.GEMINI_API_KEY2].filter((x,i,a)=>x&&a.indexOf(x)===i);
   if(!apiKeys.length)throw Object.assign(new Error("GEMINI_API_KEY no está configurada en el Worker."),{status:503});
@@ -932,43 +944,45 @@ function parseInventoryProductLines(text,pageNumber){
 
 async function inventoryPdfPageAnalyze(request,env){
   if(request.method!=="POST")return json({error:"Método no permitido"},405);
-  const {token,user}=await authUser(request,env);
+  const {user}=await authUser(request,env);
   const adminToken=env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY;
   const body=await request.json();
   const pendingId=String(body?.pendingId||"");
   const pageNumber=Math.max(1,Number(body?.pageNumber||1));
   const totalPages=Math.max(pageNumber,Number(body?.totalPages||pageNumber));
   const image=String(body?.image||"");
-  if(!pendingId||!image)return json({error:"Faltan los datos de la página."},400,corsHeaders(request));
+  const pageText=String(body?.text||"").trim();
+  if(!pendingId||(!image&&!pageText))return json({error:"Faltan los datos de la página."},400,corsHeaders(request));
   if(image.length>6*1024*1024)return json({error:"La imagen de la página es demasiado grande."},413,corsHeaders(request));
 
   const rows=await sb(env,adminToken,"marc_pending_imports?select=id,items,status,expires_at&user_id=eq."+encodeURIComponent(user.id)+"&id=eq."+encodeURIComponent(pendingId)+"&status=eq.PENDING&expires_at=gt."+encodeURIComponent(new Date().toISOString())+"&limit=1");
   if(!rows?.[0])return json({error:"La sesión de análisis expiró o no existe."},404,corsHeaders(request));
 
   const prompt=
-    "Lee visualmente esta página de catálogo. Extrae CADA producto real visible en la página, uno por línea. "+
-    "No agrupes productos diferentes. Conserva el NOMBRE EXACTO del producto tal como aparece, incluyendo marca, modelo o variante si forman parte del nombre. "+
+    "Lee la página "+pageNumber+" de "+totalPages+" de un catálogo. "+
+    "Extrae CADA producto real visible, uno por línea. No agrupes productos diferentes. "+
+    "Conserva el NOMBRE COMPLETO del producto, incluyendo variante, color, capacidad o modelo cuando formen parte del nombre. "+
     "Ignora encabezados, títulos de sección, textos promocionales, servicios y elementos decorativos. "+
     "Si aparecen SKU, marca, modelo o precio, inclúyelos. Si no aparecen, deja ese campo vacío. NO inventes datos. "+
-    "Devuelve SOLO líneas de este formato, sin encabezado y sin explicación: "+
-    "NOMBRE || SKU || MARCA || MODELO || PRECIO. "+
-    "Una línea por producto. Página "+pageNumber+" de "+totalPages+".";
-  const out=await geminiGenerateImage(env,image,prompt,{maxTokens:3200});
-  const text=out?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("")||"";
-  if(!text)throw Object.assign(new Error("Gemini no devolvió productos para esta página."),{status:502});
+    "Devuelve SOLO líneas con este formato: NOMBRE || SKU || MARCA || MODELO || PRECIO.";
 
-  const items=parseInventoryProductLines(text,pageNumber);
-  if(!items.length){
-    throw Object.assign(new Error("Gemini devolvió una respuesta sin productos reconocibles en la página "+pageNumber+"."),{status:502,details:{preview:text.slice(0,700)}})
+  let text="";
+  let mode="TEXT";
+  if(pageText.length>=120){
+    text=await geminiGenerateText(env,pageText,prompt,{maxTokens:3200});
+  }else{
+    mode="IMAGE";
+    const out=await geminiGenerateImage(env,image,prompt,{maxTokens:3200});
+    text=out?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("")||"";
   }
 
-  const current=Array.isArray(rows[0].items)?rows[0].items:[];
-  const all=[...current,...items];
-  await sb(env,adminToken,"marc_pending_imports?id=eq."+encodeURIComponent(pendingId)+"&user_id=eq."+encodeURIComponent(user.id),{
-    method:"PATCH",
-    body:{items:all,expires_at:new Date(Date.now()+60*60*1000).toISOString(),updated_at:new Date().toISOString()}
-  });
-  return json({pageNumber,totalPages,found:items.length,totalFound:all.length,items},200,corsHeaders(request));
+  if(!text)throw Object.assign(new Error("Gemini no devolvió productos para la página "+pageNumber+"."),{status:502});
+  const items=parseInventoryProductLines(text,pageNumber);
+  if(!items.length){
+    throw Object.assign(new Error("No se reconocieron productos en la página "+pageNumber+"."),{status:502,details:{mode,preview:text.slice(0,700)}});
+  }
+
+  return json({pageNumber,totalPages,found:items.length,totalFound:items.length,items,mode},200,corsHeaders(request));
 }
 
 async function inventoryPdfFinalize(request,env){
@@ -978,6 +992,7 @@ async function inventoryPdfFinalize(request,env){
   const form=await request.formData();
   const pendingId=String(form.get("pendingId")||"");
   const file=form.get("file");
+  const submittedItems=String(form.get("items")||"");
   if(!pendingId||!file||typeof file.arrayBuffer!=="function")return json({error:"Faltan el PDF o la importación pendiente."},400,corsHeaders(request));
   const bytes=await file.arrayBuffer();
   if(bytes.byteLength>20*1024*1024)return json({error:"El PDF supera el límite de 20 MB."},413,corsHeaders(request));
@@ -985,7 +1000,11 @@ async function inventoryPdfFinalize(request,env){
   const rows=await sb(env,adminToken,"marc_pending_imports?select=id,user_id,items,status,expires_at&user_id=eq."+encodeURIComponent(user.id)+"&id=eq."+encodeURIComponent(pendingId)+"&status=eq.PENDING&expires_at=gt."+encodeURIComponent(new Date().toISOString())+"&limit=1");
   const pending=rows?.[0];
   if(!pending)return json({error:"La importación expiró o ya fue finalizada."},404,corsHeaders(request));
-  const items=sanitizePdfItems(pending.items);
+  let submitted=[];
+  if(submittedItems){
+    try{submitted=JSON.parse(submittedItems)}catch{}
+  }
+  const items=sanitizePdfItems(Array.isArray(submitted)&&submitted.length?submitted:pending.items);
   if(!items.length)return json({error:"No se detectaron productos para mostrar."},422,corsHeaders(request));
 
   const safeName=String(file.name||"catalogo.pdf").replace(/[^A-Za-z0-9._-]/g,"_").slice(-120)||"catalogo.pdf";

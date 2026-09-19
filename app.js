@@ -2188,4 +2188,4 @@ function wire(){
   const oauthError=params.get("error_description")||params.get("error");
   if(oauthError)msg(decodeURIComponent(oauthError.replace(/\+/g," ")),"error");
 }
-wire())();
+wire()})();

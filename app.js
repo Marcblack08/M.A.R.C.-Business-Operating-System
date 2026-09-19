@@ -706,35 +706,43 @@ async function inventoryPdfModal(){
 }
 
 
-async function inventory(){const {data}=await S.from("marc_inventory").select("*").eq("user_id",st.u.id).eq("active",true).order("name");const c=$("#content");c.innerHTML=`<div class="head"><div><div class="eyebrow2">INVENTARIO</div><h1>Productos + stock.</h1><p>Todo producto vive dentro del inventario.</p></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button id="importPdf" class="secondary">📄 Importar PDF</button><button id="new" class="primary">＋ Nuevo producto</button></div></div><section class="card table"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar producto…"></div><button id="ask" class="secondary">Preguntar</button></div><div class="scroll"><table class="data"><thead><tr><th>Producto</th><th>Marca/modelo</th><th>Stock</th><th>Precio</th><th>Estado</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></section>`;const rows=$("#rows"),draw=list=>rows.innerHTML=list.map(x=>{const s=Number(x.stock),m=Number(x.min_stock),cls=s<=0?"out":s<=m?"low":"ok";return`<tr><td><b>${esc(x.name)}</b><br><small>${esc(x.sku||"Sin código")}</small></td><td>${esc([x.brand,x.model].filter(Boolean).join(" · ")||"—")}</td><td><b>${s}</b> ${esc(x.unit)}</td><td>${money(x.price)}</td><td><span class="badge ${cls}">${s<=0?"Agotado":s<=m?"Bajo":"Disponible"}</span></td><td><button class="secondary" data-id="${x.id}">Editar</button></td></tr>`}).join("")||'<tr><td colspan="6" class="empty">Agrega tu primer producto.</td></tr>';draw(data||[]);$("#search").oninput=e=>{const q=e.target.value.toLowerCase();draw((data||[]).filter(x=>[x.name,x.sku,x.brand,x.model,x.category].some(v=>String(v||"").toLowerCase().includes(q))))};$("#new").onclick=()=>inventoryModal();$("#importPdf").onclick=inventoryPdfModal;$("#ask").onclick=openChat;rows.onclick=async e=>{
-  const b=e.target.closest("button[data-action]");
-  if(!b)return;
-  const id=b.dataset.id;
-  const item=(data||[]).find(x=>x.id===id);
-  if(!item)return;
-  if(b.dataset.action==="edit-inventory"){
-    return inventoryModal(item);
-  }
-  if(b.dataset.action==="delete-inventory"){
-    const ok=confirm("¿Eliminar "+item.name+" del inventario?\n\nDejará de aparecer del inventario activo, pero conservaremos el registro para el historial.");
-    if(!ok)return;
-    b.disabled=true;
-    try{
-      const result=await S.from("marc_inventory")
-        .update({active:false,updated_at:new Date().toISOString()})
-        .eq("id",id)
-        .eq("user_id",st.u.id);
-      if(result.error)throw result.error;
-      toast("Producto eliminado del inventario","ok");
-      await inventory();
-    }catch(err){
-      toast(err.message||"No se pudo eliminar el producto.","err");
-      b.disabled=false;
-    }
-  }
-}}
+async function inventory(){
+  S.from("marc_inventory").select("*").eq("user_id",st.u.id).eq("active",true).order("name").then(({data,error})=>{
+    if(error)return toast(error.message,"err");
+    const c=$("#content");
+    c.innerHTML=`<div class="head"><div><div class="eyebrow2">INVENTARIO</div><h1>Productos + stock.</h1><p>Todo producto vive dentro del inventario.</p></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button id="importPdf" class="secondary">📄 Importar PDF</button><button id="new" class="primary">＋ Nuevo producto</button></div></div><section class="card table"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar producto…"></div><button id="ask" class="secondary">Preguntar</button></div><div class="scroll"><table class="data"><thead><tr><th>Producto</th><th>Marca/modelo</th><th>Stock</th><th>Precio</th><th>Estado</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></section>`;
+    const rows=$("#rows");
+    const draw=list=>rows.innerHTML=(list||[]).map(x=>{
+      const stock=Number(x.stock),min=Number(x.min_stock),cls=stock<=0?"out":stock<=min?"low":"ok";
+      return `<tr><td><b>${esc(x.name)}</b><br><small>${esc(x.sku||"Sin código")}</small></td><td>${esc([x.brand,x.model].filter(Boolean).join(" · ")||"—")}</td><td><b>${stock}</b> ${esc(x.unit)}</td><td>${money(x.price)}</td><td><span class="badge ${cls}">${stock<=0?"Agotado":stock<=min?"Bajo":"Disponible"}</span></td><td style="display:flex;gap:5px;flex-wrap:wrap"><button class="secondary" type="button" data-action="edit-inventory" data-id="${x.id}">Editar</button><button class="danger" type="button" data-action="delete-inventory" data-id="${x.id}">Eliminar</button></td></tr>`;
+    }).join("")||'<tr><td colspan="6" class="empty">Agrega tu primer producto.</td></tr>';
+    draw(data||[]);
+    $("#search").oninput=e=>{const q=String(e.target.value||"").toLowerCase();draw((data||[]).filter(x=>[x.name,x.sku,x.brand,x.model,x.category].some(v=>String(v||"").toLowerCase().includes(q))))};
+    $("#new").onclick=()=>inventoryModal();
+    $("#importPdf").onclick=inventoryPdfModal;
+    $("#ask").onclick=openChat;
+    rows.onclick=async e=>{
+      const b=e.target.closest("button[data-action]"); if(!b)return;
+      const item=(data||[]).find(x=>x.id===b.dataset.id); if(!item)return;
+      if(b.dataset.action==="edit-inventory")return inventoryModal(item);
+      if(b.dataset.action==="delete-inventory"){
+        if(!confirm("¿Eliminar \""+item.name+"\" del inventario?\n\nDejará de aparecer del inventario activo, pero se conservará el registro para el historial."))return;
+        b.disabled=true;
+        try{
+          const result=await S.from("marc_inventory").update({active:false,updated_at:new Date().toISOString()}).eq("id",item.id).eq("user_id",st.u.id);
+          if(result.error)throw result.error;
+          toast("Producto eliminado del inventario","ok");
+          await inventory();
+        }catch(err){
+          toast(err.message||"No se pudo eliminar el producto.","err");
+          b.disabled=false;
+        }
+      }
+    };
+  });
+}
 async function quotes(){
-  const {data,error}=await S.from("marc_quotes").select("*,marc_clients(name)").eq("user_id",st.u.id).order("created_at",{ascending:false});
+  const {data,error}=await S.from("marc_quotes").select("*,marc_clients(name)").eq("user_id",st.u.id).is("deleted_at",null).order("created_at",{ascending:false});
   if(error)return toast(error.message,"err");
   const rows=data||[],c=$("#content");
   c.innerHTML=`<div class="head"><div><div class="eyebrow2">COTIZACIONES</div><h1>Convierte una orden en propuesta.</h1><p>Productos del inventario y trabajos escritos o dictados.</p></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button id="aiNew" class="secondary">✦ Crear con IA</button><button id="new" class="primary">＋ Nueva cotización</button></div></div>
@@ -744,7 +752,7 @@ async function quotes(){
   const draw=()=>{
     const q=($("#search").value||"").toLowerCase(),sf=$("#statusFilter").value;
     const list=rows.filter(x=>(!sf||x.status===sf)&&[x.number,x.title,x.marc_clients?.name].some(v=>String(v||"").toLowerCase().includes(q)));
-    body.innerHTML=list.map(x=>`<tr><td><b>${esc(x.number)}</b></td><td>${esc(x.marc_clients?.name||"Sin cliente")}</td><td>${esc(x.title)}</td><td><span class="badge">${esc(x.status)}</span></td><td><b>${money(x.total)}</b></td><td>${new Date(x.created_at).toLocaleDateString("es-PE")}</td><td style="display:flex;gap:5px"><button type="button" class="secondary" data-action="open-quote" data-id="${x.id}">Abrir</button><button type="button" class="secondary" data-action="pdf-quote" data-id="${x.id}">PDF</button></td></tr>`).join("")||'<tr><td colspan="7" class="empty">No hay cotizaciones que coincidan.</td></tr>';
+    body.innerHTML=list.map(x=>`<tr><td><b>${esc(x.number)}</b></td><td>${esc(x.marc_clients?.name||"Sin cliente")}</td><td>${esc(x.title)}</td><td><span class="badge">${esc(x.status)}</span></td><td><b>${money(x.total)}</b></td><td>${new Date(x.created_at).toLocaleDateString("es-PE")}</td><td style="display:flex;gap:5px"><button type="button" class="secondary" data-action="open-quote" data-id="${x.id}">Abrir</button><button type="button" class="secondary" data-action="pdf-quote" data-id="${x.id}">PDF</button><button type="button" class="danger" data-action="delete-quote" data-id="${x.id}">Eliminar</button></td></tr>`).join("")||'<tr><td colspan="7" class="empty">No hay cotizaciones que coincidan.</td></tr>';
   };
 
   body.onclick=async e=>{
@@ -759,6 +767,16 @@ async function quotes(){
       }else if(b.dataset.action==="pdf-quote"){
         b.disabled=true;
         await downloadQuotePdf(id);
+      }else if(b.dataset.action==="delete-quote"){
+        const row=rows.find(x=>x.id===id);
+        if(!row)return;
+        if(row.status==="COBRADA")return toast("Una cotización cobrada no puede eliminarse. Usa ANULADA.","err");
+        if(!confirm("¿Eliminar la cotización "+row.number+"?\n\nDesaparecerá del listado, pero se conservará el historial."))return;
+        b.disabled=true;
+        const result=await S.from("marc_quotes").update({deleted_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq("id",id).eq("user_id",st.u.id);
+        if(result.error)throw result.error;
+        toast("Cotización eliminada","ok");
+        await quotes();
       }
     }catch(err){
       toast(err?.message||"No se pudo completar la acción.","err");
@@ -1118,9 +1136,21 @@ async function quoteModal(existing=null,preset=null){
     '<div style="display:flex;justify-content:space-between;align-items:center;margin:9px 0 5px"><b style="font-size:9px">PARTIDAS</b><button type="button" id="add" class="secondary">＋ Línea</button></div>'+
     '<div id="lines"></div><label>Notas<textarea name="notes" rows="3">'+esc(quote?.notes||"")+'</textarea></label>'+
     '<div id="summary" class="quote-summary"></div>'+
-    '<div class="modal-actions"><button type="button" class="secondary" id="cancel">Cerrar</button><button type="button" class="secondary" id="print">Imprimir</button><button type="button" class="secondary" id="pdf">Descargar PDF</button><button class="primary">'+(quote?"Guardar cambios":"Guardar cotización")+'</button></div></form>'
+    '<div class="modal-actions">'+(quote?'<button type="button" class="danger" id="deleteQuote">Eliminar cotización</button>':'')+'<button type="button" class="secondary" id="cancel">Cerrar</button><button type="button" class="secondary" id="print">Imprimir</button><button type="button" class="secondary" id="pdf">Descargar PDF</button><button class="primary">'+(quote?"Guardar cambios":"Guardar cotización")+'</button></div></form>'
   );
   $("#x").onclick=close;$("#cancel").onclick=close;
+  if(quote&&$("#deleteQuote")){
+    $("#deleteQuote").onclick=async()=>{
+      if(quote.status==="COBRADA")return toast("Una cotización cobrada no puede eliminarse. Usa ANULADA.","err");
+      if(!confirm("¿Eliminar la cotización "+quote.number+"?\n\nDesaparecerá del listado, pero se conservará el historial."))return;
+      const b=$("#deleteQuote");b.disabled=true;
+      try{
+        const result=await S.from("marc_quotes").update({deleted_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq("id",quote.id).eq("user_id",st.u.id);
+        if(result.error)throw result.error;
+        close();toast("Cotización eliminada","ok");await quotes();
+      }catch(err){toast(err.message||"No se pudo eliminar la cotización.","err");b.disabled=false}
+    };
+  }
   const box=$("#lines");
   if(!lines.length)lines=[{type:"PRODUCTO",inventory_id:"",name:"",description:"",qty:1,price:0,cost:0,unit:"UND"}];
 

@@ -126,37 +126,24 @@ async function searchInventory(env,token,userId,query,limit=8){
 }
 async function countInventory(env,token,userId){
   const admin=isAdminToken(env,token);
-  const headers={
-    apikey:admin?token:env.SUPABASE_PUBLISHABLE_KEY,
-    "content-type":"application/json",
-    Prefer:"count=exact"
-  };
+  const headers={apikey:admin?token:env.SUPABASE_PUBLISHABLE_KEY,"content-type":"application/json",Prefer:"count=exact"};
   if(!admin)headers.Authorization="Bearer "+token;
   else if(env.SUPABASE_SERVICE_ROLE_KEY&&token===env.SUPABASE_SERVICE_ROLE_KEY)headers.Authorization="Bearer "+token;
   const url=new URL(env.SUPABASE_URL+"/rest/v1/marc_inventory");
-  url.searchParams.set("select","id");
-  url.searchParams.set("user_id","eq."+userId);
-  url.searchParams.set("active","eq.true");
-  url.searchParams.set("limit","1");
+  url.searchParams.set("select","id");url.searchParams.set("user_id","eq."+userId);url.searchParams.set("active","eq.true");url.searchParams.set("limit","1");
   const r=await fetch(url.toString(),{headers});
-  if(!r.ok){
-    const raw=await r.text();
-    let data=null;try{data=raw?JSON.parse(raw):null}catch{data=raw}
-    throw Object.assign(new Error(data?.message||data?.hint||"No se pudo contar el inventario."),{status:r.status,details:data});
-  }
+  if(!r.ok){const raw=await r.text();let data=null;try{data=raw?JSON.parse(raw):null}catch{data=raw}throw Object.assign(new Error(data?.message||data?.hint||"No se pudo contar el inventario."),{status:r.status,details:data});}
   const range=r.headers.get("content-range")||"";
   const match=range.match(/\/([0-9]+)$/);
   if(match)return Number(match[1]);
   const rows=await r.json().catch(()=>[]);
   return Array.isArray(rows)?rows.length:0;
 }
-
 async function inventoryInsight(env,token,userId,kind){
   const count=await countInventory(env,token,userId);
   const url=new URL(env.SUPABASE_URL+"/rest/v1/marc_inventory");
   url.searchParams.set("select","id,name,sku,brand,model,category,unit,cost,price,stock,min_stock");
-  url.searchParams.set("user_id","eq."+userId);
-  url.searchParams.set("active","eq.true");
+  url.searchParams.set("user_id","eq."+userId);url.searchParams.set("active","eq.true");
   if(kind==="OUT_OF_STOCK")url.searchParams.set("stock","eq.0");
   if(kind==="MOST_EXPENSIVE")url.searchParams.set("order","price.desc.nullslast,name.asc");
   else if(kind==="CHEAPEST")url.searchParams.set("order","price.asc.nullslast,name.asc");
@@ -327,35 +314,16 @@ function recoverQuoteDraft(responseText,description,clientQuery,allCost){
 function deterministicIntent(message){
   const s=String(message||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim();
   const readOnly=/\b(agrega|agregar|ingresa|ingresar|suma|sumar|resta|restar|ajusta|ajustar|crea|crear|registra|registrar|elimina|eliminar)\b/.test(s);
-  if(!readOnly && /\b(mas caro|mayor precio|precio mas alto|producto mas caro|productos mas caros)\b/.test(s) && /\b(producto|productos|inventario|articulo|articulos|item|items)\b/.test(s)){
-    return {action:"INVENTORY_INSIGHT",execute:false,params:{kind:"MOST_EXPENSIVE"}};
-  }
-  if(!readOnly && /\b(mas barato|menor precio|precio mas bajo|producto mas barato|productos mas baratos)\b/.test(s) && /\b(producto|productos|inventario|articulo|articulos|item|items)\b/.test(s)){
-    return {action:"INVENTORY_INSIGHT",execute:false,params:{kind:"CHEAPEST"}};
-  }
-  if(!readOnly && /\b(mas stock|mayor stock|mas unidades|mayor cantidad)\b/.test(s) && /\b(producto|productos|inventario|articulo|articulos|item|items|stock)\b/.test(s)){
-    return {action:"INVENTORY_INSIGHT",execute:false,params:{kind:"HIGHEST_STOCK"}};
-  }
-  if(!readOnly && /\b(menos stock|menor stock|stock mas bajo|stock bajo)\b/.test(s) && /\b(producto|productos|inventario|articulo|articulos|item|items|stock)\b/.test(s)){
-    return {action:"INVENTORY_INSIGHT",execute:false,params:{kind:"LOWEST_STOCK"}};
-  }
-  if(!readOnly && /\b(agotados?|sin stock|stock agotado)\b/.test(s) && /\b(producto|productos|inventario|articulo|articulos|item|items|stock)\b/.test(s)){
-    return {action:"INVENTORY_INSIGHT",execute:false,params:{kind:"OUT_OF_STOCK"}};
-  }
-  if(!readOnly && /\b(revisa|revisar|ver|muestra|muestreme|mostrar|consulta|consultar|que|cuanto|cuantos|cual|cuales)\b/.test(s) &&
-     /\binventario\b|\bstock\b|\bproductos\b/.test(s)){
-    return {action:"SEARCH_INVENTORY",execute:false,params:{query:"",summary:true}};
-  }
-  if(/\b(que|cuales|muestra|mostrar|listar|lista|revisa|revisar)\b/.test(s) && /\bcotizaciones?\b|\bproformas?\b/.test(s)){
-    return {action:"LIST_QUOTES",execute:false,params:{}};
-  }
-  if(/\b(busca|buscar|muestra|mostrar|consulta|consultar|revisa|revisar)\b/.test(s) && /\b(cliente|clientes)\b/.test(s)){
-    const q=s.replace(/.*\b(cliente|clientes)\b\s*/,"").trim();
-    return {action:"SEARCH_CLIENTS",execute:false,params:{query:q}};
-  }
+  if(!readOnly && /\b(mas caro|mayor precio|precio mas alto|producto mas caro|productos mas caros)\b/.test(s) && /\b(producto|productos|inventario|articulo|articulos|item|items)\b/.test(s))return {action:"INVENTORY_INSIGHT",execute:false,params:{kind:"MOST_EXPENSIVE"}};
+  if(!readOnly && /\b(mas barato|menor precio|precio mas bajo|producto mas barato|productos mas baratos)\b/.test(s) && /\b(producto|productos|inventario|articulo|articulos|item|items)\b/.test(s))return {action:"INVENTORY_INSIGHT",execute:false,params:{kind:"CHEAPEST"}};
+  if(!readOnly && /\b(mas stock|mayor stock|mas unidades|mayor cantidad)\b/.test(s) && /\b(producto|productos|inventario|articulo|articulos|item|items|stock)\b/.test(s))return {action:"INVENTORY_INSIGHT",execute:false,params:{kind:"HIGHEST_STOCK"}};
+  if(!readOnly && /\b(menos stock|menor stock|stock mas bajo|stock bajo)\b/.test(s) && /\b(producto|productos|inventario|articulo|articulos|item|items|stock)\b/.test(s))return {action:"INVENTORY_INSIGHT",execute:false,params:{kind:"LOWEST_STOCK"}};
+  if(!readOnly && /\b(agotados?|sin stock|stock agotado)\b/.test(s) && /\b(producto|productos|inventario|articulo|articulos|item|items|stock)\b/.test(s))return {action:"INVENTORY_INSIGHT",execute:false,params:{kind:"OUT_OF_STOCK"}};
+  if(!readOnly && /\b(revisa|revisar|ver|muestra|muestreme|mostrar|consulta|consultar|que|cuanto|cuantos|cual|cuales)\b/.test(s) && /\binventario\b|\bstock\b|\bproductos\b/.test(s))return {action:"SEARCH_INVENTORY",execute:false,params:{query:"",summary:true}};
+  if(/\b(que|cuales|muestra|mostrar|listar|lista|revisa|revisar)\b/.test(s) && /\bcotizaciones?\b|\bproformas?\b/.test(s))return {action:"LIST_QUOTES",execute:false,params:{}};
+  if(/\b(busca|buscar|muestra|mostrar|consulta|consultar|revisa|revisar)\b/.test(s) && /\b(cliente|clientes)\b/.test(s)){const q=s.replace(/.*\b(cliente|clientes)\b\s*/,"").trim();return {action:"SEARCH_CLIENTS",execute:false,params:{query:q}};}
   return null;
 }
-
 async function plan(env,message,history){
   const deterministic=deterministicIntent(message);
   if(deterministic)return deterministic;
@@ -401,37 +369,12 @@ async function finalReply(env,message,planData){
     return "Tienes "+count+" productos activos en tu inventario.\n\nPrimeros "+Math.min(items.length,count)+":\n"+lines.join("\n")+"\n\nTotal real: "+count+" productos.";
   }
   if(execution?.action==="INVENTORY_INSIGHT" && result){
-    const items=Array.isArray(result.items)?result.items:[];
-    const count=Number(result.count||0);
-    const kind=String(result.kind||"");
-    if(kind==="MOST_EXPENSIVE"){
-      const priced=items.filter(x=>Number.isFinite(Number(x.price)));
-      if(!priced.length)return count?"No encuentro productos con precio registrado para comparar.":"No tienes productos registrados en el inventario.";
-      const top=priced[0];
-      const same=priced.filter(x=>Number(x.price)===Number(top.price)).slice(0,5);
-      return same.length>1
-        ?"Los productos con el precio más alto son:\n\n"+same.map(x=>"• "+String(x.name||"Producto")+" — S/ "+Number(x.price||0).toFixed(2)+(x.sku?" · SKU "+x.sku:"")).join("\n")+"\n\nTotal de productos activos: "+count+"."
-        :"El producto más caro de tu inventario es:\n\n💰 "+String(top.name||"Producto")+" — S/ "+Number(top.price||0).toFixed(2)+(top.sku?"\nSKU: "+top.sku:"")+(top.brand?"\nMarca: "+top.brand:"")+(top.model?"\nModelo: "+top.model:"")+"\n\nTotal de productos activos: "+count+".";
-    }
-    if(kind==="CHEAPEST"){
-      const priced=items.filter(x=>Number.isFinite(Number(x.price)));
-      if(!priced.length)return count?"No encuentro productos con precio registrado para comparar.":"No tienes productos registrados en el inventario.";
-      const top=priced[0];
-      return "El producto más barato de tu inventario es:\n\n• "+String(top.name||"Producto")+" — S/ "+Number(top.price||0).toFixed(2)+"\n\nTotal de productos activos: "+count+".";
-    }
-    if(kind==="HIGHEST_STOCK"){
-      if(!items.length)return "No tienes productos registrados en el inventario.";
-      const top=items[0];
-      return "El producto con mayor stock es:\n\n• "+String(top.name||"Producto")+" — stock: "+Number(top.stock||0)+(top.unit?" "+top.unit:"")+"\n\nTotal de productos activos: "+count+".";
-    }
-    if(kind==="OUT_OF_STOCK"){
-      if(!items.length)return "No hay productos agotados en tu inventario.";
-      return "Productos agotados ("+items.length+(count>items.length?"+":"")+"):\n\n"+items.map(x=>"• "+String(x.name||"Producto")+" — stock: 0").join("\n");
-    }
-    if(kind==="LOWEST_STOCK"){
-      if(!items.length)return "No tienes productos registrados en el inventario.";
-      return "Productos con menor stock:\n\n"+items.slice(0,8).map(x=>"• "+String(x.name||"Producto")+" — stock: "+Number(x.stock||0)+" — mínimo: "+Number(x.min_stock||0)).join("\n")+"\n\nTotal de productos activos: "+count+".";
-    }
+    const items=Array.isArray(result.items)?result.items:[],count=Number(result.count||0),kind=String(result.kind||"");
+    if(kind==="MOST_EXPENSIVE"){if(!items.length)return count?"No encuentro productos con precio registrado para comparar.":"No tienes productos registrados en el inventario.";const top=items[0],same=items.filter(x=>Number(x.price)===Number(top.price)).slice(0,5);return same.length>1?"Los productos con el precio más alto son:\n\n"+same.map(x=>"• "+String(x.name||"Producto")+" — S/ "+Number(x.price||0).toFixed(2)).join("\n")+"\n\nTotal de productos activos: "+count+".":"El producto más caro de tu inventario es:\n\n💰 "+String(top.name||"Producto")+" — S/ "+Number(top.price||0).toFixed(2)+(top.sku?"\nSKU: "+top.sku:"")+(top.brand?"\nMarca: "+top.brand:"")+(top.model?"\nModelo: "+top.model:"")+"\n\nTotal de productos activos: "+count+".";}
+    if(kind==="CHEAPEST"){if(!items.length)return count?"No encuentro productos con precio registrado para comparar.":"No tienes productos registrados en el inventario.";const top=items[0];return "El producto más barato de tu inventario es:\n\n• "+String(top.name||"Producto")+" — S/ "+Number(top.price||0).toFixed(2)+"\n\nTotal de productos activos: "+count+".";}
+    if(kind==="HIGHEST_STOCK"){if(!items.length)return "No tienes productos registrados en el inventario.";const top=items[0];return "El producto con mayor stock es:\n\n• "+String(top.name||"Producto")+" — stock: "+Number(top.stock||0)+(top.unit?" "+top.unit:"")+"\n\nTotal de productos activos: "+count+".";}
+    if(kind==="OUT_OF_STOCK"){if(!items.length)return "No hay productos agotados en tu inventario.";return "Productos agotados:\n\n"+items.map(x=>"• "+String(x.name||"Producto")+" — stock: 0").join("\n");}
+    if(kind==="LOWEST_STOCK"){if(!items.length)return "No tienes productos registrados en el inventario.";return "Productos con menor stock:\n\n"+items.map(x=>"• "+String(x.name||"Producto")+" — stock: "+Number(x.stock||0)+" — mínimo: "+Number(x.min_stock||0)).join("\n")+"\n\nTotal de productos activos: "+count+".";}
   }
   if(execution?.action==="SEARCH_INVENTORY" && Array.isArray(result)){
     if(!result.length)return "No tienes productos registrados en el inventario todavía.";
@@ -1280,3 +1223,324 @@ async function inventoryPdfFinalize(request,env){
   if(!items.length)return json({error:"No se detectaron productos para mostrar."},422,corsHeaders(request));
 
   const safeName=String(file.name||"catalogo.pdf").replace(/[^A-Za-z0-9._-]/g,"_").slice(-120)||"catalogo.pdf";
+  const path=user.id+"/"+Date.now()+"-"+crypto.randomUUID()+"-"+safeName;
+  const upload=await fetch(env.SUPABASE_URL+"/storage/v1/object/marc-documents/"+path,{
+    method:"POST",
+    headers:{Authorization:"Bearer "+adminToken,apikey:adminToken,"Content-Type":"application/pdf","x-upsert":"false"},
+    body:bytes
+  });
+  if(!upload.ok){
+    const t=await upload.text();
+    throw new Error("No se pudo guardar el PDF: "+t.slice(0,500));
+  }
+  const docs=await sb(env,adminToken,"marc_documents",{
+    method:"POST",
+    body:{user_id:user.id,source:"WEB",filename:safeName,mime_type:"application/pdf",size_bytes:bytes.byteLength,storage_path:path,status:"ANALYZED",extracted_count:items.length,metadata:{ai:"gemini"}}
+  });
+  const documentId=docs?.[0]?.id||null;
+  await sb(env,adminToken,"marc_pending_imports?id=eq."+encodeURIComponent(pendingId)+"&user_id=eq."+encodeURIComponent(user.id),{
+    method:"PATCH",body:{document_id:documentId,items,updated_at:new Date().toISOString()}
+  });
+  return json({pendingId,documentId,count:items.length,items},200,corsHeaders(request));
+}
+
+async function inventoryPdfPreview(request,env){
+  if(request.method!=="POST")return json({error:"Método no permitido"},405);
+  const {token,user}=await authUser(request,env);
+  const access=await entitlement(env,token,user.id);
+  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request));
+  if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request));
+  const form=await request.formData();
+  const file=form.get("file");
+  if(!file||typeof file.arrayBuffer!=="function")return json({error:"Adjunta un archivo PDF."},400,corsHeaders(request));
+  const mime=String(file.type||"application/pdf").toLowerCase(),name=String(file.name||"catalogo.pdf");
+  if(mime!=="application/pdf"&&!name.toLowerCase().endsWith(".pdf"))return json({error:"Solo se aceptan archivos PDF."},400,corsHeaders(request));
+  const bytes=await file.arrayBuffer();
+  if(bytes.byteLength>20*1024*1024)return json({error:"El PDF supera el límite de 20 MB."},413,corsHeaders(request));
+  const adminToken=env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY;
+  const job=await createPendingImport(env,adminToken,user.id,"WEB",null,name,bytes);
+  await incrementAiUsage(env,token,user.id,access);
+  return json({pendingId:job.pending.id,documentId:job.document?.id||null,count:job.items.length,items:job.items.slice(0,50)},200,corsHeaders(request));
+}
+
+async function inventoryPdfImport(request,env){
+  if(request.method!=="POST")return json({error:"Método no permitido"},405);
+  const {token,user}=await authUser(request,env);
+  const body=await request.json();
+  const access=await entitlement(env,token,user.id);
+  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request));
+  const result=await importPendingInventory(env,env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY,user.id,String(body?.pendingId||""),body?.updateExisting!==false,"WEB");
+  return json(result,200,corsHeaders(request));
+}
+
+async function processTelegramInventoryPdf(env,adminToken,userId,chatId,document){
+  const fileId=String(document?.file_id||"");
+  if(!fileId)return;
+  if(Number(document?.file_size||0)>20*1024*1024){
+    await sendTelegram(env,chatId,"📄 El PDF supera el límite de 20 MB para archivos de Telegram.");
+    return;
+  }
+  const meta=await fetch("https://api.telegram.org/bot"+env.TELEGRAM_BOT_TOKEN+"/getFile?file_id="+encodeURIComponent(fileId));
+  const mj=await meta.json().catch(()=>null);
+  if(!meta.ok||!mj?.ok||!mj?.result?.file_path)throw new Error(mj?.description||"Telegram no pudo preparar el PDF.");
+  const dl=await fetch("https://api.telegram.org/file/bot"+env.TELEGRAM_BOT_TOKEN+"/"+mj.result.file_path);
+  if(!dl.ok)throw new Error("No pude descargar el PDF desde Telegram.");
+  const bytes=await dl.arrayBuffer();
+  const name=String(document.file_name||"catalogo.pdf");
+  const job=await createPendingImport(env,adminToken,userId,"TELEGRAM",chatId,name,bytes);
+  const preview=job.items.slice(0,10).map((x,i)=>(i+1)+". "+x.name+(x.brand?" · "+x.brand:"")+(x.model?" · "+x.model:"")+(x.price!=null?" · S/ "+x.price.toFixed(2):"")).join("\n");
+  await sendTelegram(env,chatId,"📦 Analicé el PDF con Gemini.\n\nEncontré "+job.items.length+" productos.\n\n"+preview+"\n"+(job.items.length>10?"\n…y "+(job.items.length-10)+" más.\n":"")+"\nResponde IMPORTAR para agregarlos al inventario o CANCELAR para descartarlos. El enlace de importación dura 15 minutos.");
+}
+async function quoteAiDraft(request,env){
+  if(request.method!=="POST")return json({error:"Método no permitido"},405);
+  const {token,user}=await authUser(request,env);
+  const access=await entitlement(env,token,user.id);
+  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request));
+  if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request));
+  const body=await request.json();
+  const improveLines=Boolean(body?.improveLines);
+  const rawLines=Array.isArray(body?.items)?body.items:[];
+  const description=String(body?.description||"").trim().slice(0,4000);
+  const allCost=Boolean(body?.allCost);
+  const improveOnly=Boolean(body?.improveOnly);
+  const clientQuery=String(body?.clientQuery||"").trim().slice(0,200);
+  if(body?.reviewQuote){
+    const items=rawLines.map((x,i)=>({index:Number.isInteger(Number(x?.index))?Number(x.index):i,type:String(x?.type||"TRABAJO"),name:String(x?.name||"").trim(),description:String(x?.description||"").trim(),quantity:Number(x?.quantity||0),unit_price:Number(x?.unit_price||0),cost:Number(x?.cost||0),transport:Number(x?.transport||0),labor:Number(x?.labor||0),other:Number(x?.other||0),material_provider:String(x?.material_provider||"CLIENT")})).slice(0,40);
+    if(!items.length)return json({error:"Agrega al menos una partida para revisar."},400,corsHeaders(request));
+    const subtotal=items.reduce((s,x)=>s+(x.quantity*x.unit_price),0),internalCost=items.reduce((s,x)=>s+(x.quantity*x.cost)+x.transport+x.labor+x.other,0);
+    const prompt={messages:[
+      {role:"system",content:'Eres un revisor técnico de cotizaciones. Devuelve SOLO JSON válido con {"issues":[{"title":"...","detail":"..."}],"positives":[{"title":"...","detail":"..."}]}. Analiza únicamente los datos recibidos. Detecta descripciones vacías o poco específicas, cantidades/precios/costos incoherentes, trabajos sin detalles suficientes, costos internos faltantes cuando sean relevantes y posibles inconsistencias entre tipo de partida y sus datos. NO inventes precios de mercado ni afirmes que un precio es caro o barato. No inventes información. Las observaciones deben ser concretas y útiles. Máximo 8 observaciones.'},
+      {role:"user",content:"TÍTULO: "+String(body?.title||"Cotización")+"\nIGV: "+String(body?.taxEnabled?"SI":"NO")+" · "+String(body?.taxRate||18)+"%\nNOTAS: "+String(body?.notes||"")+"\nSUBTOTAL CALCULADO: "+subtotal+"\nCOSTO INTERNO CALCULADO: "+internalCost+"\nPARTIDAS:\n"+JSON.stringify(items)}
+    ]};
+    let out;try{out=await geminiGenerate(env,prompt,{json:true,maxTokens:1800})}catch(err){throw Object.assign(new Error("Gemini: "+String(err?.message||"Error de API").slice(0,800)),{status:err?.status||502,details:err?.details||null})}
+    const textOut=out?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("")||"";
+    if(!textOut)throw Object.assign(new Error("Gemini devolvió una respuesta vacía."),{status:502});
+    let review;try{review=JSON.parse(textOut.replace(/^```json\s*|^```\s*$/g,"").trim())}catch{throw Object.assign(new Error("Gemini devolvió una revisión en un formato no válido. Inténtalo nuevamente."),{status:502,details:{raw:textOut.slice(0,500)}})}
+    await incrementAiUsage(env,token,user.id,access);
+    return json({review:{issues:Array.isArray(review.issues)?review.issues.slice(0,8):[],positives:Array.isArray(review.positives)?review.positives.slice(0,8):[]},entitlement:access},200,corsHeaders(request));
+  }
+  if(improveLines){
+    const items=rawLines.map((x,i)=>({index:Number.isInteger(Number(x?.index))?Number(x.index):i,type:String(x?.type||"TRABAJO").slice(0,20),name:String(x?.name||"").trim().slice(0,180),description:String(x?.description||"").trim().slice(0,2000)})).filter(x=>x.description).slice(0,40);
+    if(!items.length)return json({error:"Escribe al menos una descripción para mejorar."},400,corsHeaders(request));
+    const prompt={messages:[
+      {role:"system",content:'Eres un redactor técnico de cotizaciones para una empresa de servicios. Devuelve SOLO JSON válido con {"items":[{"index":0,"title":"...","description":"..."}]}. Mejora únicamente la redacción de cada descripción recibida. Conserva todos los datos aportados y NO inventes datos técnicos, cantidades, precios, materiales, marcas, medidas, plazos ni trabajos. No agregues información que no esté escrita. Haz el texto profesional, claro, específico y apto para una cotización. El índice debe conservar exactamente el índice recibido.'},
+      {role:"user",content:"PARTIDAS A MEJORAR:\n"+JSON.stringify(items)}
+    ]};
+    let out;try{out=await geminiGenerate(env,prompt,{json:true,maxTokens:2200})}catch(err){throw Object.assign(new Error("Gemini: "+String(err?.message||"Error de API").slice(0,800)),{status:err?.status||502,details:err?.details||null})}
+    const responseText=out?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("")||"";
+    if(!responseText)throw Object.assign(new Error("Gemini devolvió una respuesta vacía."),{status:502});
+    let parsed;try{parsed=JSON.parse(responseText.replace(/^```json\s*|^```\s*$/g,"").trim())}catch{parsed={items:[]}}
+    const improvedLines=Array.isArray(parsed?.items)?parsed.items.map((x,i)=>({index:Number.isInteger(Number(x?.index))?Number(x.index):items[i]?.index,title:String(x?.title||"").trim().slice(0,180),description:String(x?.description||"").trim().slice(0,2000)})).filter(x=>Number.isInteger(x.index)&&x.description):[];
+    await incrementAiUsage(env,token,user.id,access);
+    return json({improvedLines,entitlement:access},200,corsHeaders(request));
+  }
+  if(!description)return json({error:"Escribe la descripción del trabajo."},400,corsHeaders(request));
+  const prompt=improveOnly?{messages:[
+    {role:"system",content:'Eres un redactor técnico de cotizaciones para una empresa de servicios. Devuelve SOLO JSON válido con {"title":"...","description":"..."}. Mejora la redacción del texto sin inventar datos técnicos, cantidades, precios, materiales, marcas, medidas ni trabajos que no estén escritos. Conserva todos los datos aportados. Hazlo profesional, claro, específico y apto para una cotización. Si faltan datos, no los inventes.'},
+    {role:"user",content:"TEXTO ORIGINAL:\n"+description}
+  ]}:{messages:[
+    {role:"system",content:'Eres el asistente de cotizaciones de M.A.R.C. Devuelve SOLO JSON válido. No inventes precios, clientes, productos ni cantidades. Si el usuario escribe un precio, extrae el número. Si no escribe precio, unit_price debe ser null. En modo A TODO COSTO la cotización debe tener una sola partida de tipo TRABAJO, cantidad 1, y el nombre debe ser un título corto; la descripción debe conservar los detalles técnicos del trabajo. Si el texto contiene "a todo costo", mantén esa idea en la descripción. Extrae un título profesional. Formato exacto: {"title":"...","client_query":"...","items":[{"type":"TRABAJO","name":"...","description":"...","quantity":1,"unit_price":number|null}]}.'},
+    {role:"user",content:"MODO A TODO COSTO: "+(allCost?"SI":"NO")+"\nCLIENTE SUGERIDO: "+clientQuery+"\nDESCRIPCIÓN:\n"+description}
+  ]};
+  let out;try{out=await geminiGenerate(env,prompt,{json:true,maxTokens:500})}catch(err){throw Object.assign(new Error("Gemini: "+String(err?.message||"Error de API").slice(0,800)),{status:err?.status||502,details:err?.details||null})}
+  const responseText=out?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("")||"";
+  if(!responseText)throw Object.assign(new Error("Gemini devolvió una respuesta vacía. Revisa el modelo y la cuota de la API key."),{status:502,details:{finishReason:out?.candidates?.[0]?.finishReason||null}});
+  if(improveOnly){let improved;try{improved=JSON.parse(responseText.replace(/^```json\s*|^```\s*$/g,"").trim())}catch{improved={title:"",description:description}}await incrementAiUsage(env,token,user.id,access);return json({improved:{title:String(improved.title||"").trim(),description:String(improved.description||description).trim()},entitlement:access},200,corsHeaders(request))}
+  const draft=recoverQuoteDraft(responseText,description,clientQuery,allCost);
+  if(!draft?.items?.length)throw Object.assign(new Error("La IA no generó una partida."),{status:502});
+  await incrementAiUsage(env,token,user.id,access);
+  return json({draft,entitlement:access},200,corsHeaders(request));
+}
+async function marketingAi(request,env){
+  if(request.method!=="POST")return json({error:"Método no permitido"},405);
+  const {token,user}=await authUser(request,env),access=await entitlement(env,token,user.id);
+  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request));
+  if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request));
+  const body=await request.json(),p=body?.product||{},platform=String(body?.platform||"WHATSAPP").toUpperCase();
+  const prompt={messages:[
+    {role:"system",content:'Eres el director creativo y copywriter de M.A.R.C. Crea publicidad comercial clara y profesional en español latino. Usa SOLO los datos entregados; no inventes características, certificaciones, garantías, descuentos, disponibilidad, medidas, marcas, precios ni beneficios técnicos. Devuelve SOLO JSON válido con title, headline, primary_text, short_text, whatsapp_text, banner_text, hashtags. headline breve para banner; primary_text completo para redes; short_text corto; whatsapp_text natural y termina con el CTA; banner_text máximo 3 líneas; hashtags arreglo de 3 a 8.'},
+    {role:"user",content:"PLATAFORMA: "+platform+"\nOBJETIVO: "+String(body?.objective||"VENDER")+"\nTONO: "+String(body?.tone||"PROFESIONAL")+"\nPÚBLICO: "+String(body?.audience||"Clientes potenciales")+"\nOFERTA: "+String(body?.offer||"")+"\nCTA: "+String(body?.cta||"Escríbenos para cotizar")+"\nDETALLES: "+String(body?.details||"")+"\nPRODUCTO: "+JSON.stringify({name:String(p.name||"Producto"),brand:String(p.brand||""),model:String(p.model||""),category:String(p.category||""),price:p.price==null||p.price===""?null:Number(p.price),stock:p.stock==null||p.stock===""?null:Number(p.stock)})}
+  ]};
+  let out;try{out=await geminiGenerate(env,prompt,{json:true,maxTokens:1300})}catch(err){throw Object.assign(new Error("Gemini: "+String(err?.message||"Error de API").slice(0,800)),{status:err?.status||502,details:err?.details||null})}
+  const responseText=out?.candidates?.[0]?.content?.parts?.map(x=>x.text||"").join("")||"";if(!responseText)throw Object.assign(new Error("Gemini devolvió una respuesta vacía."),{status:502});
+  let parsed;try{parsed=extractJson(responseText)}catch{throw Object.assign(new Error("La IA devolvió un formato publicitario no válido."),{status:502})}
+  await incrementAiUsage(env,token,user.id,access);
+  return json({campaign:{title:String(parsed?.title||p.name||"Publicidad").trim().slice(0,180),headline:String(parsed?.headline||p.name||"").trim().slice(0,180),primary_text:String(parsed?.primary_text||"").trim().slice(0,4000),short_text:String(parsed?.short_text||"").trim().slice(0,1200),whatsapp_text:String(parsed?.whatsapp_text||"").trim().slice(0,2000),banner_text:String(parsed?.banner_text||parsed?.headline||p.name||"").trim().slice(0,300),hashtags:Array.isArray(parsed?.hashtags)?parsed.hashtags.map(x=>String(x).trim()).filter(Boolean).slice(0,8):[]},entitlement:access},200,corsHeaders(request));
+}
+
+async function telegramDiagnostics(request,env){
+  if(request.method!=="GET")return json({error:"Método no permitido"},405);
+  if(!env.TELEGRAM_BOT_TOKEN)return json({ok:false,error:"TELEGRAM_BOT_TOKEN missing"},503);
+  const r=await fetch("https://api.telegram.org/bot"+env.TELEGRAM_BOT_TOKEN+"/getWebhookInfo");
+  const d=await r.json().catch(()=>null);
+  if(!r.ok||!d?.ok)return json({ok:false,error:d?.description||"Telegram error"},502);
+  const x=d.result||{};
+  return json({
+    ok:true,
+    url:x.url||"",
+    pending_update_count:Number(x.pending_update_count||0),
+    last_error_date:x.last_error_date||null,
+    last_error_message:x.last_error_message||null,
+    ip_address:x.ip_address||null
+  });
+}
+
+async function telegramSetup(request,env){
+  const {token,user}=await authUser(request,env);
+  const access=await entitlement(env,token,user.id);
+  if(access.kind!=="master" && access.kind!=="paid"){
+    throw Object.assign(new Error("Solo una cuenta MASTER o con suscripción activa puede activar Telegram."),{status:403});
+  }
+  if(!env.TELEGRAM_BOT_TOKEN)throw Object.assign(new Error("Falta TELEGRAM_BOT_TOKEN."),{status:503});
+  if(!env.TELEGRAM_WEBHOOK_SECRET)throw Object.assign(new Error("Falta TELEGRAM_WEBHOOK_SECRET."),{status:503});
+  const webhookUrl=new URL("/api/telegram/webhook",request.url).toString();
+  const r=await fetch("https://api.telegram.org/bot"+env.TELEGRAM_BOT_TOKEN+"/setWebhook",{
+    method:"POST",
+    headers:{"content-type":"application/json"},
+    body:JSON.stringify({
+      url:webhookUrl,
+      secret_token:env.TELEGRAM_WEBHOOK_SECRET,
+      allowed_updates:["message"],
+      drop_pending_updates:false
+    })
+  });
+  const data=await r.json().catch(()=>({ok:false,description:"Respuesta inválida de Telegram"}));
+  if(!r.ok||!data?.ok)throw Object.assign(new Error(data?.description||"Telegram rechazó la configuración del webhook."),{status:502});
+  const infoR=await fetch("https://api.telegram.org/bot"+env.TELEGRAM_BOT_TOKEN+"/getWebhookInfo");
+  const info=await infoR.json().catch(()=>null);
+  return json({ok:true,webhookUrl,botUsername:telegramBotName(env),webhook:info?.result||null},200,corsHeaders(request));
+}
+
+async function telegramStatus(request,env){
+  const {token,user}=await authUser(request,env);
+  const rows=await sb(env,token,"marc_channel_identities?select=id,channel,external_user_id,chat_id,username,status,linked_at,last_seen_at&channel=eq.TELEGRAM&user_id=eq."+encodeURIComponent(user.id)+"&limit=1");
+  const access=await entitlement(env,token,user.id);
+  let webhook=null;
+  if(access.kind==="master"||access.kind==="paid"){
+    if(env.TELEGRAM_BOT_TOKEN){
+      const wr=await fetch("https://api.telegram.org/bot"+env.TELEGRAM_BOT_TOKEN+"/getWebhookInfo");
+      const wd=await wr.json().catch(()=>null);
+      if(wd?.ok)webhook=wd.result||null;
+      else webhook={error:wd?.description||"Telegram no devolvió información del webhook."};
+    }else webhook={error:"TELEGRAM_BOT_TOKEN no configurado."};
+  }
+  return json({
+    linked:Boolean(rows?.[0]?.status==="LINKED"),
+    identity:rows?.[0]||null,
+    entitlement:access,
+    webhook:webhook?{
+      url:webhook.url||"",
+      pending_update_count:Number(webhook.pending_update_count||0),
+      last_error_date:webhook.last_error_date||null,
+      last_error_message:webhook.last_error_message||null,
+      max_connections:webhook.max_connections||null,
+      has_custom_certificate:Boolean(webhook.has_custom_certificate),
+      error:webhook.error||null
+    }:null
+  },200,corsHeaders(request));
+}
+async function telegramLink(request,env){
+  const {token,user}=await authUser(request,env);
+  const bot=telegramBotName(env);
+  if(!bot)throw Object.assign(new Error("Configura TELEGRAM_BOT_USERNAME en el Worker."),{status:503});
+  const rawToken="LNK_"+randomToken(24);
+  const hash=await sha256Hex(rawToken);
+  const expires=new Date(Date.now()+10*60*1000).toISOString();
+  await sb(env,token,"marc_link_tokens?user_id=eq."+encodeURIComponent(user.id)+"&channel=eq.TELEGRAM&used_at=is.null",{method:"DELETE"});
+  await sb(env,token,"marc_link_tokens",{method:"POST",body:{user_id:user.id,channel:"TELEGRAM",token_hash:hash,expires_at:expires}});
+  return json({deepLink:"https://t.me/"+bot+"?start="+encodeURIComponent(rawToken),expiresAt:expires},200,corsHeaders(request));
+}
+async function telegramUnlink(request,env){
+  const {token,user}=await authUser(request,env);
+  await sb(env,token,"marc_channel_identities?user_id=eq."+encodeURIComponent(user.id)+"&channel=eq.TELEGRAM&status=eq.LINKED",{method:"PATCH",body:{status:"REVOKED",updated_at:new Date().toISOString()}});
+  return json({ok:true},200,corsHeaders(request));
+}
+export default{
+  async fetch(request,env,ctx){
+    const headers=corsHeaders(request);
+    if(request.method==="OPTIONS")return new Response(null,{status:204,headers});
+    const url=new URL(request.url);
+    if(url.pathname==="/api/chat"){
+      if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);
+      try{
+        const {token,user}=await authUser(request,env);
+        const access=await entitlement(env,token,user.id);
+        if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para seguir usando M.A.R.C."},402,headers);
+        if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de 30 acciones de IA de la prueba."},429,headers);
+        const body=await request.json();
+        const message=String(body?.message||"").trim();
+        if(!message)return json({error:"Mensaje vacío"},400,headers);
+        const history=await recentMessages(env,token,user.id,body?.conversationId||"");
+        const pl=await plan(env,message,history);
+        const executed=await executePlan(env,token,user,pl,"AI_AGENT");
+        await incrementAiUsage(env,token,user.id,access);
+        const text=await finalReply(env,message,{plan:pl,execution:executed,entitlement:access});
+        return json({text,action:executed.action,result:executed.result},200,headers);
+      }catch(err){
+        return json({error:err?.message||"Error del agente",detail:err?.details||null},err?.status||500,headers);
+      }
+    }
+    if(url.pathname==="/api/telegram/webhook"){
+      try{return await telegramWebhook(request,env,ctx)}catch(err){
+        return json({error:err?.message||"Error del webhook",detail:err?.details||null},err?.status||500);
+      }
+    }
+    if(url.pathname==="/api/inventory/analyze-photo"){
+      try{return await analyzeInventoryProductPhoto(request,env)}catch(err){return json({error:err?.message||"No se pudo analizar la foto del producto.",detail:err?.details||null},err?.status||500,headers)}
+    }
+    if(url.pathname==="/api/inventory/pdf-start"){
+      try{return await inventoryPdfStart(request,env)}catch(err){return json({error:err?.message||"No se pudo iniciar el análisis"},err?.status||500,headers)}
+    }
+    if(url.pathname==="/api/inventory/pdf-page"){
+      try{return await inventoryPdfPageAnalyze(request,env)}catch(err){return json({error:err?.message||"No se pudo analizar la página"},err?.status||500,headers)}
+    }
+    if(url.pathname==="/api/inventory/pdf-finalize"){
+      try{return await inventoryPdfFinalize(request,env)}catch(err){return json({error:err?.message||"No se pudo finalizar el análisis"},err?.status||500,headers)}
+    }
+    if(url.pathname==="/api/inventory/pdf-preview"){
+      try{return await inventoryPdfPreview(request,env)}catch(err){return json({error:err?.message||"No se pudo analizar el PDF"},err?.status||500,headers)}
+    }
+    if(url.pathname==="/api/inventory/pdf-import"){
+      try{return await inventoryPdfImport(request,env)}catch(err){return json({error:err?.message||"No se pudo importar el inventario"},err?.status||500,headers)}
+    }
+    if(url.pathname==="/api/company/profile"){
+      try{
+        if(request.method==="GET")return await companyProfile(request,env);
+        if(request.method==="POST")return await saveCompanyProfile(request,env);
+        return json({error:"Método no permitido"},405,headers);
+      }catch(err){return json({error:err?.message||"No se pudo gestionar el perfil empresarial"},err?.status||500,headers)}
+    }
+    if(url.pathname==="/api/quote-ai"){
+      try{return await quoteAiDraft(request,env)}catch(err){
+        return json({error:err?.message||"No se pudo generar la cotización con IA.",detail:err?.details||null},err?.status||500,headers);
+      }
+    }
+    if(url.pathname==="/api/marketing-ai"){try{return await marketingAi(request,env)}catch(err){return json({error:err?.message||"No se pudo generar la publicidad.",detail:err?.details||null},err?.status||500,headers)}}
+    if(url.pathname==="/api/telegram/diagnostics"){return telegramDiagnostics(request,env)}
+    if(url.pathname==="/api/telegram/setup"){
+      if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);
+      try{return await telegramSetup(request,env)}catch(err){return json({error:err?.message||"No se pudo configurar Telegram"},err?.status||500,headers)}
+    }
+    if(url.pathname==="/api/telegram/status"){
+      if(request.method!=="GET")return json({error:"Método no permitido"},405,headers);
+      try{return await telegramStatus(request,env)}catch(err){return json({error:err?.message||"No se pudo consultar Telegram"},err?.status||500,headers)}
+    }
+    if(url.pathname==="/api/telegram/link"){
+      if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);
+      try{return await telegramLink(request,env)}catch(err){return json({error:err?.message||"No se pudo generar el enlace"},err?.status||500,headers)}
+    }
+    if(url.pathname==="/api/telegram/unlink"){
+      if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);
+      try{return await telegramUnlink(request,env)}catch(err){return json({error:err?.message||"No se pudo desconectar Telegram"},err?.status||500,headers)}
+    }
+    if(url.pathname.startsWith("/api/"))return json({error:"Ruta no encontrada"},404,headers);
+    const assetResponse=await env.ASSETS.fetch(request);
+    const assetHeaders=new Headers(assetResponse.headers);
+    if(["/","/index.html"].includes(url.pathname)||/\\.(?:js|css|html)$/.test(url.pathname)){
+      assetHeaders.set("Cache-Control","no-store, no-cache, must-revalidate, max-age=0");
+      assetHeaders.set("Pragma","no-cache");
+      assetHeaders.set("Expires","0");
+    }
+    return new Response(assetResponse.body,{status:assetResponse.status,statusText:assetResponse.statusText,headers:assetHeaders});
+  }
+};

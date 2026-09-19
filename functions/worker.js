@@ -1123,6 +1123,21 @@ async function quoteAiDraft(request,env){
   const allCost=Boolean(body?.allCost);
   const improveOnly=Boolean(body?.improveOnly);
   const clientQuery=String(body?.clientQuery||"").trim().slice(0,200);
+  if(body?.reviewQuote){
+    const items=rawLines.map((x,i)=>({index:Number.isInteger(Number(x?.index))?Number(x.index):i,type:String(x?.type||"TRABAJO"),name:String(x?.name||"").trim(),description:String(x?.description||"").trim(),quantity:Number(x?.quantity||0),unit_price:Number(x?.unit_price||0),cost:Number(x?.cost||0),transport:Number(x?.transport||0),labor:Number(x?.labor||0),other:Number(x?.other||0),material_provider:String(x?.material_provider||"CLIENT")})).slice(0,40);
+    if(!items.length)return json({error:"Agrega al menos una partida para revisar."},400,corsHeaders(request));
+    const subtotal=items.reduce((s,x)=>s+(x.quantity*x.unit_price),0),internalCost=items.reduce((s,x)=>s+(x.quantity*x.cost)+x.transport+x.labor+x.other,0);
+    const prompt={messages:[
+      {role:"system",content:'Eres un revisor técnico de cotizaciones. Devuelve SOLO JSON válido con {"issues":[{"title":"...","detail":"..."}],"positives":[{"title":"...","detail":"..."}]}. Analiza únicamente los datos recibidos. Detecta descripciones vacías o poco específicas, cantidades/precios/costos incoherentes, trabajos sin detalles suficientes, costos internos faltantes cuando sean relevantes y posibles inconsistencias entre tipo de partida y sus datos. NO inventes precios de mercado ni afirmes que un precio es caro o barato. No inventes información. Las observaciones deben ser concretas y útiles. Máximo 8 observaciones.'},
+      {role:"user",content:"TÍTULO: "+String(body?.title||"Cotización")+"\nIGV: "+String(body?.taxEnabled?"SI":"NO")+" · "+String(body?.taxRate||18)+"%\nNOTAS: "+String(body?.notes||"")+"\nSUBTOTAL CALCULADO: "+subtotal+"\nCOSTO INTERNO CALCULADO: "+internalCost+"\nPARTIDAS:\n"+JSON.stringify(items)}
+    ]};
+    let out;try{out=await geminiGenerate(env,prompt,{json:true,maxTokens:1800})}catch(err){throw Object.assign(new Error("Gemini: "+String(err?.message||"Error de API").slice(0,800)),{status:err?.status||502,details:err?.details||null})}
+    const textOut=out?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("")||"";
+    if(!textOut)throw Object.assign(new Error("Gemini devolvió una respuesta vacía."),{status:502});
+    let review;try{review=JSON.parse(textOut.replace(/^```json\s*|^```\s*$/g,"").trim())}catch{review={issues:[],positives:[]}}
+    await incrementAiUsage(env,token,user.id,access);
+    return json({review:{issues:Array.isArray(review.issues)?review.issues.slice(0,8):[],positives:Array.isArray(review.positives)?review.positives.slice(0,8):[]},entitlement:access},200,corsHeaders(request));
+  }
   if(improveLines){
     const items=rawLines.map((x,i)=>({index:Number.isInteger(Number(x?.index))?Number(x.index):i,type:String(x?.type||"TRABAJO").slice(0,20),name:String(x?.name||"").trim().slice(0,180),description:String(x?.description||"").trim().slice(0,2000)})).filter(x=>x.description).slice(0,40);
     if(!items.length)return json({error:"Escribe al menos una descripción para mejorar."},400,corsHeaders(request));

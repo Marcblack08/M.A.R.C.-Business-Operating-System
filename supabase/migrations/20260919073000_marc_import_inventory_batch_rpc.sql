@@ -22,6 +22,7 @@ declare
   v_stock numeric;
   v_min_stock numeric;
   v_id uuid;
+  was_inactive boolean;
   created_count integer := 0;
   updated_count integer := 0;
   reactivated_count integer := 0;
@@ -29,28 +30,15 @@ declare
   seen text[] := '{}';
   item_key text;
 begin
-  if uid is null then
-    raise exception 'No autenticado';
-  end if;
-
-  if jsonb_typeof(p_items) <> 'array' then
-    raise exception 'p_items debe ser un arreglo JSON';
-  end if;
-
-  if jsonb_array_length(p_items) = 0 then
-    raise exception 'No hay productos para importar';
-  end if;
-
-  if jsonb_array_length(p_items) > 500 then
-    raise exception 'La importación supera el máximo de 500 productos por lote';
-  end if;
+  if uid is null then raise exception 'No autenticado'; end if;
+  if jsonb_typeof(p_items) <> 'array' then raise exception 'p_items debe ser un arreglo JSON'; end if;
+  if jsonb_array_length(p_items) = 0 then raise exception 'No hay productos para importar'; end if;
+  if jsonb_array_length(p_items) > 500 then raise exception 'La importación supera el máximo de 500 productos por lote'; end if;
 
   for item in select value from jsonb_array_elements(p_items)
   loop
     v_name := nullif(trim(item->>'name'), '');
-    if v_name is null then
-      continue;
-    end if;
+    if v_name is null then continue; end if;
 
     v_sku := nullif(trim(item->>'sku'), '');
     v_brand := nullif(trim(item->>'brand'), '');
@@ -59,65 +47,34 @@ begin
     v_unit := coalesce(nullif(trim(item->>'unit'), ''), 'UND');
 
     begin
-      v_cost := case
-        when coalesce(trim(item->>'cost'),'') ~ '^-?[0-9]+([.,][0-9]+)?$'
-          then replace(trim(item->>'cost'), ',', '.')::numeric
-        else 0
-      end;
-    exception when others then v_cost := 0;
-    end;
+      v_cost := case when coalesce(trim(item->>'cost'),'') ~ '^-?[0-9]+([.,][0-9]+)?$'
+        then replace(trim(item->>'cost'), ',', '.')::numeric else 0 end;
+    exception when others then v_cost := 0; end;
 
     begin
-      v_price := case
-        when coalesce(trim(item->>'price'),'') ~ '^-?[0-9]+([.,][0-9]+)?$'
-          then replace(trim(item->>'price'), ',', '.')::numeric
-        else 0
-      end;
-    exception when others then v_price := 0;
-    end;
+      v_price := case when coalesce(trim(item->>'price'),'') ~ '^-?[0-9]+([.,][0-9]+)?$'
+        then replace(trim(item->>'price'), ',', '.')::numeric else 0 end;
+    exception when others then v_price := 0; end;
 
     begin
-      v_stock := case
-        when coalesce(trim(item->>'stock'),'') ~ '^-?[0-9]+([.,][0-9]+)?$'
-          then replace(trim(item->>'stock'), ',', '.')::numeric
-        else 0
-      end;
-    exception when others then v_stock := 0;
-    end;
+      v_stock := case when coalesce(trim(item->>'stock'),'') ~ '^-?[0-9]+([.,][0-9]+)?$'
+        then replace(trim(item->>'stock'), ',', '.')::numeric else 0 end;
+    exception when others then v_stock := 0; end;
 
     begin
-      v_min_stock := case
-        when coalesce(trim(item->>'min_stock'),'') ~ '^-?[0-9]+([.,][0-9]+)?$'
-          then replace(trim(item->>'min_stock'), ',', '.')::numeric
-        else 0
-      end;
-    exception when others then v_min_stock := 0;
-    end;
+      v_min_stock := case when coalesce(trim(item->>'min_stock'),'') ~ '^-?[0-9]+([.,][0-9]+)?$'
+        then replace(trim(item->>'min_stock'), ',', '.')::numeric else 0 end;
+    exception when others then v_min_stock := 0; end;
 
-    item_key := lower(
-      coalesce(v_sku,'') || '|' ||
-      v_name || '|' ||
-      coalesce(v_brand,'') || '|' ||
-      coalesce(v_model,'')
-    );
-
-    if item_key = any(seen) then
-      continue;
-    end if;
-
+    item_key := lower(coalesce(v_sku,'') || '|' || v_name || '|' || coalesce(v_brand,'') || '|' || coalesce(v_model,''));
+    if item_key = any(seen) then continue; end if;
     seen := array_append(seen, item_key);
+
     v_id := null;
 
     if p_update_existing then
-      /*
-        Match exacto:
-        SKU + nombre + marca + modelo.
-        Ya no usamos SKU solo, porque un catálogo puede
-        tener variantes distintas que comparten código.
-      */
       if v_sku is not null then
-        select id
-          into v_id
+        select id, active into v_id, was_inactive
         from public.marc_inventory
         where user_id = uid
           and lower(coalesce(sku,'')) = lower(v_sku)
@@ -127,8 +84,7 @@ begin
         order by created_at
         limit 1;
       else
-        select id
-          into v_id
+        select id, active into v_id, was_inactive
         from public.marc_inventory
         where user_id = uid
           and lower(name) = lower(v_name)
@@ -142,73 +98,50 @@ begin
 
     if v_id is not null then
       update public.marc_inventory
-      set
-        sku = v_sku,
-        name = v_name,
-        brand = v_brand,
-        model = v_model,
-        category = v_category,
-        unit = v_unit,
-        cost = v_cost,
-        price = v_price,
-        active = true,
-        updated_at = now()
-      where id = v_id
-        and user_id = uid;
+      set sku=v_sku,name=v_name,brand=v_brand,model=v_model,category=v_category,
+          unit=v_unit,cost=v_cost,price=v_price,active=true,updated_at=now()
+      where id=v_id and user_id=uid;
 
       updated_count := updated_count + 1;
-
-      if exists (
-        select 1
-        from public.marc_inventory
-        where id = v_id
-          and active = true
-          and coalesce(updated_at, created_at) > now() - interval '5 seconds'
-      ) then
+      if was_inactive = false then
+        -- Existing active product: normal update.
+        null;
+      else
         reactivated_count := reactivated_count + 1;
       end if;
     else
-      insert into public.marc_inventory (
-        user_id, sku, name, brand, model, category, unit,
-        cost, price, stock, min_stock, active, created_at, updated_at
+      insert into public.marc_inventory(
+        user_id,sku,name,brand,model,category,unit,cost,price,stock,min_stock,active,created_at,updated_at
       )
-      values (
-        uid, v_sku, v_name, v_brand, v_model, v_category, v_unit,
-        v_cost, v_price, v_stock, v_min_stock, true, now(), now()
+      values(
+        uid,v_sku,v_name,v_brand,v_model,v_category,v_unit,v_cost,v_price,v_stock,v_min_stock,true,now(),now()
       );
-
       created_count := created_count + 1;
     end if;
 
     processed_count := processed_count + 1;
   end loop;
 
-  insert into public.marc_audit_log (
-    user_id, entity_type, entity_id, action, source, metadata
-  )
-  values (
-    uid,
-    'INVENTORY',
-    null,
-    'IMPORT_BATCH',
-    'WEB',
+  insert into public.marc_audit_log(user_id,entity_type,entity_id,action,source,metadata)
+  values(
+    uid,'INVENTORY',null,'IMPORT_BATCH','WEB',
     jsonb_build_object(
-      'processed', processed_count,
-      'created', created_count,
-      'updated', updated_count,
-      'reactivated', reactivated_count
+      'processed',processed_count,
+      'created',created_count,
+      'updated',updated_count,
+      'reactivated',reactivated_count
     )
   );
 
   return jsonb_build_object(
-    'status', 'IMPORTED',
-    'total', processed_count,
-    'created', created_count,
-    'updated', updated_count,
-    'reactivated', reactivated_count
+    'status','IMPORTED',
+    'total',processed_count,
+    'created',created_count,
+    'updated',updated_count,
+    'reactivated',reactivated_count
   );
 end;
 $$;
 
-revoke all on function public.marc_import_inventory_batch(jsonb, boolean) from public, anon;
-grant execute on function public.marc_import_inventory_batch(jsonb, boolean) to authenticated;
+revoke all on function public.marc_import_inventory_batch(jsonb,boolean) from public, anon;
+grant execute on function public.marc_import_inventory_batch(jsonb,boolean) to authenticated;

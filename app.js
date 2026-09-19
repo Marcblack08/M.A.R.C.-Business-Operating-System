@@ -362,43 +362,108 @@ async function extractPdfCatalogRows(page){
     })).filter(x=>x.text);
 
     const width=page.view?.[2]||page.getViewport({scale:1}).width||595;
-    const cleanText=items.map(x=>x.text).join(" ");
-    const priceRe=/^(?:S\/|US\$|\$|€|EUR)?\s*\d{1,6}(?:[.,]\d{1,3}){0,2}$/i;
-    const prices=items.filter(x=>x.x>width*.68&&priceRe.test(x.text.replace(/\s+/g," ")))
-      .map(x=>({...x,price:Number(x.text.replace(/[^\d.,-]/g,"").replace(/\.(?=.*\.)/g,"").replace(",","."))}))
-      .filter(x=>Number.isFinite(x.price)).sort((a,b)=>b.y-a.y);
+    const normalize=s=>String(s||"").replace(/\s+/g," ").trim();
+    const generic=/^(sku|codigo|código|producto|descripción|descripcion|precio|página|pagina|pag\.?|total|subtotal|oferta|descuento)$/i;
+    const priceRe=/^(?:S\/?|US\$|\$|€|EUR)?\s*\d{1,6}(?:[.,]\d{1,3}){0,2}$/i;
+    const parsePrice=s=>{
+      const raw=normalize(s).replace(/^(?:S\/?|US\$|\$|€|EUR)\s*/i,"");
+      if(!/^\d[\d.,]*$/.test(raw))return null;
+      let value;
+      if(raw.includes(",")&&raw.includes(".")){
+        const lastComma=raw.lastIndexOf(","),lastDot=raw.lastIndexOf(".");
+        const decimalSep=lastComma>lastDot?",":".";
+        const thousandsSep=decimalSep===","?".":",";
+        value=Number(raw.replace(new RegExp("\\"+thousandsSep,"g"),"").replace(decimalSep,"."));
+      }else if(raw.includes(",")){
+        const parts=raw.split(",");
+        value=parts[parts.length-1].length<=2?Number(parts.slice(0,-1).join("")+"."+parts.at(-1)):Number(parts.join(""));
+      }else if(raw.includes(".")){
+        const parts=raw.split(".");
+        value=parts[parts.length-1].length<=2?Number(parts.slice(0,-1).join("")+"."+parts.at(-1)):Number(parts.join(""));
+      }else value=Number(raw);
+      return Number.isFinite(value)&&value>=0?value:null;
+    };
+    const hasCurrency=s=>/^(?:S\/?|US\$|\$|€|EUR)\s*/i.test(normalize(s));
+    const candidates=items
+      .filter(x=>x.x>width*.62&&priceRe.test(normalize(x.text)))
+      .map(x=>({...x,price:parsePrice(x.text),currency:hasCurrency(x.text)}))
+      .filter(x=>x.price!==null)
+      .sort((a,b)=>b.y-a.y||b.x-a.x);
 
-    if(!prices.length)return {rows:[],text:items.map(x=>x.text).join("\n"),usedLocal:false};
+    if(!candidates.length)return {rows:[],text:items.map(x=>x.text).join("\n"),usedLocal:false};
 
     const rows=[];
-    for(let i=0;i<prices.length;i++){
-      const p=prices[i];
-      const prev=prices[i-1],next=prices[i+1];
-      const gapPrev=prev?Math.abs(prev.y-p.y):0;
-      const gapNext=next?Math.abs(p.y-next.y):0;
+    const consumed=new Set();
+
+    for(const p of candidates){
+      const pKey=p.text+"|"+p.x+"|"+p.y;
+      if(consumed.has(pKey))continue;
+
+      // Agrupa precios de la misma fila. Si hay precio normal + oferta, toma el
+      // que está más a la derecha; suele ser el precio final publicado.
+      const rowRadius=12;
+      const sameRow=candidates.filter(q=>Math.abs(q.y-p.y)<=rowRadius);
+      const chosen=sameRow.slice().sort((a,b)=>{
+        if(Boolean(a.currency)!==Boolean(b.currency))return a.currency?-1:1;
+        return b.x-a.x;
+      })[0]||p;
+      sameRow.forEach(q=>consumed.add(q.text+"|"+q.x+"|"+q.y));
+
+      const prev=candidates.find(q=>q.y>chosen.y);
+      const next=candidates.find(q=>q.y<chosen.y);
+      const gapPrev=prev?Math.abs(prev.y-chosen.y):0;
+      const gapNext=next?Math.abs(chosen.y-next.y):0;
       const nearest=Math.min(gapPrev||999,gapNext||999);
-      const radius=Math.max(10,Math.min(22,nearest===999?16:nearest*.48));
-      const rowItems=items.filter(x=>Math.abs(x.y-p.y)<=radius);
-      const nameParts=rowItems.filter(x=>x.x<width*.48).sort((a,b)=>a.x-b.x).map(x=>x.text);
-      const codeParts=rowItems.filter(x=>x.x>=width*.30&&x.x<width*.72).sort((a,b)=>a.x-b.x).map(x=>x.text);
-      const name=[...new Set(nameParts)].join(" ").replace(/\s+/g," ").trim();
-      const codeText=[...new Set(codeParts)].join(" ").replace(/\s+/g," ").trim();
-      const rowXs=rowItems.map(x=>x.x).filter(Number.isFinite);
-      const photoLeft=rowXs.length?Math.max(0,Math.min(...rowXs)-18):0;
-      const photoRight=rowXs.length?Math.min(width,Math.max(...rowXs)+24):width;
-      if(!name||/^(sku|codigo|código|producto|descripción|precio|página|pagina)$/i.test(name))continue;
+      const radius=Math.max(9,Math.min(20,nearest===999?15:nearest*.46));
+      const rowItems=items.filter(x=>Math.abs(x.y-chosen.y)<=radius);
+
+      const nameItems=rowItems
+        .filter(x=>x.x<width*.50 && !priceRe.test(normalize(x.text)))
+        .sort((a,b)=>a.x-b.x);
+      const nameParts=[...new Set(nameItems.map(x=>normalize(x.text)))].filter(x=>x&&!generic.test(x));
+      const name=nameParts.join(" ").replace(/\s+/g," ").trim();
+
+      // El código/SKU se busca en una zona más conservadora y se excluyen
+      // explícitamente las celdas de precio para no convertir precios/páginas en SKU.
+      const codeItems=rowItems
+        .filter(x=>x.x>=width*.28&&x.x<width*.66&&!priceRe.test(normalize(x.text)))
+        .sort((a,b)=>a.x-b.x);
+      const codeText=[...new Set(codeItems.map(x=>normalize(x.text)))].join(" ").replace(/\s+/g," ").trim();
+
+      if(!name||name.length<3||generic.test(name))continue;
 
       const skuMatch=codeText.match(/\b(?:[A-Z]{1,8}[A-Z0-9]*[-_/][A-Z0-9._/-]{1,24}|\d{5,18})\b/i);
       const sku=skuMatch?.[0]||null;
-      const variant=codeText.replace(skuMatch?.[0]||"","").replace(/\b(?:S\/|US\$|\$|€|EUR)\s*[\d.,]+\b/gi,"").replace(/\s+/g," ").trim();
+      const variant=codeText
+        .replace(skuMatch?.[0]||"","")
+        .replace(/\b(?:S\/?|US\$|\$|€|EUR)\s*[\d.,]+\b/gi,"")
+        .replace(/\s+/g," ").trim();
       const fullName=[name,variant].filter(Boolean).join(" ").replace(/\s+/g," ").trim();
       if(fullName.length<3)continue;
 
+      // Para fotos no usamos la columna de precio: solo el bloque de nombre/código,
+      // evitando capturar la ficha del producto vecino.
+      const photoItems=rowItems.filter(x=>x.x<width*.66);
+      const photoXs=photoItems.map(x=>x.x).filter(Number.isFinite);
+      const photoLeft=photoXs.length?Math.max(0,Math.min(...photoXs)-18):0;
+      const photoRight=photoXs.length?Math.min(width,Math.max(...photoXs)+24):Math.min(width,chosen.x-12);
+      const photoWidth=Math.max(80,photoRight-photoLeft);
+
       rows.push({
-        sku, name:fullName.slice(0,180), brand:null, model:sku,
-        category:null, unit:"UND", cost:null, price:p.price, stock:null, min_stock:null,
-        pdf_y:p.y, pdf_radius:radius,
-        pdf_x:photoLeft, pdf_width:Math.max(80,photoRight-photoLeft)
+        sku,
+        name:fullName.slice(0,180),
+        brand:null,
+        model:sku,
+        category:null,
+        unit:"UND",
+        cost:null,
+        price:chosen.price,
+        stock:null,
+        min_stock:null,
+        pdf_y:chosen.y,
+        pdf_radius:radius,
+        pdf_x:photoLeft,
+        pdf_width:photoWidth
       });
     }
 
@@ -406,14 +471,14 @@ async function extractPdfCatalogRows(page){
     for(const row of rows){
       const key=((row.sku||"")+"|"+row.name+"|"+row.price).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();
       if(seen.has(key))continue;
-      seen.add(key);clean.push(row);
+      seen.add(key);
+      clean.push(row);
     }
     return {rows:clean,text:items.map(x=>x.text).join("\n"),usedLocal:clean.length>0};
   }catch{
     return {rows:[],text:"",usedLocal:false};
   }
 }
-
 async function extractPdfPageText(page){
   try{
     const content=await page.getTextContent({normalizeWhitespace:true,disableCombineTextItems:false});

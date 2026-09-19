@@ -1200,15 +1200,27 @@ async function uploadInventoryPhoto(file,productId,oldUrl){
   }
   return {url,path};
 }
+async function analyzeProductBoxPhoto(file,statusEl){
+  if(!file)throw new Error("Selecciona o toma una foto de la caja.");
+  const blob=await optimizeProductImage(file);
+  const reader=new FileReader();
+  const dataUrl=await new Promise((resolve,reject)=>{reader.onload=()=>resolve(String(reader.result||""));reader.onerror=()=>reject(new Error("No se pudo preparar la imagen para la IA."));reader.readAsDataURL(blob)});
+  statusEl.className="msg";statusEl.textContent="Gemini está leyendo la caja…";
+  const response=await fetch("/api/inventory/analyze-photo",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({imageBase64:dataUrl,mimeType:"image/jpeg"})});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(data.message||data.error||"No se pudo analizar la foto.");
+  return data.product||{};
+}
 function inventoryModal(x=null){
   const close=modal(
     '<div class="modal-head"><div><h2>'+(x?"Editar":"Nuevo")+' producto</h2><p>Productos + inventario, ahora también con foto.</p></div><button class="close" id="x">×</button></div>'+
     '<form id="f">'+
       '<div class="inventory-photo-box">'+
         '<div class="inventory-photo-preview" id="productPhotoPreview">'+(x?.image_url?'<img src="'+esc(x.image_url)+'" alt="Foto del producto">':'<span>📷</span>')+'</div>'+
-        '<div style="display:flex;flex-direction:column;gap:6px;min-width:0;flex:1">'+
+        '<div style="display:flex;flex-direction:column;gap:7px;min-width:0;flex:1">'+
           '<label>Foto del producto<input id="productPhoto" name="image" type="file" accept="image/jpeg,image/png,image/webp" capture="environment"></label>'+
-          '<small>JPG, PNG o WEBP · máximo 5 MB. M.A.R.C. la optimiza automáticamente.</small>'+
+          '<button type="button" class="secondary" id="analyzeProductPhoto">✦ Analizar caja con IA</button>'+
+          '<small>Fotografía la caja. Gemini leerá nombre, SKU, marca y modelo. El precio lo colocas tú.</small>'+
         '</div>'+
       '</div>'+
       '<div class="form-grid">'+
@@ -1219,7 +1231,7 @@ function inventoryModal(x=null){
         '<label>Categoría<input name="category" value="'+esc(x?.category||"")+'"></label>'+
         '<label>Unidad<input name="unit" value="'+esc(x?.unit||"UND")+'"></label>'+
         '<label>Costo<input name="cost" type="number" min="0" step="0.01" value="'+(x?.cost??0)+'"></label>'+
-        '<label>Precio<input name="price" type="number" min="0" step="0.01" value="'+(x?.price??0)+'"></label>'+
+        '<label>Precio de venta<input name="price" type="number" min="0" step="0.01" placeholder="Coloca el precio" value="'+(x?.price??0)+'"></label>'+
         '<label>Stock<input name="stock" type="number" min="0" step="0.01" value="'+(x?.stock??0)+'"></label>'+
         '<label>Mínimo<input name="min_stock" type="number" min="0" step="0.01" value="'+(x?.min_stock??0)+'"></label>'+
       '</div>'+
@@ -1234,7 +1246,8 @@ function inventoryModal(x=null){
   $("#x").onclick=close;
   $("#cancel").onclick=close;
 
-  const photo=$("#productPhoto"), preview=$("#productPhotoPreview"), msg=$("#photoMsg");
+  const photo=$("#productPhoto"), preview=$("#productPhotoPreview"), msg=$("#photoMsg"), analyzePhoto=$("#analyzeProductPhoto");
+  if(analyzePhoto)analyzePhoto.onclick=async()=>{const f=photo.files?.[0];if(!f)return toast("Primero toma o selecciona una foto de la caja.","err");analyzePhoto.disabled=true;try{const p=await analyzeProductBoxPhoto(f,msg);if(p.name)$("[name=name]").value=p.name;if(p.sku)$("[name=sku]").value=p.sku;if(p.brand)$("[name=brand]").value=p.brand;if(p.model)$("[name=model]").value=p.model;if(p.category)$("[name=category]").value=p.category;const confidence=Math.round(Number(p.confidence||0)*100);msg.className="msg";msg.textContent=confidence?("Caja analizada. Confianza aproximada: "+confidence+"%. Revisa los datos y coloca tu precio de venta."):("Caja analizada. Revisa los datos y coloca tu precio de venta.")}catch(err){msg.className="msg error";msg.textContent=err.message||"No se pudo analizar la caja."}finally{analyzePhoto.disabled=false}};
   photo.onchange=()=>{
     const f=photo.files?.[0];
     if(!f)return;

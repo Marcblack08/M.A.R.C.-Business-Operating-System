@@ -527,6 +527,67 @@ async function telegramWebhook(request,env,ctx){
     return json({ok:true},200);
   }
 
+  // Comandos operativos rápidos de caja: no consumen IA y ejecutan acciones
+  // deterministas sobre la caja del usuario vinculado.
+  const norm=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").trim();
+  const simple=norm(incoming);
+  const cashRows=async(status=null,limit=1)=>{
+    let path="marc_cash_registers?select=*&user_id=eq."+encodeURIComponent(userId);
+    if(status)path+="&status=eq."+encodeURIComponent(status);
+    path+="&order=opened_at.desc&limit="+limit;
+    return sb(env,adminToken,path);
+  };
+  const moneyText=n=>new Intl.NumberFormat("es-PE",{style:"currency",currency:"PEN"}).format(Number(n||0));
+  if(/^(\/help|\/ayuda|ayuda|comandos|menu)$/.test(simple)){
+    await sendTelegram(env,chatId,"🤖 Comandos M.A.R.C.\n\n• resumen caja\n• abrir caja 100\n• ingreso 50 venta cliente\n• gasto 20 transporte\n• cerrar caja 450\n• cancelar importacion\n\nTambién puedes escribir normalmente: «revisa mi inventario», «crea una cotización», «busca a Juan» o enviar un PDF de catálogo.");
+    return json({ok:true},200);
+  }
+  if(/^(resumen caja|caja|estado caja|ver caja)$/.test(simple)){
+    const rows=await cashRows("OPEN",1); const r=rows?.[0];
+    if(!r){await sendTelegram(env,chatId,"▣ No hay una caja abierta.");return json({ok:true},200);}
+    const mv=await sb(env,adminToken,"marc_cash_movements?select=type,amount&user_id=eq."+encodeURIComponent(userId)+"&cash_register_id=eq."+encodeURIComponent(r.id));
+    const income=(mv||[]).filter(x=>x.type==="INCOME").reduce((s,x)=>s+Number(x.amount||0),0);
+    const expense=(mv||[]).filter(x=>x.type==="EXPENSE").reduce((s,x)=>s+Number(x.amount||0),0);
+    const expected=Number(r.opening_amount||0)+income-expense;
+    await sendTelegram(env,chatId,"▣ CAJA ABIERTA\n\nApertura: "+moneyText(r.opening_amount)+"\nIngresos: "+moneyText(income)+"\nEgresos: "+moneyText(expense)+"\n💰 Esperado: "+moneyText(expected));
+    return json({ok:true},200);
+  }
+  let m=simple.match(/^abrir caja\\s+(\\d+(?:[.,]\\d{1,2})?)(?:\\s+(.+))?$/);
+  if(m){
+    const amount=Number(m[1].replace(",",".")),notes=m[2]||null;
+    try{
+      const opened=await sb(env,adminToken,"rpc/marc_cash_open",{method:"POST",body:{p_opening_amount:amount,p_notes:notes}});
+      await sendTelegram(env,chatId,"✅ Caja abierta. Efectivo inicial: "+moneyText(opened?.opening_amount||amount));
+    }catch(e){await sendTelegram(env,chatId,"⚠️ No pude abrir la caja: "+String(e?.message||e).slice(0,500));}
+    return json({ok:true},200);
+  }
+  m=simple.match(/^(ingreso|entrada)\\s+(\\d+(?:[.,]\\d{1,2})?)(?:\\s+(.+))?$/);
+  if(m){
+    const rows=await cashRows("OPEN",1),r=rows?.[0];
+    if(!r){await sendTelegram(env,chatId,"Primero abre la caja: «abrir caja 100».");return json({ok:true},200);}
+    const amount=Number(m[2].replace(",",".")),concept=m[3]||"Ingreso de efectivo";
+    await sb(env,adminToken,"marc_cash_movements",{method:"POST",body:{user_id:userId,cash_register_id:r.id,type:"INCOME",amount,concept}});
+    await sendTelegram(env,chatId,"✅ Ingreso registrado: "+moneyText(amount)+" · "+concept);
+    return json({ok:true},200);
+  }
+  m=simple.match(/^(gasto|egreso|salida)\\s+(\\d+(?:[.,]\\d{1,2})?)(?:\\s+(.+))?$/);
+  if(m){
+    const rows=await cashRows("OPEN",1),r=rows?.[0];
+    if(!r){await sendTelegram(env,chatId,"Primero abre la caja: «abrir caja 100».");return json({ok:true},200);}
+    const amount=Number(m[2].replace(",",".")),concept=m[3]||"Egreso de efectivo";
+    await sb(env,adminToken,"marc_cash_movements",{method:"POST",body:{user_id:userId,cash_register_id:r.id,type:"EXPENSE",amount,concept}});
+    await sendTelegram(env,chatId,"✅ Egreso registrado: "+moneyText(amount)+" · "+concept);
+    return json({ok:true},200);
+  }
+  m=simple.match(/^cerrar caja\\s+(\\d+(?:[.,]\\d{1,2})?)(?:\\s+(.+))?$/);
+  if(m){
+    const amount=Number(m[1].replace(",",".")),notes=m[2]||null;
+    try{
+      const closed=await sb(env,adminToken,"rpc/marc_cash_close",{method:"POST",body:{p_closing_amount:amount,p_notes:notes}});
+      await sendTelegram(env,chatId,"🔒 CAJA CERRADA\n\nEsperado: "+moneyText(closed?.expected_amount)+"\nContado: "+moneyText(closed?.closing_amount)+"\nDiferencia: "+moneyText(closed?.difference));
+    }catch(e){await sendTelegram(env,chatId,"⚠️ No pude cerrar la caja: "+String(e?.message||e).slice(0,500));}
+    return json({ok:true},200);
+  }
   if(msg.document){
     const isPdf=String(msg.document.mime_type||"").toLowerCase()==="application/pdf"||String(msg.document.file_name||"").toLowerCase().endsWith(".pdf");
     if(!isPdf){

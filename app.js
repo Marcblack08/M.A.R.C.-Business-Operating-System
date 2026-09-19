@@ -105,7 +105,7 @@ function closeChat(){
   $("#app").classList.add("chat-closed");
 }
 function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",quotes:"Cotizaciones",settings:"Configuración"}[x]||"Inicio";$$(".sidebar nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
-async function view(x){st.view=x;title(x);$("#sidebar").classList.remove("open");if(x==="home")return home();if(x==="clients")return clients();if(x==="inventory")return inventory();if(x==="quotes")return quotes();return settings()}
+async function view(x){st.view=x;title(x);$("#sidebar").classList.remove("open");$(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x));if(x==="home")return home();if(x==="clients")return clients();if(x==="inventory")return inventory();if(x==="quotes")return quotes();return settings()}
 async function home(){
   const c=$("#content");
   const [cl,iv,qt]=await Promise.all([
@@ -2115,5 +2115,5 @@ async function downloadQuotePdf(id){
 function wire(){mode("login");$("#authForm").onsubmit=submit;$("#switchAuth").onclick=()=>mode(authMode==="signup"?"login":"signup");$("#forgot").onclick=()=>mode("reset");$("#togglePass").onclick=()=>{const x=$("#password");x.type=x.type==="password"?"text":"password";$("#togglePass").textContent=x.type==="password"?"Mostrar":"Ocultar"};$("#logout").onclick=()=>S.auth.signOut();$("#askTop").onclick=openChat;
   $("#closeChat").onclick=closeChat;
   $("#exitConversation").onclick=closeChat;
-  $("#menu").onclick=()=>$("#sidebar").classList.toggle("open");$$(".sidebar nav button").forEach(b=>b.onclick=()=>view(b.dataset.view));$("#chatForm").onsubmit=e=>{e.preventDefault();const v=$("#chatInput").value.trim();if(v){$("#chatInput").value="";chatSend(v)}};$("#chatInput").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("#chatForm").requestSubmit()}};$$(".chips button").forEach(b=>b.onclick=()=>{$("#chatInput").value=b.dataset.q;$("#chatInput").focus()});S.auth.onAuthStateChange((ev,s)=>{st.session=s||null;if(s)enter(s);else if(ev==="SIGNED_OUT"){st.u=null;st.session=null;$("#app").classList.add("hidden");$("#auth").classList.remove("hidden")}});S.auth.getSession().then(({data})=>data.session&&enter(data.session))}
+  $("#menu").onclick=()=>$("#sidebar").classList.toggle("open");$(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.onclick=()=>view(b.dataset.view));$("#chatForm").onsubmit=e=>{e.preventDefault();const v=$("#chatInput").value.trim();if(v){$("#chatInput").value="";chatSend(v)}};$("#chatInput").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("#chatForm").requestSubmit()}};$$(".chips button").forEach(b=>b.onclick=()=>{$("#chatInput").value=b.dataset.q;$("#chatInput").focus()});S.auth.onAuthStateChange((ev,s)=>{st.session=s||null;if(s)enter(s);else if(ev==="SIGNED_OUT"){st.u=null;st.session=null;$("#app").classList.add("hidden");$("#auth").classList.remove("hidden")}});S.auth.getSession().then(({data})=>data.session&&enter(data.session))}
 wire()})();

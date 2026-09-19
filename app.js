@@ -1917,20 +1917,77 @@ async function cash(){
   const c=$("#content");
   const {data:open,error:openError}=await S.from("marc_cash_registers").select("*").eq("user_id",st.u.id).eq("status","OPEN").order("opened_at",{ascending:false}).limit(1).maybeSingle();
   if(openError)return toast(openError.message,"err");
-  const {data:closed}=await S.from("marc_cash_registers").select("*").eq("user_id",st.u.id).eq("status","CLOSED").order("closed_at",{ascending:false}).limit(10);
+
+  const {data:closed,error:closedError}=await S.from("marc_cash_registers").select("*").eq("user_id",st.u.id).eq("status","CLOSED").order("closed_at",{ascending:false}).limit(100);
+  if(closedError)return toast(closedError.message,"err");
+
   let movements=[];
   if(open){
     const r=await S.from("marc_cash_movements").select("*").eq("user_id",st.u.id).eq("cash_register_id",open.id).order("created_at",{ascending:false});
     if(r.error)return toast(r.error.message,"err");
     movements=r.data||[];
   }
+
   const income=movements.filter(x=>x.type==="INCOME").reduce((s,x)=>s+Number(x.amount||0),0);
   const expense=movements.filter(x=>x.type==="EXPENSE").reduce((s,x)=>s+Number(x.amount||0),0);
   const expected=Number(open?.opening_amount||0)+income-expense;
+
+  // Informe de los dos últimos meses calendario, con todos los cierres y movimientos.
+  const now=new Date();
+  const reportStart=new Date(now.getFullYear(),now.getMonth()-1,1);
+  const reportEnd=new Date(now.getFullYear(),now.getMonth()+1,1);
+  const closedTwoMonths=(closed||[]).filter(x=>{
+    const d=new Date(x.closed_at||x.opened_at);
+    return Number.isFinite(d.getTime())&&d>=reportStart&&d<reportEnd;
+  });
+  const registerIds=closedTwoMonths.map(x=>x.id).filter(Boolean);
+  let reportMovements=[];
+  if(registerIds.length){
+    const rm=await S.from("marc_cash_movements").select("*").eq("user_id",st.u.id).in("cash_register_id",registerIds).order("created_at",{ascending:true});
+    if(rm.error)return toast(rm.error.message,"err");
+    reportMovements=rm.data||[];
+  }
+
+  const monthKey=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
+  const monthLabel=d=>d.toLocaleDateString("es-PE",{month:"short",year:"numeric"}).replace(".","");
+  const reportMonths=[
+    new Date(now.getFullYear(),now.getMonth()-1,1),
+    new Date(now.getFullYear(),now.getMonth(),1)
+  ];
+  const monthly=reportMonths.map(m=>{
+    const key=monthKey(m);
+    const regs=closedTwoMonths.filter(x=>monthKey(new Date(x.closed_at||x.opened_at))===key);
+    const ids=new Set(regs.map(x=>x.id));
+    const mov=reportMovements.filter(x=>ids.has(x.cash_register_id));
+    const inc=mov.filter(x=>x.type==="INCOME").reduce((s,x)=>s+Number(x.amount||0),0);
+    const exp=mov.filter(x=>x.type==="EXPENSE").reduce((s,x)=>s+Number(x.amount||0),0);
+    const diff=regs.reduce((s,x)=>s+Number(x.difference||0),0);
+    const opening=regs.reduce((s,x)=>s+Number(x.opening_amount||0),0);
+    const closing=regs.reduce((s,x)=>s+Number(x.closing_amount||0),0);
+    return {key,label:monthLabel(m),registers:regs.length,income:inc,expense:exp,net:inc-exp,difference:diff,opening,closing};
+  });
+  const chartMax=Math.max(1,...monthly.flatMap(x=>[x.income,x.expense]));
+  const differenceMax=Math.max(1,...closedTwoMonths.map(x=>Math.abs(Number(x.difference||0))));
+  const monthSummary=monthly.map(x=>`
+    <div class="cash-chart-group">
+      <div class="cash-chart-bars">
+        <div class="cash-chart-col"><div class="cash-chart-value">${money(x.income)}</div><div class="cash-chart-track"><i class="cash-chart-income" style="height:${Math.max(6,Math.round(x.income/chartMax*100))}%"></i></div><b>Ingresos</b></div>
+        <div class="cash-chart-col"><div class="cash-chart-value">${money(x.expense)}</div><div class="cash-chart-track"><i class="cash-chart-expense" style="height:${Math.max(6,Math.round(x.expense/chartMax*100))}%"></i></div><b>Egresos</b></div>
+      </div>
+      <div class="cash-chart-month"><strong>${esc(x.label)}</strong><span>${x.registers} cierre${x.registers===1?"":"s"} · neto ${money(x.net)}</span></div>
+    </div>`).join("");
+
+  const closedSummaryRows=closedTwoMonths.map(x=>{
+    const d=Number(x.difference||0);
+    const h=Math.max(6,Math.round(Math.abs(d)/differenceMax*100));
+    return `<div class="cash-diff-row"><div><b>${new Date(x.closed_at).toLocaleDateString("es-PE")}</b><small>Esperado ${money(x.expected_amount)} · Contado ${money(x.closing_amount)}</small></div><div class="cash-diff-track"><i class="${d>=0?"positive":"negative"}" style="width:${h}%"></i></div><strong class="${d>=0?"cash-in":"cash-out"}">${d>=0?"+":""}${money(d)}</strong></div>`;
+  }).join("");
+
   c.innerHTML=`
-    <div class="head"><div><div class="eyebrow2">CAJA</div><h1>Cierre de caja.</h1><p>Controla efectivo, ingresos, egresos y diferencias del turno.</p></div>
-      ${open?'<button id="closeCashTop" class="primary">✓ Cerrar caja</button>':'<button id="openCashTop" class="primary">＋ Abrir caja</button>'}
+    <div class="head"><div><div class="eyebrow2">CAJA</div><h1>Cierre de caja.</h1><p>Controla efectivo, ingresos, egresos, diferencias e informes de los últimos 2 meses.</p></div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap"><button id="downloadCashExcel" class="secondary">▣ Excel · 2 meses</button>${open?'<button id="closeCashTop" class="primary">✓ Cerrar caja</button>':'<button id="openCashTop" class="primary">＋ Abrir caja</button>'}</div>
     </div>
+
     <section class="cash-kpis">
       <article class="card cash-kpi"><span>ESTADO</span><strong>${open?"ABIERTA":"CERRADA"}</strong><small>${open?(new Date(open.opened_at)).toLocaleString("es-PE"):"Abre una nueva caja para comenzar"}</small></article>
       <article class="card cash-kpi"><span>APERTURA</span><strong>${money(open?.opening_amount||0)}</strong><small>Efectivo inicial</small></article>
@@ -1938,6 +1995,19 @@ async function cash(){
       <article class="card cash-kpi"><span>EGRESOS</span><strong class="cash-out">${money(expense)}</strong><small>${movements.filter(x=>x.type==="EXPENSE").length} movimientos</small></article>
       <article class="card cash-kpi cash-total"><span>EFECTIVO ESPERADO</span><strong>${money(expected)}</strong><small>Apertura + ingresos − egresos</small></article>
     </section>
+
+    <section class="card panel cash-report-panel">
+      <div class="panel-title-row"><div><div class="eyebrow2">INFORME AUTOMÁTICO</div><h3>Últimos 2 meses</h3><small class="finance-subtitle">Desde ${reportStart.toLocaleDateString("es-PE")} hasta ${new Date(reportEnd.getTime()-86400000).toLocaleDateString("es-PE")}</small></div><button id="downloadCashExcel2" class="secondary">Descargar Excel</button></div>
+      <div class="cash-report-summary">
+        <div><span>CIERRES</span><strong>${closedTwoMonths.length}</strong></div>
+        <div><span>INGRESOS</span><strong class="cash-in">${money(monthly.reduce((s,x)=>s+x.income,0))}</strong></div>
+        <div><span>EGRESOS</span><strong class="cash-out">${money(monthly.reduce((s,x)=>s+x.expense,0))}</strong></div>
+        <div><span>DIFERENCIA</span><strong>${money(monthly.reduce((s,x)=>s+x.difference,0))}</strong></div>
+      </div>
+      <div class="cash-chart"><div class="cash-chart-title"><div><b>Ingresos vs. egresos</b><small>Comparación mensual de movimientos registrados</small></div><span><i class="cash-legend-income"></i>Ingresos <i class="cash-legend-expense"></i>Egresos</span></div>${monthSummary}</div>
+      <div class="cash-difference-chart"><div class="cash-chart-title"><div><b>Diferencia de cada cierre</b><small>Contado frente al efectivo esperado</small></div></div>${closedSummaryRows||'<div class="empty">No hay cierres en este período.</div>'}</div>
+    </section>
+
     ${open?`
       <section class="card panel cash-actions"><div class="panel-title-row"><div><div class="eyebrow2">MOVIMIENTOS</div><h3>Registrar operación</h3></div></div>
         <div class="cash-action-grid"><button id="cashIncome" class="cash-action income">＋ Ingreso de efectivo<small>Venta, cobro u otro ingreso</small></button><button id="cashExpense" class="cash-action expense">− Egreso de efectivo<small>Compra, transporte, gasto u otro</small></button></div>
@@ -1946,27 +2016,74 @@ async function cash(){
       <div class="scroll"><table class="data"><thead><tr><th>Hora</th><th>Tipo</th><th>Concepto</th><th>Referencia</th><th>Monto</th></tr></thead><tbody>
       ${movements.map(x=>`<tr><td>${new Date(x.created_at).toLocaleTimeString("es-PE",{hour:"2-digit",minute:"2-digit"})}</td><td><span class="cash-type ${x.type==="INCOME"?"in":"out"}">${x.type==="INCOME"?"Ingreso":"Egreso"}</span></td><td><b>${esc(x.concept)}</b></td><td>${esc(x.reference||"—")}</td><td class="${x.type==="INCOME"?"cash-in":"cash-out"}"><b>${x.type==="INCOME"?"+":"−"} ${money(x.amount)}</b></td></tr>`).join("")||'<tr><td colspan="5" class="empty">Aún no hay movimientos.</td></tr>'}
       </tbody></table></div></section>
-    `:'<section class="card panel cash-closed-empty"><div class="empty-state"><span>▣</span><b>No hay una caja abierta</b><small>Abre caja indicando el efectivo inicial para comenzar el turno.</small></div></section>'}
+    `:'<section class="card panel cash-closed-empty"><div class="empty-state"><span>▣</span><b>No hay una caja abierta</b><small>Abre una nueva caja indicando el efectivo inicial para comenzar.</small></div></section>'}
+
     <section class="card panel"><div class="panel-title-row"><div><div class="eyebrow2">HISTORIAL</div><h3>Últimos cierres</h3></div></div>
-      <div class="cash-history">${(closed||[]).map(x=>`<div class="cash-history-row"><div><b>${new Date(x.closed_at).toLocaleDateString("es-PE")}</b><small>Esperado ${money(x.expected_amount)} · Contado ${money(x.closing_amount)}</small></div><strong class="${Number(x.difference||0)===0?"cash-in":"cash-out"}">${Number(x.difference||0)>=0?"+":""}${money(x.difference)}</strong></div>`).join("")||'<div class="empty">Todavía no hay cierres registrados.</div>'}</div>
+      <div class="cash-history">${(closed||[]).slice(0,10).map(x=>`<div class="cash-history-row"><div><b>${new Date(x.closed_at).toLocaleDateString("es-PE")}</b><small>Esperado ${money(x.expected_amount)} · Contado ${money(x.closing_amount)}</small></div><strong class="${Number(x.difference||0)===0?"cash-in":"cash-out"}">${Number(x.difference||0)>=0?"+":""}${money(x.difference)}</strong></div>`).join("")||'<div class="empty">Todavía no hay cierres registrados.</div>'}</div>
     </section>`;
+
+  const report={
+    start:reportStart,end:new Date(reportEnd.getTime()-86400000),months:monthly,registers:closedTwoMonths,movements:reportMovements
+  };
+  const exportExcel=()=>downloadCashExcel(report);
+  $("#downloadCashExcel").onclick=exportExcel;
+  $("#downloadCashExcel2").onclick=exportExcel;
+
   if(open)$("#closeCashTop").onclick=()=>closeCashModal(open,expected);
   else $("#openCashTop").onclick=()=>openCashModal();
   if(open){$("#cashIncome").onclick=()=>cashMovementModal(open,"INCOME");$("#cashExpense").onclick=()=>cashMovementModal(open,"EXPENSE");}
 }
-function openCashModal(){
-  const close=modal(`<div class="modal-head"><div><h2>Abrir caja</h2><p>Registra el efectivo físico con el que empiezas.</p></div><button class="close" id="x">×</button></div><form id="cashOpenForm"><label>Efectivo inicial<input name="amount" type="number" min="0" step="0.01" value="0" required></label><label>Nota<textarea name="notes" rows="3" placeholder="Ej. turno mañana"></textarea></label><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Abrir caja</button></div></form>`);
-  $("#x").onclick=close;$("#cancel").onclick=close;$("#cashOpenForm").onsubmit=async e=>{e.preventDefault();const d=new FormData(e.currentTarget);const {error}=await S.rpc("marc_cash_open",{p_opening_amount:Number(d.get("amount")||0),p_notes:d.get("notes")||null});if(error)return toast(error.message,"err");close();toast("Caja abierta","ok");cash()};
+
+function downloadCashExcel(report){
+  if(!window.XLSX)return toast("El módulo de Excel todavía está cargando. Inténtalo nuevamente.","err");
+  const wb=XLSX.utils.book_new();
+  const fmtDate=v=>v?new Date(v).toLocaleString("es-PE"):"";
+  const fmtMoney=v=>Number(v||0).toFixed(2);
+
+  const summary=[
+    ["M.A.R.C. — INFORME DE CIERRE DE CAJA"],
+    ["Período",report.start.toLocaleDateString("es-PE")+" al "+report.end.toLocaleDateString("es-PE")],
+    [],
+    ["Mes","Cierres","Ingresos","Egresos","Neto","Diferencia"],
+    ...report.months.map(x=>[x.label,x.registers,Number(x.income.toFixed(2)),Number(x.expense.toFixed(2)),Number(x.net.toFixed(2)),Number(x.difference.toFixed(2))]),
+    [],
+    ["TOTAL",report.registers.length,Number(report.months.reduce((s,x)=>s+x.income,0).toFixed(2)),Number(report.months.reduce((s,x)=>s+x.expense,0).toFixed(2)),Number(report.months.reduce((s,x)=>s+x.net,0).toFixed(2)),Number(report.months.reduce((s,x)=>s+x.difference,0).toFixed(2))]
+  ];
+  const wsSummary=XLSX.utils.aoa_to_sheet(summary);
+  wsSummary["!cols"]=[{wch:20},{wch:12},{wch:16},{wch:16},{wch:16},{wch:16}];
+  XLSX.utils.book_append_sheet(wb,wsSummary,"Resumen");
+
+  const closures=[
+    ["Fecha apertura","Fecha cierre","Apertura","Esperado","Contado","Diferencia","Notas"],
+    ...report.registers.map(x=>[fmtDate(x.opened_at),fmtDate(x.closed_at),Number(x.opening_amount||0),Number(x.expected_amount||0),Number(x.closing_amount||0),Number(x.difference||0),x.notes||""])
+  ];
+  const wsClosures=XLSX.utils.aoa_to_sheet(closures);
+  wsClosures["!cols"]=[{wch:21},{wch:21},{wch:14},{wch:14},{wch:14},{wch:14},{wch:40}];
+  if(closures.length>1)wsClosures["!autofilter"]={ref:"A1:G"+closures.length};
+  XLSX.utils.book_append_sheet(wb,wsClosures,"Cierres");
+
+  const regMap=new Map(report.registers.map(x=>[x.id,x]));
+  const movRows=[
+    ["Fecha","Caja","Tipo","Concepto","Referencia","Monto"],
+    ...report.movements.map(x=>[
+      fmtDate(x.created_at),
+      regMap.get(x.cash_register_id)?.closed_at?new Date(regMap.get(x.cash_register_id).closed_at).toLocaleDateString("es-PE"):"",
+      x.type==="INCOME"?"Ingreso":"Egreso",
+      x.concept||"",
+      x.reference||"",
+      Number(x.amount||0)
+    ])
+  ];
+  const wsMov=XLSX.utils.aoa_to_sheet(movRows);
+  wsMov["!cols"]=[{wch:21},{wch:14},{wch:12},{wch:38},{wch:25},{wch:14}];
+  if(movRows.length>1)wsMov["!autofilter"]={ref:"A1:F"+movRows.length};
+  XLSX.utils.book_append_sheet(wb,wsMov,"Movimientos");
+
+  const filename="MARC_Cierre_Caja_"+report.start.getFullYear()+"-"+String(report.start.getMonth()+1).padStart(2,"0")+"_"+String(report.end.getFullYear())+"-"+String(report.end.getMonth()+1).padStart(2,"0")+".xlsx";
+  XLSX.writeFile(wb,filename);
+  toast("Excel generado correctamente","ok");
 }
-function cashMovementModal(open,type){
-  const income=type==="INCOME";
-  const close=modal(`<div class="modal-head"><div><h2>${income?"Registrar ingreso":"Registrar egreso"}</h2><p>${income?"Aumentará el efectivo esperado.":"Reducirá el efectivo esperado."}</p></div><button class="close" id="x">×</button></div><form id="cashMoveForm"><label>Monto<input name="amount" type="number" min="0.01" step="0.01" required></label><label>Concepto<input name="concept" required placeholder="${income?"Cobro de cliente":"Compra de material"}"></label><label>Referencia<input name="reference" placeholder="N.º de cotización, comprobante, etc."></label><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">${income?"Registrar ingreso":"Registrar egreso"}</button></div></form>`);
-  $("#x").onclick=close;$("#cancel").onclick=close;$("#cashMoveForm").onsubmit=async e=>{e.preventDefault();const d=new FormData(e.currentTarget);const {error}=await S.from("marc_cash_movements").insert({user_id:st.u.id,cash_register_id:open.id,type,amount:Number(d.get("amount")),concept:String(d.get("concept")).trim(),reference:String(d.get("reference")||"").trim()||null});if(error)return toast(error.message,"err");close();toast(income?"Ingreso registrado":"Egreso registrado","ok");cash()};
-}
-function closeCashModal(open,expected){
-  const close=modal(`<div class="modal-head"><div><h2>Cerrar caja</h2><p>Cuenta el efectivo físico y compara contra lo esperado.</p></div><button class="close" id="x">×</button></div><div class="cash-close-summary"><div><span>Esperado</span><b>${money(expected)}</b></div></div><form id="cashCloseForm"><label>Efectivo contado<input name="amount" type="number" min="0" step="0.01" value="${Number(expected).toFixed(2)}" required></label><label>Nota del cierre<textarea name="notes" rows="3" placeholder="Observaciones del turno"></textarea></label><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Confirmar cierre</button></div></form>`);
-  $("#x").onclick=close;$("#cancel").onclick=close;$("#cashCloseForm").onsubmit=async e=>{e.preventDefault();const d=new FormData(e.currentTarget);const amount=Number(d.get("amount"));if(!confirm("¿Confirmas el cierre de caja con "+money(amount)+" contados?"))return;const {data,error}=await S.rpc("marc_cash_close",{p_closing_amount:amount,p_notes:d.get("notes")||null});if(error)return toast(error.message,"err");close();toast("Caja cerrada · diferencia "+money(data?.difference||0),"ok");cash()};
-}
+
 async function settings(){
   const {data:a}=await S.from("marc_accounts").select("*").eq("id",st.u.id).single();
   const {data:master}=await S.from("marc_user_roles").select("role,active").eq("user_id",st.u.id).eq("role","MASTER").eq("active",true).maybeSingle();

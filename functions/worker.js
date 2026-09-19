@@ -849,13 +849,13 @@ async function geminiGenerateImage(env,imageBase64,prompt,options={}){
           type:"OBJECT",
           properties:{
             name:{type:"STRING"},
-            sku:{type:["STRING","NULL"]},
-            brand:{type:["STRING","NULL"]},
-            model:{type:["STRING","NULL"]},
-            category:{type:["STRING","NULL"]},
-            unit:{type:["STRING","NULL"]},
-            cost:{type:["NUMBER","NULL"]},
-            price:{type:["NUMBER","NULL"]},
+            sku:{type:"STRING"},
+            brand:{type:"STRING"},
+            model:{type:"STRING"},
+            category:{type:"STRING"},
+            unit:{type:"STRING"},
+            cost:{type:"STRING"},
+            price:{type:"STRING"},
             page_number:{type:"INTEGER"}
           },
           required:["name","sku","brand","model","category","unit","cost","price","page_number"]
@@ -919,7 +919,7 @@ async function inventoryPdfPageAnalyze(request,env){
     "Extrae CADA producto real visible en esta página, una fila por producto. "+
     "NO resumas ni agrupes productos. Conserva el nombre del producto exactamente como aparece, incluyendo modelo o variante cuando forme parte del nombre. "+
     "No incluyas títulos de sección, encabezados, texto promocional, notas, servicios ni elementos decorativos. "+
-    "No inventes SKU, marca, modelo, precio, costo o stock. Si un campo no está visible usa null. "+
+    "No inventes SKU, marca, modelo, precio, costo o stock. Si un campo no está visible usa una cadena vacía. "+
     "Si hay una tabla, trata cada fila de producto como un registro independiente. "+
     "Devuelve únicamente el JSON solicitado por el esquema.";
   const out=await geminiGenerateImage(env,image,prompt,{maxTokens:4500});

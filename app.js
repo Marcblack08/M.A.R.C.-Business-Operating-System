@@ -2097,7 +2097,7 @@ function downloadCashExcel(report){
 }
 
 async function marketing(){
-  const {data:products,error}=await S.from("marc_inventory").select("id,name,sku,brand,model,category,price,stock,image_url").eq("user_id",st.u.id).eq("active",true).order("name").limit(1000);
+  const [{data:products,error},{data:companyData}]=await Promise.all([S.from("marc_inventory").select("id,name,sku,brand,model,category,price,stock,image_url").eq("user_id",st.u.id).eq("active",true).order("name").limit(1000),S.from("marc_accounts").select("business_name,logo_data,phone").eq("id",st.u.id).maybeSingle()]);
   if(error){toast(error.message,"err");return}
   const list=products||[];
   const saved=JSON.parse(localStorage.getItem("marc_marketing_last")||"null");
@@ -2110,7 +2110,7 @@ async function marketing(){
       <section class="card panel marketing-form-card">
         <div class="eyebrow2">1 · PRODUCTO Y CAMPAÑA</div>
         <div class="form-grid">
-          <label>Producto del inventario
+          <label>Buscar producto<input id="adProductSearch" placeholder="Escribe para filtrar…"></label><label>Producto del inventario
             <select id="adProduct">${list.length?list.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}${p.sku?" · "+esc(p.sku):""}</option>`).join(""):'<option value="">No hay productos activos</option>'}</select>
           </label>
           <label>Plataforma
@@ -2125,7 +2125,7 @@ async function marketing(){
           <label>Público objetivo<input id="adAudience" placeholder="Ej.: clientes de CCTV, hogares, empresas, técnicos…"></label>
           <label>Oferta / precio especial<input id="adOffer" placeholder="Ej.: S/ 149.90 · instalación incluida"></label>
           <label>CTA<input id="adCta" value="Escríbenos para cotizar"></label>
-          <label>Formato del banner<select id="adFormat"><option value="1080x1080">Cuadrado · 1:1</option><option value="1080x1350">Vertical · 4:5</option><option value="1080x1920">Historia · 9:16</option></select></label>
+          <label>Formato del banner<select id="adFormat"><option value="1080x1080">Cuadrado · 1:1</option><option value="1080x1350">Vertical · 4:5</option><option value="1080x1920">Historia · 9:16</option></select></label><label>Diseño<select id="adTemplate"><option value="MODERN">Moderno</option><option value="OFFER">Oferta</option><option value="CORPORATE">Corporativo</option></select></label>
         </div>
         <label style="margin-top:10px">Detalles que quieres comunicar<textarea id="adDetails" rows="5" placeholder="Características, uso, instalación, condiciones, zona de atención, etc. No inventaremos datos que no escribas."></textarea></label>
         <div class="marketing-photo-row">
@@ -2138,7 +2138,7 @@ async function marketing(){
       <section class="card panel marketing-preview-card">
         <div class="eyebrow2">2 · BANNER PUBLICITARIO</div>
         <div class="marketing-canvas-wrap"><canvas id="adCanvas" width="1080" height="1080"></canvas></div>
-        <div class="marketing-banner-actions"><button class="primary" id="downloadAd" disabled>↓ Descargar PNG</button><button class="secondary" id="copyBanner">Copiar texto</button></div>
+        <div class="marketing-banner-actions"><button class="primary" id="downloadAd" disabled>↓ Descargar PNG</button><button class="secondary" id="copyBanner">Copiar texto</button><button class="secondary" id="shareAd">Compartir</button></div>
         <small id="bannerHint" class="muted-small">Genera una campaña para preparar el banner.</small>
       </section>
     </div>
@@ -2157,29 +2157,30 @@ async function marketing(){
     </section>
   `;
 
-  let currentCampaign=saved?.campaign||null,currentProduct=list.find(p=>p.id===saved?.productId)||list[0]||null,currentImage=null;
+  let currentCampaign=saved?.campaign||null,currentProduct=list.find(p=>p.id===saved?.productId)||list[0]||null,currentImage=null,company=companyData||{};
   const $p=id=>document.getElementById(id);
   const renderCanvas=async()=>{
     const canvas=$p("adCanvas");if(!canvas||!currentProduct)return;
     const [w,h]=($p("adFormat").value||"1080x1080").split("x").map(Number);canvas.width=w;canvas.height=h;
-    const ctx=canvas.getContext("2d");
-    const g=ctx.createLinearGradient(0,0,w,h);g.addColorStop(0,"#071a32");g.addColorStop(.58,"#0b4c91");g.addColorStop(1,"#18a5ee");ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
+    const ctx=canvas.getContext("2d"),tpl=$p("adTemplate")?.value||"MODERN";
+    const palette=tpl==="OFFER"?["#15100a","#8a4b08","#f59e0b"]:tpl==="CORPORATE"?["#071827","#123b5b","#2d78b7"]:["#071a32","#0b4c91","#18a5ee"];
+    const g=ctx.createLinearGradient(0,0,w,h);g.addColorStop(0,palette[0]);g.addColorStop(.58,palette[1]);g.addColorStop(1,palette[2]);ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
     ctx.fillStyle="rgba(255,255,255,.08)";ctx.beginPath();ctx.arc(w*.86,h*.12,Math.min(w,h)*.24,0,Math.PI*2);ctx.fill();
+    if(company.logo_data){try{const logo=await new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=reject;im.src=company.logo_data});const lh=Math.min(h*.07,w*.22),lw=lh*(logo.width/logo.height);ctx.drawImage(logo,w*.08,h*.045,lw,lh)}catch{}}
     let img=null;const src=currentImage||currentProduct.image_url;
     if(src){try{img=await new Promise((resolve,reject)=>{const im=new Image();im.crossOrigin="anonymous";im.onload=()=>resolve(im);im.onerror=reject;im.src=src})}catch{}}
     if(img){
-      const boxW=w*.82,boxH=h*.43,scale=Math.min(boxW/img.width,boxH/img.height),iw=img.width*scale,ih=img.height*scale,x=(w-iw)/2,y=h*.12+(boxH-ih)/2;
-      ctx.fillStyle="rgba(255,255,255,.95)";ctx.roundRect?.(x-18,y-18,iw+36,ih+36,28);if(!ctx.roundRect)ctx.fillRect(x-18,y-18,iw+36,ih+36);ctx.drawImage(img,x,y,iw,ih);
-    }else{
-      ctx.fillStyle="rgba(255,255,255,.12)";ctx.beginPath();ctx.roundRect?.(w*.12,h*.12,w*.76,h*.38,30);if(!ctx.roundRect)ctx.fillRect(w*.12,h*.12,w*.76,h*.38);ctx.font="900 "+Math.round(Math.min(w,h)*.09)+"px Inter";ctx.fillStyle="#fff";ctx.textAlign="center";ctx.fillText("M.A.R.C.",w/2,h*.32);
+      const boxW=w*.82,boxH=h*.40,scale=Math.min(boxW/img.width,boxH/img.height),iw=img.width*scale,ih=img.height*scale,x=(w-iw)/2,y=h*.13+(boxH-ih)/2;
+      ctx.fillStyle="rgba(255,255,255,.96)";ctx.beginPath();ctx.roundRect?.(x-18,y-18,iw+36,ih+36,28);if(!ctx.roundRect)ctx.fillRect(x-18,y-18,iw+36,ih+36);ctx.fill();ctx.drawImage(img,x,y,iw,ih);
     }
-    ctx.textAlign="left";ctx.fillStyle="#8ee4ff";ctx.font="800 "+Math.round(Math.min(w,h)*.026)+"px Inter";ctx.fillText("PUBLICIDAD · M.A.R.C.",w*.08,h*.61);
+    ctx.textAlign="left";ctx.fillStyle=tpl==="OFFER"?"#ffd166":"#8ee4ff";ctx.font="800 "+Math.round(Math.min(w,h)*.026)+"px Inter";ctx.fillText(tpl==="OFFER"?"OFERTA · M.A.R.C.":"PUBLICIDAD · "+String(company.business_name||"M.A.R.C.").slice(0,28),w*.08,h*.59);
     const banner=String(currentCampaign?.banner_text||currentCampaign?.headline||currentProduct.name||"Tu producto").split(/\n/).slice(0,3);
-    ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*.065)+"px Inter";
-    let y=h*.68;banner.forEach(line=>{const words=line.split(" "),lines=[];let row="";const max=w*.84;for(const word of words){const test=row?row+" "+word:word;if(ctx.measureText(test).width>max&&row){lines.push(row);row=word}else row=test}if(row)lines.push(row);lines.slice(0,3).forEach(t=>{ctx.fillText(t,w*.08,y);y+=Math.round(Math.min(w,h)*.073)})});
-    if(currentProduct.price!=null&&currentProduct.price!==""){ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*.038)+"px Inter";ctx.fillText(money(currentProduct.price),w*.08,h*.89)}
-    ctx.fillStyle="#d9efff";ctx.font="700 "+Math.round(Math.min(w,h)*.022)+"px Inter";ctx.fillText(String(currentCampaign?.title||currentProduct.name).slice(0,55),w*.08,h*.94);
-    ctx.fillStyle="#fff";ctx.fillRect(w*.69,h*.87,w*.23,h*.07);ctx.fillStyle="#1269c9";ctx.font="900 "+Math.round(Math.min(w,h)*.021)+"px Inter";ctx.textAlign="center";ctx.fillText(String($p("adCta").value||"Escríbenos").slice(0,24),w*.805,h*.915);ctx.textAlign="left";
+    ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*.062)+"px Inter";
+    let y=h*.66;banner.forEach(line=>{const words=line.split(" "),lines=[];let row="";const max=w*.84;for(const word of words){const test=row?row+" "+word:word;if(ctx.measureText(test).width>max&&row){lines.push(row);row=word}else row=test}if(row)lines.push(row);lines.slice(0,3).forEach(t=>{ctx.fillText(t,w*.08,y);y+=Math.round(Math.min(w,h)*.071)})});
+    if($p("adOffer").value.trim()){ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*.034)+"px Inter";ctx.fillText($p("adOffer").value.trim().slice(0,42),w*.08,h*.86)}
+    else if(currentProduct.price!=null&&currentProduct.price!==""){ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*.038)+"px Inter";ctx.fillText(money(currentProduct.price),w*.08,h*.86)}
+    ctx.fillStyle="#d9efff";ctx.font="700 "+Math.round(Math.min(w,h)*.021)+"px Inter";ctx.fillText(String(company.business_name||currentProduct.name).slice(0,55),w*.08,h*.93);
+    ctx.fillStyle="#fff";ctx.beginPath();ctx.roundRect?.(w*.67,h*.88,w*.25,h*.065,18);if(!ctx.roundRect)ctx.fillRect(w*.67,h*.88,w*.25,h*.065);ctx.fillStyle=palette[1];ctx.font="900 "+Math.round(Math.min(w,h)*.019)+"px Inter";ctx.textAlign="center";ctx.fillText(String($p("adCta").value||"Escríbenos").slice(0,24),w*.795,h*.922);ctx.textAlign="left";
   };
   const setCampaign=async campaign=>{
     currentCampaign=campaign||null;
@@ -2188,9 +2189,11 @@ async function marketing(){
     if(campaign)localStorage.setItem("marc_marketing_last",JSON.stringify({campaign,productId:currentProduct?.id}));
   };
   $p("adProduct").onchange=async()=>{currentProduct=list.find(p=>p.id===$p("adProduct").value)||list[0];currentImage=null;await renderCanvas()};
+  $p("adProductSearch").oninput=()=>{const q=$p("adProductSearch").value.toLowerCase().trim();const sel=$p("adProduct"),matches=list.filter(p=>!q||[p.name,p.sku,p.brand,p.model].join(" ").toLowerCase().includes(q));sel.innerHTML=matches.length?matches.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+(p.sku?" · "+esc(p.sku):"")+'</option>').join(""):'<option value="">Sin coincidencias</option>';if(matches.length){currentProduct=matches[0];renderCanvas()}};
+  $p("adTemplate").onchange=renderCanvas;
   $p("adFormat").onchange=renderCanvas;
   $p("adImage").onchange=async e=>{const f=e.target.files?.[0];if(!f)return;currentImage=URL.createObjectURL(f);$p("adImageName").textContent=f.name;await renderCanvas()};
-  $p("adCta").oninput=renderCanvas;
+  $p("adCta").oninput=renderCanvas;$p("adOffer").oninput=renderCanvas;
   $p("generateAd").onclick=async()=>{
     const status=$p("adStatus"),btn=$p("generateAd");btn.disabled=true;status.className="msg";status.textContent="M.A.R.C. está creando la campaña…";
     try{
@@ -2203,6 +2206,7 @@ async function marketing(){
   };
   $p("downloadAd").onclick=()=>{if(!currentCampaign)return;const a=document.createElement("a");a.href=$p("adCanvas").toDataURL("image/png");a.download="MARC_Publicidad_"+String(currentProduct?.name||"producto").replace(/[^a-z0-9áéíóúñü]+/gi,"-").slice(0,50)+".png";a.click()};
   $p("copyBanner").onclick=async()=>{const text=currentCampaign?.banner_text||currentCampaign?.headline||"";if(!text)return toast("Primero genera una publicidad.","err");await navigator.clipboard?.writeText(text);toast("Texto del banner copiado","ok")};
+  $p("shareAd").onclick=async()=>{if(!$p("adCanvas")||!currentCampaign)return toast("Primero genera una publicidad.","err");try{const blob=await new Promise(r=>$p("adCanvas").toBlob(r,"image/png"));const file=new File([blob],"MARC_Publicidad.png",{type:"image/png"});if(navigator.share&&navigator.canShare?.({files:[file]})){await navigator.share({title:currentCampaign.title||currentProduct.name,text:currentCampaign.short_text||"",files:[file]})}else{await navigator.clipboard?.writeText(currentCampaign.whatsapp_text||currentCampaign.primary_text||"");toast("Tu dispositivo no permite compartir la imagen directamente; el texto quedó copiado.","ok")}}catch(e){if(e?.name!=="AbortError")toast("No se pudo compartir.","err")}};
   $("[data-copy]").forEach(b=>b.onclick=async()=>{const key=b.dataset.copy,val=key==="hashtags"?(currentCampaign?.hashtags||[]).join(" "):currentCampaign?.[key]||"";if(!val)return toast("No hay texto para copiar.","err");await navigator.clipboard?.writeText(val);toast("Texto copiado","ok")});
   $p("marketingClear").onclick=()=>setCampaign(null);
   await renderMarketingHistory();

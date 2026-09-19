@@ -698,7 +698,16 @@ async function inventoryPdfModal(){
         patterns.forEach(re=>{const m=s.match(re)||[];m.forEach(x=>out.add(x.replace(/\s+/g," ")));});
         return out;
       };
+      const strongDuplicateIdentity=(a,b)=>{
+        const nameA=normalizeKey(a.name),nameB=normalizeKey(b.name);
+        const brandA=normalizeKey(a.brand),brandB=normalizeKey(b.brand);
+        const modelA=normalizeKey(a.model),modelB=normalizeKey(b.model);
+        return !!nameA&&nameA===nameB&&(!brandA||!brandB||brandA===brandB)&&(!modelA||!modelB||modelA===modelB);
+      };
       const fuzzyDuplicate=(a,b)=>{
+        // Una identidad textual fuerte permite consolidar aunque una página
+        // haya omitido o leído un SKU diferente; el SKU queda como conflicto.
+        if(strongDuplicateIdentity(a,b))return true;
         if(normalizeKey(a.sku)||normalizeKey(b.sku))return false;
         const brandA=normalizeKey(a.brand),brandB=normalizeKey(b.brand);
         const modelA=normalizeKey(a.model),modelB=normalizeKey(b.model);
@@ -750,10 +759,13 @@ async function inventoryPdfModal(){
           : "name:"+normalizeKey([item.name,item.brand,item.model].filter(Boolean).join("|"));
         if(!identity||identity==="name:")continue;
         let existing=mergedByKey.get(identity);
-        if(!existing&&!skuKey){
-          // Segunda capa: tolera diferencias de OCR/redacción entre páginas,
-          // pero no fusiona marcas/modelos explícitamente diferentes.
-          existing=mergedItems.find(x=>!normalizeKey(x.sku)&&fuzzyDuplicate(x,item));
+        if(!existing){
+          // Segunda capa: primero busca una identidad textual fuerte incluso
+          // cuando el SKU falta o difiere; después aplica fuzzy conservador.
+          existing=mergedItems.find(x=>strongDuplicateIdentity(x,item));
+          if(!existing&&!skuKey){
+            existing=mergedItems.find(x=>!normalizeKey(x.sku)&&fuzzyDuplicate(x,item));
+          }
         }
         if(existing){
           registerDuplicate(existing,item);

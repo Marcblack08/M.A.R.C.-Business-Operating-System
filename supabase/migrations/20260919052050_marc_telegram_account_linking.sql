@@ -34,6 +34,9 @@ create index if not exists marc_link_tokens_lookup_idx
 alter table public.marc_channel_identities enable row level security;
 alter table public.marc_link_tokens enable row level security;
 
+revoke all on table public.marc_channel_identities from public, anon;
+revoke all on table public.marc_link_tokens from public, anon;
+
 drop policy if exists "marc_channel_identities_select_own" on public.marc_channel_identities;
 create policy "marc_channel_identities_select_own"
   on public.marc_channel_identities

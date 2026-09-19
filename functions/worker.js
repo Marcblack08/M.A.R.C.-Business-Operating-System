@@ -690,6 +690,33 @@ async function telegramWebhook(request,env,ctx){
     return json({ok:true},200);
   }
 
+  // Consultas frecuentes de inventario: responder sin Gemini ni historial para reducir latencia.
+  const fastInventoryQuestion=/^(?:cuantos|cuantas|cuanto|total de|dime cuantos|dime cuantas|que cantidad de)\b.*\b(?:productos|articulos|items|inventario)\b/i.test(
+    incoming.normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim()
+  );
+  if(fastInventoryQuestion){
+    try{
+      const [count,items]=await Promise.all([
+        countInventory(env,adminToken,userId),
+        searchInventory(env,adminToken,userId,"",8)
+      ]);
+      if(!count){
+        await sendTelegram(env,chatId,"No tienes productos registrados en el inventario.");
+      }else{
+        const lines=items.map(x=>{
+          const stock=Number(x.stock||0),min=Number(x.min_stock||0);
+          const estado=stock<=0?"AGOTADO":stock<=min?"STOCK BAJO":"DISPONIBLE";
+          return "• "+String(x.name||"Producto")+" — stock: "+stock+" — "+estado;
+        });
+        await sendTelegram(env,chatId,"📦 Tienes "+count+" productos activos en tu inventario.\\n\\nPrimeros "+Math.min(items.length,count)+":\\n"+lines.join("\\n")+"\\n\\nTotal real: "+count+" productos.");
+      }
+      return json({ok:true,fastPath:"inventory_count",count},200);
+    }catch(err){
+      await sendTelegram(env,chatId,"⚠️ No pude consultar el inventario ahora. Inténtalo nuevamente.");
+      return json({ok:true,fastPath:"inventory_count_error"},200);
+    }
+  }
+
   const conversationId=await ensureTelegramConversation(env,adminToken,userId);
   await sb(env,adminToken,"marc_messages",{method:"POST",body:{
     conversation_id:conversationId,user_id:userId,role:"USER",content:incoming,action_type:"TELEGRAM",

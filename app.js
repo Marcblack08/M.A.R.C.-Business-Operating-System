@@ -106,7 +106,110 @@ function closeChat(){
 }
 function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",quotes:"Cotizaciones",settings:"Configuración"}[x]||"Inicio";$$(".sidebar nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
 async function view(x){st.view=x;title(x);$("#sidebar").classList.remove("open");if(x==="home")return home();if(x==="clients")return clients();if(x==="inventory")return inventory();if(x==="quotes")return quotes();return settings()}
-async function home(){const c=$("#content"),[cl,iv,qt]=await Promise.all([S.from("marc_clients").select("*",{count:"exact"}).eq("user_id",st.u.id),S.from("marc_inventory").select("*").eq("user_id",st.u.id).eq("active",true).order("name"),S.from("marc_quotes").select("*").eq("user_id",st.u.id).order("created_at",{ascending:false}).limit(6)]);const low=(iv.data||[]).filter(x=>Number(x.stock)<=Number(x.min_stock));c.innerHTML=`<div class="head"><div><div class="eyebrow2">CENTRO DE OPERACIONES</div><h1>Tu negocio, desde una sola conversación.</h1><p>M.A.R.C. conecta clientes, inventario, cotizaciones y canales de acceso.</p></div><button id="askHome" class="primary">✦ Preguntar</button></div><div class="grid4"><div class="card kpi"><small>Clientes</small><strong>${cl.count||0}</strong><em>Base operativa</em></div><div class="card kpi"><small>Productos</small><strong>${iv.data?.length||0}</strong><em>En inventario</em></div><div class="card kpi"><small>Stock bajo</small><strong>${low.length}</strong><em>Requieren atención</em></div><div class="card kpi"><small>Cotizaciones</small><strong>${qt.data?.length||0}</strong><em>Recientes</em></div></div><div class="cols"><section class="card panel"><h3>Acciones rápidas</h3><p>Las operaciones frecuentes están a un toque.</p><div class="quick"><button data-q="client"><b>＋ Nuevo cliente</b><small>Guardar un contacto</small></button><button data-q="inventory"><b>＋ Producto</b><small>Agregar al inventario</small></button><button data-q="quote"><b>＋ Cotización</b><small>Preparar una propuesta</small></button><button data-q="chat"><b>✦ Preguntar</b><small>Hablar con M.A.R.C.</small></button></div></section><section class="card panel"><h3>Inventario crítico</h3><p>Productos que merecen atención.</p><div class="list">${low.slice(0,5).map(x=>`<div class="row"><div><b>${esc(x.name)}</b><small>${esc([x.brand,x.model].filter(Boolean).join(" · "))}</small></div><span class="badge ${Number(x.stock)<=0?"out":"low"}">${Number(x.stock)<=0?"Agotado":x.stock}</span></div>`).join("")||'<div class="empty">Todo en orden.</div>'}</div></section></div><section class="card panel" style="margin-top:13px"><h3>Actividad reciente</h3><div class="list">${(qt.data||[]).map(x=>`<div class="row"><div><b>${esc(x.number)} · ${esc(x.title)}</b><small>${esc(x.status)}</small></div><b>${money(x.total)}</b></div>`).join("")||'<div class="empty">Crea tu primera cotización.</div>'}</div></section>`;$("#askHome").onclick=openChat;$$(".quick button",c).forEach(b=>b.onclick=()=>b.dataset.q==="client"?clientModal():b.dataset.q==="inventory"?inventoryModal():b.dataset.q==="quote"?quoteModal():openChat())}
+async function home(){
+  const c=$("#content");
+  const [cl,iv,qt]=await Promise.all([
+    S.from("marc_clients").select("*",{count:"exact"}).eq("user_id",st.u.id),
+    S.from("marc_inventory").select("*").eq("user_id",st.u.id).eq("active",true).order("name"),
+    S.from("marc_quotes").select("*").eq("user_id",st.u.id).order("created_at",{ascending:false}).limit(6)
+  ]);
+
+  const inventory=iv.data||[];
+  const quotes=qt.data||[];
+  const low=inventory.filter(x=>Number(x.stock)<=Number(x.min_stock));
+  const totalStock=inventory.reduce((sum,x)=>sum+Number(x.stock||0),0);
+  const quoteTotal=quotes.reduce((sum,x)=>sum+Number(x.total||0),0);
+  const recent=quotes.slice(0,4);
+
+  c.innerHTML=`
+    <div class="dashboard-shell">
+      <section class="dashboard-hero">
+        <div class="hero-copy">
+          <div class="hero-eyebrow">CENTRO DE OPERACIONES</div>
+          <h1>Tu negocio, más claro.<br><span>M.A.R.C. se encarga.</span></h1>
+          <p>Clientes, inventario, cotizaciones e IA reunidos en un solo lugar para que puedas actuar rápido.</p>
+          <div class="hero-actions">
+            <button id="askHome" class="primary hero-primary">✦ Hablar con M.A.R.C.</button>
+            <button id="heroQuote" class="hero-secondary">＋ Nueva cotización</button>
+          </div>
+        </div>
+        <div class="hero-orbit" aria-hidden="true">
+          <div class="hero-orbit-card orbit-main"><span>✦</span><b>Copiloto</b><small>Operación en tiempo real</small></div>
+          <div class="hero-orbit-card orbit-small orbit-a">Clientes</div>
+          <div class="hero-orbit-card orbit-small orbit-b">Inventario</div>
+          <div class="hero-orbit-card orbit-small orbit-c">Cotizaciones</div>
+        </div>
+      </section>
+
+      <section class="dashboard-kpis">
+        <article class="kpi-modern">
+          <div class="kpi-icon blue">◉</div>
+          <div><span>Clientes</span><strong>${cl.count||0}</strong><small>Base operativa</small></div>
+          <b class="kpi-arrow">↗</b>
+        </article>
+        <article class="kpi-modern">
+          <div class="kpi-icon cyan">▣</div>
+          <div><span>Productos</span><strong>${inventory.length}</strong><small>${totalStock} unidades en stock</small></div>
+          <b class="kpi-arrow">↗</b>
+        </article>
+        <article class="kpi-modern">
+          <div class="kpi-icon amber">!</div>
+          <div><span>Atención</span><strong>${low.length}</strong><small>${low.length?"Productos requieren revisión":"Sin alertas de stock"}</small></div>
+          <b class="kpi-arrow">${low.length?"!":"✓"}</b>
+        </article>
+        <article class="kpi-modern">
+          <div class="kpi-icon violet">▤</div>
+          <div><span>Cotizaciones</span><strong>${quotes.length}</strong><small>${money(quoteTotal)} recientes</small></div>
+          <b class="kpi-arrow">↗</b>
+        </article>
+      </section>
+
+      <section class="dashboard-main-grid">
+        <article class="dashboard-panel quick-panel">
+          <div class="panel-title-row"><div><div class="panel-eyebrow">ACCIONES RÁPIDAS</div><h3>¿Qué necesitas hacer?</h3></div><span class="panel-live">Listo</span></div>
+          <div class="quick-modern-grid">
+            <button data-q="client"><span class="quick-icon blue">＋</span><div><b>Nuevo cliente</b><small>Guardar un contacto</small></div><em>→</em></button>
+            <button data-q="inventory"><span class="quick-icon cyan">＋</span><div><b>Nuevo producto</b><small>Agregar al inventario</small></div><em>→</em></button>
+            <button data-q="quote"><span class="quick-icon violet">＋</span><div><b>Nueva cotización</b><small>Preparar una propuesta</small></div><em>→</em></button>
+            <button data-q="chat"><span class="quick-icon dark">✦</span><div><b>Preguntar a M.A.R.C.</b><small>Ordenar o consultar</small></div><em>→</em></button>
+          </div>
+        </article>
+
+        <article class="dashboard-panel alert-panel">
+          <div class="panel-title-row"><div><div class="panel-eyebrow">INVENTARIO CRÍTICO</div><h3>Lo que necesita atención</h3></div><button id="openInventory" class="panel-link">Ver inventario →</button></div>
+          <div class="critical-list">
+            ${low.slice(0,5).map(x=>`
+              <div class="critical-row">
+                <div class="critical-dot ${Number(x.stock)<=0?"danger":"warning"}"></div>
+                <div class="critical-copy"><b>${esc(x.name)}</b><small>${esc([x.brand,x.model].filter(Boolean).join(" · ")||x.sku||"Sin código")}</small></div>
+                <span class="status-pill ${Number(x.stock)<=0?"red":"amber"}">${Number(x.stock)<=0?"Agotado":Number(x.stock)+" "+esc(x.unit||"UND")}</span>
+              </div>
+            `).join("")||'<div class="empty-state"><span>✓</span><b>Todo en orden</b><small>No hay productos con stock crítico.</small></div>'}
+          </div>
+        </article>
+      </section>
+
+      <section class="dashboard-panel activity-panel">
+        <div class="panel-title-row"><div><div class="panel-eyebrow">ACTIVIDAD RECIENTE</div><h3>Últimos movimientos</h3></div><button id="openQuotes" class="panel-link">Ver cotizaciones →</button></div>
+        <div class="activity-list">
+          ${recent.map(x=>`
+            <div class="activity-row">
+              <div class="activity-mark">${x.status==="COBRADA"?"✓":x.status==="ANULADA"?"×":"$"}</div>
+              <div class="activity-copy"><b>${esc(x.number)} <span>·</span> ${esc(x.title)}</b><small>${esc(x.status)} · ${new Date(x.created_at).toLocaleDateString("es-PE",{day:"2-digit",month:"short"})}</small></div>
+              <strong>${money(x.total)}</strong>
+            </div>
+          `).join("")||'<div class="empty-state"><span>◌</span><b>Aún no hay actividad</b><small>Tu actividad aparecerá aquí.</small></div>'}
+        </div>
+      </section>
+    </div>
+  `;
+
+  $("#askHome").onclick=openChat;
+  $("#heroQuote").onclick=quoteModal;
+  $("#openInventory").onclick=inventory;
+  $("#openQuotes").onclick=quotes;
+  $(".quick-modern-grid button",c).forEach(b=>b.onclick=()=>b.dataset.q==="client"?clientModal():b.dataset.q==="inventory"?inventoryModal():b.dataset.q==="quote"?quoteModal():openChat());
+}
 async function clients(){const {data}=await S.from("marc_clients").select("*").eq("user_id",st.u.id).order("name");const c=$("#content");c.innerHTML=`<div class="head"><div><div class="eyebrow2">CLIENTES</div><h1>Relaciones y contexto.</h1><p>Los clientes son memoria operativa de M.A.R.C.</p></div><button id="new" class="primary">＋ Nuevo cliente</button></div><section class="card table"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar…"></div><button id="ask" class="secondary">Preguntar</button></div><div class="scroll"><table class="data"><thead><tr><th>Cliente</th><th>Contacto</th><th>Correo</th><th>Teléfono</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></section>`;const rows=$("#rows"),draw=list=>rows.innerHTML=list.map(x=>`<tr><td><b>${esc(x.name)}</b><br><small>${esc(x.document_number||"")}</small></td><td>${esc(x.contact_name||"—")}</td><td>${esc(x.email||"—")}</td><td>${esc(x.phone||"—")}</td><td><button class="secondary" type="button" data-id="${x.id}">Editar</button></td></tr>`).join("")||'<tr><td colspan="5" class="empty">Aún no tienes clientes.</td></tr>';draw(data||[]);$("#search").oninput=e=>{const q=e.target.value.toLowerCase();draw((data||[]).filter(x=>[x.name,x.email,x.phone,x.document_number].some(v=>String(v||"").toLowerCase().includes(q))))};$("#new").onclick=()=>clientModal();$("#ask").onclick=()=>openChat();$$("[data-id]",c).forEach(b=>b.onclick=()=>clientModal((data||[]).find(x=>x.id===b.dataset.id)))}
 async function ensurePdfJs(){
   if(window.pdfjsLib)return window.pdfjsLib;

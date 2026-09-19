@@ -1716,3 +1716,33 @@ body,
 [data-theme="dark"] .pdf-live-items,
 [data-theme="dark"] .pdf-photo-option{background:#0d1a29;border-color:#294059}
 [data-theme="dark"] .pdf-live-title{background:#0d1a29;color:#dce8f4}
+
+/* ===== Inicio — ajuste final de encuadre ===== */
+.dashboard-shell,
+.dashboard-hero,
+.dashboard-kpis,
+.dashboard-main-grid,
+.finance-dashboard,
+.finance-grid,
+.dashboard-panel,
+.kpi-modern{min-width:0}
+.dashboard-hero{isolation:isolate}
+.hero-copy{min-width:0}
+@media(max-width:1160px){
+  .dashboard-hero{min-height:300px}
+  .dashboard-hero .hero-copy{max-width:62%}
+}
+@media(max-width:1060px){
+  /* Evita que la decoración orbital invada/corte el contenido principal. */
+  .dashboard-hero{min-height:0;padding-right:28px}
+  .dashboard-hero .hero-copy{max-width:100%}
+  .dashboard-hero .hero-orbit{display:none}
+}
+@media(max-width:780px){
+  #app .content{overflow:visible}
+  .dashboard-shell{width:100%;max-width:100%;overflow:visible}
+  .dashboard-hero{width:100%;max-width:100%;min-height:0!important;padding:20px 17px 18px!important;overflow:hidden}
+  .dashboard-hero .hero-copy{width:100%;max-width:100%!important}
+  .dashboard-hero h1,.dashboard-hero p{max-width:100%!important;overflow-wrap:anywhere}
+  .dashboard-kpis,.dashboard-main-grid,.finance-dashboard,.activity-panel{width:100%;max-width:100%}
+}

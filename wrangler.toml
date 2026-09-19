@@ -10,6 +10,7 @@ MARC_AI_MODEL="@cf/meta/llama-3.1-8b-instruct-fast"
 SUPABASE_URL="https://hmnzzknuiejchypalpig.supabase.co"
 SUPABASE_PUBLISHABLE_KEY="sb_publishable_mhRoYMQTWrmYpuclqzQ1MA_6TMtGikq"
 TELEGRAM_BOT_USERNAME="MARC_CopilotoBot"
+GEMINI_MODEL="gemini-3.8-flash"
 # Secretos: SUPABASE_SECRET_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET
 
 [assets]

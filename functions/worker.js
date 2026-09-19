@@ -320,7 +320,7 @@ async function telegramLinkFromStart(env,adminToken,update,rawToken){
     throw e;
   }
 }
-async function telegramWebhook(request,env){
+async function telegramWebhook(request,env,ctx){
   if(request.method!=="POST")return json({error:"Método no permitido"},405);
   const expected=String(env.TELEGRAM_WEBHOOK_SECRET||"");
   const provided=request.headers.get("X-Telegram-Bot-Api-Secret-Token")||"";
@@ -334,7 +334,11 @@ async function telegramWebhook(request,env){
   const chatId=String(msg.chat.id),externalUserId=String(msg.from.id),incoming=String(msg.text||"").trim();
   if(incoming.startsWith("/start")){
     const param=incoming.split(/\s+/,2)[1]||"";
-    await telegramLinkFromStart(env,adminToken,update,param);
+    const job=telegramLinkFromStart(env,adminToken,update,param).catch(async()=>{
+      await sendTelegram(env,chatId,"⚠️ Recibí tu solicitud, pero no pude completar la vinculación todavía. Vuelve a M.A.R.C. y genera un nuevo enlace en Configuración > Telegram.");
+    });
+    if(ctx?.waitUntil)ctx.waitUntil(job);
+    else await job;
     return json({ok:true},200);
   }
   const identity=await telegramIdentity(env,adminToken,externalUserId);
@@ -457,7 +461,7 @@ async function telegramUnlink(request,env){
   return json({ok:true},200,corsHeaders(request));
 }
 export default{
-  async fetch(request,env){
+  async fetch(request,env,ctx){
     const headers=corsHeaders(request);
     if(request.method==="OPTIONS")return new Response(null,{status:204,headers});
     const url=new URL(request.url);
@@ -482,7 +486,7 @@ export default{
       }
     }
     if(url.pathname==="/api/telegram/webhook"){
-      try{return await telegramWebhook(request,env)}catch(err){
+      try{return await telegramWebhook(request,env,ctx)}catch(err){
         return json({error:err?.message||"Error del webhook",detail:err?.details||null},err?.status||500);
       }
     }

@@ -42,7 +42,7 @@ async function view(x){st.view=x;title(x);$("#sidebar").classList.remove("open")
 async function home(){const c=$("#content"),[cl,iv,qt]=await Promise.all([S.from("marc_clients").select("*",{count:"exact"}).eq("user_id",st.u.id),S.from("marc_inventory").select("*").eq("user_id",st.u.id).eq("active",true).order("name"),S.from("marc_quotes").select("*").eq("user_id",st.u.id).order("created_at",{ascending:false}).limit(6)]);const low=(iv.data||[]).filter(x=>Number(x.stock)<=Number(x.min_stock));c.innerHTML=`<div class="head"><div><div class="eyebrow2">CENTRO DE OPERACIONES</div><h1>Tu negocio, desde una sola conversación.</h1><p>M.A.R.C. conecta clientes, inventario, cotizaciones y comunicaciones.</p></div><button id="askHome" class="primary">✦ Preguntar</button></div><div class="grid4"><div class="card kpi"><small>Clientes</small><strong>${cl.count||0}</strong><em>Base operativa</em></div><div class="card kpi"><small>Productos</small><strong>${iv.data?.length||0}</strong><em>En inventario</em></div><div class="card kpi"><small>Stock bajo</small><strong>${low.length}</strong><em>Requieren atención</em></div><div class="card kpi"><small>Cotizaciones</small><strong>${qt.data?.length||0}</strong><em>Recientes</em></div></div><div class="cols"><section class="card panel"><h3>Acciones rápidas</h3><p>Las operaciones frecuentes están a un toque.</p><div class="quick"><button data-q="client"><b>＋ Nuevo cliente</b><small>Guardar un contacto</small></button><button data-q="inventory"><b>＋ Producto</b><small>Agregar al inventario</small></button><button data-q="quote"><b>＋ Cotización</b><small>Preparar una propuesta</small></button><button data-q="chat"><b>✦ Preguntar</b><small>Hablar con M.A.R.C.</small></button></div></section><section class="card panel"><h3>Inventario crítico</h3><p>Productos que merecen atención.</p><div class="list">${low.slice(0,5).map(x=>`<div class="row"><div><b>${esc(x.name)}</b><small>${esc([x.brand,x.model].filter(Boolean).join(" · "))}</small></div><span class="badge ${Number(x.stock)<=0?"out":"low"}">${Number(x.stock)<=0?"Agotado":x.stock}</span></div>`).join("")||'<div class="empty">Todo en orden.</div>'}</div></section></div><section class="card panel" style="margin-top:13px"><h3>Actividad reciente</h3><div class="list">${(qt.data||[]).map(x=>`<div class="row"><div><b>${esc(x.number)} · ${esc(x.title)}</b><small>${esc(x.status)}</small></div><b>${money(x.total)}</b></div>`).join("")||'<div class="empty">Crea tu primera cotización.</div>'}</div></section>`;$("#askHome").onclick=openChat;$$(".quick button",c).forEach(b=>b.onclick=()=>b.dataset.q==="client"?clientModal():b.dataset.q==="inventory"?inventoryModal():b.dataset.q==="quote"?quoteModal():openChat())}
 async function clients(){const {data}=await S.from("marc_clients").select("*").eq("user_id",st.u.id).order("name");const c=$("#content");c.innerHTML=`<div class="head"><div><div class="eyebrow2">CLIENTES</div><h1>Relaciones y contexto.</h1><p>Los clientes son memoria operativa de M.A.R.C.</p></div><button id="new" class="primary">＋ Nuevo cliente</button></div><section class="card table"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar…"></div><button id="ask" class="secondary">Preguntar</button></div><div class="scroll"><table class="data"><thead><tr><th>Cliente</th><th>Contacto</th><th>Correo</th><th>Teléfono</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></section>`;const rows=$("#rows"),draw=list=>rows.innerHTML=list.map(x=>`<tr><td><b>${esc(x.name)}</b><br><small>${esc(x.document_number||"")}</small></td><td>${esc(x.contact_name||"—")}</td><td>${esc(x.email||"—")}</td><td>${esc(x.phone||"—")}</td><td><button class="secondary" data-id="${x.id}">Editar</button></td></tr>`).join("")||'<tr><td colspan="5" class="empty">Aún no tienes clientes.</td></tr>';draw(data||[]);$("#search").oninput=e=>{const q=e.target.value.toLowerCase();draw((data||[]).filter(x=>[x.name,x.email,x.phone,x.document_number].some(v=>String(v||"").toLowerCase().includes(q))))};$("#new").onclick=()=>clientModal();$("#ask").onclick=()=>openChat();$$("[data-id]",c).forEach(b=>b.onclick=()=>clientModal((data||[]).find(x=>x.id===b.dataset.id)))}
 async function inventory(){const {data}=await S.from("marc_inventory").select("*").eq("user_id",st.u.id).eq("active",true).order("name");const c=$("#content");c.innerHTML=`<div class="head"><div><div class="eyebrow2">INVENTARIO</div><h1>Productos + stock.</h1><p>Todo producto vive dentro del inventario.</p></div><button id="new" class="primary">＋ Nuevo producto</button></div><section class="card table"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar producto…"></div><button id="ask" class="secondary">Preguntar</button></div><div class="scroll"><table class="data"><thead><tr><th>Producto</th><th>Marca/modelo</th><th>Stock</th><th>Precio</th><th>Estado</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></section>`;const rows=$("#rows"),draw=list=>rows.innerHTML=list.map(x=>{const s=Number(x.stock),m=Number(x.min_stock),cls=s<=0?"out":s<=m?"low":"ok";return`<tr><td><b>${esc(x.name)}</b><br><small>${esc(x.sku||"Sin código")}</small></td><td>${esc([x.brand,x.model].filter(Boolean).join(" · ")||"—")}</td><td><b>${s}</b> ${esc(x.unit)}</td><td>${money(x.price)}</td><td><span class="badge ${cls}">${s<=0?"Agotado":s<=m?"Bajo":"Disponible"}</span></td><td><button class="secondary" data-id="${x.id}">Editar</button></td></tr>`}).join("")||'<tr><td colspan="6" class="empty">Agrega tu primer producto.</td></tr>';draw(data||[]);$("#search").oninput=e=>{const q=e.target.value.toLowerCase();draw((data||[]).filter(x=>[x.name,x.sku,x.brand,x.model,x.category].some(v=>String(v||"").toLowerCase().includes(q))))};$("#new").onclick=()=>inventoryModal();$("#ask").onclick=openChat;$$("[data-id]",c).forEach(b=>b.onclick=()=>inventoryModal((data||[]).find(x=>x.id===b.dataset.id)))}
-async function quotes(){const {data,error}=await S.from("marc_quotes").select("*,marc_clients(name)").eq("user_id",st.u.id).order("created_at",{ascending:false});if(error)return toast(error.message,"err");const rows=data||[];const c=$("#content");c.innerHTML=`<div class="head"><div><div class="eyebrow2">COTIZACIONES</div><h1>Convierte una orden en propuesta.</h1><p>Productos del inventario y trabajos escritos o dictados.</p></div><button id="new" class="primary">＋ Nueva cotización</button></div><section class="card table"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar número, cliente o título…"></div><select id="statusFilter" class="secondary" style="min-width:130px"><option value="">Todos</option><option>BORRADOR</option><option>ENVIADA</option><option>ACEPTADA</option><option>RECHAZADA</option><option>ANULADA</option><option>COBRADA</option></select><button id="ask" class="secondary">Preguntar</button></div><div class="scroll"><table class="data"><thead><tr><th>Número</th><th>Cliente</th><th>Título</th><th>Estado</th><th>Total</th><th>Fecha</th><th></th></tr></thead><tbody id="qrows"></tbody></table></div></section>`;const body=$("#qrows");const draw=()=>{const q=($("#search").value||"").toLowerCase(),sf=$("#statusFilter").value;const list=rows.filter(x=>(!sf||x.status===sf)&&[x.number,x.title,x.marc_clients?.name].some(v=>String(v||"").toLowerCase().includes(q)));body.innerHTML=list.map(x=>`<tr><td><b>${esc(x.number)}</b></td><td>${esc(x.marc_clients?.name||"Sin cliente")}</td><td>${esc(x.title)}</td><td><span class="badge">${esc(x.status)}</span></td><td><b>${money(x.total)}</b></td><td>${new Date(x.created_at).toLocaleDateString("es-PE")}</td><td><button class="secondary" data-open="${x.id}">Abrir</button></td></tr>`).join("")||'<tr><td colspan="7" class="empty">No hay cotizaciones que coincidan.</td></tr>';$("[data-open]",c).forEach(b=>b.onclick=()=>quoteModal(rows.find(x=>x.id===b.dataset.open)))};$("#new").onclick=()=>quoteModal();$("#ask").onclick=openChat;$("#search").oninput=draw;$("#statusFilter").onchange=draw;draw()}
+async function quotes(){const {data,error}=await S.from("marc_quotes").select("*,marc_clients(name)").eq("user_id",st.u.id).order("created_at",{ascending:false});if(error)return toast(error.message,"err");const rows=data||[];const c=$("#content");c.innerHTML=`<div class="head"><div><div class="eyebrow2">COTIZACIONES</div><h1>Convierte una orden en propuesta.</h1><p>Productos del inventario y trabajos escritos o dictados.</p></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button id="aiNew" class="secondary">✦ Crear con IA</button><button id="new" class="primary">＋ Nueva cotización</button></div></div><section class="card table"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar número, cliente o título…"></div><select id="statusFilter" class="secondary" style="min-width:130px"><option value="">Todos</option><option>BORRADOR</option><option>ENVIADA</option><option>ACEPTADA</option><option>RECHAZADA</option><option>ANULADA</option><option>COBRADA</option></select><button id="ask" class="secondary">Preguntar</button></div><div class="scroll"><table class="data"><thead><tr><th>Número</th><th>Cliente</th><th>Título</th><th>Estado</th><th>Total</th><th>Fecha</th><th></th></tr></thead><tbody id="qrows"></tbody></table></div></section>`;const body=$("#qrows");const draw=()=>{const q=($("#search").value||"").toLowerCase(),sf=$("#statusFilter").value;const list=rows.filter(x=>(!sf||x.status===sf)&&[x.number,x.title,x.marc_clients?.name].some(v=>String(v||"").toLowerCase().includes(q)));body.innerHTML=list.map(x=>`<tr><td><b>${esc(x.number)}</b></td><td>${esc(x.marc_clients?.name||"Sin cliente")}</td><td>${esc(x.title)}</td><td><span class="badge">${esc(x.status)}</span></td><td><b>${money(x.total)}</b></td><td>${new Date(x.created_at).toLocaleDateString("es-PE")}</td><td><button class="secondary" data-open="${x.id}">Abrir</button></td></tr>`).join("")||'<tr><td colspan="7" class="empty">No hay cotizaciones que coincidan.</td></tr>';$("[data-open]",c).forEach(b=>b.onclick=()=>quoteModal(rows.find(x=>x.id===b.dataset.open)))};$("#new").onclick=()=>quoteModal();$("#aiNew").onclick=()=>aiQuoteModal();$("#ask").onclick=openChat;$("#search").oninput=draw;$("#statusFilter").onchange=draw;draw()}
 async function communications(){const c=$("#content");c.innerHTML=`<div class="head"><div><div class="eyebrow2">COMUNICACIONES</div><h1>M.A.R.C. como centro de enlace.</h1><p>Las conexiones con Sakit, Q, Sumasa y Clover se activarán cuando sus contratos estén definidos.</p></div><button id="goChat" class="primary">✦ Preguntar</button></div><div class="commgrid">${["SAKIT","Q","SUMASA","CLOVER"].map(x=>`<section class="card comm"><h3>${x}</h3><p>Canal reservado. Falta definir autenticación, eventos, permisos y formato de mensajes.</p><span class="badge">Pendiente</span><div style="margin-top:10px"><button class="secondary" data-sys="${x}">Preparar conexión</button></div></section>`).join("")}</div><section class="card panel" style="margin-top:13px"><h3>Canales</h3><p>El mismo núcleo operará por web y Telegram.</p><div class="list"><div class="row"><div><b>Web</b><small>Chat dentro de M.A.R.C.</small></div><span class="badge ok">Activo</span></div><div class="row"><div><b>Telegram</b><small>Bot con la misma cuenta y suscripción.</small></div><span class="badge">Próximo</span></div></div></section>`;$("#goChat").onclick=openChat;$$("[data-sys]",c).forEach(b=>b.onclick=()=>{openChat();$("#chatInput").value="Quiero conectar "+b.dataset.sys;$("#chatInput").focus()})}
 async function telegramStatus(){
   try{
@@ -152,7 +152,44 @@ async function settings(){
 function modal(html){$("#modal").innerHTML='<div class="modal">'+html+"</div>";const close=()=>$("#modal").innerHTML="";return close}
 function clientModal(x=null){const close=modal(`<div class="modal-head"><div><h2>${x?"Editar":"Nuevo"} cliente</h2><p>Disponible para el contexto de M.A.R.C.</p></div><button class="close" id="x">×</button></div><form id="f"><div class="form-grid"><label>Nombre / razón social<input name="name" required value="${esc(x?.name)}"></label><label>Documento<input name="document_number" value="${esc(x?.document_number)}"></label><label>Contacto<input name="contact_name" value="${esc(x?.contact_name)}"></label><label>Teléfono<input name="phone" value="${esc(x?.phone)}"></label><label>Correo<input name="email" type="email" value="${esc(x?.email)}"></label><label>Dirección<input name="address" value="${esc(x?.address)}"></label><label style="grid-column:1/-1">Notas<textarea name="notes" rows="3">${esc(x?.notes)}</textarea></label></div><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Guardar</button></div></form>`);$("#x").onclick=close;$("#cancel").onclick=close;$("#f").onsubmit=async e=>{e.preventDefault();const d=new FormData(e.currentTarget),p={user_id:st.u.id,name:d.get("name").trim(),document_type:"OTRO",document_number:d.get("document_number")||null,contact_name:d.get("contact_name")||null,phone:d.get("phone")||null,email:d.get("email")||null,address:d.get("address")||null,notes:d.get("notes")||null,updated_at:new Date().toISOString()};const r=x?await S.from("marc_clients").update(p).eq("id",x.id).eq("user_id",st.u.id):await S.from("marc_clients").insert(p);if(r.error)return toast(r.error.message,"err");close();toast("Cliente guardado","ok");await trial();clients()}}
 function inventoryModal(x=null){const close=modal(`<div class="modal-head"><div><h2>${x?"Editar":"Nuevo"} producto</h2><p>Productos + inventario, juntos.</p></div><button class="close" id="x">×</button></div><form id="f"><div class="form-grid"><label>Nombre<input name="name" required value="${esc(x?.name)}"></label><label>Código / SKU<input name="sku" value="${esc(x?.sku)}"></label><label>Marca<input name="brand" value="${esc(x?.brand)}"></label><label>Modelo<input name="model" value="${esc(x?.model)}"></label><label>Categoría<input name="category" value="${esc(x?.category)}"></label><label>Unidad<input name="unit" value="${esc(x?.unit||"UND")}"></label><label>Costo<input name="cost" type="number" min="0" step="0.01" value="${x?.cost??0}"></label><label>Precio<input name="price" type="number" min="0" step="0.01" value="${x?.price??0}"></label><label>Stock<input name="stock" type="number" min="0" step="0.01" value="${x?.stock??0}"></label><label>Mínimo<input name="min_stock" type="number" min="0" step="0.01" value="${x?.min_stock??0}"></label></div><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Guardar</button></div></form>`);$("#x").onclick=close;$("#cancel").onclick=close;$("#f").onsubmit=async e=>{e.preventDefault();const d=new FormData(e.currentTarget),p={user_id:st.u.id,name:d.get("name").trim(),sku:d.get("sku")||null,brand:d.get("brand")||null,model:d.get("model")||null,category:d.get("category")||null,unit:d.get("unit")||"UND",cost:Number(d.get("cost")||0),price:Number(d.get("price")||0),stock:Number(d.get("stock")||0),min_stock:Number(d.get("min_stock")||0),updated_at:new Date().toISOString()};const r=x?await S.from("marc_inventory").update(p).eq("id",x.id).eq("user_id",st.u.id):await S.from("marc_inventory").insert(p);if(r.error)return toast(r.error.message,"err");close();toast("Producto guardado","ok");await trial();inventory()}}
-async function quoteModal(existing=null){
+async function aiQuoteModal(){
+  const cls=(await S.from("marc_clients").select("id,name").eq("user_id",st.u.id).order("name")).data||[];
+  const close=modal(
+    '<div class="modal-head"><div><h2>✦ Crear cotización con IA</h2><p>Describe el trabajo y M.A.R.C. prepara la cotización.</p></div><button class="close" id="x">×</button></div>'+
+    '<form id="aiQuoteForm">'+
+    '<label>Cliente<select name="client_id"><option value="">Sin cliente</option>'+cls.map(x=>'<option value="'+x.id+'">'+esc(x.name)+'</option>').join("")+'</select></label>'+
+    '<label>Descripción del trabajo<textarea name="description" rows="7" required placeholder="Ej.: Reparación de cámara WiFi Ezviz. Revisar fuente, configurar nuevamente y dejar operativa. A todo costo S/ 180.00"></textarea></label>'+
+    '<label style="display:flex;align-items:center;gap:8px"><input name="all_cost" type="checkbox" checked style="width:auto"> A todo costo · una sola partida de trabajo</label>'+
+    '<div class="ai-hint">Puedes escribir todo en una sola descripción. La IA extraerá el título y el precio cuando aparezca. No inventará precios.</div>'+
+    '<div id="aiQuoteMsg" class="msg"></div>'+
+    '<div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary" id="generateAi">✦ Generar cotización</button></div>'+
+    '</form>'
+  );
+  $("#x").onclick=close;$("#cancel").onclick=close;
+  $("#aiQuoteForm").onsubmit=async e=>{
+    e.preventDefault();
+    const d=new FormData(e.currentTarget);
+    const btn=$("#generateAi"),msgBox=$("#aiQuoteMsg");
+    const description=String(d.get("description")||"").trim(),clientId=d.get("client_id")||"",allCost=d.get("all_cost")==="on";
+    if(!description)return;
+    btn.disabled=true;msgBox.className="msg";msgBox.textContent="M.A.R.C. está preparando la cotización…";
+    try{
+      const selected=cls.find(x=>x.id===clientId);
+      const r=await fetch("/api/quote-ai",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({description,allCost,clientQuery:selected?.name||""})});
+      const j=await r.json();
+      if(!r.ok)throw new Error(j.message||j.error||"No se pudo generar la cotización.");
+      const draft=j.draft||{};
+      draft.client_id=clientId;
+      draft.items=(draft.items||[]).map(x=>({type:x.type||"TRABAJO",name:x.name||"Trabajo",description:x.description||description,qty:Number(x.quantity||1),price:x.unit_price==null?0:Number(x.unit_price),cost:0,unit:"UND"}));
+      close();
+      await quoteModal(null,draft);
+      toast("Cotización preparada por IA. Revísala antes de guardar.","ok");
+    }catch(err){
+      msgBox.className="msg error";msgBox.textContent=err.message||"No se pudo generar.";
+    }finally{btn.disabled=false}
+  };
+}
+async function quoteModal(existing=null,preset=null){
   const cls=(await S.from("marc_clients").select("id,name").eq("user_id",st.u.id).order("name")).data||[];
   const inv=(await S.from("marc_inventory").select("id,name,brand,model,price,cost,unit,stock").eq("user_id",st.u.id).eq("active",true).order("name")).data||[];
   let lines=[];
@@ -160,12 +197,14 @@ async function quoteModal(existing=null){
   if(existing){
     const {data}=await S.from("marc_quote_items").select("*").eq("quote_id",existing.id).eq("user_id",st.u.id).order("created_at");
     lines=(data||[]).map(x=>({id:x.id,type:x.item_type,inventory_id:x.inventory_id||"",name:x.name||"",description:x.description||"",qty:Number(x.quantity||1),price:Number(x.unit_price||0),cost:Number(x.cost||0),unit:x.unit||"UND"}));
+  }else if(preset){
+    lines=(preset.items||[]).map(x=>({type:x.type||"TRABAJO",inventory_id:x.inventory_id||"",name:x.name||"",description:x.description||"",qty:Number(x.qty||1),price:Number(x.price||0),cost:Number(x.cost||0),unit:x.unit||"UND"}));
   }
   const close=modal(
     '<div class="modal-head"><div><h2>'+(quote?"Cotización "+esc(quote.number):"Nueva cotización")+'</h2><p>Productos del inventario + trabajos libres.</p></div><button class="close" id="x">×</button></div>'+
     '<form id="f"><div class="form-grid">'+
-    '<label>Cliente<select name="client_id"><option value="">Sin cliente</option>'+cls.map(x=>'<option value="'+x.id+'" '+(quote?.client_id===x.id?"selected":"")+'>'+esc(x.name)+'</option>').join("")+'</select></label>'+
-    '<label>Título<input name="title" required value="'+esc(quote?.title||"Nueva cotización")+'"></label>'+
+    '<label>Cliente<select name="client_id"><option value="">Sin cliente</option>'+cls.map(x=>'<option value="'+x.id+'" '+((quote?.client_id||preset?.client_id)===x.id?"selected":"")+'>'+esc(x.name)+'</option>').join("")+'</select></label>'+
+    '<label>Título<input name="title" required value="'+esc(quote?.title||preset?.title||"Nueva cotización")+'"></label>'+
     '<label>IGV <select name="tax_enabled"><option value="false" '+(!quote?.tax_enabled?"selected":"")+'>No incluir</option><option value="true" '+(quote?.tax_enabled?"selected":"")+'>Incluir</option></select></label>'+
     '<label>% IGV<input name="tax_rate" type="number" min="0" max="100" step="0.01" value="'+(quote?.tax_rate??18)+'"></label>'+
     '<label>Estado<select name="status"><option value="BORRADOR" '+((quote?.status||"BORRADOR")==="BORRADOR"?"selected":"")+'>Borrador</option><option value="ENVIADA" '+((quote?.status||"BORRADOR")==="ENVIADA"?"selected":"")+'>Enviada</option><option value="ACEPTADA" '+((quote?.status||"BORRADOR")==="ACEPTADA"?"selected":"")+'>Aceptada</option><option value="RECHAZADA" '+((quote?.status||"BORRADOR")==="RECHAZADA"?"selected":"")+'>Rechazada</option><option value="ANULADA" '+((quote?.status||"BORRADOR")==="ANULADA"?"selected":"")+'>Anulada</option><option value="COBRADA" '+((quote?.status||"BORRADOR")==="COBRADA"?"selected":"")+'>Cobrada</option></select></label>'+
@@ -173,7 +212,7 @@ async function quoteModal(existing=null){
     '<div style="display:flex;justify-content:space-between;align-items:center;margin:9px 0 5px"><b style="font-size:9px">PARTIDAS</b><button type="button" id="add" class="secondary">＋ Línea</button></div>'+
     '<div id="lines"></div><label>Notas<textarea name="notes" rows="3">'+esc(quote?.notes||"")+'</textarea></label>'+
     '<div id="summary" class="quote-summary"></div>'+
-    '<div class="modal-actions"><button type="button" class="secondary" id="cancel">Cerrar</button><button type="button" class="secondary" id="print">Imprimir</button><button class="primary">'+(quote?"Guardar cambios":"Guardar cotización")+'</button></div></form>'
+    '<div class="modal-actions"><button type="button" class="secondary" id="cancel">Cerrar</button><button type="button" class="secondary" id="print">Imprimir</button><button type="button" class="secondary" id="pdf">Descargar PDF</button><button class="primary">'+(quote?"Guardar cambios":"Guardar cotización")+'</button></div></form>'
   );
   $("#x").onclick=close;$("#cancel").onclick=close;
   const box=$("#lines");
@@ -216,6 +255,7 @@ async function quoteModal(existing=null){
   $("#add").onclick=()=>{lines.push({type:"PRODUCTO",inventory_id:"",name:"",description:"",qty:1,price:0,cost:0,unit:"UND"});draw();};
   $("#f [name=tax_enabled]").onchange=updateSummary;$("#f [name=tax_rate]").oninput=updateSummary;
   $("#print").onclick=async()=>printQuote(existing?.id);
+  $("#pdf").onclick=async()=>downloadQuotePdf(existing?.id);
   draw();
 
   $("#f").onsubmit=async e=>{
@@ -274,6 +314,61 @@ async function printQuote(id){
   <script>window.onload=()=>setTimeout(()=>window.print(),250)</script></body></html>`;
   w.document.open();w.document.write(html);w.document.close();
 }
+async function downloadQuotePdf(id){
+  if(!id){toast("Guarda la cotización antes de descargar el PDF.","err");return}
+  if(!window.jspdf?.jsPDF){toast("El generador PDF todavía está cargando. Vuelve a intentarlo.","err");return}
+  const q=(await S.from("marc_quotes").select("*,marc_clients(name,document_type,document_number,email,phone,address)").eq("id",id).eq("user_id",st.u.id).single()).data;
+  if(!q)return toast("No se encontró la cotización.","err");
+  const items=(await S.from("marc_quote_items").select("*").eq("quote_id",id).eq("user_id",st.u.id).order("created_at")).data||[];
+  const client=q.marc_clients||{};
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({unit:"mm",format:"a4"});
+  const pageW=210,margin=14;
+  let y=18;
+  doc.setFont("helvetica","bold");doc.setFontSize(20);doc.text("M.A.R.C.",margin,y);
+  doc.setFontSize(9);doc.setFont("helvetica","normal");doc.text("Business Operating System",margin,y+5);
+  doc.setFont("helvetica","bold");doc.setFontSize(16);doc.text(String(q.number||"COTIZACIÓN"),pageW-margin,y,{align:"right"});
+  doc.setFont("helvetica","normal");doc.setFontSize(9);doc.text(new Date(q.created_at).toLocaleDateString("es-PE"),pageW-margin,y+5,{align:"right"});
+  y+=15;doc.setDrawColor(210);doc.line(margin,y,pageW-margin,y);y+=9;
+
+  const box=(x,yy,w,h,title,lines)=>{
+    doc.setDrawColor(225);doc.roundedRect(x,yy,w,h,3,3);
+    doc.setFont("helvetica","bold");doc.setFontSize(9);doc.text(title,x+4,yy+6);
+    doc.setFont("helvetica","normal");doc.setFontSize(8);
+    let ty=yy+12;for(const line of lines){const parts=doc.splitTextToSize(String(line||""),w-8);doc.text(parts,x+4,ty);ty+=4.2*parts.length;if(ty>yy+h-3)break}
+  };
+  box(margin,y,88,30,"CLIENTE",[client.name||"Sin cliente",client.document_type&&client.document_number?client.document_type+" "+client.document_number:"",client.phone||"",client.email||"",client.address||""]);
+  box(108,y,88,30,"CONDICIONES",["Título: "+String(q.title||"Cotización"),"Moneda: "+String(q.currency||"PEN"),"IGV: "+(q.tax_enabled?String(q.tax_rate)+"%":"No incluido"),"Estado: "+String(q.status||"BORRADOR")]);
+  y+=38;
+
+  doc.setFillColor(242,246,250);doc.rect(margin,y,pageW-margin*2,8,"F");
+  doc.setFont("helvetica","bold");doc.setFontSize(8);
+  doc.text("CONCEPTO",margin+2,y+5);doc.text("DESCRIPCIÓN",70,y+5);doc.text("CANT.",140,y+5);doc.text("PRECIO",158,y+5);doc.text("TOTAL",184,y+5);
+  y+=12;doc.setFont("helvetica","normal");
+  for(const it of items){
+    const desc=doc.splitTextToSize(String(it.description||""),64);
+    const name=doc.splitTextToSize(String(it.name||""),55);
+    const h=Math.max(7,4.2*Math.max(desc.length,name.length));
+    if(y+h>270){doc.addPage();y=18}
+    doc.setFont("helvetica","bold");doc.text(name,margin+2,y);
+    doc.setFont("helvetica","normal");doc.text(desc,70,y);
+    doc.text(String(it.quantity||1),142,y);
+    doc.text(money(it.unit_price).replace("PEN","S/"),158,y);
+    doc.text(money(it.line_total).replace("PEN","S/"),184,y);
+    y+=h+3;doc.setDrawColor(235);doc.line(margin,y-1,pageW-margin,y-1);
+  }
+  y+=5;
+  const totalsX=126;
+  doc.setFont("helvetica","normal");doc.text("Subtotal",totalsX,y);doc.text(money(q.subtotal).replace("PEN","S/"),pageW-margin,y,{align:"right"});y+=6;
+  doc.text("IGV",totalsX,y);doc.text(money(q.tax).replace("PEN","S/"),pageW-margin,y,{align:"right"});y+=7;
+  doc.setDrawColor(30);doc.line(totalsX,y-3,pageW-margin,y-3);
+  doc.setFont("helvetica","bold");doc.setFontSize(12);doc.text("TOTAL",totalsX,y+3);doc.text(money(q.total).replace("PEN","S/"),pageW-margin,y+3,{align:"right"});y+=12;
+  if(q.notes){doc.setFont("helvetica","bold");doc.setFontSize(9);doc.text("NOTAS",margin,y);y+=6;doc.setFont("helvetica","normal");doc.setFontSize(8);doc.text(doc.splitTextToSize(String(q.notes),pageW-margin*2),margin,y)}
+  const filename=String(q.number||"cotizacion").replace(/[^\w.-]+/g,"_")+".pdf";
+  doc.save(filename);
+  toast("PDF descargado","ok");
+}
+
 function wire(){mode("login");$("#authForm").onsubmit=submit;$("#switchAuth").onclick=()=>mode(authMode==="signup"?"login":"signup");$("#forgot").onclick=()=>mode("reset");$("#togglePass").onclick=()=>{const x=$("#password");x.type=x.type==="password"?"text":"password";$("#togglePass").textContent=x.type==="password"?"Mostrar":"Ocultar"};$("#logout").onclick=()=>S.auth.signOut();$("#askTop").onclick=openChat;
   $("#closeChat").onclick=closeChat;
   $("#exitConversation").onclick=closeChat;

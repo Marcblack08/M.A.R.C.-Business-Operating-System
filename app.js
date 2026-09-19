@@ -384,10 +384,21 @@ async function extractPdfCatalogRows(page){
       return Number.isFinite(value)&&value>=0?value:null;
     };
     const hasCurrency=s=>/^(?:S\/?|US\$|\$|€|EUR)\s*/i.test(normalize(s));
-    const candidates=items
+    const primaryCandidates=items
       .filter(x=>x.x>width*.62&&priceRe.test(normalize(x.text)))
       .map(x=>({...x,price:parsePrice(x.text),currency:hasCurrency(x.text)}))
-      .filter(x=>x.price!==null)
+      .filter(x=>x.price!==null);
+
+    // Algunos catálogos colocan el precio debajo/encima del nombre o en una
+    // columna intermedia. Solo activamos este fallback cuando no existe una
+    // columna de precios clara; exigimos moneda para no confundir páginas,
+    // teléfonos u otros números con precios.
+    const fallbackCandidates=items
+      .filter(x=>x.x>width*.25&&priceRe.test(normalize(x.text))&&hasCurrency(x.text))
+      .map(x=>({...x,price:parsePrice(x.text),currency:true}))
+      .filter(x=>x.price!==null);
+
+    const candidates=(primaryCandidates.length?primaryCandidates:fallbackCandidates)
       .sort((a,b)=>b.y-a.y||b.x-a.x);
 
     if(!candidates.length)return {rows:[],text:items.map(x=>x.text).join("\n"),usedLocal:false};
@@ -414,7 +425,7 @@ async function extractPdfCatalogRows(page){
       const gapPrev=prev?Math.abs(prev.y-chosen.y):0;
       const gapNext=next?Math.abs(chosen.y-next.y):0;
       const nearest=Math.min(gapPrev||999,gapNext||999);
-      const radius=Math.max(9,Math.min(28,nearest===999?18:nearest*.60));
+      const radius=Math.max(9,Math.min(34,nearest===999?20:nearest*.64));
       const rowItems=items.filter(x=>Math.abs(x.y-chosen.y)<=radius);
 
       // Delimita la columna del producto usando las posiciones de los precios.

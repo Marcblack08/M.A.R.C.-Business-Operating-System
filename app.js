@@ -2166,15 +2166,25 @@ function wire(){
   $("#chatForm").onsubmit=e=>{e.preventDefault();const v=$("#chatInput").value.trim();if(v){$("#chatInput").value="";chatSend(v)}};
   $("#chatInput").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("#chatForm").requestSubmit()}};
   $$(".chips button").forEach(b=>b.onclick=()=>{$("#chatInput").value=b.dataset.q;$("#chatInput").focus()});
+
   S.auth.onAuthStateChange((ev,s)=>{
     setTimeout(()=>{
-      if(s)enter(s);
-      else if(ev==="SIGNED_OUT")resetUiToLogin();
+      if(s){
+        enter(s);
+        return;
+      }
+      if(ev==="SIGNED_OUT"){
+        resetUiToLogin();
+        return;
+      }
+      if(ev==="INITIAL_SESSION" && !location.hash.includes("access_token=") && !location.search.includes("code=")){
+        resetUiToLogin();
+      }
     },0)
   });
+
   S.auth.getSession().then(({data})=>{
     if(data.session)enter(data.session);
-    else resetUiToLogin();
   })
 }
 wire()})();

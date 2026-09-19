@@ -2,11 +2,7 @@ name="marc-copiloto"
 main="functions/worker.js"
 compatibility_date="2026-09-18"
 
-[ai]
-binding="AI"
-
 [vars]
-MARC_AI_MODEL="@cf/meta/llama-3.1-8b-instruct-fast"
 SUPABASE_URL="https://hmnzzknuiejchypalpig.supabase.co"
 SUPABASE_PUBLISHABLE_KEY="sb_publishable_mhRoYMQTWrmYpuclqzQ1MA_6TMtGikq"
 TELEGRAM_BOT_USERNAME="MARC_CopilotoBot"

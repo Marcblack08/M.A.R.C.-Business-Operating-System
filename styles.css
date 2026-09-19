@@ -1397,3 +1397,55 @@ body,
   .quote-card-top>strong{font-size:13px}
   .quote-card-actions{gap:5px}
 }
+
+/* ===== PHASE 1 — DASHBOARD MOBILE POLISH ===== */
+.dashboard-hero,.dashboard-panel,.kpi-modern,.finance-dashboard{contain:layout paint}
+@media(max-width:780px){
+  .dashboard-shell{gap:12px}
+  .dashboard-hero{
+    min-height:350px;
+    padding:22px 18px;
+    border-radius:20px;
+    box-shadow:0 18px 42px rgba(18,62,112,.14);
+  }
+  .dashboard-hero h1{font-size:28px;max-width:310px}
+  .dashboard-hero p{max-width:340px;margin-top:11px;font-size:9px;line-height:1.55}
+  .hero-actions{position:relative;z-index:4;display:grid;grid-template-columns:1fr;gap:7px;max-width:330px}
+  .hero-primary,.hero-secondary{width:100%;min-height:42px;padding:11px 13px}
+  .hero-orbit{opacity:.3}
+  .orbit-main{right:12px;bottom:18px;top:auto;width:145px;padding:13px}
+  .orbit-main span{width:30px;height:30px;margin-bottom:7px}
+  .orbit-main b{font-size:10px}.orbit-main small{font-size:7px}
+  .orbit-a{right:135px;top:auto;bottom:125px}.orbit-b{right:5px;bottom:87px}.orbit-c{right:108px;bottom:61px}
+  .dashboard-kpis{grid-template-columns:1fr 1fr;gap:8px}
+  .kpi-modern{min-height:82px;padding:11px 10px;border-radius:14px}
+  .kpi-modern>div:nth-child(2){overflow:hidden}
+  .kpi-modern strong{font-size:19px}
+  .kpi-modern small{font-size:6px}
+  .kpi-arrow{font-size:9px}
+  .dashboard-main-grid{gap:10px}
+  .quick-panel,.alert-panel,.activity-panel{border-radius:16px}
+  .quick-modern-grid{gap:7px}
+  .quick-modern-grid button{min-height:58px;padding:9px}
+  .quick-icon{width:32px;height:32px}
+  .finance-heading{align-items:flex-start;flex-direction:column}
+  .finance-heading h2{font-size:17px}
+  .finance-summary{text-align:left;min-width:0}
+  .finance-grid{grid-template-columns:1fr!important}
+  .profit-chart-panel,.margin-panel{padding:14px!important}
+  .profit-bars{gap:7px}
+  .profit-value{font-size:6px!important}
+  .activity-row{padding:10px 0}
+}
+@media(max-width:420px){
+  .content{padding:12px 10px 25px}
+  .dashboard-hero{min-height:340px;padding:20px 16px}
+  .dashboard-hero h1{font-size:25px}
+  .dashboard-hero p{font-size:8.5px}
+  .kpi-modern{min-height:76px;padding:9px 8px}
+  .kpi-icon{width:31px;height:31px}
+  .kpi-modern strong{font-size:17px}
+  .kpi-modern span{font-size:6.5px}
+  .kpi-modern small{font-size:5.7px}
+  .hero-primary,.hero-secondary{font-size:9px}
+}

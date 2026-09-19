@@ -113,22 +113,82 @@ async function ensurePdfJs(){
   throw new Error("No se pudo cargar el lector PDF. Recarga la página e inténtalo nuevamente.");
 }
 
+async function extractPdfCatalogRows(page){
+  try{
+    const content=await page.getTextContent({normalizeWhitespace:true,disableCombineTextItems:false});
+    const items=(content.items||[]).map(item=>({
+      text:String(item.str||"").replace(/\s+/g," ").trim(),
+      x:Number(item.transform?.[4]||0),
+      y:Number(item.transform?.[5]||0)
+    })).filter(x=>x.text);
+
+    const width=page.view?.[2]||page.getViewport({scale:1}).width||595;
+    const prices=items
+      .filter(x=>x.x>width*.74 && /^\d+(?:[.,]\d{1,2})$/.test(x.text.replace(/[^\d.,]/g,"")))
+      .map(x=>({...x,price:Number(x.text.replace(",","."))}))
+      .sort((a,b)=>b.y-a.y);
+
+    if(!prices.length)return {rows:[],text:items.map(x=>x.text).join("\n"),usedLocal:false};
+
+    const rows=[];
+    for(let i=0;i<prices.length;i++){
+      const p=prices[i];
+      const prev=prices[i-1],next=prices[i+1];
+      const gapPrev=prev?Math.abs(prev.y-p.y):Math.abs(p.y-(next?.y||p.y));
+      const gapNext=next?Math.abs(p.y-next.y):gapPrev;
+      const radius=Math.max(13,Math.min(28,Math.min(gapPrev||20,gapNext||20)*.55));
+      const rowItems=items.filter(x=>Math.abs(x.y-p.y)<=radius);
+
+      const nameParts=rowItems
+        .filter(x=>x.x<width*.34 && Math.abs(x.y-p.y)<=radius)
+        .sort((a,b)=>Math.abs(a.y-p.y)-Math.abs(b.y-p.y)||a.x-b.x)
+        .map(x=>x.text);
+
+      const codeParts=rowItems
+        .filter(x=>x.x>=width*.32 && x.x<width*.74)
+        .sort((a,b)=>Math.abs(a.y-p.y)-Math.abs(b.y-p.y)||a.x-b.x)
+        .map(x=>x.text);
+
+      const name=[...new Set(nameParts)].join(" ").replace(/\s+/g," ").trim();
+      const codeText=[...new Set(codeParts)].join(" ").replace(/\s+/g," ").trim();
+      if(!name)return;
+
+      const skuMatch=codeText.match(/\b(?:[A-Z]{1,6})-[A-Z0-9]{1,12}\b/i);
+      const sku=skuMatch?.[0]||null;
+      const variant=codeText.replace(skuMatch?.[0]||"","").replace(/\s+/g," ").trim();
+      const fullName=[name,variant].filter(Boolean).join(" ").replace(/\s+/g," ").trim();
+
+      rows.push({
+        sku,
+        name:fullName.slice(0,180),
+        brand:null,
+        model:sku,
+        category:name.slice(0,100),
+        unit:"UND",
+        cost:null,
+        price:p.price,
+        stock:null,
+        min_stock:null
+      });
+    }
+
+    // One product per price cell: preserve page order and remove exact duplicates only.
+    const clean=[],seen=new Set();
+    for(const row of rows){
+      const key=(row.sku||row.name+"|"+row.price).toLowerCase();
+      if(seen.has(key))continue;
+      seen.add(key);clean.push(row);
+    }
+    return {rows:clean,text:items.map(x=>x.text).join("\n"),usedLocal:clean.length>0};
+  }catch{
+    return {rows:[],text:"",usedLocal:false};
+  }
+}
+
 async function extractPdfPageText(page){
   try{
     const content=await page.getTextContent({normalizeWhitespace:true,disableCombineTextItems:false});
-    const items=(content.items||[]).filter(x=>String(x.str||"").trim());
-    if(!items.length)return "";
-    const rows=[];
-    for(const item of items){
-      const t=String(item.str||"").replace(/\s+/g," ").trim();
-      if(!t)continue;
-      const y=Number(item.transform?.[5]||0),x=Number(item.transform?.[4]||0);
-      let row=rows.find(r=>Math.abs(r.y-y)<=2.5);
-      if(!row){row={y,parts:[]};rows.push(row)}
-      row.parts.push({x,text:t});
-    }
-    rows.sort((a,b)=>b.y-a.y);
-    return rows.map(row=>row.parts.sort((a,b)=>a.x-b.x).map(p=>p.text).join(" ").trim()).filter(Boolean).join("\n");
+    return (content.items||[]).map(x=>String(x.str||"").trim()).filter(Boolean).join("\n");
   }catch{return ""}
 }
 
@@ -214,19 +274,22 @@ async function inventoryPdfModal(){
 
         const results=await Promise.all(batch.map(async pageNumber=>{
           const page=await pdf.getPage(pageNumber);
-          const text=await extractPdfPageText(page);
+          const local=await extractPdfCatalogRows(page);
 
-          let image="";
-          if(text.length<120){
-            let viewport=page.getViewport({scale:1.25});
-            if(viewport.width>1600)viewport=page.getViewport({scale:1.25*(1600/viewport.width)});
-            const canvas=document.createElement("canvas");
-            const ctx=canvas.getContext("2d",{alpha:false});
-            canvas.width=Math.ceil(viewport.width);
-            canvas.height=Math.ceil(viewport.height);
-            await page.render({canvasContext:ctx,viewport}).promise;
-            image=canvas.toDataURL("image/jpeg",0.72);
+          if(local.usedLocal && local.rows.length){
+            return {pageNumber,items:local.rows,mode:"LECTURA DIRECTA"};
           }
+
+          const text=local.text||await extractPdfPageText(page);
+          let image="";
+          let viewport=page.getViewport({scale:1.25});
+          if(viewport.width>1600)viewport=page.getViewport({scale:1.25*(1600/viewport.width)});
+          const canvas=document.createElement("canvas");
+          const ctx=canvas.getContext("2d",{alpha:false});
+          canvas.width=Math.ceil(viewport.width);
+          canvas.height=Math.ceil(viewport.height);
+          await page.render({canvasContext:ctx,viewport}).promise;
+          image=canvas.toDataURL("image/jpeg",0.72);
 
           let analyzed=null,lastError=null;
           for(let retry=0;retry<2;retry++){
@@ -249,7 +312,7 @@ async function inventoryPdfModal(){
             }
           }
           if(!analyzed)throw new Error((lastError?.message||"No se pudo analizar la página")+" Revisa tu conexión.");
-          return {pageNumber,items:Array.isArray(analyzed.items)?analyzed.items:[],mode:analyzed.mode||"TEXT"};
+          return {pageNumber,items:Array.isArray(analyzed.items)?analyzed.items:[],mode:analyzed.mode||"GEMINI"};
         }));
 
         results.sort((a,b)=>a.pageNumber-b.pageNumber);
@@ -257,7 +320,7 @@ async function inventoryPdfModal(){
           const pageNumber=result.pageNumber;
           const pageItems=result.items;
           detected.push(...pageItems);
-          const recent=pageItems.slice(0,8).map((x,ix)=>'<div class="pdf-live-row"><span>P'+pageNumber+' · '+(ix+1)+'</span><b>'+esc(x.name)+'</b><small>'+esc([x.brand,x.model,x.sku].filter(Boolean).join(" · ")||"Sin código")+'</small></div>').join("");
+          const recent=pageItems.slice(0,12).map((x,ix)=>'<div class="pdf-live-row"><span>P'+pageNumber+' · '+(ix+1)+'</span><b>'+esc(x.name)+'</b><small>'+esc([x.brand,x.model,x.sku].filter(Boolean).join(" · ")||"Sin código")+'</small></div>').join("");
           liveRows.insertAdjacentHTML("beforeend",recent);
         }
 

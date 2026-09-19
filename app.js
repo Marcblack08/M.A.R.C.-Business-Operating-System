@@ -406,6 +406,79 @@ async function inventoryPdfModal(){
 }
 
 
+
+async function inventorySerialsModal(x){
+  let files=[];
+  let results=[];
+  const close=modal(
+    '<div class="modal-head"><div><h2>Unidades y números de serie</h2><p>'+esc(x.name)+' · stock actual: '+Number(x.stock||0)+'</p></div><button class="close" id="x">×</button></div>'+
+    '<div class="serial-product-summary"><div class="inventory-photo-preview">'+(x.image_url?'<img src="'+esc(x.image_url)+'" alt="Producto">':'<span>📦</span>')+'</div><div><b>'+esc(x.name)+'</b><br><small>Precio: '+money(x.price)+'</small><br><small>Fotografía cada caja para registrar el número de serie.</small></div></div>'+
+    '<label>Fotografías de las cajas<input id="serialPhotos" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" multiple></label>'+
+    '<small>Puedes seleccionar varias fotos de una vez. M.A.R.C. analizará cada caja.</small>'+
+    '<div id="serialStatus" class="msg"></div>'+
+    '<div id="serialResults" class="serial-results"></div>'+
+    '<div class="modal-actions"><button type="button" class="secondary" id="cancel">Cerrar</button><button type="button" class="primary" id="saveSerials" disabled>Guardar unidades</button></div>'
+  );
+  $("#x").onclick=close;$("#cancel").onclick=close;
+  const input=$("#serialPhotos"),status=$("#serialStatus"),list=$("#serialResults"),save=$("#saveSerials");
+
+  function render(){
+    list.innerHTML=results.map(function(r,i){
+      return '<div class="serial-row"><div class="inventory-thumb">'+(r.preview?'<img src="'+r.preview+'" alt="Caja">':'📦')+'</div><div class="serial-main"><b>Unidad '+(i+1)+'</b><div>'+esc(r.name||x.name)+'</div><small>SKU: '+esc(r.sku||x.sku||"—")+'</small></div><div class="serial-input"><label>Serie<input data-serial-index="'+i+'" value="'+esc(r.serial_number||"")+'" placeholder="Número de serie"></label><small>'+esc(r.note||"")+'</small></div></div>';
+    }).join("")||'<div class="empty">Aún no has agregado fotografías.</div>';
+    save.disabled=!results.length||results.some(function(r){return !String(r.serial_number||"").trim()});
+  }
+
+  input.onchange=async function(){
+    files=[].slice.call(input.files||[]);
+    results=[];render();
+    if(!files.length)return;
+    status.className="msg";status.textContent="Analizando "+files.length+" caja(s)…";
+    for(let i=0;i<files.length;i++){
+      try{
+        const blob=await optimizeProductImage(files[i]);
+        const preview=URL.createObjectURL(blob);
+        const p=await analyzeProductBoxPhoto(files[i],status);
+        results.push({name:p.name||x.name,sku:p.sku||x.sku,serial_number:p.serial_number||"",preview:preview,note:p.serial_number?"Serial detectado":"No se detectó serial; escríbelo manualmente."});
+      }catch(err){
+        results.push({name:x.name,sku:x.sku,serial_number:"",preview:null,note:"No se pudo analizar: "+(err.message||"error")});
+      }
+      render();
+      status.textContent="Analizadas "+(i+1)+" de "+files.length+" cajas.";
+    }
+    const detected=results.filter(function(r){return r.serial_number}).length;
+    status.textContent="Listo: "+results.length+" cajas; "+detected+" seriales detectados. Revisa antes de guardar.";
+  };
+
+  list.oninput=function(e){
+    const el=e.target.closest("input[data-serial-index]");
+    if(!el)return;
+    const idx=Number(el.dataset.serialIndex);
+    if(results[idx])results[idx].serial_number=el.value.trim();
+    save.disabled=!results.length||results.some(function(r){return !String(r.serial_number||"").trim()});
+  };
+
+  save.onclick=async function(){
+    const items=results.map(function(r){return {serial_number:String(r.serial_number||"").trim(),image_url:null}});
+    const serials=items.map(function(r){return r.serial_number.toLowerCase()});
+    if(new Set(serials).size!==serials.length)return toast("Hay números de serie repetidos.","err");
+    save.disabled=true;status.textContent="Guardando "+items.length+" unidades…";
+    try{
+      for(let i=0;i<results.length;i++){
+        const uploaded=await uploadInventoryPhoto(files[i],x.id,null);
+        items[i].image_url=uploaded.url;
+      }
+      const rpc=await S.rpc("marc_save_inventory_instances",{p_inventory_id:x.id,p_instances:items});
+      if(rpc.error)throw rpc.error;
+      const d=rpc.data||{};
+      close();toast("Se agregaron "+Number(d.inserted||0)+" unidades. Stock actual: "+Number(d.stock||0),"ok");await inventory();
+    }catch(err){
+      status.className="msg error";status.textContent=err.message||"No se pudieron guardar las unidades.";save.disabled=false;
+    }
+  };
+  render();
+}
+
 async function inventory(){
   S.from("marc_inventory").select("*").eq("user_id",st.u.id).eq("active",true).order("name").then(({data,error})=>{
     if(error)return toast(error.message,"err");
@@ -431,7 +504,7 @@ async function inventory(){
     const draw=list=>{
       rows.innerHTML=(list||[]).map(x=>{
         const stock=Number(x.stock),min=Number(x.min_stock),cls=stock<=0?"out":stock<=min?"low":"ok";
-        return `<tr><td style="text-align:center"><input class="inventory-check" type="checkbox" data-id="${x.id}" ${selected.has(x.id)?"checked":""} aria-label="Seleccionar ${esc(x.name)}"></td><td><b>${esc(x.name)}</b><br><small>${esc(x.sku||"Sin código")}</small></td><td>${esc([x.brand,x.model].filter(Boolean).join(" · ")||"—")}</td><td><b>${stock}</b> ${esc(x.unit)}</td><td>${money(x.price)}</td><td><span class="badge ${cls}">${stock<=0?"Agotado":stock<=min?"Bajo":"Disponible"}</span></td><td style="display:flex;gap:5px;flex-wrap:wrap"><button class="secondary" type="button" data-action="edit-inventory" data-id="${x.id}">Editar</button><button class="danger" type="button" data-action="delete-inventory" data-id="${x.id}">Eliminar</button></td></tr>`;
+        return `<tr><td style="text-align:center"><input class="inventory-check" type="checkbox" data-id="${x.id}" ${selected.has(x.id)?"checked":""} aria-label="Seleccionar ${esc(x.name)}"></td><td><b>${esc(x.name)}</b><br><small>${esc(x.sku||"Sin código")}</small></td><td>${esc([x.brand,x.model].filter(Boolean).join(" · ")||"—")}</td><td><b>${stock}</b> ${esc(x.unit)}</td><td>${money(x.price)}</td><td><span class="badge ${cls}">${stock<=0?"Agotado":stock<=min?"Bajo":"Disponible"}</span></td><td style="display:flex;gap:5px;flex-wrap:wrap"><button class="secondary" type="button" data-action="edit-inventory" data-id="${x.id}">Editar</button><button class="secondary" type="button" data-action="serials-inventory" data-id="${x.id}">📷 Series</button><button class="danger" type="button" data-action="delete-inventory" data-id="${x.id}">Eliminar</button></td></tr>`;
       }).join("")||'<tr><td colspan="7" class="empty">Agrega tu primer producto.</td></tr>';
       syncSelectionUi();
     };
@@ -495,6 +568,7 @@ async function inventory(){
       const b=e.target.closest("button[data-action]"); if(!b)return;
       const item=(data||[]).find(x=>x.id===b.dataset.id); if(!item)return;
       if(b.dataset.action==="edit-inventory")return inventoryModal(item);
+      if(b.dataset.action==="serials-inventory")return inventorySerialsModal(item);
       if(b.dataset.action==="delete-inventory"){
         if(!confirm("¿Eliminar \""+item.name+"\" del inventario?\n\nDejará de aparecer del inventario activo, pero se conservará el registro para el historial."))return;
         b.disabled=true;

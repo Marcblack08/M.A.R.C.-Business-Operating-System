@@ -6,12 +6,18 @@ async function geminiGenerate(env,input,options={}){
   const messages=Array.isArray(input)?input:(input?.messages||[]);
   const apiKey=env.GEMINI_API_KEY||env.GEMINI_API_KEY2;
   if(!apiKey)throw Object.assign(new Error("GEMINI_API_KEY no está configurada en el Worker."),{status:503});
-  const model=env.GEMINI_MODEL||GEMINI_MODEL_DEFAULT;
+
+  const primary=env.GEMINI_MODEL||GEMINI_MODEL_DEFAULT;
+  const fallback1=env.GEMINI_MODEL_FALLBACK||"gemini-3.7-flash";
+  const fallback2=env.GEMINI_MODEL_FALLBACK2||"gemini-2.5-flash";
+  const models=[...new Set([primary,fallback1,fallback2].filter(Boolean))];
+
   const system=messages.filter(m=>m.role==="system").map(m=>String(m.content||"")).join("\n\n");
   const contents=messages.filter(m=>m.role!=="system").map(m=>({
     role:m.role==="assistant"||m.role==="model"?"model":"user",
     parts:[{text:String(m.content||"")}]
   }));
+
   const body={
     systemInstruction:system?{parts:[{text:system}]}:undefined,
     contents,
@@ -22,27 +28,32 @@ async function geminiGenerate(env,input,options={}){
   };
   if(!body.systemInstruction)delete body.systemInstruction;
 
-  const call=async key=>{
-    const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":generateContent",{
-      method:"POST",
-      headers:{"content-type":"application/json","x-goog-api-key":key},
-      body:JSON.stringify(body)
-    });
-    const raw=await r.text();
-    let data=null;try{data=raw?JSON.parse(raw):null}catch{data=raw}
-    if(!r.ok){
-      const e=new Error(data?.error?.message||"Gemini API error");
-      e.status=r.status;e.details=data;
-      throw e;
-    }
-    return data;
-  };
+  const transient=[429,500,502,503,504,529];
+  let lastError=null;
 
-  try{return await call(apiKey)}
-  catch(err){
-    if(env.GEMINI_API_KEY2 && env.GEMINI_API_KEY2!==apiKey && [429,500,502,503,504].includes(Number(err?.status)))return call(env.GEMINI_API_KEY2);
-    throw err;
+  for(const model of models){
+    for(const key of [apiKey,env.GEMINI_API_KEY2].filter((x,i,a)=>x&&a.indexOf(x)===i)){
+      try{
+        const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":generateContent",{
+          method:"POST",
+          headers:{"content-type":"application/json","x-goog-api-key":key},
+          body:JSON.stringify(body)
+        });
+        const raw=await r.text();
+        let data=null;try{data=raw?JSON.parse(raw):null}catch{data=raw}
+        if(r.ok)return data;
+        const err=new Error(data?.error?.message||("Gemini API error "+r.status));
+        err.status=r.status;err.details=data;err.model=model;
+        lastError=err;
+        if(!transient.includes(Number(r.status)))throw err;
+      }catch(err){
+        lastError=err;
+        if(!transient.includes(Number(err?.status)))throw err;
+      }
+    }
   }
+
+  throw lastError||Object.assign(new Error("Gemini no está disponible temporalmente."),{status:503});
 }
 
 function corsHeaders(request){

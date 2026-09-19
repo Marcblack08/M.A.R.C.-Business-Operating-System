@@ -42,7 +42,48 @@ async function view(x){st.view=x;title(x);$("#sidebar").classList.remove("open")
 async function home(){const c=$("#content"),[cl,iv,qt]=await Promise.all([S.from("marc_clients").select("*",{count:"exact"}).eq("user_id",st.u.id),S.from("marc_inventory").select("*").eq("user_id",st.u.id).eq("active",true).order("name"),S.from("marc_quotes").select("*").eq("user_id",st.u.id).order("created_at",{ascending:false}).limit(6)]);const low=(iv.data||[]).filter(x=>Number(x.stock)<=Number(x.min_stock));c.innerHTML=`<div class="head"><div><div class="eyebrow2">CENTRO DE OPERACIONES</div><h1>Tu negocio, desde una sola conversación.</h1><p>M.A.R.C. conecta clientes, inventario, cotizaciones y comunicaciones.</p></div><button id="askHome" class="primary">✦ Preguntar</button></div><div class="grid4"><div class="card kpi"><small>Clientes</small><strong>${cl.count||0}</strong><em>Base operativa</em></div><div class="card kpi"><small>Productos</small><strong>${iv.data?.length||0}</strong><em>En inventario</em></div><div class="card kpi"><small>Stock bajo</small><strong>${low.length}</strong><em>Requieren atención</em></div><div class="card kpi"><small>Cotizaciones</small><strong>${qt.data?.length||0}</strong><em>Recientes</em></div></div><div class="cols"><section class="card panel"><h3>Acciones rápidas</h3><p>Las operaciones frecuentes están a un toque.</p><div class="quick"><button data-q="client"><b>＋ Nuevo cliente</b><small>Guardar un contacto</small></button><button data-q="inventory"><b>＋ Producto</b><small>Agregar al inventario</small></button><button data-q="quote"><b>＋ Cotización</b><small>Preparar una propuesta</small></button><button data-q="chat"><b>✦ Preguntar</b><small>Hablar con M.A.R.C.</small></button></div></section><section class="card panel"><h3>Inventario crítico</h3><p>Productos que merecen atención.</p><div class="list">${low.slice(0,5).map(x=>`<div class="row"><div><b>${esc(x.name)}</b><small>${esc([x.brand,x.model].filter(Boolean).join(" · "))}</small></div><span class="badge ${Number(x.stock)<=0?"out":"low"}">${Number(x.stock)<=0?"Agotado":x.stock}</span></div>`).join("")||'<div class="empty">Todo en orden.</div>'}</div></section></div><section class="card panel" style="margin-top:13px"><h3>Actividad reciente</h3><div class="list">${(qt.data||[]).map(x=>`<div class="row"><div><b>${esc(x.number)} · ${esc(x.title)}</b><small>${esc(x.status)}</small></div><b>${money(x.total)}</b></div>`).join("")||'<div class="empty">Crea tu primera cotización.</div>'}</div></section>`;$("#askHome").onclick=openChat;$$(".quick button",c).forEach(b=>b.onclick=()=>b.dataset.q==="client"?clientModal():b.dataset.q==="inventory"?inventoryModal():b.dataset.q==="quote"?quoteModal():openChat())}
 async function clients(){const {data}=await S.from("marc_clients").select("*").eq("user_id",st.u.id).order("name");const c=$("#content");c.innerHTML=`<div class="head"><div><div class="eyebrow2">CLIENTES</div><h1>Relaciones y contexto.</h1><p>Los clientes son memoria operativa de M.A.R.C.</p></div><button id="new" class="primary">＋ Nuevo cliente</button></div><section class="card table"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar…"></div><button id="ask" class="secondary">Preguntar</button></div><div class="scroll"><table class="data"><thead><tr><th>Cliente</th><th>Contacto</th><th>Correo</th><th>Teléfono</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></section>`;const rows=$("#rows"),draw=list=>rows.innerHTML=list.map(x=>`<tr><td><b>${esc(x.name)}</b><br><small>${esc(x.document_number||"")}</small></td><td>${esc(x.contact_name||"—")}</td><td>${esc(x.email||"—")}</td><td>${esc(x.phone||"—")}</td><td><button class="secondary" data-id="${x.id}">Editar</button></td></tr>`).join("")||'<tr><td colspan="5" class="empty">Aún no tienes clientes.</td></tr>';draw(data||[]);$("#search").oninput=e=>{const q=e.target.value.toLowerCase();draw((data||[]).filter(x=>[x.name,x.email,x.phone,x.document_number].some(v=>String(v||"").toLowerCase().includes(q))))};$("#new").onclick=()=>clientModal();$("#ask").onclick=()=>openChat();$$("[data-id]",c).forEach(b=>b.onclick=()=>clientModal((data||[]).find(x=>x.id===b.dataset.id)))}
 async function inventory(){const {data}=await S.from("marc_inventory").select("*").eq("user_id",st.u.id).eq("active",true).order("name");const c=$("#content");c.innerHTML=`<div class="head"><div><div class="eyebrow2">INVENTARIO</div><h1>Productos + stock.</h1><p>Todo producto vive dentro del inventario.</p></div><button id="new" class="primary">＋ Nuevo producto</button></div><section class="card table"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar producto…"></div><button id="ask" class="secondary">Preguntar</button></div><div class="scroll"><table class="data"><thead><tr><th>Producto</th><th>Marca/modelo</th><th>Stock</th><th>Precio</th><th>Estado</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></section>`;const rows=$("#rows"),draw=list=>rows.innerHTML=list.map(x=>{const s=Number(x.stock),m=Number(x.min_stock),cls=s<=0?"out":s<=m?"low":"ok";return`<tr><td><b>${esc(x.name)}</b><br><small>${esc(x.sku||"Sin código")}</small></td><td>${esc([x.brand,x.model].filter(Boolean).join(" · ")||"—")}</td><td><b>${s}</b> ${esc(x.unit)}</td><td>${money(x.price)}</td><td><span class="badge ${cls}">${s<=0?"Agotado":s<=m?"Bajo":"Disponible"}</span></td><td><button class="secondary" data-id="${x.id}">Editar</button></td></tr>`}).join("")||'<tr><td colspan="6" class="empty">Agrega tu primer producto.</td></tr>';draw(data||[]);$("#search").oninput=e=>{const q=e.target.value.toLowerCase();draw((data||[]).filter(x=>[x.name,x.sku,x.brand,x.model,x.category].some(v=>String(v||"").toLowerCase().includes(q))))};$("#new").onclick=()=>inventoryModal();$("#ask").onclick=openChat;$$("[data-id]",c).forEach(b=>b.onclick=()=>inventoryModal((data||[]).find(x=>x.id===b.dataset.id)))}
-async function quotes(){const {data,error}=await S.from("marc_quotes").select("*,marc_clients(name)").eq("user_id",st.u.id).order("created_at",{ascending:false});if(error)return toast(error.message,"err");const rows=data||[];const c=$("#content");c.innerHTML=`<div class="head"><div><div class="eyebrow2">COTIZACIONES</div><h1>Convierte una orden en propuesta.</h1><p>Productos del inventario y trabajos escritos o dictados.</p></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button id="aiNew" class="secondary">✦ Crear con IA</button><button id="new" class="primary">＋ Nueva cotización</button></div></div><section class="card table"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar número, cliente o título…"></div><select id="statusFilter" class="secondary" style="min-width:130px"><option value="">Todos</option><option>BORRADOR</option><option>ENVIADA</option><option>ACEPTADA</option><option>RECHAZADA</option><option>ANULADA</option><option>COBRADA</option></select><button id="ask" class="secondary">Preguntar</button></div><div class="scroll"><table class="data"><thead><tr><th>Número</th><th>Cliente</th><th>Título</th><th>Estado</th><th>Total</th><th>Fecha</th><th></th></tr></thead><tbody id="qrows"></tbody></table></div></section>`;const body=$("#qrows");const draw=()=>{const q=($("#search").value||"").toLowerCase(),sf=$("#statusFilter").value;const list=rows.filter(x=>(!sf||x.status===sf)&&[x.number,x.title,x.marc_clients?.name].some(v=>String(v||"").toLowerCase().includes(q)));body.innerHTML=list.map(x=>`<tr><td><b>${esc(x.number)}</b></td><td>${esc(x.marc_clients?.name||"Sin cliente")}</td><td>${esc(x.title)}</td><td><span class="badge">${esc(x.status)}</span></td><td><b>${money(x.total)}</b></td><td>${new Date(x.created_at).toLocaleDateString("es-PE")}</td><td style="display:flex;gap:5px"><button class="secondary" data-open="${x.id}">Abrir</button><button class="secondary" data-pdf="${x.id}">PDF</button></td></tr>`).join("")||'<tr><td colspan="7" class="empty">No hay cotizaciones que coincidan.</td></tr>';$("[data-open]",c).forEach(b=>b.onclick=()=>quoteModal(rows.find(x=>x.id===b.dataset.open)))};$("#new").onclick=()=>quoteModal();$("#aiNew").onclick=()=>aiQuoteModal();$("#ask").onclick=openChat;$("#search").oninput=draw;$("#statusFilter").onchange=draw;$("[data-pdf]",c).forEach(b=>b.onclick=()=>downloadQuotePdf(b.dataset.pdf));draw()}
+async function quotes(){
+  const {data,error}=await S.from("marc_quotes").select("*,marc_clients(name)").eq("user_id",st.u.id).order("created_at",{ascending:false});
+  if(error)return toast(error.message,"err");
+  const rows=data||[],c=$("#content");
+  c.innerHTML=`<div class="head"><div><div class="eyebrow2">COTIZACIONES</div><h1>Convierte una orden en propuesta.</h1><p>Productos del inventario y trabajos escritos o dictados.</p></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button id="aiNew" class="secondary">✦ Crear con IA</button><button id="new" class="primary">＋ Nueva cotización</button></div></div>
+  <section class="card table"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar número, cliente o título…"></div><select id="statusFilter" class="secondary" style="min-width:130px"><option value="">Todos</option><option>BORRADOR</option><option>ENVIADA</option><option>ACEPTADA</option><option>RECHAZADA</option><option>ANULADA</option><option>COBRADA</option></select><button id="ask" class="secondary">Preguntar</button></div><div class="scroll"><table class="data"><thead><tr><th>Número</th><th>Cliente</th><th>Título</th><th>Estado</th><th>Total</th><th>Fecha</th><th></th></tr></thead><tbody id="qrows"></tbody></table></div></section>`;
+
+  const body=$("#qrows");
+  const draw=()=>{
+    const q=($("#search").value||"").toLowerCase(),sf=$("#statusFilter").value;
+    const list=rows.filter(x=>(!sf||x.status===sf)&&[x.number,x.title,x.marc_clients?.name].some(v=>String(v||"").toLowerCase().includes(q)));
+    body.innerHTML=list.map(x=>`<tr><td><b>${esc(x.number)}</b></td><td>${esc(x.marc_clients?.name||"Sin cliente")}</td><td>${esc(x.title)}</td><td><span class="badge">${esc(x.status)}</span></td><td><b>${money(x.total)}</b></td><td>${new Date(x.created_at).toLocaleDateString("es-PE")}</td><td style="display:flex;gap:5px"><button type="button" class="secondary" data-action="open-quote" data-id="${x.id}">Abrir</button><button type="button" class="secondary" data-action="pdf-quote" data-id="${x.id}">PDF</button></td></tr>`).join("")||'<tr><td colspan="7" class="empty">No hay cotizaciones que coincidan.</td></tr>';
+  };
+
+  body.onclick=async e=>{
+    const b=e.target.closest("button[data-action]");
+    if(!b)return;
+    const id=b.dataset.id;
+    try{
+      if(b.dataset.action==="open-quote"){
+        const row=rows.find(x=>x.id===id);
+        if(!row)return toast("No se encontró la cotización.","err");
+        await quoteModal(row);
+      }else if(b.dataset.action==="pdf-quote"){
+        b.disabled=true;
+        await downloadQuotePdf(id);
+      }
+    }catch(err){
+      toast(err?.message||"No se pudo completar la acción.","err");
+    }finally{
+      b.disabled=false;
+    }
+  };
+
+  $("#new").onclick=()=>quoteModal();
+  $("#aiNew").onclick=()=>aiQuoteModal();
+  $("#ask").onclick=openChat;
+  $("#search").oninput=draw;
+  $("#statusFilter").onchange=draw;
+  draw();
+}
+
 async function communications(){const c=$("#content");c.innerHTML=`<div class="head"><div><div class="eyebrow2">COMUNICACIONES</div><h1>M.A.R.C. como centro de enlace.</h1><p>Las conexiones con Sakit, Q, Sumasa y Clover se activarán cuando sus contratos estén definidos.</p></div><button id="goChat" class="primary">✦ Preguntar</button></div><div class="commgrid">${["SAKIT","Q","SUMASA","CLOVER"].map(x=>`<section class="card comm"><h3>${x}</h3><p>Canal reservado. Falta definir autenticación, eventos, permisos y formato de mensajes.</p><span class="badge">Pendiente</span><div style="margin-top:10px"><button class="secondary" data-sys="${x}">Preparar conexión</button></div></section>`).join("")}</div><section class="card panel" style="margin-top:13px"><h3>Canales</h3><p>El mismo núcleo operará por web y Telegram.</p><div class="list"><div class="row"><div><b>Web</b><small>Chat dentro de M.A.R.C.</small></div><span class="badge ok">Activo</span></div><div class="row"><div><b>Telegram</b><small>Bot con la misma cuenta y suscripción.</small></div><span class="badge">Próximo</span></div></div></section>`;$("#goChat").onclick=openChat;$$("[data-sys]",c).forEach(b=>b.onclick=()=>{openChat();$("#chatInput").value="Quiero conectar "+b.dataset.sys;$("#chatInput").focus()})}
 async function telegramStatus(){
   try{
@@ -315,11 +356,15 @@ async function printQuote(id){
   w.document.open();w.document.write(html);w.document.close();
 }
 async function downloadQuotePdf(id){
-  if(!id){toast("Guarda la cotización antes de descargar el PDF.","err");return}
-  if(!window.jspdf?.jsPDF){toast("El generador PDF todavía está cargando. Vuelve a intentarlo.","err");return}
-  const q=(await S.from("marc_quotes").select("*,marc_clients(name,document_type,document_number,email,phone,address)").eq("id",id).eq("user_id",st.u.id).single()).data;
-  if(!q)return toast("No se encontró la cotización.","err");
-  const items=(await S.from("marc_quote_items").select("*").eq("quote_id",id).eq("user_id",st.u.id).order("created_at")).data||[];
+  if(!id)throw new Error("Guarda la cotización antes de descargar el PDF.");
+  if(!window.jspdf?.jsPDF)throw new Error("El generador PDF todavía está cargando. Recarga la página e inténtalo nuevamente.");
+  const qr=await S.from("marc_quotes").select("*,marc_clients(name,document_type,document_number,email,phone,address)").eq("id",id).eq("user_id",st.u.id).single();
+  if(qr.error)throw new Error("No se pudo leer la cotización: "+qr.error.message);
+  const q=qr.data;
+  if(!q)throw new Error("No se encontró la cotización.");
+  const ir=await S.from("marc_quote_items").select("*").eq("quote_id",id).eq("user_id",st.u.id).order("created_at");
+  if(ir.error)throw new Error("No se pudieron leer las partidas: "+ir.error.message);
+  const items=ir.data||[];
   const client=q.marc_clients||{};
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({unit:"mm",format:"a4"});
@@ -330,7 +375,6 @@ async function downloadQuotePdf(id){
   doc.setFont("helvetica","bold");doc.setFontSize(16);doc.text(String(q.number||"COTIZACIÓN"),pageW-margin,y,{align:"right"});
   doc.setFont("helvetica","normal");doc.setFontSize(9);doc.text(new Date(q.created_at).toLocaleDateString("es-PE"),pageW-margin,y+5,{align:"right"});
   y+=15;doc.setDrawColor(210);doc.line(margin,y,pageW-margin,y);y+=9;
-
   const box=(x,yy,w,h,title,lines)=>{
     doc.setDrawColor(225);doc.roundedRect(x,yy,w,h,3,3);
     doc.setFont("helvetica","bold");doc.setFontSize(9);doc.text(title,x+4,yy+6);
@@ -340,7 +384,6 @@ async function downloadQuotePdf(id){
   box(margin,y,88,30,"CLIENTE",[client.name||"Sin cliente",client.document_type&&client.document_number?client.document_type+" "+client.document_number:"",client.phone||"",client.email||"",client.address||""]);
   box(108,y,88,30,"CONDICIONES",["Título: "+String(q.title||"Cotización"),"Moneda: "+String(q.currency||"PEN"),"IGV: "+(q.tax_enabled?String(q.tax_rate)+"%":"No incluido"),"Estado: "+String(q.status||"BORRADOR")]);
   y+=38;
-
   doc.setFillColor(242,246,250);doc.rect(margin,y,pageW-margin*2,8,"F");
   doc.setFont("helvetica","bold");doc.setFontSize(8);
   doc.text("CONCEPTO",margin+2,y+5);doc.text("DESCRIPCIÓN",70,y+5);doc.text("CANT.",140,y+5);doc.text("PRECIO",158,y+5);doc.text("TOTAL",184,y+5);

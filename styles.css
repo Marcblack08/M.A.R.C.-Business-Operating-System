@@ -1449,3 +1449,39 @@ body,
   .kpi-modern small{font-size:5.7px}
   .hero-primary,.hero-secondary{font-size:9px}
 }
+
+/* ===== CLIENTS RESPONSIVE CARDS ===== */
+.client-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 0 12px}
+.client-summary>div{padding:14px 15px;border:1px solid var(--line);border-radius:15px;background:var(--panel);box-shadow:0 8px 22px rgba(30,70,110,.05)}
+.client-summary span{display:block;font-size:7px;font-weight:900;letter-spacing:.1em;color:#8091a3}
+.client-summary strong{display:block;margin-top:4px;font-size:22px;line-height:1;color:var(--text)}
+.client-summary small{display:block;margin-top:5px;font-size:7px;color:var(--muted)}
+.client-cards{display:none}
+.client-card{padding:14px;border:1px solid var(--line);border-radius:16px;background:var(--panel);box-shadow:0 8px 24px rgba(20,60,100,.05)}
+.client-card-top{display:flex;align-items:center;gap:10px}
+.client-avatar{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;background:linear-gradient(135deg,#168fe8,#4c69dc);color:#fff;font-size:11px;font-weight:900;flex:none}
+.client-card-name{min-width:0;flex:1}
+.client-card-name h3{margin:0;font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.client-card-name small{display:block;margin-top:3px;font-size:7px;color:var(--muted)}
+.client-details{display:grid;gap:7px;margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
+.client-details>div{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.client-details span{font-size:7px;color:var(--muted);font-weight:800}
+.client-details b{font-size:8px;color:var(--text);text-align:right;max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.client-empty{font-size:8px;color:var(--muted)}
+[data-theme="dark"] .client-summary>div,
+[data-theme="dark"] .client-card{background:linear-gradient(180deg,#0f1d2e,#0b1726);border-color:#243950}
+@media(max-width:780px){
+  .client-summary{grid-template-columns:1fr 1fr 1fr;gap:6px}
+  .client-summary>div{padding:11px 8px;border-radius:12px}
+  .client-summary span{font-size:5.5px}
+  .client-summary strong{font-size:18px}
+  .client-summary small{font-size:5.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .clients-desktop{display:none!important}
+  .client-cards{display:grid;gap:8px}
+  .clients-browser{background:transparent!important;border:0!important;box-shadow:none!important;padding:0!important;overflow:visible!important}
+  .clients-browser .toolbar{padding:0 0 10px;background:transparent!important;border:0!important}
+}
+@media(max-width:380px){
+  .client-summary strong{font-size:16px}
+  .client-summary small{display:none}
+}

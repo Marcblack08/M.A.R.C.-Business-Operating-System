@@ -1924,7 +1924,7 @@ async function quoteModal(existing=null,preset=null){
         '<label>Estado<select name="status"><option value="BORRADOR" '+((quote?.status||"BORRADOR")==="BORRADOR"?"selected":"")+'>Borrador</option><option value="ENVIADA" '+((quote?.status||"BORRADOR")==="ENVIADA"?"selected":"")+'>Enviada</option><option value="ACEPTADA" '+((quote?.status||"BORRADOR")==="ACEPTADA"?"selected":"")+'>Aceptada</option><option value="RECHAZADA" '+((quote?.status||"BORRADOR")==="RECHAZADA"?"selected":"")+'>Rechazada</option><option value="ANULADA" '+((quote?.status||"BORRADOR")==="ANULADA"?"selected":"")+'>Anulada</option><option value="COBRADA" '+((quote?.status||"BORRADOR")==="COBRADA"?"selected":"")+'>Cobrada</option></select></label>'+
       '</div>'+
       '<div class="quote-finance-hint"><b>¿Quién proporciona los materiales?</b><span>Cliente = no cuenta como costo de material para M.A.R.C.</span></div>'+
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin:10px 0 5px"><b style="font-size:9px">PARTIDAS</b><button type="button" id="add" class="secondary">＋ Línea</button></div>'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin:10px 0 5px"><b style="font-size:9px">PARTIDAS</b><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><button type="button" id="improveAllQuote" class="secondary">✦ Mejorar descripciones</button><button type="button" id="add" class="secondary">＋ Línea</button></div></div>'+
       '<div id="lines"></div>'+
       '<label>Notas<textarea name="notes" rows="3">'+esc(quote?.notes||"")+'</textarea></label>'+
       '<div id="summary" class="quote-summary"></div>'+
@@ -2093,6 +2093,19 @@ async function quoteModal(existing=null,preset=null){
   };
 
   $("#add").onclick=()=>{lines.push(defaultLine());draw();};
+  $("#improveAllQuote").onclick=async()=>{
+    const btn=$("#improveAllQuote");
+    const items=lines.map((x,i)=>({index:i,type:x.type,name:x.name||"",description:String(x.description||"").trim()})).filter(x=>x.description);
+    if(!items.length)return toast("Escribe al menos una descripción para mejorar.","err");
+    btn.disabled=true;const previous=btn.textContent;btn.textContent="✦ Mejorando…";
+    try{
+      const r=await fetch("/api/quote-ai",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({improveLines:true,items})});
+      const j=await r.json();if(!r.ok)throw new Error(j.message||j.error||"No se pudieron mejorar las descripciones.");
+      const improved=Array.isArray(j.improvedLines)?j.improvedLines:[];let changed=0;
+      improved.forEach(x=>{const i=Number(x.index);if(!Number.isInteger(i)||!lines[i])return;if(x.description){lines[i].description=String(x.description).trim();changed++}if(x.title&&lines[i].type==="TRABAJO"&&(!String(lines[i].name||"").trim()||/^trabajo$/i.test(String(lines[i].name||"").trim())))lines[i].name=String(x.title).trim()});
+      draw();toast(changed?changed+" descripción"+(changed===1?"":"es")+" mejorada"+(changed===1?"":"s")+" por IA.":"No hubo cambios.","ok");
+    }catch(err){toast(err.message||"No se pudieron mejorar las descripciones.","err")}finally{btn.disabled=false;btn.textContent=previous}
+  };
   $("#f [name=tax_enabled]").onchange=updateSummary;
   $("#f [name=tax_rate]").oninput=updateSummary;
   $("#print").onclick=async()=>printQuote(existing?.id);

@@ -667,9 +667,10 @@ async function inventoryPdfModal(){
 
       if(failedPages.length){
         status.className="msg error";
-        status.textContent="No se pudo analizar "+failedPages.length+" página(s): "+failedPages.map(x=>"P"+x.pageNumber).join(", ")+". No se habilitará la importación para evitar productos faltantes.";
+        status.textContent="No se pudo analizar "+failedPages.length+" página(s): "+failedPages.map(x=>"P"+x.pageNumber).join(", ")+". La importación queda bloqueada para evitar faltantes.";
         $("#pdfProgressCount").textContent=detected.length+" productos detectados · "+failedPages.length+" páginas con error";
-        throw new Error("No se pudieron analizar todas las páginas del catálogo. Revisa: "+failedPages.map(x=>"página "+x.pageNumber).join(", ")+".");
+        const detail=failedPages.map(x=>"P"+x.pageNumber+": "+x.error).join("\n");
+        throw new Error("No se pudieron analizar todas las páginas.\n\n"+detail+"\n\nNo se importó ningún producto.");
       }
       status.className="msg ok";
       status.textContent="Análisis terminado. Revisa exactamente qué productos serán procesados antes de importarlos.";

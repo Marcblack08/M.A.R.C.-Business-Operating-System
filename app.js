@@ -690,12 +690,12 @@ async function inventoryPdfModal(){
         // Resolución, almacenamiento, distancia focal, velocidad y otras
         // especificaciones que identifican variantes distintas.
         const patterns=[
-          /\\b\\d+(?:\\.\\d+)?\\s*(?:mp|megapixel|gb|tb|mb|mm|cm|m|x|w|v|a|hz|mah|mah)\\b/g,
-          /\\b(?:2mp|4mp|5mp|8mp|12mp|16mp|32gb|64gb|128gb|256gb|512gb|1tb|2tb)\\b/g,
-          /\\b(?:blanco|negro|white|black|rojo|roja|azul|verde|gris|plata|dorado|gold|silver)\\b/g,
-          /\\b(?:2\\.8|3\\.6|4|6|8|12|16)\\s*mm\\b/g
+          /\b\\d+(?:\.\\d+)?\s*(?:mp|megapixel|gb|tb|mb|mm|cm|m|x|w|v|a|hz|mah|mah)\b/g,
+          /\b(?:2mp|4mp|5mp|8mp|12mp|16mp|32gb|64gb|128gb|256gb|512gb|1tb|2tb)\b/g,
+          /\b(?:blanco|negro|white|black|rojo|roja|azul|verde|gris|plata|dorado|gold|silver)\b/g,
+          /\b(?:2\.8|3\.6|4|6|8|12|16)\s*mm\b/g
         ];
-        patterns.forEach(re=>{const m=s.match(re)||[];m.forEach(x=>out.add(x.replace(/\\s+/g," ")));});
+        patterns.forEach(re=>{const m=s.match(re)||[];m.forEach(x=>out.add(x.replace(/\s+/g," ")));});
         return out;
       };
       const fuzzyDuplicate=(a,b)=>{

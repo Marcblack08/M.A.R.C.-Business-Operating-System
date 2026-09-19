@@ -1,36 +1,34 @@
-(()=>{const C=window.MARC_CONFIG,S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});const st={u:null,session:null,view:"home",cid:null,entering:false};const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)],esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])),money=v=>new Intl.NumberFormat("es-PE",{style:"currency",currency:"PEN"}).format(Number(v||0)),toast=(t,c="")=>{const e=document.createElement("div");e.className="toast "+c;e.textContent=t;$("#toast").appendChild(e);setTimeout(()=>e.remove(),2600)},initials=n=>String(n||"M").split(/\s+/).slice(0,2).map(x=>x[0]?.toUpperCase()).join("");let authMode="login";
+(()=>{const C=window.MARC_CONFIG,S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});const st={u:null,session:null,view:"home",cid:null,authEpoch:0};const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)],esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c)),money=v=>new Intl.NumberFormat("es-PE",{style:"currency",currency:"PEN"}).format(Number(v||0)),toast=(t,c="")=>{const e=document.createElement("div");e.className="toast "+c;e.textContent=t;$("#toast").appendChild(e);setTimeout(()=>e.remove(),2600)},initials=n=>String(n||"M").split(/\s+/).slice(0,2).map(x=>x[0]?.toUpperCase()).join("");let authMode="login";
 function msg(t,c=""){const e=$("#authMsg");e.textContent=t;e.className="msg "+c}
 function mode(m){authMode=m;$("#authForm").reset();$("#confirmBox").classList.toggle("hidden",m!=="signup");$("#confirm").required=m==="signup";$("#forgot").classList.toggle("hidden",m!=="login");$("#switchAuth").textContent=m==="signup"?"Ya tengo una cuenta":m==="reset"?"Volver al inicio de sesión":"Crear una cuenta";$("#authTitle").textContent=m==="signup"?"Crea tu cuenta":m==="reset"?"Recupera tu contraseña":"Inicia sesión en M.A.R.C.";$("#authSub").textContent=m==="signup"?"Empieza tu prueba gratuita de 7 días.":m==="reset"?"Te enviaremos un enlace seguro.":"Convierte conversaciones en operaciones reales de tu negocio.";$("#authSubmit").textContent=m==="signup"?"Crear cuenta":m==="reset"?"Enviar enlace":"Iniciar sesión";$("#password").disabled=m==="reset";$("#password").required=m!=="reset";msg("")}
+function resetUiToLogin(message="",type=""){st.authEpoch++;st.u=null;st.session=null;st.cid=null;$("#app").classList.add("hidden");$("#auth").classList.remove("hidden");mode("login");if(message)msg(message,type)}
 async function ensure(){const u=st.u;if(!u)return;await S.from("marc_accounts").upsert({id:u.id,display_name:u.email?.split("@")[0]||"Usuario"},{onConflict:"id"});const {data:t}=await S.from("marc_trials").select("id").eq("user_id",u.id).maybeSingle();if(!t)await S.from("marc_trials").insert({user_id:u.id});const {data:c}=await S.from("marc_conversations").select("id").eq("user_id",u.id).eq("channel","WEB").order("updated_at",{ascending:false}).limit(1).maybeSingle();st.cid=c?.id||(await S.from("marc_conversations").insert({user_id:u.id,channel:"WEB",title:"Conversación principal"}).select("id").single()).data?.id}
 async function enter(s){
   if(!s?.user)return;
-  // Single UI state: authentication screen OR application, never both.
+  const epoch=++st.authEpoch;
   st.session=s;
   st.u=s.user;
-  if(st.entering)return;
-  st.entering=true;
-  const auth=$("#auth"), app=$("#app");
+  const auth=$("#auth"),app=$("#app");
   try{
     auth.classList.add("hidden");
     app.classList.add("hidden");
     await ensure();
+    if(epoch!==st.authEpoch)return;
     await trial();
+    if(epoch!==st.authEpoch)return;
     await chatLoad();
+    if(epoch!==st.authEpoch)return;
     app.classList.remove("hidden");
     await view("home");
   }catch(e){
-    // If initialization fails, keep the user on the login screen instead of
-    // leaving a partially rendered application visible.
-    st.u=null;
-    st.session=null;
+    if(epoch!==st.authEpoch)return;
+    st.u=null;st.session=null;st.cid=null;
     app.classList.add("hidden");
     auth.classList.remove("hidden");
     msg(e?.message||"No se pudo cargar M.A.R.C.","error");
-  }finally{
-    st.entering=false;
   }
 }
-async function submit(e){e.preventDefault();try{$("#authSubmit").disabled=true;msg("Procesando…");const email=$("#email").value.trim(),p=$("#password").value;if(authMode==="reset"){const {error}=await S.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});if(error)throw error;msg("Revisa tu correo.","ok");return}if(authMode==="signup"){if(p!==$("#confirm").value)throw new Error("Las contraseñas no coinciden.");const {data,error}=await S.auth.signUp({email,password:p});if(error)throw error;if(!data.session){msg("Cuenta creada. Revisa tu correo.","ok");return}await enter(data.session)}else{const {data,error}=await S.auth.signInWithPassword({email,password:p});if(error)throw error;await enter(data.session)}}catch(e){msg(e.message||"No se pudo completar.","error")}finally{$("#authSubmit").disabled=false}}
+async function submit(e){e.preventDefault();try{$("#authSubmit").disabled=true;msg("Procesando…");const email=$("#email").value.trim(),p=$("#password").value;if(authMode==="reset"){const {error}=await S.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});if(error)throw error;msg("Revisa tu correo.","ok");return}if(authMode==="signup"){if(p!==$("#confirm").value)throw new Error("Las contraseñas no coinciden.");const {error}=await S.auth.signUp({email,password:p});if(error)throw error;msg("Cuenta creada. Revisa tu correo si la confirmación está activada.","ok");return}else{const {error}=await S.auth.signInWithPassword({email,password:p});if(error)throw error}}catch(e){msg(e.message||"No se pudo completar.","error")}finally{$("#authSubmit").disabled=false}}
 async function trial(){
   const {data:role}=await S.from("marc_user_roles").select("role,active").eq("user_id",st.u.id).eq("role","MASTER").eq("active",true).maybeSingle();
   const [c,i,q]=await Promise.all([

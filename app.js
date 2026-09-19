@@ -1740,7 +1740,7 @@ async function telegramStatus(){
     return {error:e.message||"No se pudo consultar Telegram."};
   }
 }
-async async function connectTelegram(){
+async function connectTelegram(){
   const b=$("#connectTelegram");
   if(b)b.disabled=true;
   try{
@@ -1758,7 +1758,7 @@ async async function connectTelegram(){
   }catch(e){toast(e.message||"No se pudo conectar Telegram.","err")}
   finally{if(b)b.disabled=false}
 }
-async async function refreshTelegramSettings(){
+async function refreshTelegramSettings(){
   const box=$("#telegramState"),connect=$("#connectTelegram"),unlink=$("#unlinkTelegram");
   if(!box)return;
   const s=await telegramStatus();

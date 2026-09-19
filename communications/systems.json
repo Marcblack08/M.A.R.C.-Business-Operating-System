@@ -1,0 +1,7 @@
+{
+  "core": "M.A.R.C.",
+  "partners": ["Sakit", "Q", "Sumasa", "Clover"],
+  "status": "planning",
+  "implemented_integrations": [],
+  "rule": "Do not invent protocols, endpoints, credentials, or capabilities."
+}

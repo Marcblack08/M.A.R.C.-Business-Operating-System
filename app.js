@@ -249,6 +249,28 @@ async function inventoryPdfModal(){
       status.textContent="Catálogo abierto. Procesando "+totalPages+" páginas…";
       $("#pdfImportProgress").innerHTML=pdfProgressHtml(0,totalPages,0);
 
+      let pendingId=null;
+      let pendingPromise=null;
+      const ensurePendingId=async()=>{
+        if(pendingId)return pendingId;
+        if(pendingPromise)return pendingPromise;
+        pendingPromise=fetch("/api/inventory/pdf-start",{
+          method:"POST",
+          headers:{
+            "Content-Type":"application/json",
+            Authorization:"Bearer "+st.session?.access_token
+          },
+          body:JSON.stringify({filename:file.name,totalPages})
+        }).then(async response=>{
+          const data=await response.json();
+          if(!response.ok)throw new Error(data.message||data.error||"No se pudo iniciar el análisis avanzado.");
+          if(!data.pendingId)throw new Error("No se pudo crear la sesión de análisis avanzado.");
+          pendingId=data.pendingId;
+          return pendingId;
+        }).finally(()=>{pendingPromise=null});
+        return pendingPromise;
+      };
+
       const detected=[];
       const live=$("#pdfLiveItems");
       live.classList.remove("hidden");
@@ -274,6 +296,7 @@ async function inventoryPdfModal(){
           }
 
           // Solo los PDFs sin tabla de texto utilizan Gemini.
+          const pendingForPage=await ensurePendingId();
           const text=local.text||await extractPdfPageText(page);
           let image="";
           let viewport=page.getViewport({scale:1.25});
@@ -294,7 +317,7 @@ async function inventoryPdfModal(){
                   "Content-Type":"application/json",
                   Authorization:"Bearer "+st.session?.access_token
                 },
-                body:JSON.stringify({pendingId:null,pageNumber,totalPages,text,image})
+                body:JSON.stringify({pendingId:pendingForPage,pageNumber,totalPages,text,image})
               });
               const pj=await pr.json();
               if(!pr.ok)throw new Error(pj.message||pj.error||("No se pudo analizar la página "+pageNumber));

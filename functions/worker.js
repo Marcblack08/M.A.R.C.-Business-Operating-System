@@ -369,6 +369,23 @@ async function telegramWebhook(request,env){
   await sendTelegram(env,chatId,answer);
   return json({ok:true},200);
 }
+async function telegramDiagnostics(request,env){
+  if(request.method!=="GET")return json({error:"Método no permitido"},405);
+  if(!env.TELEGRAM_BOT_TOKEN)return json({ok:false,error:"TELEGRAM_BOT_TOKEN missing"},503);
+  const r=await fetch("https://api.telegram.org/bot"+env.TELEGRAM_BOT_TOKEN+"/getWebhookInfo");
+  const d=await r.json().catch(()=>null);
+  if(!r.ok||!d?.ok)return json({ok:false,error:d?.description||"Telegram error"},502);
+  const x=d.result||{};
+  return json({
+    ok:true,
+    url:x.url||"",
+    pending_update_count:Number(x.pending_update_count||0),
+    last_error_date:x.last_error_date||null,
+    last_error_message:x.last_error_message||null,
+    ip_address:x.ip_address||null
+  });
+}
+
 async function telegramSetup(request,env){
   const {token,user}=await authUser(request,env);
   const access=await entitlement(env,token,user.id);
@@ -469,6 +486,7 @@ export default{
         return json({error:err?.message||"Error del webhook",detail:err?.details||null},err?.status||500);
       }
     }
+    if(url.pathname==="/api/telegram/diagnostics"){return telegramDiagnostics(request,env)}
     if(url.pathname==="/api/telegram/setup"){
       if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);
       try{return await telegramSetup(request,env)}catch(err){return json({error:err?.message||"No se pudo configurar Telegram"},err?.status||500,headers)}

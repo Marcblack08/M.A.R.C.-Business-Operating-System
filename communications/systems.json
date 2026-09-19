@@ -1,7 +1,26 @@
 {
   "core": "M.A.R.C.",
-  "partners": ["Sakit", "Q", "Sumasa", "Clover"],
-  "status": "planning",
-  "implemented_integrations": [],
-  "rule": "Do not invent protocols, endpoints, credentials, or capabilities."
+  "external_systems": [
+    "Sakit",
+    "Q",
+    "Sumasa",
+    "Clover"
+  ],
+  "channels": [
+    "Web",
+    "Telegram"
+  ],
+  "monetization": {
+    "model": "SaaS",
+    "paid": true,
+    "telegram_digital_payments": "Telegram Stars / XTR",
+    "web_payment_provider": "TBD"
+  },
+  "integrations_status": {
+    "Sakit": "pending-specification",
+    "Q": "pending-specification",
+    "Sumasa": "pending-specification",
+    "Clover": "pending-specification"
+  },
+  "rule": "Shared core, shared identity, shared permissions, shared subscription. Do not invent external protocols, endpoints, credentials, or capabilities."
 }

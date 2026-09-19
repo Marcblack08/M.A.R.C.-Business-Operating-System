@@ -1,5 +1,48 @@
 const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json","cache-control":"no-store",...headers}});
 const SYSTEM_MODEL="@cf/meta/llama-3.1-8b-instruct-fast";
+const GEMINI_MODEL_DEFAULT="gemini-3.8-flash";
+
+async function geminiGenerate(env,messages,options={}){
+  const apiKey=env.GEMINI_API_KEY||env.GEMINI_API_KEY2;
+  if(!apiKey)throw Object.assign(new Error("GEMINI_API_KEY no está configurada en el Worker."),{status:503});
+  const model=env.GEMINI_MODEL||GEMINI_MODEL_DEFAULT;
+  const system=messages.filter(m=>m.role==="system").map(m=>String(m.content||"")).join("\n\n");
+  const contents=messages.filter(m=>m.role!=="system").map(m=>({
+    role:m.role==="assistant"||m.role==="model"?"model":"user",
+    parts:[{text:String(m.content||"")}]
+  }));
+  const body={
+    systemInstruction:system?{parts:[{text:system}]}:undefined,
+    contents,
+    generationConfig:{
+      ...(options.maxTokens?{maxOutputTokens:options.maxTokens}:{}),
+      ...(options.json?{responseMimeType:"application/json"}:{})
+    }
+  };
+  if(!body.systemInstruction)delete body.systemInstruction;
+
+  const call=async key=>{
+    const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":generateContent",{
+      method:"POST",
+      headers:{"content-type":"application/json","x-goog-api-key":key},
+      body:JSON.stringify(body)
+    });
+    const raw=await r.text();
+    let data=null;try{data=raw?JSON.parse(raw):null}catch{data=raw}
+    if(!r.ok){
+      const e=new Error(data?.error?.message||"Gemini API error");
+      e.status=r.status;e.details=data;
+      throw e;
+    }
+    return data;
+  };
+
+  try{return await call(apiKey)}
+  catch(err){
+    if(env.GEMINI_API_KEY2 && env.GEMINI_API_KEY2!==apiKey && [429,500,502,503,504].includes(Number(err?.status)))return call(env.GEMINI_API_KEY2);
+    throw err;
+  }
+}
 
 function corsHeaders(request){
   const origin=request.headers.get("Origin")||"*";
@@ -222,8 +265,9 @@ async function plan(env,message,history){
     ...(context?[{role:"user",content:"Historial reciente:\n"+context}]:[]),
     {role:"user",content:message}
   ]};
-  const out=await env.AI.run(env.MARC_AI_MODEL||SYSTEM_MODEL,prompt);
-  try{return extractJson(out?.response)}catch{return {action:"CHAT",execute:false,params:{}}}
+  const out=await geminiGenerate(env,prompt,{json:true,maxTokens:500});
+  const responseText=out?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("")||"";
+  try{return extractJson(responseText)}catch{return {action:"CHAT",execute:false,params:{}}}
 }
 
 async function executePlan(env,token,user,pl,source="AI_AGENT"){
@@ -261,8 +305,8 @@ async function finalReply(env,message,planData){
     {role:"system",content:'Eres M.A.R.C., copiloto operativo. Responde en español claro, profesional y breve. Usa exclusivamente los datos de RESULTADO. No inventes nada. Si status=NEEDS_INPUT, pregunta exactamente por el dato faltante. Si status=AMBIGUOUS, presenta las opciones y pide elegir. Si status=CREATED o UPDATED, confirma la operación con los datos entregados. Si es una consulta, muestra los resultados útiles. No hables del plan, rol, suscripción o estado de ejecución salvo que la solicitud trate sobre ello. No describas herramientas internas ni digas que eres un modelo.'},
     {role:"user",content:"SOLICITUD:\n"+message+"\n\nRESULTADO:\n"+normalizeData(planData)}
   ]};
-  const out=await env.AI.run(env.MARC_AI_MODEL||SYSTEM_MODEL,{...prompt,max_tokens:700,temperature:.15});
-  return out?.response||"Listo.";
+  const out=await geminiGenerate(env,prompt,{maxTokens:700});
+  return out?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("")||"Listo.";
 }
 
 async function entitlement(env,token,userId){
@@ -459,9 +503,10 @@ async function quoteAiDraft(request,env){
     {role:"system",content:'Eres el asistente de cotizaciones de M.A.R.C. Devuelve SOLO JSON válido. No inventes precios, clientes, productos ni cantidades. Si el usuario escribe un precio, extrae el número. Si no escribe precio, unit_price debe ser null. En modo A TODO COSTO la cotización debe tener una sola partida de tipo TRABAJO, cantidad 1, y el nombre debe ser un título corto; la descripción debe conservar los detalles técnicos del trabajo. Si el texto contiene "a todo costo", mantén esa idea en la descripción. Extrae un título profesional. Formato exacto: {"title":"...","client_query":"...","items":[{"type":"TRABAJO","name":"...","description":"...","quantity":1,"unit_price":number|null}]}.'},
     {role:"user",content:"MODO A TODO COSTO: "+(allCost?"SI":"NO")+"\nCLIENTE SUGERIDO: "+clientQuery+"\nDESCRIPCIÓN:\n"+description}
   ]};
-  const out=await env.AI.run(env.MARC_AI_MODEL||SYSTEM_MODEL,{...prompt,max_tokens:500,temperature:.1});
+  const out=await geminiGenerate(env,prompt,{json:true,maxTokens:500});
+  const responseText=out?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("")||"";
   let draft;
-  try{draft=extractJson(out?.response)}catch{throw Object.assign(new Error("La IA no pudo estructurar la cotización."),{status:502})}
+  try{draft=extractJson(responseText)}catch{throw Object.assign(new Error("La IA no pudo estructurar la cotización."),{status:502})}
   if(!draft?.items?.length)throw Object.assign(new Error("La IA no generó una partida."),{status:502});
   const item=draft.items[0]||{};
   draft={title:String(draft.title||"Cotización").slice(0,160),client_query:String(draft.client_query||clientQuery||"").slice(0,200),all_cost:allCost,items:[{

@@ -504,10 +504,23 @@ async function quoteAiDraft(request,env){
     {role:"system",content:'Eres el asistente de cotizaciones de M.A.R.C. Devuelve SOLO JSON válido. No inventes precios, clientes, productos ni cantidades. Si el usuario escribe un precio, extrae el número. Si no escribe precio, unit_price debe ser null. En modo A TODO COSTO la cotización debe tener una sola partida de tipo TRABAJO, cantidad 1, y el nombre debe ser un título corto; la descripción debe conservar los detalles técnicos del trabajo. Si el texto contiene "a todo costo", mantén esa idea en la descripción. Extrae un título profesional. Formato exacto: {"title":"...","client_query":"...","items":[{"type":"TRABAJO","name":"...","description":"...","quantity":1,"unit_price":number|null}]}.'},
     {role:"user",content:"MODO A TODO COSTO: "+(allCost?"SI":"NO")+"\nCLIENTE SUGERIDO: "+clientQuery+"\nDESCRIPCIÓN:\n"+description}
   ]};
-  const out=await geminiGenerate(env,prompt,{json:true,maxTokens:500});
+  let out;
+  try{
+    out=await geminiGenerate(env,prompt,{json:true,maxTokens:500});
+  }catch(err){
+    const e=Object.assign(new Error("Gemini: "+String(err?.message||"Error de API").slice(0,800)),{status:err?.status||502,details:err?.details||null});
+    throw e;
+  }
   const responseText=out?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("")||"";
+  if(!responseText){
+    throw Object.assign(new Error("Gemini devolvió una respuesta vacía. Revisa el modelo y la cuota de la API key."),{status:502,details:{finishReason:out?.candidates?.[0]?.finishReason||null}});
+  }
   let draft;
-  try{draft=extractJson(responseText)}catch{throw Object.assign(new Error("La IA no pudo estructurar la cotización."),{status:502})}
+  try{
+    draft=extractJson(responseText);
+  }catch{
+    throw Object.assign(new Error("Gemini respondió, pero no entregó JSON válido: "+responseText.slice(0,500)),{status:502});
+  }
   if(!draft?.items?.length)throw Object.assign(new Error("La IA no generó una partida."),{status:502});
   const item=draft.items[0]||{};
   draft={title:String(draft.title||"Cotización").slice(0,160),client_query:String(draft.client_query||clientQuery||"").slice(0,200),all_cost:allCost,items:[{

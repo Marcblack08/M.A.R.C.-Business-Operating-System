@@ -1134,7 +1134,7 @@ async function quoteAiDraft(request,env){
     let out;try{out=await geminiGenerate(env,prompt,{json:true,maxTokens:1800})}catch(err){throw Object.assign(new Error("Gemini: "+String(err?.message||"Error de API").slice(0,800)),{status:err?.status||502,details:err?.details||null})}
     const textOut=out?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("")||"";
     if(!textOut)throw Object.assign(new Error("Gemini devolvió una respuesta vacía."),{status:502});
-    let review;try{review=JSON.parse(textOut.replace(/^```json\s*|^```\s*$/g,"").trim())}catch{review={issues:[],positives:[]}}
+    let review;try{review=JSON.parse(textOut.replace(/^```json\s*|^```\s*$/g,"").trim())}catch{throw Object.assign(new Error("Gemini devolvió una revisión en un formato no válido. Inténtalo nuevamente."),{status:502,details:{raw:textOut.slice(0,500)}})}
     await incrementAiUsage(env,token,user.id,access);
     return json({review:{issues:Array.isArray(review.issues)?review.issues.slice(0,8):[],positives:Array.isArray(review.positives)?review.positives.slice(0,8):[]},entitlement:access},200,corsHeaders(request));
   }

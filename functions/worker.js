@@ -114,15 +114,24 @@ async function searchClients(env,token,userId,query){
   return sb(env,token,url.pathname.slice("/rest/v1/".length)+url.search);
 }
 
-async function searchInventory(env,token,userId,query){
+async function searchInventory(env,token,userId,query,limit=8){
   const url=new URL(env.SUPABASE_URL+"/rest/v1/marc_inventory");
   url.searchParams.set("select","id,name,sku,brand,model,category,unit,cost,price,stock,min_stock");
   url.searchParams.set("user_id","eq."+userId);
   url.searchParams.set("active","eq.true");
   if(query)url.searchParams.set("or",orIlike(["name","sku","brand","model","category"],query));
   url.searchParams.set("order","name.asc");
-  url.searchParams.set("limit","8");
+  url.searchParams.set("limit",String(Math.max(1,Math.min(100,Number(limit)||8))));
   return sb(env,token,url.pathname.slice("/rest/v1/".length)+url.search);
+}
+async function countInventory(env,token,userId){
+  const url=new URL(env.SUPABASE_URL+"/rest/v1/marc_inventory");
+  url.searchParams.set("select","id");
+  url.searchParams.set("user_id","eq."+userId);
+  url.searchParams.set("active","eq.true");
+  url.searchParams.set("limit","1");
+  const rows=await sb(env,token,url.pathname.slice("/rest/v1/".length)+url.search,{prefer:"count=exact"});
+  return Array.isArray(rows)?rows.length:0;
 }
 
 async function listQuotes(env,token,userId){
@@ -287,7 +296,7 @@ function deterministicIntent(message){
      /\binventario\b|\bstock\b|\bproductos\b/.test(s) &&
      !/\b(agrega|agregar|ingresa|ingresar|suma|sumar|resta|restar|ajusta|ajustar|crea|crear|registra|registrar)\b/.test(s)){
     const cleaned=s.replace(/\binventario\b/g," ").replace(/\bmi\b/g," ").replace(/\bmis\b/g," ").replace(/\brevisa\b/g," ").replace(/\brevisar\b/g," ").replace(/\bque productos tengo\b/g," ").replace(/\bproductos\b/g," ").trim();
-    return {action:"SEARCH_INVENTORY",execute:false,params:{query:""}};
+    return {action:"SEARCH_INVENTORY",execute:false,params:{query:"",summary:true}};
   }
   if(/\b(que|cuales|muestra|mostrar|listar|lista|revisa|revisar)\b/.test(s) && /\bcotizaciones?\b|\bproformas?\b/.test(s)){
     return {action:"LIST_QUOTES",execute:false,params:{}};
@@ -316,7 +325,7 @@ async function plan(env,message,history){
 async function executePlan(env,token,user,pl,source="AI_AGENT"){
   const action=String(pl?.action||"CHAT").toUpperCase(),p=pl?.params||{};
   if(action==="SEARCH_CLIENTS")return {action,result:await searchClients(env,token,user.id,p.query||"")};
-  if(action==="SEARCH_INVENTORY")return {action,result:await searchInventory(env,token,user.id,p.query||"")};
+  if(action==="SEARCH_INVENTORY"){if(p.summary){const [count,items]=await Promise.all([countInventory(env,token,user.id),searchInventory(env,token,user.id,"",8)]);return {action,result:{count,items}};}return {action,result:await searchInventory(env,token,user.id,p.query||"")};}
   if(action==="LIST_QUOTES")return {action,result:await listQuotes(env,token,user.id)};
   if(action==="CREATE_CLIENT")return {action,result:pl.execute?await createClient(env,token,user.id,p,source):{status:"PREVIEW",params:p}};
   if(action==="CREATE_QUOTE")return {action,result:pl.execute?await createQuote(env,token,user.id,p,source):{status:"PREVIEW",params:p}};
@@ -331,6 +340,17 @@ function normalizeData(x){
 async function finalReply(env,message,planData){
   const execution=planData?.execution||{};
   const result=execution?.result;
+  if(execution?.action==="SEARCH_INVENTORY" && result && !Array.isArray(result) && Number.isFinite(Number(result.count))){
+    const count=Number(result.count);
+    if(count===0)return "No tienes productos registrados en el inventario.";
+    const items=Array.isArray(result.items)?result.items:[];
+    const lines=items.map(x=>{
+      const stock=Number(x.stock||0),min=Number(x.min_stock||0);
+      const estado=stock<=0?"AGOTADO":stock<=min?"STOCK BAJO":"DISPONIBLE";
+      return "• "+String(x.name||"Producto")+" — stock: "+stock+" — "+estado;
+    });
+    return "Tienes "+count+" productos activos en tu inventario.\n\nPrimeros "+Math.min(items.length,count)+":\n"+lines.join("\n")+"\n\nTotal real: "+count+" productos.";
+  }
   if(execution?.action==="SEARCH_INVENTORY" && Array.isArray(result)){
     if(!result.length)return "No tienes productos registrados en el inventario todavía.";
     const lines=result.slice(0,8).map(x=>{
@@ -338,7 +358,7 @@ async function finalReply(env,message,planData){
       const estado=stock<=0?"AGOTADO":stock<=min?"STOCK BAJO":"DISPONIBLE";
       return "• "+String(x.name||"Producto")+" — stock: "+stock+" — "+estado;
     });
-    return "Tu inventario actual es:\n\n"+lines.join("\n")+"\n\nTotal mostrados: "+Math.min(result.length,8)+".";
+    return "Tu inventario actual es:\n\n"+lines.join("\n")+"\n\nTotal encontrados: "+result.length+".";
   }
   if(execution?.action==="LIST_QUOTES" && Array.isArray(result)){
     if(!result.length)return "No tienes cotizaciones registradas todavía.";

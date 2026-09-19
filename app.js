@@ -2153,6 +2153,14 @@ async function downloadQuotePdf(id){
   toast("PDF descargado","ok");
 }
 
+const authBootSnapshot={
+  searchKeys:[...new URLSearchParams(location.search).keys()],
+  hashKeys:[...new URLSearchParams(String(location.hash||"").replace(/^#/,"")).keys()]
+};
+function authDiag(prefix){
+  const s=authBootSnapshot;
+  return prefix+" · URL search: "+(s.searchKeys.length?s.searchKeys.join(", "):"vacío")+" · URL hash: "+(s.hashKeys.length?s.hashKeys.join(", "):"vacío");
+}
 function wire(){
   mode("login");
   $("#googleLogin").onclick=signInGoogle;
@@ -2170,7 +2178,10 @@ function wire(){
   // OAuth callback: let Supabase handle the browser redirect.
   // M.A.R.C. is a client-side app, so the implicit flow avoids a PKCE
   // verifier mismatch when the browser returns from Google.
+  let authEventSeen=false;
   S.auth.onAuthStateChange((ev,s)=>{
+    authEventSeen=true;
+    console.info("[M.A.R.C. auth]",ev,!!s,s?.user?.id||"");
     if(s){
       enter(s);
       return;
@@ -2185,14 +2196,21 @@ function wire(){
       await enter(current.data.session);
       return;
     }
-    await new Promise(r=>setTimeout(r,700));
+    await new Promise(r=>setTimeout(r,1200));
     const retry=await S.auth.getSession();
     if(retry.error)throw retry.error;
-    if(retry.data?.session)await enter(retry.data.session);
+    if(retry.data?.session){
+      await enter(retry.data.session);
+      return;
+    }
+    msg(authDiag(authEventSeen
+      ?"Google volvió al sitio, pero Supabase no dejó una sesión activa."
+      :"Google volvió al sitio, pero no llegó ningún evento de autenticación.")+" · getSession(): sin sesión","error");
   };
 
   bootAuth().catch(e=>{
-    msg(e?.message||"No se pudo completar el acceso con Google.","error");
+    console.error("[M.A.R.C. auth error]",e);
+    msg(authDiag("Error de autenticación")+" · "+(e?.message||"Error desconocido"),"error");
   });
 }
 wire()})();

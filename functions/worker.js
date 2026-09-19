@@ -136,7 +136,7 @@ async function createQuote(env,token,userId,p){
     p_tax_enabled:Boolean(p.tax_enabled),
     p_tax_rate:Number(p.tax_rate||18),
     p_notes:p.notes||null,
-    p_items:resolved
+    p_items:resolved,p_source:"AI_AGENT"
   };
   try{
     const quote=await sb(env,token,"rpc/marc_save_quote",{method:"POST",body:payload});

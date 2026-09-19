@@ -98,15 +98,16 @@ async function unlinkTelegram(){
 }
 async function settings(){
   const {data:a}=await S.from("marc_accounts").select("*").eq("id",st.u.id).single();
+  const {data:master}=await S.from("marc_user_roles").select("role,active").eq("user_id",st.u.id).eq("role","MASTER").eq("active",true).maybeSingle();
   const {data:sub}=await S.from("marc_subscriptions").select("plan,status,current_period_end,provider").eq("user_id",st.u.id).eq("status","active").order("current_period_end",{ascending:false}).limit(1).maybeSingle();
   $("#content").innerHTML=`<div class="head"><div><div class="eyebrow2">CONFIGURACIÓN</div><h1>Cuenta y conexiones.</h1><p>La suscripción pertenece a tu cuenta M.A.R.C.; los canales solo la utilizan.</p></div></div>
   <div class="settings">
     <section class="card panel">
       <div class="eyebrow2">SUSCRIPCIÓN</div>
-      <h3 style="font-size:17px;margin:0">${sub?"M.A.R.C. "+esc(sub.plan):"Prueba gratuita"}</h3>
-      <p>${sub?"Suscripción activa · "+esc(sub.provider||"Proveedor"): "Web + chat + clientes + inventario + cotizaciones."}</p>
+      <h3 style="font-size:17px;margin:0">${master?"M.A.R.C. MASTER":sub?"M.A.R.C. "+esc(sub.plan):"Prueba gratuita"}</h3>
+      <p>${master?"Cuenta de pruebas con acceso administrativo y sin límites.":sub?"Suscripción activa · "+esc(sub.provider||"Proveedor"):"Web + chat + clientes + inventario + cotizaciones."}</p>
       <div class="quick">
-        <div class="card panel"><b style="font-size:9px">${sub?"ACTIVA":"7 DÍAS"}</b><small>${sub?"Mismo acceso en Web y Telegram":"Prueba"}</small></div>
+        <div class="card panel"><b style="font-size:9px">${master?"MASTER":sub?"ACTIVA":"7 DÍAS"}</b><small>${master?"Sin límites":sub?"Mismo acceso en Web y Telegram":"Prueba"}</small></div>
         <div class="card panel"><b style="font-size:9px">Telegram</b><small id="telegramMini">${sub?"Disponible al conectar":"Disponible al conectar"}</small></div>
       </div>
       <button class="primary" id="plans">Ver planes</button>

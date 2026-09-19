@@ -123,7 +123,7 @@ async function printQuote(id){
   const rows=items.map(x=>"<tr><td>"+esc(x.name)+"</td><td>"+esc(x.description||"")+"</td><td>"+x.quantity+"</td><td>"+money(x.unit_price)+"</td><td>"+money(x.line_total)+"</td></tr>").join("");
   const w=window.open("","_blank","width=900,height=1100");
   if(!w)return toast("El navegador bloqueó la ventana de impresión.","err");
-  const html=\`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>\${esc(q.number)}</title>
+  const html=`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>\${esc(q.number)}</title>
   <style>
   body{font-family:Arial,sans-serif;color:#172033;margin:40px}
   h1{margin:0;font-size:30px}.muted{color:#677085}
@@ -147,7 +147,7 @@ async function printQuote(id){
   <div class="totals"><div><span>Subtotal</span><b>\${money(q.subtotal)}</b></div><div><span>IGV</span><b>\${money(q.tax)}</b></div>
   <div class="grand"><span>Total</span><b>\${money(q.total)}</b></div></div>
   <h3>Notas</h3><p>\${esc(q.notes||"Sin observaciones.")}</p>
-  <script>window.onload=()=>setTimeout(()=>window.print(),250)</script></body></html>\`;
+  <script>window.onload=()=>setTimeout(()=>window.print(),250)</script></body></html>`;
   w.document.open();w.document.write(html);w.document.close();
 }
 function wire(){mode("login");$("#authForm").onsubmit=submit;$("#switchAuth").onclick=()=>mode(authMode==="signup"?"login":"signup");$("#forgot").onclick=()=>mode("reset");$("#togglePass").onclick=()=>{const x=$("#password");x.type=x.type==="password"?"text":"password";$("#togglePass").textContent=x.type==="password"?"Mostrar":"Ocultar"};$("#logout").onclick=()=>S.auth.signOut();$("#askTop").onclick=openChat;$("#closeChat").onclick=closeChat;$("#menu").onclick=()=>$("#sidebar").classList.toggle("open");$$(".sidebar nav button").forEach(b=>b.onclick=()=>view(b.dataset.view));$("#chatForm").onsubmit=e=>{e.preventDefault();const v=$("#chatInput").value.trim();if(v){$("#chatInput").value="";chatSend(v)}};$("#chatInput").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("#chatForm").requestSubmit()}};$$(".chips button").forEach(b=>b.onclick=()=>{$("#chatInput").value=b.dataset.q;$("#chatInput").focus()});S.auth.onAuthStateChange((ev,s)=>{st.session=s||null;if(s)enter(s);else if(ev==="SIGNED_OUT"){st.u=null;st.session=null;$("#app").classList.add("hidden");$("#auth").classList.remove("hidden")}});S.auth.getSession().then(({data})=>data.session&&enter(data.session))}

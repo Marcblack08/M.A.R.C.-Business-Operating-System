@@ -737,11 +737,14 @@ async function inventoryPdfModal(){
             const price=x.price!=null&&!Number.isNaN(Number(x.price))?'S/ '+Number(x.price).toFixed(2):'Precio no detectado';
             const code=String(x.sku||'').trim()||'Sin SKU';
             const model=String(x.model||'').trim();
-            const source='Página '+Number(x.page_number||1);
+            const pages=(x._sourcePages||[Number(x.page_number||1)]).sort((a,b)=>a-b);
+            const source=pages.length>1?'Páginas '+pages.join(", "):'Página '+pages[0];
             const photo=x.pdf_y!=null&&x.pdf_x!=null&&x.pdf_width!=null?'📷 Foto PDF':'Sin zona de foto';
-            return '<div class="pdf-product-row"><div><b>'+(i+1)+'.</b> '+esc(x.name)+'</div><small>'+esc(source)+' · '+esc(code)+(model&&model!==code?' · '+esc(model):'')+' · '+esc(price)+' · '+photo+'</small></div>';
+            const dup=x._duplicateCount?' · '+x._duplicateCount+' duplicado(s)':'';
+            return '<div class="pdf-product-row"><div><b>'+(i+1)+'.</b> '+esc(x.name)+'</div><small>'+esc(source)+' · '+esc(code)+(model&&model!==code?' · '+esc(model):'')+' · '+esc(price)+' · '+photo+esc(dup)+'</small></div>';
           }).join("")+
-        '</div>';
+        '</div>'+
+        (duplicateGroups.length?'<div class="pdf-duplicates"><strong>Duplicados consolidados</strong>'+duplicateDetail+'</div>':'');
       preview.classList.remove("hidden");
 
       btn.type="button";

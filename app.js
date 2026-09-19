@@ -104,9 +104,9 @@ function closeChat(){
   $("#chat").classList.add("closed");
   $("#app").classList.add("chat-closed");
 }
-function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",quotes:"Cotizaciones",communications:"Comunicaciones",settings:"Configuración"}[x]||"Inicio";$$(".sidebar nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
-async function view(x){st.view=x;title(x);$("#sidebar").classList.remove("open");if(x==="home")return home();if(x==="clients")return clients();if(x==="inventory")return inventory();if(x==="quotes")return quotes();if(x==="communications")return communications();return settings()}
-async function home(){const c=$("#content"),[cl,iv,qt]=await Promise.all([S.from("marc_clients").select("*",{count:"exact"}).eq("user_id",st.u.id),S.from("marc_inventory").select("*").eq("user_id",st.u.id).eq("active",true).order("name"),S.from("marc_quotes").select("*").eq("user_id",st.u.id).order("created_at",{ascending:false}).limit(6)]);const low=(iv.data||[]).filter(x=>Number(x.stock)<=Number(x.min_stock));c.innerHTML=`<div class="head"><div><div class="eyebrow2">CENTRO DE OPERACIONES</div><h1>Tu negocio, desde una sola conversación.</h1><p>M.A.R.C. conecta clientes, inventario, cotizaciones y comunicaciones.</p></div><button id="askHome" class="primary">✦ Preguntar</button></div><div class="grid4"><div class="card kpi"><small>Clientes</small><strong>${cl.count||0}</strong><em>Base operativa</em></div><div class="card kpi"><small>Productos</small><strong>${iv.data?.length||0}</strong><em>En inventario</em></div><div class="card kpi"><small>Stock bajo</small><strong>${low.length}</strong><em>Requieren atención</em></div><div class="card kpi"><small>Cotizaciones</small><strong>${qt.data?.length||0}</strong><em>Recientes</em></div></div><div class="cols"><section class="card panel"><h3>Acciones rápidas</h3><p>Las operaciones frecuentes están a un toque.</p><div class="quick"><button data-q="client"><b>＋ Nuevo cliente</b><small>Guardar un contacto</small></button><button data-q="inventory"><b>＋ Producto</b><small>Agregar al inventario</small></button><button data-q="quote"><b>＋ Cotización</b><small>Preparar una propuesta</small></button><button data-q="chat"><b>✦ Preguntar</b><small>Hablar con M.A.R.C.</small></button></div></section><section class="card panel"><h3>Inventario crítico</h3><p>Productos que merecen atención.</p><div class="list">${low.slice(0,5).map(x=>`<div class="row"><div><b>${esc(x.name)}</b><small>${esc([x.brand,x.model].filter(Boolean).join(" · "))}</small></div><span class="badge ${Number(x.stock)<=0?"out":"low"}">${Number(x.stock)<=0?"Agotado":x.stock}</span></div>`).join("")||'<div class="empty">Todo en orden.</div>'}</div></section></div><section class="card panel" style="margin-top:13px"><h3>Actividad reciente</h3><div class="list">${(qt.data||[]).map(x=>`<div class="row"><div><b>${esc(x.number)} · ${esc(x.title)}</b><small>${esc(x.status)}</small></div><b>${money(x.total)}</b></div>`).join("")||'<div class="empty">Crea tu primera cotización.</div>'}</div></section>`;$("#askHome").onclick=openChat;$$(".quick button",c).forEach(b=>b.onclick=()=>b.dataset.q==="client"?clientModal():b.dataset.q==="inventory"?inventoryModal():b.dataset.q==="quote"?quoteModal():openChat())}
+function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",quotes:"Cotizaciones",settings:"Configuración"}[x]||"Inicio";$$(".sidebar nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
+async function view(x){st.view=x;title(x);$("#sidebar").classList.remove("open");if(x==="home")return home();if(x==="clients")return clients();if(x==="inventory")return inventory();if(x==="quotes")return quotes();return settings()}
+async function home(){const c=$("#content"),[cl,iv,qt]=await Promise.all([S.from("marc_clients").select("*",{count:"exact"}).eq("user_id",st.u.id),S.from("marc_inventory").select("*").eq("user_id",st.u.id).eq("active",true).order("name"),S.from("marc_quotes").select("*").eq("user_id",st.u.id).order("created_at",{ascending:false}).limit(6)]);const low=(iv.data||[]).filter(x=>Number(x.stock)<=Number(x.min_stock));c.innerHTML=`<div class="head"><div><div class="eyebrow2">CENTRO DE OPERACIONES</div><h1>Tu negocio, desde una sola conversación.</h1><p>M.A.R.C. conecta clientes, inventario, cotizaciones y canales de acceso.</p></div><button id="askHome" class="primary">✦ Preguntar</button></div><div class="grid4"><div class="card kpi"><small>Clientes</small><strong>${cl.count||0}</strong><em>Base operativa</em></div><div class="card kpi"><small>Productos</small><strong>${iv.data?.length||0}</strong><em>En inventario</em></div><div class="card kpi"><small>Stock bajo</small><strong>${low.length}</strong><em>Requieren atención</em></div><div class="card kpi"><small>Cotizaciones</small><strong>${qt.data?.length||0}</strong><em>Recientes</em></div></div><div class="cols"><section class="card panel"><h3>Acciones rápidas</h3><p>Las operaciones frecuentes están a un toque.</p><div class="quick"><button data-q="client"><b>＋ Nuevo cliente</b><small>Guardar un contacto</small></button><button data-q="inventory"><b>＋ Producto</b><small>Agregar al inventario</small></button><button data-q="quote"><b>＋ Cotización</b><small>Preparar una propuesta</small></button><button data-q="chat"><b>✦ Preguntar</b><small>Hablar con M.A.R.C.</small></button></div></section><section class="card panel"><h3>Inventario crítico</h3><p>Productos que merecen atención.</p><div class="list">${low.slice(0,5).map(x=>`<div class="row"><div><b>${esc(x.name)}</b><small>${esc([x.brand,x.model].filter(Boolean).join(" · "))}</small></div><span class="badge ${Number(x.stock)<=0?"out":"low"}">${Number(x.stock)<=0?"Agotado":x.stock}</span></div>`).join("")||'<div class="empty">Todo en orden.</div>'}</div></section></div><section class="card panel" style="margin-top:13px"><h3>Actividad reciente</h3><div class="list">${(qt.data||[]).map(x=>`<div class="row"><div><b>${esc(x.number)} · ${esc(x.title)}</b><small>${esc(x.status)}</small></div><b>${money(x.total)}</b></div>`).join("")||'<div class="empty">Crea tu primera cotización.</div>'}</div></section>`;$("#askHome").onclick=openChat;$$(".quick button",c).forEach(b=>b.onclick=()=>b.dataset.q==="client"?clientModal():b.dataset.q==="inventory"?inventoryModal():b.dataset.q==="quote"?quoteModal():openChat())}
 async function clients(){const {data}=await S.from("marc_clients").select("*").eq("user_id",st.u.id).order("name");const c=$("#content");c.innerHTML=`<div class="head"><div><div class="eyebrow2">CLIENTES</div><h1>Relaciones y contexto.</h1><p>Los clientes son memoria operativa de M.A.R.C.</p></div><button id="new" class="primary">＋ Nuevo cliente</button></div><section class="card table"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar…"></div><button id="ask" class="secondary">Preguntar</button></div><div class="scroll"><table class="data"><thead><tr><th>Cliente</th><th>Contacto</th><th>Correo</th><th>Teléfono</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></section>`;const rows=$("#rows"),draw=list=>rows.innerHTML=list.map(x=>`<tr><td><b>${esc(x.name)}</b><br><small>${esc(x.document_number||"")}</small></td><td>${esc(x.contact_name||"—")}</td><td>${esc(x.email||"—")}</td><td>${esc(x.phone||"—")}</td><td><button class="secondary" type="button" data-id="${x.id}">Editar</button></td></tr>`).join("")||'<tr><td colspan="5" class="empty">Aún no tienes clientes.</td></tr>';draw(data||[]);$("#search").oninput=e=>{const q=e.target.value.toLowerCase();draw((data||[]).filter(x=>[x.name,x.email,x.phone,x.document_number].some(v=>String(v||"").toLowerCase().includes(q))))};$("#new").onclick=()=>clientModal();$("#ask").onclick=()=>openChat();$$("[data-id]",c).forEach(b=>b.onclick=()=>clientModal((data||[]).find(x=>x.id===b.dataset.id)))}
 async function ensurePdfJs(){
   if(window.pdfjsLib)return window.pdfjsLib;
@@ -1199,143 +1199,6 @@ async function quotes(){
   $("#search").oninput=draw;
   $("#statusFilter").onchange=draw;
   draw();
-}
-
-async function loadCommunicationIntegrations(){
-  const names=["SAKIT","Q","SUMASA","CLOVER"];
-  const {data,error}=await S.from("marc_integrations")
-    .select("id,user_id,system_name,status,external_id,created_at,updated_at")
-    .eq("user_id",st.u.id)
-    .in("system_name",names)
-    .order("system_name");
-  if(error)throw error;
-
-  const byName=new Map((data||[]).map(x=>[x.system_name,x]));
-  const missing=names.filter(name=>!byName.has(name));
-  if(missing.length){
-    const rows=missing.map(system_name=>({user_id:st.u.id,system_name,status:"PENDING"}));
-    const inserted=await S.from("marc_integrations").upsert(rows,{onConflict:"user_id,system_name"}).select("id,user_id,system_name,status,external_id,created_at,updated_at");
-    if(inserted.error)throw inserted.error;
-    (inserted.data||[]).forEach(x=>byName.set(x.system_name,x));
-  }
-  return names.map(name=>byName.get(name)||({user_id:st.u.id,system_name:name,status:"PENDING"}));
-}
-
-function integrationStatusMeta(status){
-  return ({
-    CONNECTED:{label:"Conectado",cls:"ok",desc:"Registro conectado. La operación real depende del contrato del sistema."},
-    PAUSED:{label:"Pausado",cls:"",desc:"La integración está pausada y no debe intercambiar mensajes."},
-    ERROR:{label:"Error",cls:"out",desc:"La integración reporta un estado de error y requiere revisión."},
-    PENDING:{label:"Pendiente",cls:"",desc:"Aún falta definir y validar el contrato de comunicación."}
-  })[status]||({label:"Pendiente",cls:"",desc:"Aún falta definir y validar el contrato de comunicación."});
-}
-
-function communicationIntegrationModal(row){
-  const meta=integrationStatusMeta(row.status);
-  const close=modal(
-    '<div class="modal-head"><div><div class="eyebrow2">INTEGRACIÓN</div><h2>'+esc(row.system_name)+'</h2><p>Preparación segura sin inventar endpoints, credenciales ni protocolos.</p></div><button class="close" id="x">×</button></div>'+
-    '<section class="card panel" style="padding:12px;margin-bottom:11px;background:#f8fbff">'+
-      '<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div><b style="font-size:11px">'+esc(meta.label)+'</b><small style="display:block;color:var(--muted);font-size:8px;margin-top:3px">'+esc(meta.desc)+'</small></div><span class="badge '+meta.cls+'">'+esc(meta.label)+'</span></div>'+
-    '</section>'+
-    '<form id="integrationForm">'+
-      '<label>Identificador externo (opcional)<input name="external_id" value="'+esc(row.external_id||"")+'" placeholder="ID, código de cliente o referencia del sistema"></label>'+
-      '<div class="ai-hint"><b>Contrato mínimo requerido</b><br>Antes de activar esta integración se deben definir endpoint/canal, autenticación, eventos enviados, eventos recibidos, esquema de mensaje, idempotencia, timeout/reintentos, trazabilidad y límites de frecuencia.</div>'+
-      '<div class="modal-actions"><button type="button" class="secondary" id="cancel">Cerrar</button><button type="submit" class="primary" id="saveIntegration">Guardar referencia</button></div>'+
-    '</form>'
-  );
-  $("#x").onclick=close;
-  $("#cancel").onclick=close;
-  $("#integrationForm").onsubmit=async e=>{
-    e.preventDefault();
-    const btn=$("#saveIntegration");btn.disabled=true;
-    try{
-      const d=new FormData(e.currentTarget);
-      const external=String(d.get("external_id")||"").trim()||null;
-      const r=await S.from("marc_integrations")
-        .update({external_id:external,updated_at:new Date().toISOString()})
-        .eq("id",row.id)
-        .eq("user_id",st.u.id);
-      if(r.error)throw r.error;
-      toast("Referencia de "+row.system_name+" guardada.","ok");
-      close();
-      await communications();
-    }catch(err){
-      toast(err.message||"No se pudo guardar la integración.","err");
-    }finally{btn.disabled=false}
-  };
-}
-
-async function communications(){
-  const c=$("#content");
-  c.innerHTML=
-    '<div class="head"><div><div class="eyebrow2">COMUNICACIONES</div><h1>M.A.R.C. como centro de enlace.</h1><p>Un mismo núcleo para Web, Telegram y futuras integraciones empresariales.</p></div><button id="goChat" class="primary">✦ Preguntar</button></div>'+
-    '<section class="card panel" style="margin-bottom:13px;background:linear-gradient(135deg,#f9fcff,#eef7ff)">'+
-      '<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">'+
-        '<div><div class="eyebrow2">NÚCLEO</div><h3 style="font-size:14px">Una cuenta, un contexto.</h3><p>Clientes, inventario, cotizaciones, IA, permisos y suscripción permanecen centralizados en M.A.R.C.</p></div>'+
-        '<span class="badge ok">Núcleo activo</span>'+
-      '</div>'+
-    '</section>'+
-    '<div class="commgrid" id="integrationGrid"></div>'+
-    '<section class="card panel" style="margin-top:13px">'+
-      '<div class="eyebrow2">CANALES</div><h3>Canales de acceso</h3><p>Los canales usan el mismo núcleo y la misma identidad de M.A.R.C.</p>'+
-      '<div class="list">'+
-        '<div class="row"><div><b>Web</b><small>Chat integrado dentro de M.A.R.C.</small></div><span class="badge ok">Activo</span></div>'+
-        '<div class="row"><div><b>Telegram</b><small id="commTelegramText">Consultando estado…</small></div><div style="display:flex;gap:6px;align-items:center"><span id="commTelegramBadge" class="badge">Cargando</span><button id="commTelegramBtn" class="secondary" type="button">Conectar</button></div></div>'+
-      '</div>'+
-    '</section>'+
-    '<section class="card panel" style="margin-top:13px">'+
-      '<div class="eyebrow2">CONTRATO DE INTEGRACIÓN</div>'+
-      '<h3>Qué necesitamos antes de activar Sakit, Q, Sumasa o Clover.</h3>'+
-      '<div class="quick" style="margin-top:10px">'+
-        '<div class="card panel"><b>1. Canal</b><small>API, webhook, cola o canal definido por el proveedor.</small></div>'+
-        '<div class="card panel"><b>2. Autenticación</b><small>Credenciales, OAuth, firma o mecanismo documentado.</small></div>'+
-        '<div class="card panel"><b>3. Eventos</b><small>Qué recibe y qué envía cada sistema.</small></div>'+
-        '<div class="card panel"><b>4. Mensajes</b><small>Formato, idempotencia, errores y trazabilidad.</small></div>'+
-      '</div>'+
-    '</section>';
-
-  $("#goChat").onclick=openChat;
-
-  try{
-    const integrations=await loadCommunicationIntegrations();
-    const grid=$("#integrationGrid");
-    grid.innerHTML=integrations.map(row=>{
-      const meta=integrationStatusMeta(row.status);
-      const ref=row.external_id?'<small style="display:block;margin-top:7px;color:#60758a">Ref.: '+esc(row.external_id)+'</small>':"";
-      const action=row.status==="CONNECTED"?"Revisar configuración":"Preparar conexión";
-      return '<section class="card comm">'+
-        '<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div><h3>'+esc(row.system_name)+'</h3><p>'+esc(meta.desc)+'</p></div><span class="badge '+meta.cls+'">'+esc(meta.label)+'</span></div>'+
-        ref+
-        '<div style="margin-top:11px"><button class="secondary" data-integration="'+esc(row.system_name)+'">'+esc(action)+'</button></div>'+
-      '</section>';
-    }).join("");
-    Array.from(grid.querySelectorAll("[data-integration]")).forEach(b=>b.onclick=()=>{
-      const row=integrations.find(x=>x.system_name===b.dataset.integration);
-      if(row)communicationIntegrationModal(row);
-    });
-  }catch(err){
-    $("#integrationGrid").innerHTML='<section class="card panel"><span class="badge out">No disponible</span><p style="margin-top:8px">'+esc(err.message||"No se pudo cargar el registro de integraciones.")+'</p></section>';
-  }
-
-  const tgBadge=$("#commTelegramBadge"),tgText=$("#commTelegramText"),tgBtn=$("#commTelegramBtn");
-  const tg=await telegramStatus();
-  if(tg.error){
-    tgBadge.textContent="No disponible";tgBadge.className="badge";
-    tgText.textContent=tg.error;
-    tgBtn.textContent="Reintentar";
-  }else if(tg.linked){
-    tgBadge.textContent="Conectado";tgBadge.className="badge ok";
-    tgText.textContent="M.A.R.C. está vinculado al mismo usuario y suscripción.";
-    tgBtn.textContent="Desconectar";
-  }else{
-    tgBadge.textContent="Próximo";tgBadge.className="badge";
-    tgText.textContent="Vincula tu cuenta una sola vez desde Telegram.";
-    tgBtn.textContent="Conectar";
-  }
-  tgBtn.onclick=()=>{
-    if(tg.linked)return unlinkTelegram();
-    return connectTelegram();
-  };
 }
 
 async function telegramStatus(){

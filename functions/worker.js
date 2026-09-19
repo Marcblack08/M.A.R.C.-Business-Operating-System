@@ -883,6 +883,39 @@ async function geminiGenerateImage(env,imageBase64,prompt,options={}){
   throw last||Object.assign(new Error("Gemini no está disponible temporalmente."),{status:503});
 }
 
+
+async function analyzeInventoryProductPhoto(request,env){
+  if(request.method!=="POST")return json({error:"Método no permitido"},405);
+  const {token,user}=await authUser(request,env);
+  const access=await entitlement(env,token,user.id);
+  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request));
+  if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request));
+  const body=await request.json().catch(()=>({}));
+  let image=String(body?.imageBase64||"").trim();
+  const mime=String(body?.mimeType||"image/jpeg").trim().toLowerCase();
+  if(!image)return json({error:"No se recibió la foto del producto."},400,corsHeaders(request));
+  if(!["image/jpeg","image/png","image/webp"].includes(mime))return json({error:"Formato de imagen no permitido."},400,corsHeaders(request));
+  image=image.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/,"");
+  if(image.length>7000000)return json({error:"La imagen es demasiado grande para analizarla. Usa una foto más pequeña."},413,corsHeaders(request));
+  const prompt='Analiza esta foto de la caja o empaque de un producto para inventario. Extrae SOLO información que realmente puedas leer o identificar en la imagen. No inventes SKU, marca, modelo ni categoría. No extraigas ni calcules precios de venta. Devuelve SOLO JSON con este formato exacto: {"name":"","sku":null,"brand":null,"model":null,"category":"","confidence":0}. name es el nombre comercial visible. sku es el código, SKU o part number visible; usa null si no aparece. brand y model solo si aparecen. category solo si es evidente. confidence entre 0 y 1.';
+  const out=await geminiGenerateImage(env,image,prompt,{maxTokens:500,json:true});
+  const text=out?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("")||"";
+  if(!text)throw Object.assign(new Error("Gemini no devolvió datos de la imagen."),{status:502});
+  let parsed;
+  try{parsed=extractJson(text)}catch{throw Object.assign(new Error("Gemini no devolvió un JSON válido para la caja del producto."),{status:502})}
+  const product={
+    name:String(parsed?.name||"").trim().slice(0,180),
+    sku:parsed?.sku?String(parsed.sku).trim().slice(0,120):null,
+    brand:parsed?.brand?String(parsed.brand).trim().slice(0,120):null,
+    model:parsed?.model?String(parsed.model).trim().slice(0,120):null,
+    category:String(parsed?.category||"").trim().slice(0,120),
+    confidence:Math.min(1,Math.max(0,Number(parsed?.confidence||0)))
+  };
+  await incrementAiUsage(env,token,user.id,access);
+  await audit(env,token,user.id,"INVENTORY",null,"ANALYZE_PRODUCT_PHOTO",{confidence:product.confidence,identified:Boolean(product.name)},"WEB");
+  return json({status:"ANALYZED",product},200,corsHeaders(request));
+}
+
 function parseInventoryProductLines(text,pageNumber){
   const raw=String(text||"").trim();
   const out=[];
@@ -1225,6 +1258,9 @@ export default{
       try{return await telegramWebhook(request,env,ctx)}catch(err){
         return json({error:err?.message||"Error del webhook",detail:err?.details||null},err?.status||500);
       }
+    }
+    if(url.pathname==="/api/inventory/analyze-photo"){
+      try{return await analyzeInventoryProductPhoto(request,env)}catch(err){return json({error:err?.message||"No se pudo analizar la foto del producto.",detail:err?.details||null},err?.status||500,headers)}
     }
     if(url.pathname==="/api/inventory/pdf-start"){
       try{return await inventoryPdfStart(request,env)}catch(err){return json({error:err?.message||"No se pudo iniciar el análisis"},err?.status||500,headers)}

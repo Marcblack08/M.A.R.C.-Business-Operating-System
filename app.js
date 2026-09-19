@@ -352,7 +352,7 @@ async function ensurePdfJs(){
   throw new Error("No se pudo cargar el lector PDF. Recarga la página e inténtalo nuevamente.");
 }
 
-async async function extractPdfCatalogRows(page){
+async function extractPdfCatalogRows(page){
   try{
     const content=await page.getTextContent({normalizeWhitespace:true,disableCombineTextItems:false});
     const items=(content.items||[]).map(item=>({

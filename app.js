@@ -383,6 +383,9 @@ async function extractPdfCatalogRows(page){
       const codeParts=rowItems.filter(x=>x.x>=width*.30&&x.x<width*.72).sort((a,b)=>a.x-b.x).map(x=>x.text);
       const name=[...new Set(nameParts)].join(" ").replace(/\s+/g," ").trim();
       const codeText=[...new Set(codeParts)].join(" ").replace(/\s+/g," ").trim();
+      const rowXs=rowItems.map(x=>x.x).filter(Number.isFinite);
+      const photoLeft=rowXs.length?Math.max(0,Math.min(...rowXs)-18):0;
+      const photoRight=rowXs.length?Math.min(width,Math.max(...rowXs)+24):width;
       if(!name||/^(sku|codigo|código|producto|descripción|precio|página|pagina)$/i.test(name))continue;
 
       const skuMatch=codeText.match(/\b(?:[A-Z]{1,8}[A-Z0-9]*[-_/][A-Z0-9._/-]{1,24}|\d{5,18})\b/i);
@@ -394,7 +397,8 @@ async function extractPdfCatalogRows(page){
       rows.push({
         sku, name:fullName.slice(0,180), brand:null, model:sku,
         category:null, unit:"UND", cost:null, price:p.price, stock:null, min_stock:null,
-        pdf_y:p.y, pdf_radius:radius
+        pdf_y:p.y, pdf_radius:radius,
+        pdf_x:photoLeft, pdf_width:Math.max(80,photoRight-photoLeft)
       });
     }
 
@@ -651,9 +655,14 @@ async function inventoryPdfModal(){
                 const h=Math.min(canvas.height-y,Math.round(halfH*2));
                 if(h<20){skipped++;continue;}
 
+                const scale=1.5;
+                const x=Math.max(0,Math.round(Number(item.pdf_x||0)*scale));
+                const w=Math.min(canvas.width-x,Math.round(Number(item.pdf_width||canvas.width/scale)*scale));
+                if(w<80){skipped++;continue;}
+
                 const crop=document.createElement("canvas");
-                crop.width=canvas.width;crop.height=h;
-                crop.getContext("2d",{alpha:false}).drawImage(canvas,0,y,canvas.width,h,0,0,crop.width,h);
+                crop.width=w;crop.height=h;
+                crop.getContext("2d",{alpha:false}).drawImage(canvas,x,y,w,h,0,0,w,h);
                 const blob=await new Promise(resolve=>crop.toBlob(resolve,"image/jpeg",0.78));
                 if(!blob){skipped++;continue;}
 

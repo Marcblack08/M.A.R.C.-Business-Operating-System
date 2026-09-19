@@ -113,6 +113,25 @@ async function ensurePdfJs(){
   throw new Error("No se pudo cargar el lector PDF. Recarga la página e inténtalo nuevamente.");
 }
 
+async function extractPdfPageText(page){
+  try{
+    const content=await page.getTextContent({normalizeWhitespace:true,disableCombineTextItems:false});
+    const items=(content.items||[]).filter(x=>String(x.str||"").trim());
+    if(!items.length)return "";
+    const rows=[];
+    for(const item of items){
+      const t=String(item.str||"").replace(/\s+/g," ").trim();
+      if(!t)continue;
+      const y=Number(item.transform?.[5]||0),x=Number(item.transform?.[4]||0);
+      let row=rows.find(r=>Math.abs(r.y-y)<=2.5);
+      if(!row){row={y,parts:[]};rows.push(row)}
+      row.parts.push({x,text:t});
+    }
+    rows.sort((a,b)=>b.y-a.y);
+    return rows.map(row=>row.parts.sort((a,b)=>a.x-b.x).map(p=>p.text).join(" ").trim()).filter(Boolean).join("\n");
+  }catch{return ""}
+}
+
 function pdfProgressHtml(page,total,count){
   const pct=total?Math.round(page*100/total):0;
   return '<div class="pdf-progress-wrap">'+
@@ -183,26 +202,31 @@ async function inventoryPdfModal(){
       live.innerHTML='<div class="pdf-live-title">Productos detectados hasta ahora</div><div id="pdfLiveRows"></div>';
       const liveRows=$("#pdfLiveRows");
 
-      const CONCURRENCY=3;
+      const CONCURRENCY=4;
       for(let batchStart=1;batchStart<=totalPages;batchStart+=CONCURRENCY){
         const batch=[];
         for(let p=0;p<CONCURRENCY&&batchStart+p<=totalPages;p++)batch.push(batchStart+p);
 
-        status.textContent="Gemini está leyendo páginas "+batch[0]+"–"+batch[batch.length-1]+" de "+totalPages+"…";
+        status.textContent="Leyendo páginas "+batch[0]+"–"+batch[batch.length-1]+" de "+totalPages+"…";
         $("#pdfProgressText").textContent="Leyendo páginas "+batch[0]+"–"+batch[batch.length-1]+" de "+totalPages;
         $("#pdfProgressCount").textContent=detected.length+" productos detectados";
         $("#pdfProgressBar").style.width=Math.round((batch[0]-1)*100/totalPages)+"%";
 
         const results=await Promise.all(batch.map(async pageNumber=>{
           const page=await pdf.getPage(pageNumber);
-          let viewport=page.getViewport({scale:1.5});
-          if(viewport.width>1800)viewport=page.getViewport({scale:1.5*(1800/viewport.width)});
-          const canvas=document.createElement("canvas");
-          const ctx=canvas.getContext("2d",{alpha:false});
-          canvas.width=Math.ceil(viewport.width);
-          canvas.height=Math.ceil(viewport.height);
-          await page.render({canvasContext:ctx,viewport}).promise;
-          const image=canvas.toDataURL("image/jpeg",0.82);
+          const text=await extractPdfPageText(page);
+
+          let image="";
+          if(text.length<120){
+            let viewport=page.getViewport({scale:1.25});
+            if(viewport.width>1600)viewport=page.getViewport({scale:1.25*(1600/viewport.width)});
+            const canvas=document.createElement("canvas");
+            const ctx=canvas.getContext("2d",{alpha:false});
+            canvas.width=Math.ceil(viewport.width);
+            canvas.height=Math.ceil(viewport.height);
+            await page.render({canvasContext:ctx,viewport}).promise;
+            image=canvas.toDataURL("image/jpeg",0.72);
+          }
 
           let analyzed=null,lastError=null;
           for(let retry=0;retry<2;retry++){
@@ -213,7 +237,7 @@ async function inventoryPdfModal(){
                   "Content-Type":"application/json",
                   Authorization:"Bearer "+st.session?.access_token
                 },
-                body:JSON.stringify({pendingId,pageNumber,totalPages,image})
+                body:JSON.stringify({pendingId,pageNumber,totalPages,text,image})
               });
               const pj=await pr.json();
               if(!pr.ok)throw new Error(pj.message||pj.error||("No se pudo analizar la página "+pageNumber));
@@ -225,7 +249,7 @@ async function inventoryPdfModal(){
             }
           }
           if(!analyzed)throw new Error((lastError?.message||"No se pudo analizar la página")+" Revisa tu conexión.");
-          return {pageNumber,items:Array.isArray(analyzed.items)?analyzed.items:[]};
+          return {pageNumber,items:Array.isArray(analyzed.items)?analyzed.items:[],mode:analyzed.mode||"TEXT"};
         }));
 
         results.sort((a,b)=>a.pageNumber-b.pageNumber);
@@ -251,6 +275,7 @@ async function inventoryPdfModal(){
       const finalizeFd=new FormData();
       finalizeFd.append("pendingId",pendingId);
       finalizeFd.append("file",file,file.name);
+      finalizeFd.append("items",JSON.stringify(detected));
       const fr=await fetch("/api/inventory/pdf-finalize",{
         method:"POST",
         headers:{Authorization:"Bearer "+st.session?.access_token},

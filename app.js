@@ -355,7 +355,10 @@ async function inventoryPdfModal(){
           listItems.map((x,i)=>'<div class="pdf-product-row"><span><b>'+(i+1)+'.</b> '+esc(x.name)+'</span><small>Página '+Number(x.page_number||1)+' · '+esc([x.sku,x.brand,x.model].filter(Boolean).join(" · ")||"Sin código")+(x.price!=null?" · S/ "+Number(x.price).toFixed(2):"")+'</small></div>').join("")+
         '</div>';
       preview.classList.remove("hidden");
+      btn.type="button";
+      btn.disabled=false;
       btn.textContent="Importar "+listItems.length+" productos";
+      btn.dataset.ready="1";
       btn.onclick=async function(){
         if(btn.dataset.importing==="1")return;
         btn.dataset.importing="1";btn.disabled=true;
@@ -386,6 +389,7 @@ async function inventoryPdfModal(){
       status.textContent=err.message||"No se pudo analizar el catálogo.";
       $("#pdfImportProgress").innerHTML="";
       working=false;
+      btn.type="submit";
       btn.disabled=false;
     }
   };

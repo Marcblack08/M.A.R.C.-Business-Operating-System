@@ -80,15 +80,23 @@ async function refreshTelegramSettings(){
     box.innerHTML='<span class="badge">No disponible</span><small>'+esc(s.error)+'</small>';
     return;
   }
+  const hook=s.webhook;
+  const hookError=hook?.last_error_message||hook?.error||"";
+  const hookOk=Boolean(hook?.url)&&!hookError;
+  let html="";
   if(s.linked){
-    box.innerHTML='<span class="badge ok">Conectado</span><small>Telegram comparte tu cuenta, datos, suscripción y límites de M.A.R.C.</small>';
-    if(connect)connect.classList.add("hidden");
-    if(unlink)unlink.classList.remove("hidden");
+    html+='<span class="badge ok">Conectado</span><small>Telegram comparte tu cuenta, datos, suscripción y límites de M.A.R.C.</small>';
   }else{
-    box.innerHTML='<span class="badge">No conectado</span><small>Conéctalo una sola vez. No tendrás que pagar otra suscripción.</small>';
-    if(connect)connect.classList.remove("hidden");
-    if(unlink)unlink.classList.add("hidden");
+    html+='<span class="badge">No conectado</span><small>Conéctalo una sola vez. No tendrás que pagar otra suscripción.</small>';
   }
+  if(hook){
+    html+=hookOk
+      ? '<small class="telegram-debug">Webhook activo · pendientes: '+Number(hook.pending_update_count||0)+'</small>'
+      : '<small class="telegram-debug error">Webhook: '+esc(hookError||"no configurado")+'</small>';
+  }
+  box.innerHTML=html;
+  if(s.linked){if(connect)connect.classList.add("hidden");if(unlink)unlink.classList.remove("hidden")}
+  else{if(connect)connect.classList.remove("hidden");if(unlink)unlink.classList.add("hidden")}
 }
 async function unlinkTelegram(){
   if(!confirm("¿Desconectar Telegram de esta cuenta?"))return;

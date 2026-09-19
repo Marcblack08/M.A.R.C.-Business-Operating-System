@@ -1579,3 +1579,30 @@ body,
   .quote-line-fields{grid-template-columns:1fr}
   .quote-line-top{grid-template-columns:1fr 32px}
 }
+
+/* ===== CLIENTS MOBILE POLISH ===== */
+.client-contact-link{color:inherit;text-decoration:none}
+.client-contact-link:hover{text-decoration:underline}
+[data-theme="dark"] .client-contact-link{color:#d8e8f8}
+@media(max-width:780px){
+  .clients-browser{padding:10px!important}
+  .clients-browser .toolbar{display:grid;grid-template-columns:1fr auto;gap:8px;padding:0 0 10px}
+  .clients-browser .toolbar .search{grid-column:1/-1}
+  .clients-browser .toolbar .search input{min-height:44px}
+  .clients-browser #ask{min-height:42px}
+  .client-card{padding:12px!important;border-radius:14px!important}
+  .client-card-top{gap:9px!important}
+  .client-card-name h3{font-size:12px!important}
+  .client-details{gap:7px!important}
+  .client-details>div{padding:8px 9px!important}
+  .client-details b{overflow-wrap:anywhere}
+  .client-contact-link{display:inline-block;padding:2px 0}
+}
+@media(max-width:380px){
+  .client-summary{gap:5px!important}
+  .client-summary>div{padding:10px 7px!important}
+  .client-summary strong{font-size:17px!important}
+  .client-summary small{display:none}
+  .clients-browser .toolbar{grid-template-columns:1fr}
+  .clients-browser #ask{width:100%}
+}

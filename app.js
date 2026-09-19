@@ -1,11 +1,25 @@
 (()=>{const C=window.MARC_CONFIG,S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});const st={u:null,session:null,view:"home",cid:null,authEpoch:0};const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)],esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])),money=v=>new Intl.NumberFormat("es-PE",{style:"currency",currency:"PEN"}).format(Number(v||0)),toast=(t,c="")=>{const e=document.createElement("div");e.className="toast "+c;e.textContent=t;$("#toast").appendChild(e);setTimeout(()=>e.remove(),2600)},initials=n=>String(n||"M").split(/\s+/).slice(0,2).map(x=>x[0]?.toUpperCase()).join("");let authMode="login",recoveryMode=new URLSearchParams(location.search).get("recovery")==="1"||/type=recovery/i.test(location.hash);
 function msg(t,c=""){const e=$("#authMsg");e.textContent=t;e.className="msg "+c}
 function authRateLimitMessage(e){const raw=String(e?.message||"").toLowerCase();return raw.includes("rate limit")||raw.includes("too many")||raw.includes("over_email_send_rate_limit")}
-function mode(m){authMode=m;$("#authForm").reset();const needsConfirm=m==="signup"||m==="update";$("#confirmBox").classList.toggle("hidden",!needsConfirm);$("#confirm").required=needsConfirm;$("#forgot").classList.toggle("hidden",m!=="login");$("#switchAuth").textContent=m==="signup"?"Ya tengo una cuenta":(m==="update"?"Volver al inicio de sesión":m==="reset"?"Volver al inicio de sesión":"Crear una cuenta");$("#authTitle").textContent=m==="signup"?"Crea tu cuenta":m==="reset"?"Recupera tu contraseña":m==="update"?"Crea una nueva contraseña":"Inicia sesión en M.A.R.C.";$("#authSub").textContent=m==="signup"?"Empieza tu prueba gratuita de 7 días.":m==="reset"?"Te enviaremos un enlace seguro.":m==="update"?"Elige una contraseña nueva para proteger tu cuenta.":"Convierte conversaciones en operaciones reales de tu negocio.";$("#authSubmit").textContent=m==="signup"?"Crear cuenta":m==="reset"?"Enviar enlace":m==="update"?"Actualizar contraseña":"Iniciar sesión";$("#password").disabled=m==="reset";$("#password").required=m!=="reset";msg("")}
+function mode(m){authMode=m;if($(" #authTitle")){}const title=m==="login"?"Inicia sesión en M.A.R.C.":"Accede a M.A.R.C.";const sub=m==="login"?"Accede a M.A.R.C. de forma rápida y segura con tu cuenta de Google.":"Accede a M.A.R.C. con tu cuenta de Google.";if($("#authTitle"))$("#authTitle").textContent=title;if($("#authSub"))$("#authSub").textContent=sub;msg("")}
+async function signInGoogle(){
+  const b=$("#googleLogin");
+  try{
+    if(b)b.disabled=true;
+    msg("Conectando con Google…");
+    const {error}=await S.auth.signInWithOAuth({
+      provider:"google",
+      options:{redirectTo:location.origin+location.pathname}
+    });
+    if(error)throw error;
+  }catch(e){
+    msg(e?.message||"No se pudo iniciar sesión con Google.","error");
+    if(b)b.disabled=false;
+  }
+}
 function resetUiToLogin(message="",type=""){st.authEpoch++;st.u=null;st.session=null;st.cid=null;$("#app").classList.add("hidden");$("#auth").classList.remove("hidden");mode("login");if(message)msg(message,type)}
 async function ensure(){const u=st.u;if(!u)return;await S.from("marc_accounts").upsert({id:u.id,display_name:u.email?.split("@")[0]||"Usuario"},{onConflict:"id"});const {data:t}=await S.from("marc_trials").select("id").eq("user_id",u.id).maybeSingle();if(!t)await S.from("marc_trials").insert({user_id:u.id});const {data:c}=await S.from("marc_conversations").select("id").eq("user_id",u.id).eq("channel","WEB").order("updated_at",{ascending:false}).limit(1).maybeSingle();st.cid=c?.id||(await S.from("marc_conversations").insert({user_id:u.id,channel:"WEB",title:"Conversación principal"}).select("id").single()).data?.id}
 async function enter(s){
-  if(recoveryMode)return;
   if(!s?.user)return;
   const epoch=++st.authEpoch;
   st.session=s;
@@ -2139,8 +2153,28 @@ async function downloadQuotePdf(id){
   toast("PDF descargado","ok");
 }
 
-function wire(){mode("login");$("#authForm").onsubmit=submit;$("#switchAuth").onclick=()=>mode(authMode==="signup"?"login":"signup");$("#forgot").onclick=()=>mode("reset");$("#togglePass").onclick=()=>{const x=$("#password");x.type=x.type==="password"?"text":"password";$("#togglePass").textContent=x.type==="password"?"Mostrar":"Ocultar"};$("#logout").onclick=async()=>{resetUiToLogin();await S.auth.signOut();};$("#askTop").onclick=openChat;
+function wire(){
+  mode("login");
+  $("#googleLogin").onclick=signInGoogle;
+  $("#logout").onclick=async()=>{resetUiToLogin();await S.auth.signOut();};
+  $("#askTop").onclick=openChat;
   $("#closeChat").onclick=closeChat;
   $("#exitConversation").onclick=closeChat;
-  $("#menu").onclick=()=>$("#sidebar").classList.toggle("open");$("#mobileScrim").onclick=()=>$("#sidebar").classList.remove("open");$(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.onclick=()=>view(b.dataset.view));$("#chatForm").onsubmit=e=>{e.preventDefault();const v=$("#chatInput").value.trim();if(v){$("#chatInput").value="";chatSend(v)}};$("#chatInput").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("#chatForm").requestSubmit()}};$$(".chips button").forEach(b=>b.onclick=()=>{$("#chatInput").value=b.dataset.q;$("#chatInput").focus()});S.auth.onAuthStateChange((ev,s)=>{setTimeout(()=>{if(ev==="PASSWORD_RECOVERY"&&s){recoveryMode=true;st.authEpoch++;st.session=s;st.u=s.user;$("#app").classList.add("hidden");$("#auth").classList.remove("hidden");mode("update");msg("Escribe y confirma tu nueva contraseña.","ok");return}if(recoveryMode){if(s){st.session=s;st.u=s.user;$("#app").classList.add("hidden");$("#auth").classList.remove("hidden");mode("update");}return}if(s)enter(s);else if(ev==="SIGNED_OUT")resetUiToLogin();},0)});S.auth.getSession().then(({data})=>{if(recoveryMode&&data.session){st.session=data.session;st.u=data.session.user;$("#app").classList.add("hidden");$("#auth").classList.remove("hidden");mode("update");msg("Escribe y confirma tu nueva contraseña.","ok");}else if(data.session)enter(data.session);else resetUiToLogin();})}
+  $("#menu").onclick=()=>$("#sidebar").classList.toggle("open");
+  $("#mobileScrim").onclick=()=>$("#sidebar").classList.remove("open");
+  $(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.onclick=()=>view(b.dataset.view));
+  $("#chatForm").onsubmit=e=>{e.preventDefault();const v=$("#chatInput").value.trim();if(v){$("#chatInput").value="";chatSend(v)}};
+  $("#chatInput").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("#chatForm").requestSubmit()}};
+  $$(".chips button").forEach(b=>b.onclick=()=>{$("#chatInput").value=b.dataset.q;$("#chatInput").focus()});
+  S.auth.onAuthStateChange((ev,s)=>{
+    setTimeout(()=>{
+      if(s)enter(s);
+      else if(ev==="SIGNED_OUT")resetUiToLogin();
+    },0)
+  });
+  S.auth.getSession().then(({data})=>{
+    if(data.session)enter(data.session);
+    else resetUiToLogin();
+  })
+}
 wire()})();

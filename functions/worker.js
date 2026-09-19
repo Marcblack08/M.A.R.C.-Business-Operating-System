@@ -1117,12 +1117,28 @@ async function quoteAiDraft(request,env){
   if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request));
   if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request));
   const body=await request.json();
+  const improveLines=Boolean(body?.improveLines);
+  const rawLines=Array.isArray(body?.items)?body.items:[];
   const description=String(body?.description||"").trim().slice(0,4000);
   const allCost=Boolean(body?.allCost);
   const improveOnly=Boolean(body?.improveOnly);
   const clientQuery=String(body?.clientQuery||"").trim().slice(0,200);
+  if(improveLines){
+    const items=rawLines.map((x,i)=>({index:Number.isInteger(Number(x?.index))?Number(x.index):i,type:String(x?.type||"TRABAJO").slice(0,20),name:String(x?.name||"").trim().slice(0,180),description:String(x?.description||"").trim().slice(0,2000)})).filter(x=>x.description).slice(0,40);
+    if(!items.length)return json({error:"Escribe al menos una descripción para mejorar."},400,corsHeaders(request));
+    const prompt={messages:[
+      {role:"system",content:'Eres un redactor técnico de cotizaciones para una empresa de servicios. Devuelve SOLO JSON válido con {"items":[{"index":0,"title":"...","description":"..."}]}. Mejora únicamente la redacción de cada descripción recibida. Conserva todos los datos aportados y NO inventes datos técnicos, cantidades, precios, materiales, marcas, medidas, plazos ni trabajos. No agregues información que no esté escrita. Haz el texto profesional, claro, específico y apto para una cotización. El índice debe conservar exactamente el índice recibido.'},
+      {role:"user",content:"PARTIDAS A MEJORAR:\n"+JSON.stringify(items)}
+    ]};
+    let out;try{out=await geminiGenerate(env,prompt,{json:true,maxTokens:2200})}catch(err){throw Object.assign(new Error("Gemini: "+String(err?.message||"Error de API").slice(0,800)),{status:err?.status||502,details:err?.details||null})}
+    const responseText=out?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("")||"";
+    if(!responseText)throw Object.assign(new Error("Gemini devolvió una respuesta vacía."),{status:502});
+    let parsed;try{parsed=JSON.parse(responseText.replace(/^```json\s*|^```\s*$/g,"").trim())}catch{parsed={items:[]}}
+    const improvedLines=Array.isArray(parsed?.items)?parsed.items.map((x,i)=>({index:Number.isInteger(Number(x?.index))?Number(x.index):items[i]?.index,title:String(x?.title||"").trim().slice(0,180),description:String(x?.description||"").trim().slice(0,2000)})).filter(x=>Number.isInteger(x.index)&&x.description):[];
+    await incrementAiUsage(env,token,user.id,access);
+    return json({improvedLines,entitlement:access},200,corsHeaders(request));
+  }
   if(!description)return json({error:"Escribe la descripción del trabajo."},400,corsHeaders(request));
-
   const prompt=improveOnly?{messages:[
     {role:"system",content:'Eres un redactor técnico de cotizaciones para una empresa de servicios. Devuelve SOLO JSON válido con {"title":"...","description":"..."}. Mejora la redacción del texto sin inventar datos técnicos, cantidades, precios, materiales, marcas, medidas ni trabajos que no estén escritos. Conserva todos los datos aportados. Hazlo profesional, claro, específico y apto para una cotización. Si faltan datos, no los inventes.'},
     {role:"user",content:"TEXTO ORIGINAL:\n"+description}
@@ -1130,29 +1146,15 @@ async function quoteAiDraft(request,env){
     {role:"system",content:'Eres el asistente de cotizaciones de M.A.R.C. Devuelve SOLO JSON válido. No inventes precios, clientes, productos ni cantidades. Si el usuario escribe un precio, extrae el número. Si no escribe precio, unit_price debe ser null. En modo A TODO COSTO la cotización debe tener una sola partida de tipo TRABAJO, cantidad 1, y el nombre debe ser un título corto; la descripción debe conservar los detalles técnicos del trabajo. Si el texto contiene "a todo costo", mantén esa idea en la descripción. Extrae un título profesional. Formato exacto: {"title":"...","client_query":"...","items":[{"type":"TRABAJO","name":"...","description":"...","quantity":1,"unit_price":number|null}]}.'},
     {role:"user",content:"MODO A TODO COSTO: "+(allCost?"SI":"NO")+"\nCLIENTE SUGERIDO: "+clientQuery+"\nDESCRIPCIÓN:\n"+description}
   ]};
-  let out;
-  try{
-    out=await geminiGenerate(env,prompt,{json:true,maxTokens:500});
-  }catch(err){
-    const e=Object.assign(new Error("Gemini: "+String(err?.message||"Error de API").slice(0,800)),{status:err?.status||502,details:err?.details||null});
-    throw e;
-  }
+  let out;try{out=await geminiGenerate(env,prompt,{json:true,maxTokens:500})}catch(err){throw Object.assign(new Error("Gemini: "+String(err?.message||"Error de API").slice(0,800)),{status:err?.status||502,details:err?.details||null})}
   const responseText=out?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("")||"";
-  if(!responseText){
-    throw Object.assign(new Error("Gemini devolvió una respuesta vacía. Revisa el modelo y la cuota de la API key."),{status:502,details:{finishReason:out?.candidates?.[0]?.finishReason||null}});
-  }
-  if(improveOnly){
-    let improved;
-    try{improved=JSON.parse(responseText.replace(/^```json\s*|^```\s*$/g,"").trim())}catch{improved={title:"",description:description}}
-    await incrementAiUsage(env,token,user.id,access);
-    return json({improved:{title:String(improved.title||"").trim(),description:String(improved.description||description).trim()},entitlement:access},200,corsHeaders(request));
-  }
+  if(!responseText)throw Object.assign(new Error("Gemini devolvió una respuesta vacía. Revisa el modelo y la cuota de la API key."),{status:502,details:{finishReason:out?.candidates?.[0]?.finishReason||null}});
+  if(improveOnly){let improved;try{improved=JSON.parse(responseText.replace(/^```json\s*|^```\s*$/g,"").trim())}catch{improved={title:"",description:description}}await incrementAiUsage(env,token,user.id,access);return json({improved:{title:String(improved.title||"").trim(),description:String(improved.description||description).trim()},entitlement:access},200,corsHeaders(request))}
   const draft=recoverQuoteDraft(responseText,description,clientQuery,allCost);
   if(!draft?.items?.length)throw Object.assign(new Error("La IA no generó una partida."),{status:502});
   await incrementAiUsage(env,token,user.id,access);
   return json({draft,entitlement:access},200,corsHeaders(request));
 }
-
 async function telegramDiagnostics(request,env){
   if(request.method!=="GET")return json({error:"Método no permitido"},405);
   if(!env.TELEGRAM_BOT_TOKEN)return json({ok:false,error:"TELEGRAM_BOT_TOKEN missing"},503);

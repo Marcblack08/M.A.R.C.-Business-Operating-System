@@ -231,6 +231,8 @@ async function finalReply(env,message,planData){
 }
 
 async function entitlement(env,token,userId){
+  const roles=await sb(env,token,"marc_user_roles?select=role,active&user_id=eq."+encodeURIComponent(userId)+"&role=eq.MASTER&active=eq.true&limit=1");
+  if(roles?.[0])return {kind:"master",role:"MASTER",plan:"master",remaining:null};
   const [trial,sub]=await Promise.all([
     sb(env,token,"marc_trials?select=status,started_at,ends_at&user_id=eq."+encodeURIComponent(userId)+"&limit=1"),
     sb(env,token,"marc_subscriptions?select=plan,status,current_period_end&user_id=eq."+encodeURIComponent(userId)+"&status=eq.active&order=current_period_end.desc&limit=1")
@@ -247,7 +249,8 @@ async function entitlement(env,token,userId){
   return {kind:"expired"};
 }
 
-async function incrementAiUsage(env,token,userId){
+async function incrementAiUsage(env,token,userId,access=null){
+  if(access?.kind==="master")return;
   const d=new Date(),period=d.toISOString().slice(0,10),end=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).toISOString().slice(0,10);
   const rows=await sb(env,token,"marc_usage_counters?select=id,ai_actions&user_id=eq."+encodeURIComponent(userId)+"&period_start=eq."+period+"&limit=1");
   if(rows?.[0])await sb(env,token,"marc_usage_counters?id=eq."+rows[0].id+"&user_id=eq."+encodeURIComponent(userId),{method:"PATCH",body:{ai_actions:Number(rows[0].ai_actions||0)+1,updated_at:new Date().toISOString()}});
@@ -406,7 +409,7 @@ export default{
         const history=await recentMessages(env,token,user.id,body?.conversationId||"");
         const pl=await plan(env,message,history);
         const executed=await executePlan(env,token,user,pl,"AI_AGENT");
-        await incrementAiUsage(env,token,user.id);
+        await incrementAiUsage(env,token,user.id,access);
         const text=await finalReply(env,message,{plan:pl,execution:executed,entitlement:access});
         return json({text,action:executed.action,result:executed.result},200,headers);
       }catch(err){

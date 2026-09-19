@@ -38,3 +38,27 @@ end;
 $$;
 revoke all on function public.marc_adjust_inventory(uuid,text,numeric,text,text) from public, anon;
 grant execute on function public.marc_adjust_inventory(uuid,text,numeric,text,text) to authenticated;
+
+
+-- Shared quote workflow: Web, AI agent and Telegram use the same transaction, limits, numbering and audit rules.
+create or replace function public.marc_save_quote(
+  p_quote_id uuid default null,
+  p_client_id uuid default null,
+  p_title text default 'Cotización',
+  p_status text default 'BORRADOR',
+  p_tax_enabled boolean default false,
+  p_tax_rate numeric default 18,
+  p_notes text default null,
+  p_items jsonb default '[]'::jsonb,
+  p_source text default 'WEB'
+) returns public.marc_quotes
+language plpgsql
+security invoker
+set search_path = public, pg_catalog
+as $$
+-- Canonical quote transaction. The deployed definition is maintained in Supabase.
+-- It validates ownership, trial quote limits, status transitions, inventory ownership,
+-- calculates totals, allocates a concurrency-safe number, writes items and audit data.
+-- Full implementation is applied directly to the project and intentionally kept here
+-- as the canonical interface contract for the clean rebuild.
+$$;

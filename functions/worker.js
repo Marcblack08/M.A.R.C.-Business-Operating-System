@@ -839,43 +839,15 @@ async function geminiGenerateImage(env,imageBase64,prompt,options={}){
   if(!apiKeys.length)throw Object.assign(new Error("GEMINI_API_KEY no está configurada en el Worker."),{status:503});
   const models=[env.GEMINI_MODEL||GEMINI_MODEL_DEFAULT,env.GEMINI_MODEL_FALLBACK||"gemini-3.7-flash",env.GEMINI_MODEL_FALLBACK2||"gemini-3.6-flash"].filter((x,i,a)=>x&&a.indexOf(x)===i);
   const clean=String(imageBase64||"").replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/,"");
-  let last=null;
-  const schema={
-    type:"OBJECT",
-    properties:{
-      items:{
-        type:"ARRAY",
-        items:{
-          type:"OBJECT",
-          properties:{
-            name:{type:"STRING"},
-            sku:{type:"STRING"},
-            brand:{type:"STRING"},
-            model:{type:"STRING"},
-            category:{type:"STRING"},
-            unit:{type:"STRING"},
-            cost:{type:"STRING"},
-            price:{type:"STRING"},
-            page_number:{type:"INTEGER"}
-          },
-          required:["name","sku","brand","model","category","unit","cost","price","page_number"]
-        }
-      }
-    },
-    required:["items"]
-  };
   const body={
     contents:[{parts:[
       {inlineData:{mimeType:"image/jpeg",data:clean}},
       {text:String(prompt)}
     ]}],
-    generationConfig:{
-      responseMimeType:"application/json",
-      responseSchema:schema,
-      maxOutputTokens:options.maxTokens||4500
-    }
+    generationConfig:{maxOutputTokens:options.maxTokens||3200}
   };
   const transient=[429,500,502,503,504,529];
+  let last=null;
   for(const model of models){
     for(const key of apiKeys){
       try{
@@ -899,6 +871,65 @@ async function geminiGenerateImage(env,imageBase64,prompt,options={}){
   throw last||Object.assign(new Error("Gemini no está disponible temporalmente."),{status:503});
 }
 
+function parseInventoryProductLines(text,pageNumber){
+  const raw=String(text||"").trim();
+  const out=[];
+  const seen=new Set();
+
+  const add=(name,sku="",brand="",model="",price="")=>{
+    name=String(name||"").replace(/^[•*\-\d.)\s]+/,"").trim();
+    if(name.length<3)return;
+    const lower=name.toLowerCase();
+    if(/^(catalogo|catálogo|productos|accesorios|descripción|precio|codigo|código|sku|marca|modelo)$/.test(lower))return;
+    if(/^(pagina|página)\s*\d+$/i.test(name))return;
+    const key=(name+"|"+String(sku||"")+"|"+String(model||"")).toLowerCase();
+    if(seen.has(key))return;
+    seen.add(key);
+    const n=v=>{const m=String(v||"").replace(",",".").replace(/[^\d.-]/g,"");const x=Number(m);return Number.isFinite(x)?x:null};
+    out.push({
+      sku:String(sku||"").trim()||null,
+      name:name.slice(0,180),
+      brand:String(brand||"").trim()||null,
+      model:String(model||"").trim()||null,
+      category:null,
+      unit:"UND",
+      cost:null,
+      price:n(price),
+      stock:null,
+      min_stock:null,
+      page_number:pageNumber
+    });
+  };
+
+  // Preferred compact line format: NAME || SKU || BRAND || MODEL || PRICE
+  for(const rawLine of raw.split(/\r?\n/)){
+    const line=rawLine.trim();
+    if(!line)continue;
+    if(line.includes("||")){
+      const p=line.split("||").map(x=>x.trim());
+      add(p[0],p[1]||"",p[2]||"",p[3]||"",p[4]||"");
+      continue;
+    }
+    // Fallback for bullets or plain one-product-per-line output.
+    if(/^[•*\-\d]/.test(line) && line.length>=4){
+      add(line);
+    }
+  }
+
+  // JSON fallback if the model ignored the line format.
+  if(!out.length){
+    try{
+      const parsed=extractJson(raw);
+      const items=Array.isArray(parsed)?parsed:(Array.isArray(parsed?.items)?parsed.items:[]);
+      for(const x of items){
+        if(typeof x==="string")add(x,"","","","");
+        else add(x?.name,x?.sku,x?.brand,x?.model,x?.price);
+      }
+    }catch{}
+  }
+  return out;
+}
+
 async function inventoryPdfPageAnalyze(request,env){
   if(request.method!=="POST")return json({error:"Método no permitido"},405);
   const {token,user}=await authUser(request,env);
@@ -915,19 +946,22 @@ async function inventoryPdfPageAnalyze(request,env){
   if(!rows?.[0])return json({error:"La sesión de análisis expiró o no existe."},404,corsHeaders(request));
 
   const prompt=
-    "Estás leyendo la página "+pageNumber+" de "+totalPages+" de un catálogo de productos. "+
-    "Extrae CADA producto real visible en esta página, una fila por producto. "+
-    "NO resumas ni agrupes productos. Conserva el nombre del producto exactamente como aparece, incluyendo modelo o variante cuando forme parte del nombre. "+
-    "No incluyas títulos de sección, encabezados, texto promocional, notas, servicios ni elementos decorativos. "+
-    "No inventes SKU, marca, modelo, precio, costo o stock. Si un campo no está visible usa una cadena vacía. "+
-    "Si hay una tabla, trata cada fila de producto como un registro independiente. "+
-    "Devuelve únicamente el JSON solicitado por el esquema.";
-  const out=await geminiGenerateImage(env,image,prompt,{maxTokens:4500});
+    "Lee visualmente esta página de catálogo. Extrae CADA producto real visible en la página, uno por línea. "+
+    "No agrupes productos diferentes. Conserva el NOMBRE EXACTO del producto tal como aparece, incluyendo marca, modelo o variante si forman parte del nombre. "+
+    "Ignora encabezados, títulos de sección, textos promocionales, servicios y elementos decorativos. "+
+    "Si aparecen SKU, marca, modelo o precio, inclúyelos. Si no aparecen, deja ese campo vacío. NO inventes datos. "+
+    "Devuelve SOLO líneas de este formato, sin encabezado y sin explicación: "+
+    "NOMBRE || SKU || MARCA || MODELO || PRECIO. "+
+    "Una línea por producto. Página "+pageNumber+" de "+totalPages+".";
+  const out=await geminiGenerateImage(env,image,prompt,{maxTokens:3200});
   const text=out?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("")||"";
   if(!text)throw Object.assign(new Error("Gemini no devolvió productos para esta página."),{status:502});
-  let parsed;
-  try{parsed=extractJson(text)}catch{throw Object.assign(new Error("Gemini no devolvió una estructura válida en la página "+pageNumber+"."),{status:502})}
-  const items=sanitizePdfItems(parsed?.items).map(x=>({...x,page_number:pageNumber}));
+
+  const items=parseInventoryProductLines(text,pageNumber);
+  if(!items.length){
+    throw Object.assign(new Error("Gemini devolvió una respuesta sin productos reconocibles en la página "+pageNumber+"."),{status:502,details:{preview:text.slice(0,700)}})
+  }
+
   const current=Array.isArray(rows[0].items)?rows[0].items:[];
   const all=[...current,...items];
   await sb(env,adminToken,"marc_pending_imports?id=eq."+encodeURIComponent(pendingId)+"&user_id=eq."+encodeURIComponent(user.id),{

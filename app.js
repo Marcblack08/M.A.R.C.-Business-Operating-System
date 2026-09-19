@@ -1,4 +1,4 @@
-(()=>{const C=window.MARC_CONFIG,S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});const st={u:null,session:null,view:"home",cid:null,authEpoch:0};const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)],esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])),money=v=>new Intl.NumberFormat("es-PE",{style:"currency",currency:"PEN"}).format(Number(v||0)),toast=(t,c="")=>{const e=document.createElement("div");e.className="toast "+c;e.textContent=t;$("#toast").appendChild(e);setTimeout(()=>e.remove(),2600)},initials=n=>String(n||"M").split(/\s+/).slice(0,2).map(x=>x[0]?.toUpperCase()).join("");let authMode="login",recoveryMode=new URLSearchParams(location.search).get("recovery")==="1"||/type=recovery/i.test(location.hash);
+(()=>{const C=window.MARC_CONFIG,S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"pkce"}});const st={u:null,session:null,view:"home",cid:null,authEpoch:0};const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)],esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])),money=v=>new Intl.NumberFormat("es-PE",{style:"currency",currency:"PEN"}).format(Number(v||0)),toast=(t,c="")=>{const e=document.createElement("div");e.className="toast "+c;e.textContent=t;$("#toast").appendChild(e);setTimeout(()=>e.remove(),2600)},initials=n=>String(n||"M").split(/\s+/).slice(0,2).map(x=>x[0]?.toUpperCase()).join("");let authMode="login",recoveryMode=new URLSearchParams(location.search).get("recovery")==="1"||/type=recovery/i.test(location.hash);
 function msg(t,c=""){const e=$("#authMsg");e.textContent=t;e.className="msg "+c}
 function authRateLimitMessage(e){const raw=String(e?.message||"").toLowerCase();return raw.includes("rate limit")||raw.includes("too many")||raw.includes("over_email_send_rate_limit")}
 function mode(m){authMode=m;const title=m==="login"?"Inicia sesión en M.A.R.C.":"Accede a M.A.R.C.";const sub=m==="login"?"Accede a M.A.R.C. de forma rápida y segura con tu cuenta de Google.":"Accede a M.A.R.C. con tu cuenta de Google.";if($("#authTitle"))$("#authTitle").textContent=title;if($("#authSub"))$("#authSub").textContent=sub;msg("")}
@@ -2167,8 +2167,9 @@ function wire(){
   $("#chatInput").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("#chatForm").requestSubmit()}};
   $(".chips button").forEach(b=>b.onclick=()=>{$("#chatInput").value=b.dataset.q;$("#chatInput").focus()});
 
-  // OAuth callback: never reset the UI just because INITIAL_SESSION arrives
-  // without a session. Supabase may still be resolving the OAuth callback.
+  // OAuth callback: keep the auth session as the source of truth.
+  // PKCE is enabled on the client, so Supabase can detect the callback code
+  // and exchange it for a persisted session automatically.
   S.auth.onAuthStateChange((ev,s)=>{
     if(s){
       enter(s);
@@ -2177,15 +2178,24 @@ function wire(){
     if(ev==="SIGNED_OUT")resetUiToLogin();
   });
 
-  // Supabase automatically initializes the client and detects OAuth data
-  // in the URL. We only enter the app when a real session exists.
-  S.auth.getSession().then(({data})=>{
-    if(data?.session)enter(data.session);
-  });
+  // Give Supabase a chance to finish the OAuth callback before deciding
+  // that there is no session. This avoids a false return to the login screen.
+  const bootAuth=async()=>{
+    const first=await S.auth.getSession();
+    if(first.data?.session){
+      await enter(first.data.session);
+      return;
+    }
+    await new Promise(r=>setTimeout(r,500));
+    const second=await S.auth.getSession();
+    if(second.data?.session)await enter(second.data.session);
+  };
+  bootAuth().catch(e=>msg(e?.message||"No se pudo recuperar la sesión de Google.","error"));
 
   // Surface OAuth callback errors instead of silently returning to login.
-  const params=new URLSearchParams(location.hash.replace(/^#/,""));
-  const oauthError=params.get("error_description")||params.get("error");
-  if(oauthError)msg(decodeURIComponent(oauthError.replace(/\+/g," ")),"error");
+  const params=new URLSearchParams(location.search);
+  const hashParams=new URLSearchParams(location.hash.replace(/^#/,""));
+  const oauthError=params.get("error_description")||params.get("error")||hashParams.get("error_description")||hashParams.get("error");
+  if(oauthError)msg(decodeURIComponent(String(oauthError).replace(/\+/g," ")),"error");
 }
 wire()})();

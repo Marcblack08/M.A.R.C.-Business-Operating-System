@@ -815,7 +815,7 @@ async function inventory(){
         <div style="display:flex;align-items:center;gap:10px"><label style="display:flex;align-items:center;gap:8px;font-weight:800;cursor:pointer"><input id="selectAll" type="checkbox"> Seleccionar todos</label><span id="selectedCount" style="font-weight:800;color:#1373e6">0 seleccionados</span></div>
         <button id="bulkDelete" class="danger" type="button" disabled>🗑 Eliminar seleccionados</button>
       </div>
-      <div class="scroll"><table class="data"><thead><tr><th style="width:45px;text-align:center"></th><th>Producto</th><th>Marca/modelo</th><th>Stock</th><th>Precio</th><th>Estado</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
+      <div class="scroll"><table class="data"><thead><tr><th style="width:45px;text-align:center"></th><th>Foto</th><th>Producto</th><th>Marca/modelo</th><th>Stock</th><th>Precio</th><th>Estado</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
     </section>`;
 
     const rows=$("#rows"), selected=new Set();
@@ -829,8 +829,8 @@ async function inventory(){
     const draw=list=>{
       rows.innerHTML=(list||[]).map(x=>{
         const stock=Number(x.stock),min=Number(x.min_stock),cls=stock<=0?"out":stock<=min?"low":"ok";
-        return `<tr><td style="text-align:center"><input class="inventory-check" type="checkbox" data-id="${x.id}" ${selected.has(x.id)?"checked":""}></td><td><b>${esc(x.name)}</b><br><small>${esc(x.sku||"Sin código")}</small></td><td>${esc([x.brand,x.model].filter(Boolean).join(" · ")||"—")}</td><td><b>${stock}</b> ${esc(x.unit)}</td><td>${money(x.price)}</td><td><span class="badge ${cls}">${stock<=0?"Agotado":stock<=min?"Bajo":"Disponible"}</span></td><td style="display:flex;gap:5px;flex-wrap:wrap"><button class="secondary" type="button" data-action="edit-inventory" data-id="${x.id}">Editar</button><button class="danger" type="button" data-action="delete-inventory" data-id="${x.id}">Eliminar</button></td></tr>`;
-      }).join("")||'<tr><td colspan="7" class="empty">Agrega tu primer producto.</td></tr>';
+        return `<tr><td style="text-align:center"><input class="inventory-check" type="checkbox" data-id="${x.id}" ${selected.has(x.id)?"checked":""}></td><td><div class="inventory-thumb">${x.image_url?'<img src="'+esc(x.image_url)+'" alt="Foto">':'<span>📷</span>'}</div></td><td><b>${esc(x.name)}</b><br><small>${esc(x.sku||"Sin código")}</small></td><td>${esc([x.brand,x.model].filter(Boolean).join(" · ")||"—")}</td><td><b>${stock}</b> ${esc(x.unit)}</td><td>${money(x.price)}</td><td><span class="badge ${cls}">${stock<=0?"Agotado":stock<=min?"Bajo":"Disponible"}</span></td><td style="display:flex;gap:5px;flex-wrap:wrap"><button class="secondary" type="button" data-action="edit-inventory" data-id="${x.id}">Editar</button><button class="danger" type="button" data-action="delete-inventory" data-id="${x.id}">Eliminar</button></td></tr>`;
+      }).join("")||'<tr><td colspan="8" class="empty">Agrega tu primer producto.</td></tr>';
       sync();
     };
     draw(data||[]);
@@ -1163,10 +1163,54 @@ async function settings(){
 }
 function modal(html){$("#modal").innerHTML='<div class="modal">'+html+"</div>";const close=()=>$("#modal").innerHTML="";return close}
 function clientModal(x=null){const close=modal(`<div class="modal-head"><div><h2>${x?"Editar":"Nuevo"} cliente</h2><p>Disponible para el contexto de M.A.R.C.</p></div><button class="close" id="x">×</button></div><form id="f"><div class="form-grid"><label>Nombre / razón social<input name="name" required value="${esc(x?.name)}"></label><label>Documento<input name="document_number" value="${esc(x?.document_number)}"></label><label>Contacto<input name="contact_name" value="${esc(x?.contact_name)}"></label><label>Teléfono<input name="phone" value="${esc(x?.phone)}"></label><label>Correo<input name="email" type="email" value="${esc(x?.email)}"></label><label>Dirección<input name="address" value="${esc(x?.address)}"></label><label style="grid-column:1/-1">Notas<textarea name="notes" rows="3">${esc(x?.notes)}</textarea></label></div><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Guardar</button></div></form>`);$("#x").onclick=close;$("#cancel").onclick=close;$("#f").onsubmit=async e=>{e.preventDefault();const d=new FormData(e.currentTarget),p={user_id:st.u.id,name:d.get("name").trim(),document_type:"OTRO",document_number:d.get("document_number")||null,contact_name:d.get("contact_name")||null,phone:d.get("phone")||null,email:d.get("email")||null,address:d.get("address")||null,notes:d.get("notes")||null,updated_at:new Date().toISOString()};const r=x?await S.from("marc_clients").update(p).eq("id",x.id).eq("user_id",st.u.id):await S.from("marc_clients").insert(p);if(r.error)return toast(r.error.message,"err");close();toast("Cliente guardado","ok");await trial();clients()}}
+async function optimizeProductImage(file){
+  if(!file)return null;
+  if(!["image/jpeg","image/png","image/webp"].includes(file.type))throw new Error("La foto debe ser JPG, PNG o WEBP.");
+  if(file.size>5*1024*1024)throw new Error("La foto supera el límite de 5 MB.");
+  const bitmap=await createImageBitmap(file);
+  const max=1400;
+  const scale=Math.min(1,max/Math.max(bitmap.width,bitmap.height));
+  const canvas=document.createElement("canvas");
+  canvas.width=Math.max(1,Math.round(bitmap.width*scale));
+  canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+  const ctx=canvas.getContext("2d",{alpha:false});
+  ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);
+  bitmap.close();
+  const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/jpeg",0.82));
+  if(!blob)throw new Error("No se pudo preparar la foto.");
+  return blob;
+}
+function inventoryPublicImageUrl(path){
+  return S.storage.from("inventory-images").getPublicUrl(path).data.publicUrl;
+}
+async function uploadInventoryPhoto(file,productId,oldUrl){
+  const blob=await optimizeProductImage(file);
+  if(!blob)return {url:oldUrl||null,path:null};
+  const path=st.u.id+"/"+productId+"-"+Date.now()+".jpg";
+  const up=await S.storage.from("inventory-images").upload(path,blob,{
+    contentType:"image/jpeg",
+    upsert:false,
+    cacheControl:"31536000"
+  });
+  if(up.error)throw up.error;
+  const url=inventoryPublicImageUrl(path);
+  if(oldUrl&&oldUrl.includes("/storage/v1/object/public/inventory-images/")){
+    const oldPath=oldUrl.split("/storage/v1/object/public/inventory-images/")[1];
+    if(oldPath)await S.storage.from("inventory-images").remove([decodeURIComponent(oldPath)]);
+  }
+  return {url,path};
+}
 function inventoryModal(x=null){
   const close=modal(
-    '<div class="modal-head"><div><h2>'+(x?"Editar":"Nuevo")+' producto</h2><p>Productos + inventario, juntos.</p></div><button class="close" id="x">×</button></div>'+
+    '<div class="modal-head"><div><h2>'+(x?"Editar":"Nuevo")+' producto</h2><p>Productos + inventario, ahora también con foto.</p></div><button class="close" id="x">×</button></div>'+
     '<form id="f">'+
+      '<div class="inventory-photo-box">'+
+        '<div class="inventory-photo-preview" id="productPhotoPreview">'+(x?.image_url?'<img src="'+esc(x.image_url)+'" alt="Foto del producto">':'<span>📷</span>')+'</div>'+
+        '<div style="display:flex;flex-direction:column;gap:6px;min-width:0;flex:1">'+
+          '<label>Foto del producto<input id="productPhoto" name="image" type="file" accept="image/jpeg,image/png,image/webp" capture="environment"></label>'+
+          '<small>JPG, PNG o WEBP · máximo 5 MB. M.A.R.C. la optimiza automáticamente.</small>'+
+        '</div>'+
+      '</div>'+
       '<div class="form-grid">'+
         '<label>Nombre<input name="name" required value="'+esc(x?.name||"")+'"></label>'+
         '<label>Código / SKU<input name="sku" value="'+esc(x?.sku||"")+'"></label>'+
@@ -1179,42 +1223,69 @@ function inventoryModal(x=null){
         '<label>Stock<input name="stock" type="number" min="0" step="0.01" value="'+(x?.stock??0)+'"></label>'+
         '<label>Mínimo<input name="min_stock" type="number" min="0" step="0.01" value="'+(x?.min_stock??0)+'"></label>'+
       '</div>'+
+      '<div id="photoMsg" class="msg"></div>'+
       '<div class="modal-actions">'+
         (x?'<button type="button" class="danger" id="deleteProduct">Eliminar producto</button>':'')+
         '<button type="button" class="secondary" id="cancel">Cancelar</button>'+
-        '<button class="primary">Guardar</button>'+
+        '<button class="primary" id="saveProduct">Guardar</button>'+
       '</div>'+
     '</form>'
   );
   $("#x").onclick=close;
   $("#cancel").onclick=close;
 
+  const photo=$("#productPhoto"), preview=$("#productPhotoPreview"), msg=$("#photoMsg");
+  photo.onchange=()=>{
+    const f=photo.files?.[0];
+    if(!f)return;
+    if(!["image/jpeg","image/png","image/webp"].includes(f.type))return toast("Usa JPG, PNG o WEBP.","err");
+    if(f.size>5*1024*1024)return toast("La foto supera 5 MB.","err");
+    const url=URL.createObjectURL(f);
+    preview.innerHTML='<img src="'+url+'" alt="Vista previa">';
+  };
+
   if(x){
     $("#deleteProduct").onclick=async function(){
       const ok=confirm("¿Eliminar «"+x.name+"» del inventario?\n\nEl producto dejará de aparecer del inventario activo, pero se conservará el registro para el historial.");
       if(!ok)return;
-      const b=$("#deleteProduct");
-      b.disabled=true;
+      const b=$("#deleteProduct");b.disabled=true;
       try{
         const {error}=await S.from("marc_inventory").update({active:false,updated_at:new Date().toISOString()}).eq("id",x.id).eq("user_id",st.u.id);
         if(error)throw error;
-        close();
-        toast("Producto eliminado del inventario","ok");
-        await inventory();
-      }catch(err){
-        toast(err.message||"No se pudo eliminar el producto.","err");
-        b.disabled=false;
-      }
+        close();toast("Producto eliminado del inventario","ok");await inventory();
+      }catch(err){toast(err.message||"No se pudo eliminar el producto.","err");b.disabled=false}
     };
   }
 
   $("#f").onsubmit=async e=>{
     e.preventDefault();
+    const b=$("#saveProduct");b.disabled=true;
     const d=new FormData(e.currentTarget);
     const p={user_id:st.u.id,name:String(d.get("name")||"").trim(),sku:d.get("sku")||null,brand:d.get("brand")||null,model:d.get("model")||null,category:d.get("category")||null,unit:d.get("unit")||"UND",cost:Number(d.get("cost")||0),price:Number(d.get("price")||0),stock:Number(d.get("stock")||0),min_stock:Number(d.get("min_stock")||0),updated_at:new Date().toISOString()};
-    const r=x?await S.from("marc_inventory").update(p).eq("id",x.id).eq("user_id",st.u.id):await S.from("marc_inventory").insert(p);
-    if(r.error)return toast(r.error.message,"err");
-    close();toast("Producto guardado","ok");await trial();inventory();
+    try{
+      let productId=x?.id||null;
+      let imageUrl=x?.image_url||null;
+      if(x){
+        const r=await S.from("marc_inventory").update(p).eq("id",x.id).eq("user_id",st.u.id).select("id,image_url").single();
+        if(r.error)throw r.error;
+        productId=r.data.id;imageUrl=r.data.image_url;
+      }else{
+        const r=await S.from("marc_inventory").insert(p).select("id,image_url").single();
+        if(r.error)throw r.error;
+        productId=r.data.id;imageUrl=r.data.image_url||null;
+      }
+      const photoFile=photo.files?.[0];
+      if(photoFile){
+        msg.className="msg";msg.textContent="Subiendo y optimizando la foto…";
+        const uploaded=await uploadInventoryPhoto(photoFile,productId,imageUrl);
+        const u=await S.from("marc_inventory").update({image_url:uploaded.url,updated_at:new Date().toISOString()}).eq("id",productId).eq("user_id",st.u.id);
+        if(u.error)throw u.error;
+      }
+      close();toast(photoFile?"Producto guardado con foto":"Producto guardado","ok");await trial();await inventory();
+    }catch(err){
+      msg.className="msg error";msg.textContent=err.message||"No se pudo guardar el producto.";
+      b.disabled=false;
+    }
   };
 }
 async function aiQuoteModal(){

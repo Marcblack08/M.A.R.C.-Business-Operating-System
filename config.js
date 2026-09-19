@@ -1,0 +1,1 @@
+window.MARC_CONFIG={supabaseUrl:"https://hmnzzknuiejchypalpig.supabase.co",supabasePublishableKey:"sb_publishable_mhRoYMQTWrmYpuclqzQ1MA_6TMtGikq",apiBase:""};

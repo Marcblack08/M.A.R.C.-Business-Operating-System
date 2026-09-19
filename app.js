@@ -702,10 +702,28 @@ async function inventoryPdfModal(){
       const listItems=mergedItems;
       const duplicateCount=Math.max(0,detected.length-listItems.length);
       const preview=$("#pdfImportPreview");
+      const missingPriceCount=listItems.filter(x=>x.price==null||Number.isNaN(Number(x.price))).length;
+      const missingSkuCount=listItems.filter(x=>!String(x.sku||"").trim()).length;
+      const photoReadyCount=listItems.filter(x=>x.pdf_y!=null&&x.pdf_x!=null&&x.pdf_width!=null).length;
       preview.innerHTML=
-        '<div class="pdf-final-summary"><strong>Se procesarán '+listItems.length+' productos únicos</strong><span>'+totalPages+' páginas revisadas'+(duplicateCount?' · '+duplicateCount+' duplicados consolidados':'')+'</span></div>'+'<label class="pdf-photo-option"><input type="checkbox" id="keepPdfProductPhotos" checked> Conservar la foto del producto desde el PDF cuando la página contenga imágenes</label>'+
+        '<div class="pdf-final-summary"><strong>Se procesarán '+listItems.length+' productos únicos</strong><span>'+totalPages+' páginas revisadas'+(duplicateCount?' · '+duplicateCount+' duplicados consolidados':'')+'</span></div>'+
+        '<div class="pdf-import-checks">'+
+          '<span>📄 '+listItems.length+' productos</span>'+
+          '<span>💰 '+(listItems.length-missingPriceCount)+' con precio</span>'+
+          '<span>🏷️ '+(listItems.length-missingSkuCount)+' con SKU</span>'+
+          '<span>📷 '+photoReadyCount+' con zona de foto detectada</span>'+
+        '</div>'+
+        (missingPriceCount?'<div class="msg error">⚠️ '+missingPriceCount+' producto(s) no tienen precio detectado. Puedes importarlos y completar el precio después.</div>':'')+
+        '<label class="pdf-photo-option"><input type="checkbox" id="keepPdfProductPhotos" checked> Conservar la foto del producto desde el PDF cuando la página contenga imágenes</label>'+
         '<div class="pdf-product-list">'+
-          listItems.map((x,i)=>'<div class="pdf-product-row"><span><b>'+(i+1)+'.</b> '+esc(x.name)+'</span><small>Página '+Number(x.page_number||1)+' · '+esc([x.sku,x.brand,x.model].filter(Boolean).join(" · ")||"Sin código")+(x.price!=null?" · S/ "+Number(x.price).toFixed(2):"")+'</small></div>').join("")+
+          listItems.map((x,i)=>{
+            const price=x.price!=null&&!Number.isNaN(Number(x.price))?'S/ '+Number(x.price).toFixed(2):'Precio no detectado';
+            const code=String(x.sku||'').trim()||'Sin SKU';
+            const model=String(x.model||'').trim();
+            const source='Página '+Number(x.page_number||1);
+            const photo=x.pdf_y!=null&&x.pdf_x!=null&&x.pdf_width!=null?'📷 Foto PDF':'Sin zona de foto';
+            return '<div class="pdf-product-row"><div><b>'+(i+1)+'.</b> '+esc(x.name)+'</div><small>'+esc(source)+' · '+esc(code)+(model&&model!==code?' · '+esc(model):'')+' · '+esc(price)+' · '+photo+'</small></div>';
+          }).join("")+
         '</div>';
       preview.classList.remove("hidden");
 

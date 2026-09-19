@@ -168,7 +168,9 @@ async function extractPdfCatalogRows(page){
         cost:null,
         price:p.price,
         stock:null,
-        min_stock:null
+        min_stock:null,
+        pdf_y:p.y,
+        pdf_radius:radius
       });
     }
 
@@ -407,6 +409,119 @@ async function inventoryPdfModal(){
 
 
 
+
+async function inventoryPhotosBulkModal(){
+  let files=[];
+  let results=[];
+  const close=modal(
+    '<div class="modal-head"><div><h2>📷 Subir productos por fotos</h2><p>Toma varias fotos de cajas y M.A.R.C. identifica cada producto.</p></div><button class="close" id="x">×</button></div>'+
+    '<label>Fotos de las cajas<input id="bulkProductPhotos" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" multiple></label>'+
+    '<small>Puedes seleccionar varias fotos. Para productos iguales, M.A.R.C. intentará detectar el mismo producto y sus números de serie.</small>'+
+    '<div id="bulkPhotoStatus" class="msg"></div>'+
+    '<div id="bulkPhotoResults" class="serial-results"></div>'+
+    '<div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button type="button" class="primary" id="saveBulkPhotos" disabled>Guardar productos</button></div>'
+  );
+  $("#x").onclick=close;$("#cancel").onclick=close;
+  const input=$("#bulkProductPhotos"),status=$("#bulkPhotoStatus"),list=$("#bulkPhotoResults"),save=$("#saveBulkPhotos");
+
+  function render(){
+    list.innerHTML=results.map(function(r,i){
+      return '<div class="serial-row"><div class="inventory-thumb">'+(r.preview?'<img src="'+r.preview+'" alt="Caja">':'📦')+'</div><div class="serial-main"><b>Foto '+(i+1)+'</b><div>'+esc(r.name||"Producto sin identificar")+'</div><small>'+esc([r.sku,r.brand,r.model,r.serial_number].filter(Boolean).join(" · ")||"Revisa los datos")+'</small></div><div class="serial-input"><label>Precio<input data-price-index="'+i+'" type="number" min="0" step="0.01" value="'+(r.price??"")+'" placeholder="S/"></label><label>Serie<input data-serial-index="'+i+'" value="'+esc(r.serial_number||"")+'" placeholder="Opcional"></label></div></div>';
+    }).join("");
+    save.disabled=!results.length||results.some(function(r){return !String(r.name||"").trim()||r.price===null||r.price===undefined||Number(r.price)<0});
+  }
+
+  input.onchange=async function(){
+    files=[].slice.call(input.files||[]);
+    results=[];render();
+    if(!files.length)return;
+    status.className="msg";status.textContent="Analizando "+files.length+" fotos…";
+    for(let i=0;i<files.length;i++){
+      try{
+        const blob=await optimizeProductImage(files[i]);
+        const preview=URL.createObjectURL(blob);
+        const p=await analyzeProductBoxPhoto(files[i],status);
+        results.push({name:p.name||"",sku:p.sku||"",brand:p.brand||"",model:p.model||"",category:p.category||"",serial_number:p.serial_number||"",price:"",preview:preview});
+      }catch(err){
+        results.push({name:"",sku:"",brand:"",model:"",category:"",serial_number:"",price:"",preview:null,error:err.message||"Error"});
+      }
+      render();
+      status.textContent="Analizadas "+(i+1)+" de "+files.length+" fotos.";
+    }
+    status.textContent="Listo. Revisa nombre, serie y coloca el precio.";
+  };
+
+  list.oninput=function(e){
+    const priceEl=e.target.closest("input[data-price-index]");
+    const serialEl=e.target.closest("input[data-serial-index]");
+    if(priceEl){results[Number(priceEl.dataset.priceIndex)].price=Number(priceEl.value);}
+    if(serialEl){results[Number(serialEl.dataset.serialIndex)].serial_number=serialEl.value.trim();}
+    render();
+  };
+
+  save.onclick=async function(){
+    save.disabled=true;
+    try{
+      const groups={};
+      results.forEach(function(r){const key=[r.name,r.sku,r.brand,r.model].map(function(v){return String(v||"").toLowerCase().trim()}).join("|");(groups[key]||(groups[key]=[])).push(r)});
+      let created=0,units=0;
+
+      for(const key of Object.keys(groups)){
+        const group=groups[key], first=group[0];
+        let q=S.from("marc_inventory").select("id,image_url,stock,price").eq("user_id",st.u.id).eq("active",true).limit(1);
+        if(first.sku)q=q.eq("sku",first.sku);else q=q.is("sku",null);
+        q=q.eq("name",first.name||"").limit(1);
+        const existing=(await q).data?.[0];
+        let productId=existing?.id;
+
+        if(!productId){
+          const ins=await S.from("marc_inventory").insert({
+            user_id:st.u.id,sku:first.sku||null,name:first.name,brand:first.brand||null,model:first.model||null,
+            category:first.category||null,unit:"UND",cost:0,price:Number(first.price||0),stock:0,min_stock:0,image_url:null,active:true
+          }).select("id").single();
+          if(ins.error)throw ins.error;
+          productId=ins.data.id;created++;
+        }else if(Number(existing.price||0)===0){
+          const up=await S.from("marc_inventory").update({price:Number(first.price||0),updated_at:new Date().toISOString()}).eq("id",productId).eq("user_id",st.u.id);
+          if(up.error)throw up.error;
+        }
+
+        const serialized=group.every(function(r){return String(r.serial_number||"").trim()});
+        if(serialized){
+          const items=[];
+          for(const r of group){
+            const idx=results.indexOf(r);
+            const up=await uploadInventoryPhoto(files[idx],productId,null);
+            items.push({serial_number:String(r.serial_number).trim(),image_url:up.url});
+          }
+          const rpc=await S.rpc("marc_save_inventory_instances",{p_inventory_id:productId,p_instances:items});
+          if(rpc.error)throw rpc.error;
+          units+=Number(rpc.data?.inserted||0);
+        }else{
+          const qty=group.length;
+          const photoFile=files[results.indexOf(first)];
+          const up=await uploadInventoryPhoto(photoFile,productId,existing?.image_url||null);
+          const upd=await S.from("marc_inventory").update({
+            image_url:up.url,
+            stock:Number(existing?.stock||0)+qty,
+            updated_at:new Date().toISOString()
+          }).eq("id",productId).eq("user_id",st.u.id);
+          if(upd.error)throw upd.error;
+          units+=qty;
+        }
+      }
+
+      close();
+      toast("Fotos procesadas: "+results.length+" fotos · "+created+" productos nuevos · "+units+" unidades","ok");
+      await inventory();
+    }catch(err){
+      status.className="msg error";status.textContent=err.message||"No se pudieron guardar las fotos.";
+      save.disabled=false;
+    }
+  };
+  render();
+}
+
 async function inventorySerialsModal(x){
   let files=[];
   let results=[];
@@ -504,7 +619,7 @@ async function inventory(){
   S.from("marc_inventory").select("*").eq("user_id",st.u.id).eq("active",true).order("name").then(({data,error})=>{
     if(error)return toast(error.message,"err");
     const c=$("#content");
-    c.innerHTML=`<div class="head"><div><div class="eyebrow2">INVENTARIO</div><h1>Productos + stock.</h1><p>Todo producto vive dentro del inventario.</p></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button id="importPdf" class="secondary">📄 Importar PDF</button><button id="new" class="primary">＋ Nuevo producto</button></div></div><section class="card table"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar producto…"></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button id="selectAll" class="secondary" type="button">☐ Seleccionar todos</button><button id="bulkDelete" class="danger" type="button" disabled>Eliminar seleccionados <span id="selectedCount">0</span></button><button id="ask" class="secondary">Preguntar</button></div></div><div class="scroll"><table class="data"><thead><tr><th style="width:42px;text-align:center"><input id="selectAllHead" type="checkbox" aria-label="Seleccionar todos los productos"></th><th>Producto</th><th>Marca/modelo</th><th>Stock</th><th>Precio</th><th>Estado</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></section>`;
+    c.innerHTML=`<div class="head"><div><div class="eyebrow2">INVENTARIO</div><h1>Productos + stock.</h1><p>Todo producto vive dentro del inventario.</p></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button id="photos" class="secondary">📷 Subir por fotos</button><button id="importPdf" class="secondary">📄 Importar PDF</button><button id="new" class="primary">＋ Nuevo producto</button></div></div><section class="card table"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar producto…"></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button id="selectAll" class="secondary" type="button">☐ Seleccionar todos</button><button id="bulkDelete" class="danger" type="button" disabled>Eliminar seleccionados <span id="selectedCount">0</span></button><button id="ask" class="secondary">Preguntar</button></div></div><div class="scroll"><table class="data"><thead><tr><th style="width:42px;text-align:center"><input id="selectAllHead" type="checkbox" aria-label="Seleccionar todos los productos"></th><th>Producto</th><th>Marca/modelo</th><th>Stock</th><th>Precio</th><th>Estado</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></section>`;
 
     const rows=$("#rows");
     const selected=new Set();
@@ -533,6 +648,7 @@ async function inventory(){
     draw(data||[]);
 
     $("#search").oninput=e=>{draw(visibleData());};
+    $("#photos").onclick=inventoryPhotosBulkModal;
     $("#new").onclick=()=>inventoryModal();
     $("#importPdf").onclick=inventoryPdfModal;
     $("#ask").onclick=openChat;

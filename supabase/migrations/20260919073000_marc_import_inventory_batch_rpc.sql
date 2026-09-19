@@ -105,8 +105,7 @@ begin
       if v_sku is not null then
         select id into v_id
         from public.marc_inventory
-        where user_id = uid
-          and sku = v_sku
+        where user_id = uid and sku = v_sku
         order by created_at
         limit 1;
       end if;
@@ -135,8 +134,7 @@ begin
         cost = v_cost,
         price = v_price,
         updated_at = now()
-      where id = v_id
-        and user_id = uid;
+      where id = v_id and user_id = uid;
 
       updated_count := updated_count + 1;
     else
@@ -156,13 +154,14 @@ begin
   end loop;
 
   insert into public.marc_audit_log (
-    user_id, entity_type, entity_id, action, payload
+    user_id, entity_type, entity_id, action, source, metadata
   )
   values (
     uid,
     'INVENTORY',
     null,
     'IMPORT_BATCH',
+    'WEB',
     jsonb_build_object(
       'processed', processed_count,
       'created', created_count,

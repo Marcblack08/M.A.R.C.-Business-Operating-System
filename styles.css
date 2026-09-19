@@ -1796,3 +1796,27 @@ body,
 }
 
 .cash-period-select{display:flex;align-items:center;gap:6px;font-size:7px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#718396}.cash-period-select select{font-size:9px!important;padding:8px 10px!important;min-width:82px}@media(max-width:780px){.cash-period-select{font-size:8px}.cash-period-select select{min-width:76px}}
+
+/* ===== Publicidad / Marketing Studio ===== */
+.marketing-layout{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.marketing-form-card,.marketing-preview-card,.marketing-copy-card,.marketing-history{padding:18px}
+.marketing-form-card .form-grid{margin-top:12px}
+.marketing-photo-row{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}
+.marketing-photo-row .file-btn{cursor:pointer}
+.marketing-photo-row>span{font-size:8px;color:#7d8ea1}
+.marketing-canvas-wrap{margin-top:12px;border:1px solid #dfe8f1;border-radius:16px;background:#eef3f8;display:grid;place-items:center;padding:10px;overflow:hidden}
+#adCanvas{width:100%;height:auto;max-height:58vh;display:block;border-radius:11px;box-shadow:0 14px 34px #193b5a18}
+.marketing-banner-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.marketing-copy-card{margin-top:16px}
+.marketing-copy-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.marketing-copy-grid article{border:1px solid #e2e9f1;border-radius:13px;padding:12px;background:#fbfdff;min-width:0}
+.marketing-copy-grid article p{white-space:pre-wrap;line-height:1.55;color:#50677d;font-size:9px;margin:9px 0 0}
+.marketing-copy-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.marketing-copy-head b{font-size:9px;color:#173653}
+.marketing-history{margin-top:16px}
+.marketing-history-list{display:grid;gap:6px;margin-top:10px}
+.marketing-history-row{padding:10px 11px;border:1px solid #e4ebf2;border-radius:11px;background:#fbfdff}
+.marketing-history-row b{display:block;font-size:9px}
+.marketing-history-row small{display:block;margin-top:4px;color:#8191a2;font-size:7px}
+@media(max-width:900px){.marketing-layout{grid-template-columns:1fr}}
+@media(max-width:520px){.marketing-copy-grid{grid-template-columns:1fr}.marketing-form-card,.marketing-preview-card,.marketing-copy-card,.marketing-history{padding:14px}}

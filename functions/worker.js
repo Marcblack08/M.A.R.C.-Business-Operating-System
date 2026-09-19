@@ -195,10 +195,30 @@ function extractJson(text){
   return JSON.parse(raw.slice(a,b+1));
 }
 
+function deterministicIntent(message){
+  const s=String(message||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim();
+  if(/\b(revisa|revisar|ver|muestra|muestreme|mostrar|consulta|consultar|que|cuanto|cuantos|cual|cuales)\b/.test(s) &&
+     /\binventario\b|\bstock\b|\bproductos\b/.test(s) &&
+     !/\b(agrega|agregar|ingresa|ingresar|suma|sumar|resta|restar|ajusta|ajustar|crea|crear|registra|registrar)\b/.test(s)){
+    const cleaned=s.replace(/\binventario\b/g," ").replace(/\bmi\b/g," ").replace(/\bmis\b/g," ").replace(/\brevisa\b/g," ").replace(/\brevisar\b/g," ").replace(/\bque productos tengo\b/g," ").replace(/\bproductos\b/g," ").trim();
+    return {action:"SEARCH_INVENTORY",execute:false,params:{query:""}};
+  }
+  if(/\b(que|cuales|muestra|mostrar|listar|lista|revisa|revisar)\b/.test(s) && /\bcotizaciones?\b|\bproformas?\b/.test(s)){
+    return {action:"LIST_QUOTES",execute:false,params:{}};
+  }
+  if(/\b(busca|buscar|muestra|mostrar|consulta|consultar|revisa|revisar)\b/.test(s) && /\b(cliente|clientes)\b/.test(s)){
+    const q=s.replace(/.*\b(cliente|clientes)\b\s*/,"").trim();
+    return {action:"SEARCH_CLIENTS",execute:false,params:{query:q}};
+  }
+  return null;
+}
+
 async function plan(env,message,history){
+  const deterministic=deterministicIntent(message);
+  if(deterministic)return deterministic;
   const context=history.map(x=>x.role+":"+x.content).join("\n").slice(-6000);
   const prompt={messages:[
-    {role:"system",content:'Eres el enrutador de M.A.R.C. Devuelve SOLO JSON válido, sin markdown ni explicación. Tu trabajo es convertir lenguaje natural en una operación segura. Acciones permitidas: SEARCH_CLIENTS, SEARCH_INVENTORY, LIST_QUOTES, CREATE_CLIENT, CREATE_QUOTE, ADJUST_INVENTORY, CHAT. Nunca inventes IDs, precios, stock, clientes o productos. Una acción de escritura solo usa execute=true cuando el usuario pidió explícitamente crear, guardar, registrar, generar, sumar, restar, ingresar o ajustar algo. Si el usuario pregunta, consulta o pide revisar, usa execute=false. Para CREATE_QUOTE: items es un arreglo. Producto: {type:"PRODUCTO",inventory_query:"texto",quantity:number,unit_price:number|null}. Trabajo: {type:"TRABAJO",name:"texto",quantity:number,unit_price:number|null}. No inventes precio de trabajo; usa null si falta. client_query puede quedar vacío. Para ADJUST_INVENTORY usa type ENTRADA, SALIDA o AJUSTE; quantity siempre positiva. Si no hay suficiente información para ejecutar una escritura, mantén execute=true y deja params incompletos para que el ejecutor solicite el dato faltante. Formato: {"action":"CHAT|SEARCH_CLIENTS|SEARCH_INVENTORY|LIST_QUOTES|CREATE_CLIENT|CREATE_QUOTE|ADJUST_INVENTORY","execute":false,"params":{}}'},
+    {role:"system",content:'Eres el enrutador de M.A.R.C. Devuelve SOLO JSON válido, sin markdown ni explicación. Convierte lenguaje natural en una sola acción segura. Acciones: SEARCH_CLIENTS, SEARCH_INVENTORY, LIST_QUOTES, CREATE_CLIENT, CREATE_QUOTE, ADJUST_INVENTORY, CHAT. Para cualquier consulta, pregunta o solicitud de revisar, usa una acción de consulta. Solo usa execute=true para una operación que el usuario pidió explícitamente ejecutar. Nunca inventes IDs, precios, stock, clientes o productos. Para CREATE_QUOTE: items es un arreglo. Producto {type:"PRODUCTO",inventory_query:"texto",quantity:number,unit_price:number|null}; Trabajo {type:"TRABAJO",name:"texto",quantity:number,unit_price:number|null}. Para ADJUST_INVENTORY type es ENTRADA, SALIDA o AJUSTE. Formato: {"action":"CHAT","execute":false,"params":{}}'},
     ...(context?[{role:"user",content:"Historial reciente:\n"+context}]:[]),
     {role:"user",content:message}
   ]};
@@ -222,8 +242,23 @@ function normalizeData(x){
 }
 
 async function finalReply(env,message,planData){
+  const execution=planData?.execution||{};
+  const result=execution?.result;
+  if(execution?.action==="SEARCH_INVENTORY" && Array.isArray(result)){
+    if(!result.length)return "No tienes productos registrados en el inventario todavía.";
+    const lines=result.slice(0,8).map(x=>{
+      const stock=Number(x.stock||0),min=Number(x.min_stock||0);
+      const estado=stock<=0?"AGOTADO":stock<=min?"STOCK BAJO":"DISPONIBLE";
+      return "• "+String(x.name||"Producto")+" — stock: "+stock+" — "+estado;
+    });
+    return "Tu inventario actual es:\n\n"+lines.join("\n")+"\n\nTotal mostrados: "+Math.min(result.length,8)+".";
+  }
+  if(execution?.action==="LIST_QUOTES" && Array.isArray(result)){
+    if(!result.length)return "No tienes cotizaciones registradas todavía.";
+    return "Cotizaciones recientes:\n\n"+result.slice(0,8).map(x=>"• "+String(x.number||"Sin número")+" — "+String(x.title||"Cotización")+" — S/ "+Number(x.total||0).toFixed(2)+" — "+String(x.status||"BORRADOR")).join("\n");
+  }
   const prompt={messages:[
-    {role:"system",content:'Eres M.A.R.C., copiloto operativo. Responde en español claro, profesional y breve. Usa exclusivamente los datos de RESULTADO. No inventes nada. Si status=NEEDS_INPUT, pregunta exactamente por el dato faltante. Si status=AMBIGUOUS, presenta las opciones y pide elegir. Si status=CREATED o UPDATED, confirma la operación con los datos entregados. Si es una consulta, muestra los resultados útiles. No describas herramientas internas ni digas que eres un modelo.'},
+    {role:"system",content:'Eres M.A.R.C., copiloto operativo. Responde en español claro, profesional y breve. Usa exclusivamente los datos de RESULTADO. No inventes nada. Si status=NEEDS_INPUT, pregunta exactamente por el dato faltante. Si status=AMBIGUOUS, presenta las opciones y pide elegir. Si status=CREATED o UPDATED, confirma la operación con los datos entregados. Si es una consulta, muestra los resultados útiles. No hables del plan, rol, suscripción o estado de ejecución salvo que la solicitud trate sobre ello. No describas herramientas internas ni digas que eres un modelo.'},
     {role:"user",content:"SOLICITUD:\n"+message+"\n\nRESULTADO:\n"+normalizeData(planData)}
   ]};
   const out=await env.AI.run(env.MARC_AI_MODEL||SYSTEM_MODEL,{...prompt,max_tokens:700,temperature:.15});

@@ -2,7 +2,8 @@ const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{stat
 const SYSTEM_MODEL="@cf/meta/llama-3.1-8b-instruct-fast";
 const GEMINI_MODEL_DEFAULT="gemini-3.8-flash";
 
-async function geminiGenerate(env,messages,options={}){
+async function geminiGenerate(env,input,options={}){
+  const messages=Array.isArray(input)?input:(input?.messages||[]);
   const apiKey=env.GEMINI_API_KEY||env.GEMINI_API_KEY2;
   if(!apiKey)throw Object.assign(new Error("GEMINI_API_KEY no está configurada en el Worker."),{status:503});
   const model=env.GEMINI_MODEL||GEMINI_MODEL_DEFAULT;

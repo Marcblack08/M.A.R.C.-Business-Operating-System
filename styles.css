@@ -1606,3 +1606,23 @@ body,
   .clients-browser .toolbar{grid-template-columns:1fr}
   .clients-browser #ask{width:100%}
 }
+
+/* ===== INVENTORY MOBILE POLISH ===== */
+@media(max-width:780px){
+  .inventory-browser .toolbar{position:relative}
+  .inventory-card{box-shadow:0 6px 18px rgba(20,60,100,.06)}
+  .inventory-card-top{align-items:flex-start}
+  .inventory-card-name h3{overflow-wrap:anywhere}
+  .inventory-card-actions button{min-height:42px!important}
+}
+@media(max-width:560px){
+  .inventory-summary>div{min-width:0}
+  .inventory-summary span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .inventory-card-meta b{font-size:10px}
+  .inventory-card-actions{grid-template-columns:1fr 1fr}
+}
+@media(max-width:380px){
+  .inventory-card-actions{grid-template-columns:1fr}
+  .inventory-card-actions button{width:100%}
+}
+[data-theme="dark"] .inventory-card{box-shadow:0 8px 22px rgba(0,0,0,.18)}

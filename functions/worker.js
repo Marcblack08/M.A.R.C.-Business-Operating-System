@@ -538,8 +538,46 @@ async function telegramWebhook(request,env,ctx){
     return sb(env,adminToken,path);
   };
   const moneyText=n=>new Intl.NumberFormat("es-PE",{style:"currency",currency:"PEN"}).format(Number(n||0));
+  if(/^(resumen|resumen general|estado general|mi negocio)$/.test(simple)){
+    const [inv,quotes,openRows]=await Promise.all([
+      sb(env,adminToken,"marc_inventory?select=id,stock,min_stock,active&user_id=eq."+encodeURIComponent(userId)+"&active=eq.true"),
+      sb(env,adminToken,"marc_quotes?select=number,title,status,total,created_at&user_id=eq."+encodeURIComponent(userId)+"&deleted_at=is.null&order=created_at.desc&limit=5"),
+      cashRows("OPEN",1)
+    ]);
+    const items=inv||[],low=items.filter(x=>Number(x.stock||0)<=Number(x.min_stock||0)).length;
+    const q=quotes||[],open=q.filter(x=>!["ANULADA","RECHAZADA","BORRADOR"].includes(String(x.status||"").toUpperCase()));
+    const lines=["📊 RESUMEN M.A.R.C.","","📦 Inventario: "+items.length+" productos activos","⚠️ Stock crítico: "+low,"🧾 Cotizaciones recientes: "+q.length,"💼 Cotizaciones activas: "+open.length,"▣ Caja: "+(openRows?.[0]?"ABIERTA":"CERRADA")];
+    if(q.length)lines.push("","Últimas cotizaciones:",...q.slice(0,3).map(x=>"• "+x.number+" · "+x.status+" · "+moneyText(x.total)));
+    await sendTelegram(env,chatId,lines.join("\n"));
+    return json({ok:true},200);
+  }
+  if(/^(stock bajo|inventario critico|inventario crítico|productos agotados)$/.test(simple)){
+    const rows=await sb(env,adminToken,"marc_inventory?select=name,sku,stock,min_stock,unit&user_id=eq."+encodeURIComponent(userId)+"&active=eq.true&order=name");
+    const low=(rows||[]).filter(x=>Number(x.stock||0)<=Number(x.min_stock||0)).slice(0,15);
+    await sendTelegram(env,chatId,low.length?"⚠️ STOCK CRÍTICO\n\n"+low.map(x=>"• "+String(x.name||"Producto")+" · "+Number(x.stock||0)+" "+String(x.unit||"UND")+" · mínimo "+Number(x.min_stock||0)+(x.sku?" · "+x.sku:"")).join("\n"):"✅ No hay productos con stock crítico.");
+    return json({ok:true},200);
+  }
+  if(/^(ultimas cotizaciones|últimas cotizaciones|cotizaciones recientes|ver cotizaciones)$/.test(simple)){
+    const rows=await sb(env,adminToken,"marc_quotes?select=number,title,status,total,created_at&user_id=eq."+encodeURIComponent(userId)+"&deleted_at=is.null&order=created_at.desc&limit=10");
+    await sendTelegram(env,chatId,(rows||[]).length?"🧾 ÚLTIMAS COTIZACIONES\n\n"+rows.map(x=>"• "+x.number+" · "+x.status+" · "+moneyText(x.total)+"\n  "+String(x.title||"").slice(0,100)).join("\n"):"No hay cotizaciones registradas.");
+    return json({ok:true},200);
+  }
+  if(/^(abrir caja|abrir caja ahora)$/.test(simple)){
+    await sendTelegram(env,chatId,"Para abrir caja necesito el efectivo inicial. Ejemplo: «abrir caja 100».");
+    return json({ok:true},200);
+  }
+  if(/^(cerrar caja|cerrar caja ahora)$/.test(simple)){
+    const rows=await cashRows("OPEN",1),r=rows?.[0];
+    if(!r){await sendTelegram(env,chatId,"No hay una caja abierta.");return json({ok:true},200);}
+    const mv=await sb(env,adminToken,"marc_cash_movements?select=type,amount&user_id=eq."+encodeURIComponent(userId)+"&cash_register_id=eq."+encodeURIComponent(r.id));
+    const income=(mv||[]).filter(x=>x.type==="INCOME").reduce((s,x)=>s+Number(x.amount||0),0);
+    const expense=(mv||[]).filter(x=>x.type==="EXPENSE").reduce((s,x)=>s+Number(x.amount||0),0);
+    const expected=Number(r.opening_amount||0)+income-expense;
+    await sendTelegram(env,chatId,"🔒 Para cerrar la caja necesito el efectivo contado.\n\nEsperado: "+moneyText(expected)+"\n\nResponde, por ejemplo: «cerrar caja "+expected.toFixed(2)+"».");
+    return json({ok:true},200);
+  }
   if(/^(\/help|\/ayuda|ayuda|comandos|menu)$/.test(simple)){
-    await sendTelegram(env,chatId,"🤖 Comandos M.A.R.C.\n\n• resumen caja\n• abrir caja 100\n• ingreso 50 venta cliente\n• gasto 20 transporte\n• cerrar caja 450\n• cancelar importacion\n\nTambién puedes escribir normalmente: «revisa mi inventario», «crea una cotización», «busca a Juan» o enviar un PDF de catálogo.");
+    await sendTelegram(env,chatId,"🤖 Comandos M.A.R.C.\n\n• resumen caja\n• abrir caja 100\n• ingreso 50 venta cliente\n• gasto 20 transporte\n• cerrar caja 450\n• resumen\n• stock bajo\n• últimas cotizaciones\n• cancelar importacion\n\nTambién puedes escribir normalmente: «revisa mi inventario», «crea una cotización», «busca a Juan» o enviar un PDF de catálogo.");
     return json({ok:true},200);
   }
   if(/^(resumen caja|caja|estado caja|ver caja)$/.test(simple)){

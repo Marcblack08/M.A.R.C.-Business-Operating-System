@@ -611,14 +611,7 @@ body{overflow-x:hidden}
     pointer-events:auto;
   }
 
-  .mobile-bottom-nav{
-    position:fixed;
-    left:0;
-    right:0;
-    bottom:0;
-    z-index:70;
-    display:grid;
-    grid-template-columns:repeat(5,1fr);
+  .mobile-bottom-nav{grid-template-columns:repeat(6,minmax(0,1fr));
     gap:2px;
     padding:7px 5px max(7px,env(safe-area-inset-bottom));
     min-height:68px;
@@ -806,7 +799,7 @@ html,body{max-width:100%;overflow-x:hidden}
     height:auto!important;
     padding:6px 6px max(7px,env(safe-area-inset-bottom))!important;
     display:grid!important;
-    grid-template-columns:repeat(5,minmax(0,1fr))!important;
+    grid-template-columns:repeat(6,minmax(0,1fr))!important;
     gap:2px!important;
     z-index:190!important;
     background:rgba(255,255,255,.97)!important;

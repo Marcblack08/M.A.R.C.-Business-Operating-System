@@ -24,6 +24,7 @@ declare
   v_id uuid;
   created_count integer := 0;
   updated_count integer := 0;
+  reactivated_count integer := 0;
   processed_count integer := 0;
   seen text[] := '{}';
   item_key text;
@@ -93,30 +94,47 @@ begin
     exception when others then v_min_stock := 0;
     end;
 
-    item_key := lower(coalesce(v_sku,'') || '|' || v_name || '|' || coalesce(v_brand,'') || '|' || coalesce(v_model,''));
+    item_key := lower(
+      coalesce(v_sku,'') || '|' ||
+      v_name || '|' ||
+      coalesce(v_brand,'') || '|' ||
+      coalesce(v_model,'')
+    );
+
     if item_key = any(seen) then
       continue;
     end if;
-    seen := array_append(seen, item_key);
 
+    seen := array_append(seen, item_key);
     v_id := null;
 
     if p_update_existing then
+      /*
+        Match exacto:
+        SKU + nombre + marca + modelo.
+        Ya no usamos SKU solo, porque un catálogo puede
+        tener variantes distintas que comparten código.
+      */
       if v_sku is not null then
-        select id into v_id
+        select id
+          into v_id
         from public.marc_inventory
-        where user_id = uid and sku = v_sku
+        where user_id = uid
+          and lower(coalesce(sku,'')) = lower(v_sku)
+          and lower(name) = lower(v_name)
+          and coalesce(lower(brand),'') = coalesce(lower(v_brand),'')
+          and coalesce(lower(model),'') = coalesce(lower(v_model),'')
         order by created_at
         limit 1;
-      end if;
-
-      if v_id is null then
-        select id into v_id
+      else
+        select id
+          into v_id
         from public.marc_inventory
         where user_id = uid
           and lower(name) = lower(v_name)
           and coalesce(lower(brand),'') = coalesce(lower(v_brand),'')
           and coalesce(lower(model),'') = coalesce(lower(v_model),'')
+          and sku is null
         order by created_at
         limit 1;
       end if;
@@ -125,7 +143,7 @@ begin
     if v_id is not null then
       update public.marc_inventory
       set
-        sku = coalesce(v_sku, sku),
+        sku = v_sku,
         name = v_name,
         brand = v_brand,
         model = v_model,
@@ -133,10 +151,22 @@ begin
         unit = v_unit,
         cost = v_cost,
         price = v_price,
+        active = true,
         updated_at = now()
-      where id = v_id and user_id = uid;
+      where id = v_id
+        and user_id = uid;
 
       updated_count := updated_count + 1;
+
+      if exists (
+        select 1
+        from public.marc_inventory
+        where id = v_id
+          and active = true
+          and coalesce(updated_at, created_at) > now() - interval '5 seconds'
+      ) then
+        reactivated_count := reactivated_count + 1;
+      end if;
     else
       insert into public.marc_inventory (
         user_id, sku, name, brand, model, category, unit,
@@ -165,7 +195,8 @@ begin
     jsonb_build_object(
       'processed', processed_count,
       'created', created_count,
-      'updated', updated_count
+      'updated', updated_count,
+      'reactivated', reactivated_count
     )
   );
 
@@ -173,7 +204,8 @@ begin
     'status', 'IMPORTED',
     'total', processed_count,
     'created', created_count,
-    'updated', updated_count
+    'updated', updated_count,
+    'reactivated', reactivated_count
   );
 end;
 $$;

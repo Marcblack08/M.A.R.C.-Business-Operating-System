@@ -252,6 +252,7 @@ async function home(){
             <button data-q="inventory"><span class="quick-icon cyan">＋</span><div><b>Nuevo producto</b><small>Agregar al inventario</small></div><em>→</em></button>
             <button data-q="quote"><span class="quick-icon violet">＋</span><div><b>Nueva cotización</b><small>Preparar una propuesta</small></div><em>→</em></button>
             <button data-q="chat"><span class="quick-icon dark">✦</span><div><b>Preguntar a M.A.R.C.</b><small>Ordenar o consultar</small></div><em>→</em></button>
+            <button data-q="cash"><span class="quick-icon amber">▣</span><div><b>Cierre de caja</b><small>Abrir, registrar y cerrar</small></div><em>→</em></button>
           </div>
         </article>
 
@@ -318,7 +319,7 @@ async function home(){
   $("#heroQuote").onclick=quoteModal;
   $("#openInventory").onclick=inventory;
   $("#openQuotes").onclick=quotes;
-  $$(".quick-modern-grid button",c).forEach(b=>b.onclick=()=>b.dataset.q==="client"?clientModal():b.dataset.q==="inventory"?inventoryModal():b.dataset.q==="quote"?quoteModal():openChat());
+  $(".quick-modern-grid button",c).forEach(b=>b.onclick=()=>b.dataset.q==="client"?clientModal():b.dataset.q==="inventory"?inventoryModal():b.dataset.q==="quote"?quoteModal():b.dataset.q==="cash"?cash():openChat());
 }
 async function clients(){
   const {data,error}=await S.from("marc_clients").select("*").eq("user_id",st.u.id).order("name");

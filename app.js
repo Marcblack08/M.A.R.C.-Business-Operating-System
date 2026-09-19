@@ -107,6 +107,306 @@ function closeChat(){
 function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",quotes:"Cotizaciones",communications:"Comunicaciones",settings:"Configuración"}[x]||"Inicio";$$(".sidebar nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
 async function view(x){st.view=x;title(x);$("#sidebar").classList.remove("open");if(x==="home")return home();if(x==="clients")return clients();if(x==="inventory")return inventory();if(x==="quotes")return quotes();if(x==="communications")return communications();return settings()}
 async function home(){const c=$("#content"),[cl,iv,qt]=await Promise.all([S.from("marc_clients").select("*",{count:"exact"}).eq("user_id",st.u.id),S.from("marc_inventory").select("*").eq("user_id",st.u.id).eq("active",true).order("name"),S.from("marc_quotes").select("*").eq("user_id",st.u.id).order("created_at",{ascending:false}).limit(6)]);const low=(iv.data||[]).filter(x=>Number(x.stock)<=Number(x.min_stock));c.innerHTML=`<div class="head"><div><div class="eyebrow2">CENTRO DE OPERACIONES</div><h1>Tu negocio, desde una sola conversación.</h1><p>M.A.R.C. conecta clientes, inventario, cotizaciones y comunicaciones.</p></div><button id="askHome" class="primary">✦ Preguntar</button></div><div class="grid4"><div class="card kpi"><small>Clientes</small><strong>${cl.count||0}</strong><em>Base operativa</em></div><div class="card kpi"><small>Productos</small><strong>${iv.data?.length||0}</strong><em>En inventario</em></div><div class="card kpi"><small>Stock bajo</small><strong>${low.length}</strong><em>Requieren atención</em></div><div class="card kpi"><small>Cotizaciones</small><strong>${qt.data?.length||0}</strong><em>Recientes</em></div></div><div class="cols"><section class="card panel"><h3>Acciones rápidas</h3><p>Las operaciones frecuentes están a un toque.</p><div class="quick"><button data-q="client"><b>＋ Nuevo cliente</b><small>Guardar un contacto</small></button><button data-q="inventory"><b>＋ Producto</b><small>Agregar al inventario</small></button><button data-q="quote"><b>＋ Cotización</b><small>Preparar una propuesta</small></button><button data-q="chat"><b>✦ Preguntar</b><small>Hablar con M.A.R.C.</small></button></div></section><section class="card panel"><h3>Inventario crítico</h3><p>Productos que merecen atención.</p><div class="list">${low.slice(0,5).map(x=>`<div class="row"><div><b>${esc(x.name)}</b><small>${esc([x.brand,x.model].filter(Boolean).join(" · "))}</small></div><span class="badge ${Number(x.stock)<=0?"out":"low"}">${Number(x.stock)<=0?"Agotado":x.stock}</span></div>`).join("")||'<div class="empty">Todo en orden.</div>'}</div></section></div><section class="card panel" style="margin-top:13px"><h3>Actividad reciente</h3><div class="list">${(qt.data||[]).map(x=>`<div class="row"><div><b>${esc(x.number)} · ${esc(x.title)}</b><small>${esc(x.status)}</small></div><b>${money(x.total)}</b></div>`).join("")||'<div class="empty">Crea tu primera cotización.</div>'}</div></section>`;$("#askHome").onclick=openChat;$$(".quick button",c).forEach(b=>b.onclick=()=>b.dataset.q==="client"?clientModal():b.dataset.q==="inventory"?inventoryModal():b.dataset.q==="quote"?quoteModal():openChat())}
+async function clients(){const {data}=await S.from("marc_clients").select("*").eq("user_id",st.u.id).order("name");const c=$("#content");c.innerHTML=`<div class="head"><div><div class="eyebrow2">CLIENTES</div><h1>Relaciones y contexto.</h1><p>Los clientes son memoria operativa de M.A.R.C.</p></div><button id="new" class="primary">＋ Nuevo cliente</button></div><section class="card table"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar…"></div><button id="ask" class="secondary">Preguntar</button></div><div class="scroll"><table class="data"><thead><tr><th>Cliente</th><th>Contacto</th><th>Correo</th><th>Teléfono</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></section>`;const rows=$("#rows"),draw=list=>rows.innerHTML=list.map(x=>`<tr><td><b>${esc(x.name)}</b><br><small>${esc(x.document_number||"")}</small></td><td>${esc(x.contact_name||"—")}</td><td>${esc(x.email||"—")}</td><td>${esc(x.phone||"—")}</td><td><button class="secondary" type="button" data-id="${x.id}">Editar</button></td></tr>`).join("")||'<tr><td colspan="5" class="empty">Aún no tienes clientes.</td></tr>';draw(data||[]);$("#search").oninput=e=>{const q=e.target.value.toLowerCase();draw((data||[]).filter(x=>[x.name,x.email,x.phone,x.document_number].some(v=>String(v||"").toLowerCase().includes(q))))};$("#new").onclick=()=>clientModal();$("#ask").onclick=()=>openChat();$$("[data-id]",c).forEach(b=>b.onclick=()=>clientModal((data||[]).find(x=>x.id===b.dataset.id)))}
+async function ensurePdfJs(){
+  if(window.pdfjsLib)return window.pdfjsLib;
+  throw new Error("No se pudo cargar el lector PDF. Recarga la página e inténtalo nuevamente.");
+}
+
+async function extractPdfCatalogRows(page){
+  try{
+    const content=await page.getTextContent({normalizeWhitespace:true,disableCombineTextItems:false});
+    const items=(content.items||[]).map(item=>({
+      text:String(item.str||"").replace(/\s+/g," ").trim(),
+      x:Number(item.transform?.[4]||0),
+      y:Number(item.transform?.[5]||0)
+    })).filter(x=>x.text);
+
+    const width=page.view?.[2]||page.getViewport({scale:1}).width||595;
+    const prices=items
+      .filter(x=>x.x>width*.74 && /^\d+(?:[.,]\d{1,2})$/.test(x.text.replace(/[^\d.,]/g,"")))
+      .map(x=>({...x,price:Number(x.text.replace(",","."))}))
+      .sort((a,b)=>b.y-a.y);
+
+    if(!prices.length)return {rows:[],text:items.map(x=>x.text).join("\n"),usedLocal:false};
+
+    const rows=[];
+    for(let i=0;i<prices.length;i++){
+      const p=prices[i];
+      const prev=prices[i-1],next=prices[i+1];
+      const gapPrev=prev?Math.abs(prev.y-p.y):Math.abs(p.y-(next?.y||p.y));
+      const gapNext=next?Math.abs(p.y-next.y):gapPrev;
+      const radius=Math.max(13,Math.min(28,Math.min(gapPrev||20,gapNext||20)*.55));
+      const rowItems=items.filter(x=>Math.abs(x.y-p.y)<=radius);
+
+      const nameParts=rowItems
+        .filter(x=>x.x<width*.34 && Math.abs(x.y-p.y)<=radius)
+        .sort((a,b)=>Math.abs(a.y-p.y)-Math.abs(b.y-p.y)||a.x-b.x)
+        .map(x=>x.text);
+
+      const codeParts=rowItems
+        .filter(x=>x.x>=width*.32 && x.x<width*.74)
+        .sort((a,b)=>Math.abs(a.y-p.y)-Math.abs(b.y-p.y)||a.x-b.x)
+        .map(x=>x.text);
+
+      const name=[...new Set(nameParts)].join(" ").replace(/\s+/g," ").trim();
+      const codeText=[...new Set(codeParts)].join(" ").replace(/\s+/g," ").trim();
+      if(!name)return;
+
+      const skuMatch=codeText.match(/\b(?:[A-Z]{1,6})-[A-Z0-9]{1,12}\b/i);
+      const sku=skuMatch?.[0]||null;
+      const variant=codeText.replace(skuMatch?.[0]||"","").replace(/\s+/g," ").trim();
+      const fullName=[name,variant].filter(Boolean).join(" ").replace(/\s+/g," ").trim();
+
+      rows.push({
+        sku,
+        name:fullName.slice(0,180),
+        brand:null,
+        model:sku,
+        category:name.slice(0,100),
+        unit:"UND",
+        cost:null,
+        price:p.price,
+        stock:null,
+        min_stock:null
+      });
+    }
+
+    // One product per price cell: preserve page order and remove exact duplicates only.
+    const clean=[],seen=new Set();
+    for(const row of rows){
+      const key=((row.sku||"")+"|"+row.name+"|"+row.price).toLowerCase();
+      if(seen.has(key))continue;
+      seen.add(key);clean.push(row);
+    }
+    return {rows:clean,text:items.map(x=>x.text).join("\n"),usedLocal:clean.length>0};
+  }catch{
+    return {rows:[],text:"",usedLocal:false};
+  }
+}
+
+async function extractPdfPageText(page){
+  try{
+    const content=await page.getTextContent({normalizeWhitespace:true,disableCombineTextItems:false});
+    return (content.items||[]).map(x=>String(x.str||"").trim()).filter(Boolean).join("\n");
+  }catch{return ""}
+}
+
+function pdfProgressHtml(page,total,count){
+  const pct=total?Math.round(page*100/total):0;
+  return '<div class="pdf-progress-wrap">'+
+    '<div class="pdf-progress-top"><b id="pdfProgressText">Leyendo página '+page+' de '+total+'</b><strong id="pdfProgressCount">'+count+' productos detectados</strong></div>'+
+    '<div class="pdf-progress"><i id="pdfProgressBar" style="width:'+pct+'%"></i></div>'+
+    '</div>';
+}
+
+async function inventoryPdfModal(){
+  const close=modal(
+    '<div class="modal-head"><div><h2>📄 Importar inventario desde PDF</h2><p>M.A.R.C. lee el catálogo página por página y detecta los productos antes de importarlos.</p></div><button class="close" id="x">×</button></div>'+
+    '<form id="pdfInventoryForm">'+
+    '<label>Catálogo PDF<input id="inventoryPdfFile" type="file" accept="application/pdf" required></label>'+
+    '<div class="pdf-import-hint">Hasta 20 MB. Para catálogos con tablas de texto, M.A.R.C. hace la lectura directamente en el dispositivo para mayor velocidad y precisión.</div>'+
+    '<div id="pdfImportStatus" class="msg"></div>'+
+    '<div id="pdfImportProgress"></div>'+
+    '<div id="pdfLiveItems" class="pdf-live-items hidden"></div>'+
+    '<div id="pdfImportPreview" class="pdf-import-preview hidden"></div>'+
+    '<div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button type="submit" class="primary" id="analyzePdf">Analizar catálogo</button></div>'+
+    '</form>'
+  );
+  $("#x").onclick=close;
+  $("#cancel").onclick=close;
+
+  const form=$("#pdfInventoryForm");
+  const btn=$("#analyzePdf");
+  const status=$("#pdfImportStatus");
+  let working=false;
+
+  form.onsubmit=async function(e){
+    e.preventDefault();
+    if(working)return;
+
+    const file=$("#inventoryPdfFile").files?.[0];
+    if(!file)return toast("Selecciona un PDF.","err");
+    if(file.size>20*1024*1024)return toast("El PDF supera el límite de 20 MB.","err");
+
+    working=true;
+    btn.disabled=true;
+    status.className="msg";
+    status.textContent="Abriendo el catálogo y contando páginas…";
+    $("#pdfImportPreview").classList.add("hidden");
+    $("#pdfLiveItems").classList.add("hidden");
+
+    try{
+      const pdfjs=await ensurePdfJs();
+      if(!pdfjs.GlobalWorkerOptions.workerSrc){
+        pdfjs.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+      }
+
+      const buffer=await file.arrayBuffer();
+      const pdf=await pdfjs.getDocument({data:buffer}).promise;
+      const totalPages=pdf.numPages;
+
+      status.textContent="Catálogo abierto. Procesando "+totalPages+" páginas…";
+      $("#pdfImportProgress").innerHTML=pdfProgressHtml(0,totalPages,0);
+
+      let pendingId=null;
+      let pendingPromise=null;
+      const ensurePendingId=async()=>{
+        if(pendingId)return pendingId;
+        if(pendingPromise)return pendingPromise;
+        pendingPromise=fetch("/api/inventory/pdf-start",{
+          method:"POST",
+          headers:{
+            "Content-Type":"application/json",
+            Authorization:"Bearer "+st.session?.access_token
+          },
+          body:JSON.stringify({filename:file.name,totalPages})
+        }).then(async response=>{
+          const data=await response.json();
+          if(!response.ok)throw new Error(data.message||data.error||"No se pudo iniciar el análisis avanzado.");
+          if(!data.pendingId)throw new Error("No se pudo crear la sesión de análisis avanzado.");
+          pendingId=data.pendingId;
+          return pendingId;
+        }).finally(()=>{pendingPromise=null});
+        return pendingPromise;
+      };
+
+      const detected=[];
+      const live=$("#pdfLiveItems");
+      live.classList.remove("hidden");
+      live.innerHTML='<div class="pdf-live-title">Productos detectados hasta ahora</div><div id="pdfLiveRows"></div>';
+      const liveRows=$("#pdfLiveRows");
+
+      const CONCURRENCY=4;
+      for(let batchStart=1;batchStart<=totalPages;batchStart+=CONCURRENCY){
+        const batch=[];
+        for(let p=0;p<CONCURRENCY&&batchStart+p<=totalPages;p++)batch.push(batchStart+p);
+
+        status.textContent="M.A.R.C. está leyendo páginas "+batch[0]+"–"+batch[batch.length-1]+" de "+totalPages+"…";
+        $("#pdfProgressText").textContent="Leyendo páginas "+batch[0]+"–"+batch[batch.length-1]+" de "+totalPages;
+        $("#pdfProgressCount").textContent=detected.length+" productos detectados";
+        $("#pdfProgressBar").style.width=Math.round((batch[0]-1)*100/totalPages)+"%";
+
+        const results=await Promise.all(batch.map(async pageNumber=>{
+          const page=await pdf.getPage(pageNumber);
+          const local=await extractPdfCatalogRows(page);
+
+          if(local.usedLocal && local.rows.length){
+            return {pageNumber,items:local.rows,mode:"LECTURA DIRECTA"};
+          }
+
+          // Solo los PDFs sin tabla de texto utilizan Gemini.
+          const pendingForPage=await ensurePendingId();
+          const text=local.text||await extractPdfPageText(page);
+          let image="";
+          let viewport=page.getViewport({scale:1.25});
+          if(viewport.width>1600)viewport=page.getViewport({scale:1.25*(1600/viewport.width)});
+          const canvas=document.createElement("canvas");
+          const ctx=canvas.getContext("2d",{alpha:false});
+          canvas.width=Math.ceil(viewport.width);
+          canvas.height=Math.ceil(viewport.height);
+          await page.render({canvasContext:ctx,viewport}).promise;
+          image=canvas.toDataURL("image/jpeg",0.72);
+
+          let analyzed=null,lastError=null;
+          for(let retry=0;retry<2;retry++){
+            try{
+              const pr=await fetch("/api/inventory/pdf-page",{
+                method:"POST",
+                headers:{
+                  "Content-Type":"application/json",
+                  Authorization:"Bearer "+st.session?.access_token
+                },
+                body:JSON.stringify({pendingId:pendingForPage,pageNumber,totalPages,text,image})
+              });
+              const pj=await pr.json();
+              if(!pr.ok)throw new Error(pj.message||pj.error||("No se pudo analizar la página "+pageNumber));
+              analyzed=pj;
+              break;
+            }catch(err){
+              lastError=err;
+              if(retry===0)status.textContent="Reintentando página "+pageNumber+"…";
+            }
+          }
+          if(!analyzed)throw new Error((lastError?.message||"No se pudo analizar la página")+" Revisa tu conexión.");
+          return {pageNumber,items:Array.isArray(analyzed.items)?analyzed.items:[],mode:analyzed.mode||"GEMINI"};
+        }));
+
+        results.sort((a,b)=>a.pageNumber-b.pageNumber);
+        for(const result of results){
+          const pageNumber=result.pageNumber;
+          const pageItems=result.items;
+          detected.push(...pageItems);
+          const recent=pageItems.slice(0,12).map((x,ix)=>'<div class="pdf-live-row"><span>P'+pageNumber+' · '+(ix+1)+'</span><b>'+esc(x.name)+'</b><small>'+esc([x.brand,x.model,x.sku].filter(Boolean).join(" · ")||"Sin código")+'</small></div>').join("");
+          liveRows.insertAdjacentHTML("beforeend",recent);
+        }
+
+        const done=Math.min(batchStart+batch.length-1,totalPages);
+        $("#pdfProgressText").textContent="Leídas páginas "+done+" de "+totalPages;
+        $("#pdfProgressCount").textContent=detected.length+" productos detectados";
+        $("#pdfProgressBar").style.width=Math.round(done*100/totalPages)+"%";
+      }
+
+      status.className="msg ok";
+      status.textContent="Análisis terminado. Revisa exactamente qué productos serán procesados antes de importarlos.";
+      $("#pdfProgressText").textContent="Lectura terminada · "+totalPages+" páginas";
+      $("#pdfProgressCount").textContent=detected.length+" productos detectados";
+
+      const listItems=detected;
+      const preview=$("#pdfImportPreview");
+      preview.innerHTML=
+        '<div class="pdf-final-summary"><strong>Se procesarán '+listItems.length+' productos</strong><span>'+totalPages+' páginas revisadas</span></div>'+
+        '<div class="pdf-product-list">'+
+          listItems.map((x,i)=>'<div class="pdf-product-row"><span><b>'+(i+1)+'.</b> '+esc(x.name)+'</span><small>Página '+Number(x.page_number||1)+' · '+esc([x.sku,x.brand,x.model].filter(Boolean).join(" · ")||"Sin código")+(x.price!=null?" · S/ "+Number(x.price).toFixed(2):"")+'</small></div>').join("")+
+        '</div>';
+      preview.classList.remove("hidden");
+
+      btn.type="button";
+      btn.disabled=false;
+      btn.textContent="Importar "+listItems.length+" productos";
+      btn.dataset.ready="1";
+      btn.onclick=async function(){
+        if(btn.dataset.importing==="1"||!btn.dataset.ready)return;
+        btn.dataset.importing="1";
+        btn.disabled=true;
+        status.className="msg";
+        status.textContent="Importando "+listItems.length+" productos directamente al inventario…";
+
+        try{
+          const {data,error}=await S.rpc("marc_import_inventory_batch",{
+            p_items:listItems,
+            p_update_existing:true
+          });
+          if(error)throw new Error(error.message||"No se pudo importar el lote.");
+          if(!data||data.status!=="IMPORTED")throw new Error("Supabase no confirmó la importación.");
+
+          toast("Inventario actualizado: "+data.created+" nuevos, "+data.updated+" actualizados.","ok");
+          status.className="msg ok";
+          status.textContent="Importación completada. "+data.total+" productos procesados.";
+          close();
+          await trial();
+          await inventory();
+        }catch(err){
+          status.className="msg error";
+          status.textContent=err.message||"No se pudo importar.";
+          btn.disabled=false;
+        }finally{
+          btn.dataset.importing="";
+        }
+      };
+    }catch(err){
+      status.className="msg error";
+      status.textContent=err.message||"No se pudo analizar el catálogo.";
+      $("#pdfImportProgress").innerHTML="";
+      working=false;
+      btn.type="submit";
+      btn.disabled=false;
+    }
+  };
+}
+
+
+async function inventory(){const {data}=S.from("marc_inventory").select("*").eq("user_id",st.u.id).eq("active",true).order("name").then(({data,error})=>{if(error)return toast(error.message,"err");const c=$("#content");c.innerHTML=`<div class="head"><div><div class="eyebrow2">INVENTARIO</div><h1>Productos + stock.</h1><p>Todo producto vive dentro del inventario.</p></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button id="importPdf" class="secondary">📄 Importar PDF</button><button id="new" class="primary">＋ Nuevo producto</button></div></div><section class="card table"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar producto…"></div><button id="ask" class="secondary">Preguntar</button></div><div class="scroll"><table class="data"><thead><tr><th>Producto</th><th>Marca/modelo</th><th>Stock</th><th>Precio</th><th>Estado</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></section>`;const rows=$("#rows");const draw=list=>rows.innerHTML=list.map(x=>{const s=Number(x.stock),m=Number(x.min_stock),cls=s<=0?"out":s<=m?"low":"ok";return`<tr><td><b>${esc(x.name)}</b><br><small>${esc(x.sku||"Sin código")}</small></td><td>${esc([x.brand,x.model].filter(Boolean).join(" · ")||"—")}</td><td><b>${s}</b> ${esc(x.unit)}</td><td>${money(x.price)}</td><td><span class="badge ${cls}">${s<=0?"Agotado":s<=m?"Bajo":"Disponible"}</span></td><td style="display:flex;gap:5px;flex-wrap:wrap"><button class="secondary" type="button" data-action="edit-inventory" data-id="${x.id}">Editar</button><button class="danger" type="button" data-action="delete-inventory" data-id="${x.id}">Eliminar</button></td></tr>`}).join("")||'<tr><td colspan="6" class="empty">Agrega tu primer producto.</td></tr>';draw(data||[]);$("#search").oninput=e=>{const q=e.target.value.toLowerCase();draw((data||[]).filter(x=>[x.name,x.sku,x.brand,x.model,x.category].some(v=>String(v||"").toLowerCase().includes(q))))};$("#new").onclick=()=>inventoryModal();$("#importPdf").onclick=inventoryPdfModal;$("#ask").onclick=openChat;rows.onclick=async e=>{const b=e.target.closest("button[data-action]");if(!b)return;const id=b.dataset.id,item=(data||[]).find(x=>x.id===id);if(!item)return;if(b.dataset.action==="edit-inventory")return inventoryModal(item);if(b.dataset.action==="delete-inventory"){const ok=confirm("¿Eliminar "+item.name+" del inventario?\n\nDejará de aparecer del inventario activo, pero conservaremos el registro para el historial.");if(!ok)return;b.disabled=true;try{const {error}=await S.from("marc_inventory").update({active:false,updated_at:new Date().toISOString()}).eq("id",id).eq("user_id",st.u.id);if(error)throw error;toast("Producto eliminado del inventario","ok");await inventory()}catch(err){toast(err.message||"No se pudo eliminar el producto.","err");b.disabled=false}}}})}
 async function clients(){const {data}=await S.from("marc_clients").select("*").eq("user_id",st.u.id).order("name");const c=$("#content");c.innerHTML=`<div class="head"><div><div class="eyebrow2">CLIENTES</div><h1>Relaciones y contexto.</h1><p>Los clientes son memoria operativa de M.A.R.C.</p></div><button id="new" class="primary">＋ Nuevo cliente</button></div><section class="card table"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar…"></div><button id="ask" class="secondary">Preguntar</button></div><div class="scroll"><table class="data"><thead><tr><th>Cliente</th><th>Contacto</th><th>Correo</th><th>Teléfono</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></section>`;const rows=$("#rows"),draw=list=>rows.innerHTML=list.map(x=>`<tr><td><b>${esc(x.name)}</b><br><small>${esc(x.document_number||"")}</small></td><td>${esc(x.contact_name||"—")}</td><td>${esc(x.email||"—")}</td><td>${esc(x.phone||"—")}</td><td style="display:flex;gap:5px;flex-wrap:wrap"><button class="secondary" type="button" data-action="edit-inventory" data-id="${x.id}">Editar</button><button class="danger" type="button" data-action="delete-inventory" data-id="${x.id}">Eliminar</button></td></tr>`).join("")||'<tr><td colspan="5" class="empty">Aún no tienes clientes.</td></tr>';draw(data||[]);$("#search").oninput=e=>{const q=e.target.value.toLowerCase();draw((data||[]).filter(x=>[x.name,x.email,x.phone,x.document_number].some(v=>String(v||"").toLowerCase().includes(q))))};$("#new").onclick=()=>clientModal();$("#ask").onclick=()=>openChat();$$("[data-id]",c).forEach(b=>b.onclick=()=>clientModal((data||[]).find(x=>x.id===b.dataset.id)))}
 async function ensurePdfJs(){
   if(window.pdfjsLib)return window.pdfjsLib;
@@ -704,7 +1004,60 @@ async function settings(){
 }
 function modal(html){$("#modal").innerHTML='<div class="modal">'+html+"</div>";const close=()=>$("#modal").innerHTML="";return close}
 function clientModal(x=null){const close=modal(`<div class="modal-head"><div><h2>${x?"Editar":"Nuevo"} cliente</h2><p>Disponible para el contexto de M.A.R.C.</p></div><button class="close" id="x">×</button></div><form id="f"><div class="form-grid"><label>Nombre / razón social<input name="name" required value="${esc(x?.name)}"></label><label>Documento<input name="document_number" value="${esc(x?.document_number)}"></label><label>Contacto<input name="contact_name" value="${esc(x?.contact_name)}"></label><label>Teléfono<input name="phone" value="${esc(x?.phone)}"></label><label>Correo<input name="email" type="email" value="${esc(x?.email)}"></label><label>Dirección<input name="address" value="${esc(x?.address)}"></label><label style="grid-column:1/-1">Notas<textarea name="notes" rows="3">${esc(x?.notes)}</textarea></label></div><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Guardar</button></div></form>`);$("#x").onclick=close;$("#cancel").onclick=close;$("#f").onsubmit=async e=>{e.preventDefault();const d=new FormData(e.currentTarget),p={user_id:st.u.id,name:d.get("name").trim(),document_type:"OTRO",document_number:d.get("document_number")||null,contact_name:d.get("contact_name")||null,phone:d.get("phone")||null,email:d.get("email")||null,address:d.get("address")||null,notes:d.get("notes")||null,updated_at:new Date().toISOString()};const r=x?await S.from("marc_clients").update(p).eq("id",x.id).eq("user_id",st.u.id):await S.from("marc_clients").insert(p);if(r.error)return toast(r.error.message,"err");close();toast("Cliente guardado","ok");await trial();clients()}}
-function inventoryModal(x=null){const close=modal(`<div class="modal-head"><div><h2>${x?"Editar":"Nuevo"} producto</h2><p>Productos + inventario, juntos.</p></div><button class="close" id="x">×</button></div><form id="f"><div class="form-grid"><label>Nombre<input name="name" required value="${esc(x?.name)}"></label><label>Código / SKU<input name="sku" value="${esc(x?.sku)}"></label><label>Marca<input name="brand" value="${esc(x?.brand)}"></label><label>Modelo<input name="model" value="${esc(x?.model)}"></label><label>Categoría<input name="category" value="${esc(x?.category)}"></label><label>Unidad<input name="unit" value="${esc(x?.unit||"UND")}"></label><label>Costo<input name="cost" type="number" min="0" step="0.01" value="${x?.cost??0}"></label><label>Precio<input name="price" type="number" min="0" step="0.01" value="${x?.price??0}"></label><label>Stock<input name="stock" type="number" min="0" step="0.01" value="${x?.stock??0}"></label><label>Mínimo<input name="min_stock" type="number" min="0" step="0.01" value="${x?.min_stock??0}"></label></div><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Guardar</button></div></form>`);$("#x").onclick=close;$("#cancel").onclick=close;$("#f").onsubmit=async e=>{e.preventDefault();const d=new FormData(e.currentTarget),p={user_id:st.u.id,name:d.get("name").trim(),sku:d.get("sku")||null,brand:d.get("brand")||null,model:d.get("model")||null,category:d.get("category")||null,unit:d.get("unit")||"UND",cost:Number(d.get("cost")||0),price:Number(d.get("price")||0),stock:Number(d.get("stock")||0),min_stock:Number(d.get("min_stock")||0),updated_at:new Date().toISOString()};const r=x?await S.from("marc_inventory").update(p).eq("id",x.id).eq("user_id",st.u.id):await S.from("marc_inventory").insert(p);if(r.error)return toast(r.error.message,"err");close();toast("Producto guardado","ok");await trial();inventory()}}
+function inventoryModal(x=null){
+  const close=modal(
+    '<div class="modal-head"><div><h2>'+(x?"Editar":"Nuevo")+' producto</h2><p>Productos + inventario, juntos.</p></div><button class="close" id="x">×</button></div>'+
+    '<form id="f">'+
+      '<div class="form-grid">'+
+        '<label>Nombre<input name="name" required value="'+esc(x?.name||"")+'"></label>'+
+        '<label>Código / SKU<input name="sku" value="'+esc(x?.sku||"")+'"></label>'+
+        '<label>Marca<input name="brand" value="'+esc(x?.brand||"")+'"></label>'+
+        '<label>Modelo<input name="model" value="'+esc(x?.model||"")+'"></label>'+
+        '<label>Categoría<input name="category" value="'+esc(x?.category||"")+'"></label>'+
+        '<label>Unidad<input name="unit" value="'+esc(x?.unit||"UND")+'"></label>'+
+        '<label>Costo<input name="cost" type="number" min="0" step="0.01" value="'+(x?.cost??0)+'"></label>'+
+        '<label>Precio<input name="price" type="number" min="0" step="0.01" value="'+(x?.price??0)+'"></label>'+
+        '<label>Stock<input name="stock" type="number" min="0" step="0.01" value="'+(x?.stock??0)+'"></label>'+
+        '<label>Mínimo<input name="min_stock" type="number" min="0" step="0.01" value="'+(x?.min_stock??0)+'"></label>'+
+      '</div>'+
+      '<div class="modal-actions">'+
+        (x?'<button type="button" class="danger" id="deleteProduct">Eliminar producto</button>':'')+
+        '<button type="button" class="secondary" id="cancel">Cancelar</button>'+
+        '<button class="primary">Guardar</button>'+
+      '</div>'+
+    '</form>'
+  );
+  $("#x").onclick=close;
+  $("#cancel").onclick=close;
+
+  if(x){
+    $("#deleteProduct").onclick=async function(){
+      const ok=confirm("¿Eliminar «"+x.name+"» del inventario?\n\nEl producto dejará de aparecer del inventario activo, pero se conservará el registro para el historial.");
+      if(!ok)return;
+      const b=$("#deleteProduct");
+      b.disabled=true;
+      try{
+        const {error}=await S.from("marc_inventory").update({active:false,updated_at:new Date().toISOString()}).eq("id",x.id).eq("user_id",st.u.id);
+        if(error)throw error;
+        close();
+        toast("Producto eliminado del inventario","ok");
+        await inventory();
+      }catch(err){
+        toast(err.message||"No se pudo eliminar el producto.","err");
+        b.disabled=false;
+      }
+    };
+  }
+
+  $("#f").onsubmit=async e=>{
+    e.preventDefault();
+    const d=new FormData(e.currentTarget);
+    const p={user_id:st.u.id,name:String(d.get("name")||"").trim(),sku:d.get("sku")||null,brand:d.get("brand")||null,model:d.get("model")||null,category:d.get("category")||null,unit:d.get("unit")||"UND",cost:Number(d.get("cost")||0),price:Number(d.get("price")||0),stock:Number(d.get("stock")||0),min_stock:Number(d.get("min_stock")||0),updated_at:new Date().toISOString()};
+    const r=x?await S.from("marc_inventory").update(p).eq("id",x.id).eq("user_id",st.u.id):await S.from("marc_inventory").insert(p);
+    if(r.error)return toast(r.error.message,"err");
+    close();toast("Producto guardado","ok");await trial();inventory();
+  };
+}
 async function aiQuoteModal(){
   const cls=(await S.from("marc_clients").select("id,name").eq("user_id",st.u.id).order("name")).data||[];
   const close=modal(

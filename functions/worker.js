@@ -18,15 +18,21 @@ async function authUser(request,env){
   return {token,user};
 }
 
+function isAdminToken(env,token){
+  return Boolean(token&&((env.SUPABASE_SECRET_KEY&&token===env.SUPABASE_SECRET_KEY)||(env.SUPABASE_SERVICE_ROLE_KEY&&token===env.SUPABASE_SERVICE_ROLE_KEY)));
+}
 async function sb(env,token,path,options={}){
+  const admin=isAdminToken(env,token);
+  const headers={
+    apikey:admin?token:env.SUPABASE_PUBLISHABLE_KEY,
+    "content-type":"application/json",
+    Prefer:options.prefer||"return=representation"
+  };
+  if(!admin)headers.Authorization="Bearer "+token;
+  else if(env.SUPABASE_SERVICE_ROLE_KEY&&token===env.SUPABASE_SERVICE_ROLE_KEY)headers.Authorization="Bearer "+token;
   const r=await fetch(env.SUPABASE_URL+"/rest/v1/"+path,{
     method:options.method||"GET",
-    headers:{
-      apikey:env.SUPABASE_PUBLISHABLE_KEY,
-      Authorization:"Bearer "+token,
-      "content-type":"application/json",
-      Prefer:options.prefer||"return=representation"
-    },
+    headers,
     body:options.body===undefined?undefined:JSON.stringify(options.body)
   });
   const raw=await r.text();
@@ -73,7 +79,7 @@ async function listQuotes(env,token,userId){
   return sb(env,token,url.pathname.slice("/rest/v1/".length)+url.search);
 }
 
-async function createClient(env,token,userId,p){
+async function createClient(env,token,userId,p,source="AI_AGENT"){
   if(!p?.name?.trim())return {status:"NEEDS_INPUT",message:"Necesito el nombre o razón social del cliente."};
   const dup=await searchClients(env,token,userId,p.name.trim());
   if(dup.length===1 && String(dup[0].name).toLowerCase()===p.name.trim().toLowerCase()){
@@ -85,7 +91,7 @@ async function createClient(env,token,userId,p){
     phone:p.phone||null,email:p.email||null,address:p.address||null,notes:p.notes||null
   }});
   const client=rows?.[0];
-  if(client)await audit(env,token,userId,"CLIENT",client.id,"CREATE",{source:"AI_AGENT"});
+  if(client)await audit(env,token,userId,"CLIENT",client.id,"CREATE",{},source);
   return {status:"CREATED",client};
 }
 
@@ -108,7 +114,7 @@ async function resolveInventory(env,token,userId,query){
   return {status:"FOUND",item:rows[0]};
 }
 
-async function createQuote(env,token,userId,p){
+async function createQuote(env,token,userId,p,source="AI_AGENT"){
   const items=Array.isArray(p?.items)?p.items:[];
   if(!items.length)return {status:"NEEDS_INPUT",message:"Necesito al menos una partida para crear la cotización."};
   const client=await resolveOneClient(env,token,userId,p.client_query||"");
@@ -136,7 +142,7 @@ async function createQuote(env,token,userId,p){
     p_tax_enabled:Boolean(p.tax_enabled),
     p_tax_rate:Number(p.tax_rate||18),
     p_notes:p.notes||null,
-    p_items:resolved,p_source:"AI_AGENT"
+    p_items:resolved,p_source:source
   };
   try{
     const quote=await sb(env,token,"rpc/marc_save_quote",{method:"POST",body:payload});
@@ -151,7 +157,7 @@ async function createQuote(env,token,userId,p){
   }
 }
 
-async function adjustInventory(env,token,userId,p){
+async function adjustInventory(env,token,userId,p,source="AI_AGENT"){
   const hit=await resolveInventory(env,token,userId,p.inventory_query||"");
   if(hit.status!=="FOUND")return {status:"NEEDS_INPUT",field:"inventory",detail:hit};
   const quantity=Number(p.quantity);
@@ -162,22 +168,21 @@ async function adjustInventory(env,token,userId,p){
     p_inventory_id:hit.item.id,p_type:type,p_quantity:quantity,p_reason:p.reason||"Movimiento realizado por M.A.R.C.",p_reference:p.reference||"AI_AGENT"
   }});
   const item=Array.isArray(rows)?rows[0]:rows;
-  await audit(env,token,userId,"INVENTORY",hit.item.id,"ADJUST",{source:"AI_AGENT",type,quantity});
+  await audit(env,token,userId,"INVENTORY",hit.item.id,"ADJUST",{type,quantity},source);
   return {status:"UPDATED",item};
 }
 
-async function audit(env,token,userId,entityType,entityId,action,metadata){
-  await sb(env,token,"marc_audit_log",{method:"POST",body:{user_id:userId,entity_type:entityType,entity_id:entityId,action,source:"WEB",metadata:metadata||{}}}).catch(()=>{});
+async function audit(env,token,userId,entityType,entityId,action,metadata,source="WEB"){
+  await sb(env,token,"marc_audit_log",{method:"POST",body:{user_id:userId,entity_type:entityType,entity_id:entityId,action,source,metadata:metadata||{}}}).catch(()=>{});
 }
 
 async function recentMessages(env,token,userId,conversationId){
-  if(!conversationId)return [];
+  if(!userId)return [];
   const url=new URL(env.SUPABASE_URL+"/rest/v1/marc_messages");
-  url.searchParams.set("select","role,content,created_at");
+  url.searchParams.set("select","role,content,created_at,conversation_id");
   url.searchParams.set("user_id","eq."+userId);
-  url.searchParams.set("conversation_id","eq."+conversationId);
   url.searchParams.set("order","created_at.desc");
-  url.searchParams.set("limit","12");
+  url.searchParams.set("limit","20");
   const rows=await sb(env,token,url.pathname.slice("/rest/v1/".length)+url.search);
   return rows.reverse();
 }
@@ -201,14 +206,14 @@ async function plan(env,message,history){
   try{return extractJson(out?.response)}catch{return {action:"CHAT",execute:false,params:{}}}
 }
 
-async function executePlan(env,token,user,pl){
+async function executePlan(env,token,user,pl,source="AI_AGENT"){
   const action=String(pl?.action||"CHAT").toUpperCase(),p=pl?.params||{};
   if(action==="SEARCH_CLIENTS")return {action,result:await searchClients(env,token,user.id,p.query||"")};
   if(action==="SEARCH_INVENTORY")return {action,result:await searchInventory(env,token,user.id,p.query||"")};
   if(action==="LIST_QUOTES")return {action,result:await listQuotes(env,token,user.id)};
-  if(action==="CREATE_CLIENT")return {action,result:pl.execute?await createClient(env,token,user.id,p):{status:"PREVIEW",params:p}};
-  if(action==="CREATE_QUOTE")return {action,result:pl.execute?await createQuote(env,token,user.id,p):{status:"PREVIEW",params:p}};
-  if(action==="ADJUST_INVENTORY")return {action,result:pl.execute?await adjustInventory(env,token,user.id,p):{status:"PREVIEW",params:p}};
+  if(action==="CREATE_CLIENT")return {action,result:pl.execute?await createClient(env,token,user.id,p,source):{status:"PREVIEW",params:p}};
+  if(action==="CREATE_QUOTE")return {action,result:pl.execute?await createQuote(env,token,user.id,p,source):{status:"PREVIEW",params:p}};
+  if(action==="ADJUST_INVENTORY")return {action,result:pl.execute?await adjustInventory(env,token,user.id,p,source):{status:"PREVIEW",params:p}};
   return {action:"CHAT",result:null};
 }
 
@@ -249,6 +254,140 @@ async function incrementAiUsage(env,token,userId){
   else await sb(env,token,"marc_usage_counters",{method:"POST",body:{user_id:userId,period_start:period,period_end:end,ai_actions:1}});
 }
 
+async function sha256Hex(value){
+  const bytes=new TextEncoder().encode(value);
+  const hash=await crypto.subtle.digest("SHA-256",bytes);
+  return Array.from(new Uint8Array(hash)).map(x=>x.toString(16).padStart(2,"0")).join("");
+}
+function randomToken(bytes=24){
+  const data=new Uint8Array(bytes);
+  crypto.getRandomValues(data);
+  return btoa(String.fromCharCode(...data)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+}
+function telegramBotName(env){
+  return String(env.TELEGRAM_BOT_USERNAME||"").trim().replace(/^@/,"");
+}
+async function sendTelegram(env,chatId,text){
+  if(!env.TELEGRAM_BOT_TOKEN)throw Object.assign(new Error("TELEGRAM_BOT_TOKEN no está configurado"),{status:503});
+  const chunks=[];
+  let s=String(text||"").trim();
+  while(s.length>3900){let cut=s.lastIndexOf("\n",3900);if(cut<1800)cut=3900;chunks.push(s.slice(0,cut));s=s.slice(cut).trimStart()}
+  if(s)chunks.push(s);
+  for(const chunk of chunks){
+    const r=await fetch("https://api.telegram.org/bot"+env.TELEGRAM_BOT_TOKEN+"/sendMessage",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({chat_id:chatId,text:chunk})});
+    if(!r.ok){const d=await r.text();throw new Error("Telegram API: "+d.slice(0,500))}
+  }
+}
+async function telegramIdentity(env,adminToken,externalUserId){
+  const path="marc_channel_identities?select=id,user_id,external_user_id,chat_id,username,status&channel=eq.TELEGRAM&external_user_id=eq."+encodeURIComponent(externalUserId)+"&status=eq.LINKED&limit=1";
+  const rows=await sb(env,adminToken,path);
+  return rows?.[0]||null;
+}
+async function ensureTelegramConversation(env,adminToken,userId){
+  const rows=await sb(env,adminToken,"marc_conversations?select=id&user_id=eq."+encodeURIComponent(userId)+"&channel=eq.TELEGRAM&order=updated_at.desc&limit=1");
+  if(rows?.[0]?.id){
+    await sb(env,adminToken,"marc_conversations?id=eq."+rows[0].id,{method:"PATCH",body:{updated_at:new Date().toISOString()}}).catch(()=>{});
+    return rows[0].id;
+  }
+  const made=await sb(env,adminToken,"marc_conversations",{method:"POST",body:{user_id:userId,channel:"TELEGRAM",title:"Conversación Telegram"}});
+  return made?.[0]?.id;
+}
+async function telegramLinkFromStart(env,adminToken,update,rawToken){
+  const msg=update.message;
+  const chatId=String(msg.chat.id), externalUserId=String(msg.from.id);
+  if(!rawToken||!rawToken.startsWith("LNK_")){
+    const identity=await telegramIdentity(env,adminToken,externalUserId);
+    await sendTelegram(env,chatId,identity?"M.A.R.C. ya está conectado a esta cuenta.":"Abre M.A.R.C. en la web, entra a Configuración y pulsa «Conectar Telegram».");
+    return;
+  }
+  const hash=await sha256Hex(rawToken);
+  const now=new Date().toISOString();
+  const tokenRows=await sb(env,adminToken,"marc_link_tokens?channel=eq.TELEGRAM&token_hash=eq."+encodeURIComponent(hash)+"&used_at=is.null&expires_at=gt."+encodeURIComponent(now),{method:"PATCH",body:{used_at:now}});
+  const tokenRow=tokenRows?.[0];
+  if(!tokenRow){await sendTelegram(env,chatId,"Este enlace de conexión ya venció o ya fue utilizado. Genera uno nuevo desde M.A.R.C. > Configuración > Conectar Telegram.");return}
+  try{
+    const identityRows=await sb(env,adminToken,"marc_channel_identities?on_conflict=user_id%2Cchannel",{method:"POST",prefer:"resolution=merge-duplicates,return=representation",body:{user_id:tokenRow.user_id,channel:"TELEGRAM",external_user_id:externalUserId,chat_id:chatId,username:msg.from.username||null,status:"LINKED",linked_at:now,last_seen_at:now,updated_at:now}});
+    const identity=identityRows?.[0];
+    await audit(env,adminToken,tokenRow.user_id,"CHANNEL",identity?.id||null,"TELEGRAM_LINK",{telegram_user_id:externalUserId}, "TELEGRAM");
+    const access=await entitlement(env,adminToken,tokenRow.user_id);
+    const planText=access.kind==="paid"?"Tu suscripción activa también funciona aquí.":access.kind==="trial"?`Tu prueba sigue activa: te quedan ${access.remaining} acciones de IA.`:"Tu prueba terminó. Puedes reactivarla desde la web.";
+    await sendTelegram(env,chatId,"✅ Telegram quedó conectado a tu cuenta M.A.R.C.\n\n"+planText+"\n\nAhora puedes escribir aquí y M.A.R.C. usará los mismos clientes, inventario, cotizaciones y límites de tu cuenta.");
+  }catch(e){
+    await sendTelegram(env,chatId,"No se pudo completar la vinculación. Si este Telegram ya está conectado a otra cuenta, desconéctalo allí antes de volver a intentarlo.").catch(()=>{});
+    throw e;
+  }
+}
+async function telegramWebhook(request,env){
+  if(request.method!=="POST")return json({error:"Método no permitido"},405);
+  const expected=String(env.TELEGRAM_WEBHOOK_SECRET||"");
+  const provided=request.headers.get("X-Telegram-Bot-Api-Secret-Token")||"";
+  if(!expected||provided!==expected)return json({error:"Webhook no autorizado"},401);
+  const adminToken=env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY;
+  if(!adminToken)throw Object.assign(new Error("Falta SUPABASE_SECRET_KEY en el Worker."),{status:503});
+  const update=await request.json();
+  const msg=update?.message;
+  if(!msg?.chat?.id||!msg?.from?.id)return json({ok:true},200);
+  if(msg.chat.type&&msg.chat.type!=="private")return json({ok:true},200);
+  const chatId=String(msg.chat.id),externalUserId=String(msg.from.id),incoming=String(msg.text||"").trim();
+  if(incoming.startsWith("/start")){
+    const param=incoming.split(/\s+/,2)[1]||"";
+    await telegramLinkFromStart(env,adminToken,update,param);
+    return json({ok:true},200);
+  }
+  const identity=await telegramIdentity(env,adminToken,externalUserId);
+  if(!identity){
+    const origin=new URL(request.url).origin;
+    await sendTelegram(env,chatId,"🔗 Primero conecta este Telegram con tu cuenta M.A.R.C.\n\nAbre "+origin+" y entra en Configuración > Conectar Telegram.");
+    return json({ok:true},200);
+  }
+  await sb(env,adminToken,"marc_channel_identities?id=eq."+encodeURIComponent(identity.id)+"&user_id=eq."+encodeURIComponent(identity.user_id),{method:"PATCH",body:{last_seen_at:new Date().toISOString(),updated_at:new Date().toISOString()}}).catch(()=>{});
+  const userId=identity.user_id;
+  const access=await entitlement(env,adminToken,userId);
+  if(access.kind==="expired"){
+    const origin=new URL(request.url).origin;
+    await sendTelegram(env,chatId,"Tu prueba terminó. Puedes activar un plan desde "+origin+". Tu información permanece en la cuenta.");
+    return json({ok:true},200);
+  }
+  if(access.kind==="trial_limited"){
+    const origin=new URL(request.url).origin;
+    await sendTelegram(env,chatId,"Llegaste al límite de 30 acciones de IA de la prueba. Activa un plan desde "+origin+" para continuar.");
+    return json({ok:true},200);
+  }
+  if(!incoming){await sendTelegram(env,chatId,"Escríbeme una operación o una pregunta. Por ejemplo: «revisa mi inventario» o «crea una cotización»." );return json({ok:true},200);}
+  const conversationId=await ensureTelegramConversation(env,adminToken,userId);
+  await sb(env,adminToken,"marc_messages",{method:"POST",body:{conversation_id:conversationId,user_id:userId,role:"USER",content:incoming,action_type:"TELEGRAM",action_payload:{telegram_update_id:update.update_id,telegram_user_id:externalUserId}}});
+  const history=await recentMessages(env,adminToken,userId,conversationId);
+  const pl=await plan(env,incoming,history);
+  const executed=await executePlan(env,adminToken,{id:userId},pl,"TELEGRAM");
+  await incrementAiUsage(env,adminToken,userId);
+  const answer=await finalReply(env,incoming,{plan:pl,execution:executed,entitlement:access});
+  await sb(env,adminToken,"marc_messages",{method:"POST",body:{conversation_id:conversationId,user_id:userId,role:"ASSISTANT",content:answer,action_type:executed.action,action_payload:{channel:"TELEGRAM",result:executed.result||null}}});
+  await sb(env,adminToken,"marc_conversations?id=eq."+encodeURIComponent(conversationId)+"&user_id=eq."+encodeURIComponent(userId),{method:"PATCH",body:{updated_at:new Date().toISOString()}}).catch(()=>{});
+  await sendTelegram(env,chatId,answer);
+  return json({ok:true},200);
+}
+async function telegramStatus(request,env){
+  const {token,user}=await authUser(request,env);
+  const rows=await sb(env,token,"marc_channel_identities?select=id,channel,external_user_id,chat_id,username,status,linked_at,last_seen_at&channel=eq.TELEGRAM&user_id=eq."+encodeURIComponent(user.id)+"&limit=1");
+  const access=await entitlement(env,token,user.id);
+  return json({linked:Boolean(rows?.[0]?.status==="LINKED"),identity:rows?.[0]||null,entitlement:access},200,corsHeaders(request));
+}
+async function telegramLink(request,env){
+  const {token,user}=await authUser(request,env);
+  const bot=telegramBotName(env);
+  if(!bot)throw Object.assign(new Error("Configura TELEGRAM_BOT_USERNAME en el Worker."),{status:503});
+  const rawToken="LNK_"+randomToken(24);
+  const hash=await sha256Hex(rawToken);
+  const expires=new Date(Date.now()+10*60*1000).toISOString();
+  await sb(env,token,"marc_link_tokens?user_id=eq."+encodeURIComponent(user.id)+"&channel=eq.TELEGRAM&used_at=is.null",{method:"DELETE"});
+  await sb(env,token,"marc_link_tokens",{method:"POST",body:{user_id:user.id,channel:"TELEGRAM",token_hash:hash,expires_at:expires}});
+  return json({deepLink:"https://t.me/"+bot+"?start="+encodeURIComponent(rawToken),expiresAt:expires},200,corsHeaders(request));
+}
+async function telegramUnlink(request,env){
+  const {token,user}=await authUser(request,env);
+  await sb(env,token,"marc_channel_identities?user_id=eq."+encodeURIComponent(user.id)+"&channel=eq.TELEGRAM&status=eq.LINKED",{method:"PATCH",body:{status:"REVOKED",updated_at:new Date().toISOString()}});
+  return json({ok:true},200,corsHeaders(request));
+}
 export default{
   async fetch(request,env){
     const headers=corsHeaders(request);
@@ -266,13 +405,30 @@ export default{
         if(!message)return json({error:"Mensaje vacío"},400,headers);
         const history=await recentMessages(env,token,user.id,body?.conversationId||"");
         const pl=await plan(env,message,history);
-        const executed=await executePlan(env,token,user,pl);
+        const executed=await executePlan(env,token,user,pl,"AI_AGENT");
         await incrementAiUsage(env,token,user.id);
         const text=await finalReply(env,message,{plan:pl,execution:executed,entitlement:access});
         return json({text,action:executed.action,result:executed.result},200,headers);
       }catch(err){
         return json({error:err?.message||"Error del agente",detail:err?.details||null},err?.status||500,headers);
       }
+    }
+    if(url.pathname==="/api/telegram/webhook"){
+      try{return await telegramWebhook(request,env)}catch(err){
+        return json({error:err?.message||"Error del webhook",detail:err?.details||null},err?.status||500);
+      }
+    }
+    if(url.pathname==="/api/telegram/status"){
+      if(request.method!=="GET")return json({error:"Método no permitido"},405,headers);
+      try{return await telegramStatus(request,env)}catch(err){return json({error:err?.message||"No se pudo consultar Telegram"},err?.status||500,headers)}
+    }
+    if(url.pathname==="/api/telegram/link"){
+      if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);
+      try{return await telegramLink(request,env)}catch(err){return json({error:err?.message||"No se pudo generar el enlace"},err?.status||500,headers)}
+    }
+    if(url.pathname==="/api/telegram/unlink"){
+      if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);
+      try{return await telegramUnlink(request,env)}catch(err){return json({error:err?.message||"No se pudo desconectar Telegram"},err?.status||500,headers)}
     }
     if(url.pathname.startsWith("/api/"))return json({error:"Ruta no encontrada"},404,headers);
     return env.ASSETS.fetch(request);

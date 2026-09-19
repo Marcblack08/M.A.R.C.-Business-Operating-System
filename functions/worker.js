@@ -121,36 +121,34 @@ async function createQuote(env,token,userId,p){
       if(hit.status!=="FOUND")return {status:"NEEDS_INPUT",field:"inventory",item:raw,detail:hit};
       const it=hit.item;
       const price=raw.unit_price===null||raw.unit_price===undefined?Number(it.price||0):Number(raw.unit_price);
-      resolved.push({inventory_id:it.id,item_type:"PRODUCTO",name:it.name,description:raw.description||null,quantity:qty,unit:it.unit||"UND",unit_price:Math.max(0,price),cost:Number(it.cost||0),line_total:qty*Math.max(0,price)});
+      resolved.push({inventory_id:it.id,item_type:"PRODUCTO",name:it.name,description:raw.description||null,quantity:qty,unit:it.unit||"UND",unit_price:Math.max(0,price),cost:Number(it.cost||0)});
     }else{
       const price=Number(raw.unit_price);
       if(!Number.isFinite(price)||price<=0)return {status:"NEEDS_INPUT",field:"work_price",item:raw,message:"Falta un precio válido para el trabajo: "+(raw.name||"Trabajo")};
-      resolved.push({inventory_id:null,item_type:"TRABAJO",name:String(raw.name||"Trabajo"),description:raw.description||null,quantity:qty,unit:raw.unit||"UND",unit_price:price,cost:Number(raw.cost||0),line_total:qty*price});
+      resolved.push({inventory_id:null,item_type:"TRABAJO",name:String(raw.name||"Trabajo"),description:raw.description||null,quantity:qty,unit:raw.unit||"UND",unit_price:price,cost:Number(raw.cost||0)});
     }
   }
-  const subtotal=resolved.reduce((n,x)=>n+x.line_total,0);
-  const taxRate=Number(p.tax_rate||18), taxEnabled=Boolean(p.tax_enabled);
-  const tax=taxEnabled?subtotal*taxRate/100:0,total=subtotal+tax;
-  const now=new Date(),ym=now.toISOString().slice(0,7);
-  const latest=await sb(env,token,"marc_quotes?select=number&user_id=eq."+encodeURIComponent(userId)+"&order=created_at.desc&limit=1");
-  const last=String(latest?.[0]?.number||"");
-  const m=last.match(/(\d+)$/);const next=(m?Number(m[1]):0)+1;
-  const number="COT-"+ym.replace("-","")+"-"+String(next).padStart(4,"0");
-  const qRows=await sb(env,token,"marc_quotes",{method:"POST",body:{
-    user_id:userId,number,client_id:client.status==="FOUND"?client.client.id:null,
-    title:p.title||"Cotización",status:"BORRADOR",currency:p.currency||"PEN",
-    tax_enabled:taxEnabled,tax_rate:taxRate,subtotal,tax,total,notes:p.notes||null
-  }});
-  const quote=qRows?.[0];
-  if(!quote)throw new Error("No se pudo crear la cotización.");
+  const payload={
+    p_quote_id:null,
+    p_client_id:client.status==="FOUND"?client.client.id:null,
+    p_title:p.title||"Cotización",
+    p_status:"BORRADOR",
+    p_tax_enabled:Boolean(p.tax_enabled),
+    p_tax_rate:Number(p.tax_rate||18),
+    p_notes:p.notes||null,
+    p_items:resolved
+  };
   try{
-    for(const item of resolved)await sb(env,token,"marc_quote_items",{method:"POST",body:{quote_id:quote.id,user_id:userId,...item}});
+    const quote=await sb(env,token,"rpc/marc_save_quote",{method:"POST",body:payload});
+    const q=Array.isArray(quote)?quote[0]:quote;
+    if(!q)throw new Error("No se pudo crear la cotización.");
+    return {status:"CREATED",quote:q,client:client.status==="FOUND"?client.client:null,items:resolved};
   }catch(e){
-    await sb(env,token,"marc_quotes?id=eq."+encodeURIComponent(quote.id)+"&user_id=eq."+encodeURIComponent(userId),{method:"DELETE",prefer:"return=minimal"}).catch(()=>{});
+    const m=String(e?.message||"");
+    if(m.includes("TRIAL_QUOTE_LIMIT"))return {status:"LIMIT_REACHED",message:"Llegaste al límite de 5 cotizaciones de la prueba gratuita."};
+    if(m.includes("TRIAL_EXPIRED"))return {status:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."};
     throw e;
   }
-  await audit(env,token,userId,"QUOTE",quote.id,"CREATE",{source:"AI_AGENT",number,total,items:resolved.length});
-  return {status:"CREATED",quote:{...quote,number,subtotal,tax,total},client:client.status==="FOUND"?client.client:null,items:resolved};
 }
 
 async function adjustInventory(env,token,userId,p){

@@ -338,7 +338,7 @@ async function inventoryPdfModal(){
         for(const result of results){
           const pageNumber=result.pageNumber;
           const pageItems=result.items;
-          detected.push(...pageItems);
+          detected.push(...pageItems.map(function(item){return Object.assign({},item,{page_number:item.page_number||pageNumber});}));
           const recent=pageItems.slice(0,12).map((x,ix)=>'<div class="pdf-live-row"><span>P'+pageNumber+' · '+(ix+1)+'</span><b>'+esc(x.name)+'</b><small>'+esc([x.brand,x.model,x.sku].filter(Boolean).join(" · ")||"Sin código")+'</small></div>').join("");
           liveRows.insertAdjacentHTML("beforeend",recent);
         }

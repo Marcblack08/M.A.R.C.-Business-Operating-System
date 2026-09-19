@@ -88,7 +88,7 @@ async function quoteModal(existing=null){
   $("#f").onsubmit=async e=>{
     e.preventDefault();
     const d=new FormData(e.currentTarget);
-    const valid=lines.filter(x=>x.type==="PRODUCTO"?x.inventory_id:String(x.name||"").trim():true);
+    const valid=lines.filter(x=>x.type==="PRODUCTO"?!!x.inventory_id:!!String(x.name||"").trim());
     if(!valid.length)return toast("Agrega al menos una partida.","err");
     if(valid.some(x=>Number(x.qty)<=0||Number(x.price)<0))return toast("Revisa cantidades y precios.","err");
     if(valid.some(x=>x.type==="TRABAJO"&&!Number(x.price)))return toast("Cada trabajo debe tener precio.","err");

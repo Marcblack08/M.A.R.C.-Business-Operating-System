@@ -369,6 +369,32 @@ async function telegramWebhook(request,env){
   await sendTelegram(env,chatId,answer);
   return json({ok:true},200);
 }
+async function telegramSetup(request,env){
+  const {token,user}=await authUser(request,env);
+  const access=await entitlement(env,token,user.id);
+  if(access.kind!=="master" && access.kind!=="paid"){
+    throw Object.assign(new Error("Solo una cuenta MASTER o con suscripción activa puede activar Telegram."),{status:403});
+  }
+  if(!env.TELEGRAM_BOT_TOKEN)throw Object.assign(new Error("Falta TELEGRAM_BOT_TOKEN."),{status:503});
+  if(!env.TELEGRAM_WEBHOOK_SECRET)throw Object.assign(new Error("Falta TELEGRAM_WEBHOOK_SECRET."),{status:503});
+  const webhookUrl=new URL("/api/telegram/webhook",request.url).toString();
+  const r=await fetch("https://api.telegram.org/bot"+env.TELEGRAM_BOT_TOKEN+"/setWebhook",{
+    method:"POST",
+    headers:{"content-type":"application/json"},
+    body:JSON.stringify({
+      url:webhookUrl,
+      secret_token:env.TELEGRAM_WEBHOOK_SECRET,
+      allowed_updates:["message"],
+      drop_pending_updates:false
+    })
+  });
+  const data=await r.json().catch(()=>({ok:false,description:"Respuesta inválida de Telegram"}));
+  if(!r.ok||!data?.ok)throw Object.assign(new Error(data?.description||"Telegram rechazó la configuración del webhook."),{status:502});
+  const infoR=await fetch("https://api.telegram.org/bot"+env.TELEGRAM_BOT_TOKEN+"/getWebhookInfo");
+  const info=await infoR.json().catch(()=>null);
+  return json({ok:true,webhookUrl,botUsername:telegramBotName(env),webhook:info?.result||null},200,corsHeaders(request));
+}
+
 async function telegramStatus(request,env){
   const {token,user}=await authUser(request,env);
   const rows=await sb(env,token,"marc_channel_identities?select=id,channel,external_user_id,chat_id,username,status,linked_at,last_seen_at&channel=eq.TELEGRAM&user_id=eq."+encodeURIComponent(user.id)+"&limit=1");
@@ -420,6 +446,10 @@ export default{
       try{return await telegramWebhook(request,env)}catch(err){
         return json({error:err?.message||"Error del webhook",detail:err?.details||null},err?.status||500);
       }
+    }
+    if(url.pathname==="/api/telegram/setup"){
+      if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);
+      try{return await telegramSetup(request,env)}catch(err){return json({error:err?.message||"No se pudo configurar Telegram"},err?.status||500,headers)}
     }
     if(url.pathname==="/api/telegram/status"){
       if(request.method!=="GET")return json({error:"Método no permitido"},405,headers);

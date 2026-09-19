@@ -1794,3 +1794,5 @@ body,
   .cash-chart-group{grid-template-columns:1fr}
   .cash-chart-month{padding-bottom:3px}
 }
+
+.cash-period-select{display:flex;align-items:center;gap:6px;font-size:7px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#718396}.cash-period-select select{font-size:9px!important;padding:8px 10px!important;min-width:82px}@media(max-width:780px){.cash-period-select{font-size:8px}.cash-period-select select{min-width:76px}}

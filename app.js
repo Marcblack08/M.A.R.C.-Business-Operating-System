@@ -357,7 +357,7 @@ async function inventoryPdfModal(){
       const listItems=detected;
       const preview=$("#pdfImportPreview");
       preview.innerHTML=
-        '<div class="pdf-final-summary"><strong>Se procesarán '+listItems.length+' productos</strong><span>'+totalPages+' páginas revisadas</span></div>'+
+        '<div class="pdf-final-summary"><strong>Se procesarán '+listItems.length+' productos</strong><span>'+totalPages+' páginas revisadas</span></div>'+'<label class="pdf-photo-option"><input type="checkbox" id="keepPdfProductPhotos" checked> Conservar la foto del producto desde el PDF cuando la página contenga imágenes</label>'+
         '<div class="pdf-product-list">'+
           listItems.map((x,i)=>'<div class="pdf-product-row"><span><b>'+(i+1)+'.</b> '+esc(x.name)+'</span><small>Página '+Number(x.page_number||1)+' · '+esc([x.sku,x.brand,x.model].filter(Boolean).join(" · ")||"Sin código")+(x.price!=null?" · S/ "+Number(x.price).toFixed(2):"")+'</small></div>').join("")+
         '</div>';
@@ -367,6 +367,61 @@ async function inventoryPdfModal(){
       btn.disabled=false;
       btn.textContent="Importar "+listItems.length+" productos";
       btn.dataset.ready="1";
+
+      async function attachPdfProductPhotos(){
+        const keep=$("#keepPdfProductPhotos")?.checked;
+        if(!keep)return {attached:0,skipped:0};
+        const byPage={};
+        listItems.forEach(function(item){
+          if(!item.page_number||item.pdf_y==null)return;
+          (byPage[item.page_number]||(byPage[item.page_number]=[])).push(item);
+        });
+        let attached=0,skipped=0;
+        for(const pageKey of Object.keys(byPage)){
+          const pageNumber=Number(pageKey);
+          try{
+            const page=await pdf.getPage(pageNumber);
+            let hasImages=true;
+            try{
+              const op=await page.getOperatorList();
+              const ops=pdfjs.OPS||{};
+              const imageFns=[ops.paintImageXObject,ops.paintInlineImageXObject,ops.paintImageMaskXObject].filter(function(v){return v!==undefined});
+              hasImages=imageFns.length?op.fnArray.some(function(fn){return imageFns.includes(fn)}):true;
+            }catch{}
+            if(!hasImages){skipped+=byPage[pageKey].length;continue}
+            const viewport=page.getViewport({scale:1.5});
+            const canvas=document.createElement("canvas");
+            canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
+            const ctx=canvas.getContext("2d",{alpha:false});
+            await page.render({canvasContext:ctx,viewport}).promise;
+            for(const item of byPage[pageKey]){
+              try{
+                const centerY=viewport.height-(Number(item.pdf_y)||0)*1.5;
+                const halfH=Math.max(24,Number(item.pdf_radius||22))*1.5+18;
+                const y=Math.max(0,Math.round(centerY-halfH));
+                const h=Math.min(canvas.height-y,Math.round(halfH*2));
+                if(h<20){skipped++;continue}
+                const crop=document.createElement("canvas");
+                crop.width=canvas.width;crop.height=h;
+                crop.getContext("2d",{alpha:false}).drawImage(canvas,0,y,canvas.width,h,0,0,crop.width,h);
+                const blob=await new Promise(function(resolve){crop.toBlob(resolve,"image/jpeg",0.78)});
+                if(!blob){skipped++;continue}
+                const file=new File([blob],"pdf-product-"+pageNumber+"-"+Math.random().toString(36).slice(2)+".jpg",{type:"image/jpeg"});
+                let q=S.from("marc_inventory").select("id,image_url").eq("user_id",st.u.id).eq("name",item.name).limit(1);
+                if(item.sku)q=q.eq("sku",item.sku);else q=q.is("sku",null);
+                const found=(await q).data?.[0];
+                if(!found||found.image_url){skipped++;continue}
+                const uploaded=await uploadInventoryPhoto(file,found.id,null);
+                const upd=await S.from("marc_inventory").update({image_url:uploaded.url,updated_at:new Date().toISOString()}).eq("id",found.id).eq("user_id",st.u.id);
+                if(upd.error){skipped++;continue}
+                attached++;
+              }catch{skipped++}
+            }
+          }catch{skipped+=byPage[pageKey].length}
+        }
+        return {attached,skipped};
+      }
+
       btn.onclick=async function(){
         if(btn.dataset.importing==="1"||!btn.dataset.ready)return;
         btn.dataset.importing="1";
@@ -381,8 +436,9 @@ async function inventoryPdfModal(){
           });
           if(error)throw new Error(error.message||"No se pudo importar el lote.");
           if(!data||data.status!=="IMPORTED")throw new Error("Supabase no confirmó la importación.");
+          const photoResult=await attachPdfProductPhotos();
 
-          toast("Importación completa: "+data.total+" procesados, "+data.created+" nuevos, "+data.updated+" actualizados, "+(data.reactivated||0)+" reactivados.","ok");
+          toast("Importación completa: "+data.total+" procesados, "+data.created+" nuevos, "+data.updated+" actualizados, "+(data.reactivated||0)+" reactivados · "+photoResult.attached+" fotos asociadas.","ok");
           status.className="msg ok";
           status.textContent="Importación completada. "+data.total+" productos procesados.";
           close();

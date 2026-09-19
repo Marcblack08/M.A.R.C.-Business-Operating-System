@@ -250,6 +250,37 @@ function extractJson(text){
   return JSON.parse(raw.slice(a,b+1));
 }
 
+function recoverQuoteDraft(responseText,description,clientQuery,allCost){
+  const raw=String(responseText||"").trim();
+  let parsed=null;
+  try{parsed=extractJson(raw)}catch{}
+  const titleMatch=raw.match(/"title"\s*:\s*"((?:\\.|[^"])*)"/);
+  let title="";
+  if(titleMatch){
+    try{title=JSON.parse('"'+titleMatch[1]+'"')}catch{title=titleMatch[1]}
+  }
+  title=String(title||"").trim();
+  if(!title){
+    const first=String(description||"").split(/[.!?\n]/)[0].trim();
+    title=first?first.slice(0,90):"Trabajo";
+  }
+  const priceMatch=String(description||"").match(/(?:s\/|s\.?|soles?|precio|costo|total)\s*[:=]?\s*(\d+(?:[.,]\d{1,2})?)/i);
+  const extractedPrice=priceMatch?Number(String(priceMatch[1]).replace(",",".")):null;
+  const item=parsed?.items?.[0]||{};
+  return {
+    title,
+    client_query:String(parsed?.client_query||clientQuery||"").slice(0,200),
+    all_cost:allCost,
+    items:[{
+      type:"TRABAJO",
+      name:String(item.name||title||"Trabajo").slice(0,180),
+      description:String(item.description||description).slice(0,2000),
+      quantity:1,
+      unit_price:item.unit_price!=null&&Number.isFinite(Number(item.unit_price))?Number(item.unit_price):extractedPrice
+    }]
+  };
+}
+
 function deterministicIntent(message){
   const s=String(message||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim();
   if(/\b(revisa|revisar|ver|muestra|muestreme|mostrar|consulta|consultar|que|cuanto|cuantos|cual|cuales)\b/.test(s) &&
@@ -277,7 +308,7 @@ async function plan(env,message,history){
     ...(context?[{role:"user",content:"Historial reciente:\n"+context}]:[]),
     {role:"user",content:message}
   ]};
-  const out=await geminiGenerate(env,prompt,{json:true,maxTokens:500});
+  const out=await geminiGenerate(env,prompt,{json:true,maxTokens:1000});
   const responseText=out?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("")||"";
   try{return extractJson(responseText)}catch{return {action:"CHAT",execute:false,params:{}}}
 }
@@ -526,21 +557,8 @@ async function quoteAiDraft(request,env){
   if(!responseText){
     throw Object.assign(new Error("Gemini devolvió una respuesta vacía. Revisa el modelo y la cuota de la API key."),{status:502,details:{finishReason:out?.candidates?.[0]?.finishReason||null}});
   }
-  let draft;
-  try{
-    draft=extractJson(responseText);
-  }catch{
-    throw Object.assign(new Error("Gemini respondió, pero no entregó JSON válido: "+responseText.slice(0,500)),{status:502});
-  }
+  const draft=recoverQuoteDraft(responseText,description,clientQuery,allCost);
   if(!draft?.items?.length)throw Object.assign(new Error("La IA no generó una partida."),{status:502});
-  const item=draft.items[0]||{};
-  draft={title:String(draft.title||"Cotización").slice(0,160),client_query:String(draft.client_query||clientQuery||"").slice(0,200),all_cost:allCost,items:[{
-    type:"TRABAJO",
-    name:String(item.name||"Trabajo").slice(0,180),
-    description:String(item.description||description).slice(0,2000),
-    quantity:1,
-    unit_price:item.unit_price===null||item.unit_price===undefined?null:Number(item.unit_price)
-  }]};
   await incrementAiUsage(env,token,user.id,access);
   return json({draft,entitlement:access},200,corsHeaders(request));
 }

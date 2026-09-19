@@ -1658,3 +1658,32 @@ body,
 }
 [data-theme="dark"] .inventory-photo-box{background:#0d1a29;border-color:#294059}
 [data-theme="dark"] .inventory-photo-box small{color:#8ca1b5}
+
+/* ===== SERIALS + BULK PHOTOS MOBILE ===== */
+.serial-product-summary{min-width:0}
+.serial-product-summary>div:last-child{min-width:0}
+.serial-product-summary b,.serial-product-summary small{overflow-wrap:anywhere}
+.serial-main{overflow:hidden}
+.serial-main div,.serial-main small{overflow-wrap:anywhere}
+@media(max-width:560px){
+  .serial-product-summary{align-items:flex-start;padding:10px}
+  .serial-product-summary .inventory-photo-preview{width:64px;height:64px}
+  .serial-results{max-height:46vh}
+  .serial-row{grid-template-columns:52px 1fr;gap:8px;padding:10px}
+  .serial-row .inventory-thumb{width:52px;height:52px}
+  .serial-row .serial-main{grid-column:2}
+  .serial-row .serial-input{grid-column:1/-1}
+  .serial-row .serial-input input{min-height:42px}
+  .serial-existing-list{max-height:30vh}
+  .serial-existing-row{grid-template-columns:25px 1fr auto;min-height:40px}
+  #bulkProductPhotos,#serialPhotos{min-height:44px;width:100%}
+}
+@media(max-width:380px){
+  .serial-product-summary{gap:8px}
+  .serial-product-summary .inventory-photo-preview{width:56px;height:56px}
+  .serial-existing-row{grid-template-columns:22px 1fr}
+  .serial-existing-row small{grid-column:2}
+}
+[data-theme="dark"] .serial-product-summary,
+[data-theme="dark"] .serial-existing{background:#0d1a29;border-color:#294059}
+[data-theme="dark"] .serial-row{background:#0d1927;border-color:#263a50}

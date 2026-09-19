@@ -145,8 +145,8 @@ function closeChat(){
   $("#chat").classList.add("closed");
   $("#app").classList.add("chat-closed");
 }
-function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",quotes:"Cotizaciones",settings:"Configuración"}[x]||"Inicio";$(".sidebar nav button, #mobileNav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
-async function view(x){st.view=x;title(x);$("#sidebar").classList.remove("open");document.body.style.overflow="";if(window.innerWidth<=780)window.scrollTo(0,0);$(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x));if(x==="home")return home();if(x==="clients")return clients();if(x==="inventory")return inventory();if(x==="quotes")return quotes();return settings()}
+function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",quotes:"Cotizaciones",settings:"Configuración"}[x]||"Inicio";$$(".sidebar nav button, #mobileNav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
+async function view(x){st.view=x;title(x);$("#sidebar").classList.remove("open");document.body.style.overflow="";if(window.innerWidth<=780)window.scrollTo(0,0);$$(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x));if(x==="home")return home();if(x==="clients")return clients();if(x==="inventory")return inventory();if(x==="quotes")return quotes();return settings()}
 async function home(){
   const c=$("#content");
   const [cl,iv,qt]=await Promise.all([
@@ -301,9 +301,9 @@ async function home(){
   $("#heroQuote").onclick=quoteModal;
   $("#openInventory").onclick=inventory;
   $("#openQuotes").onclick=quotes;
-  $(".quick-modern-grid button",c).forEach(b=>b.onclick=()=>b.dataset.q==="client"?clientModal():b.dataset.q==="inventory"?inventoryModal():b.dataset.q==="quote"?quoteModal():openChat());
+  $$(".quick-modern-grid button",c).forEach(b=>b.onclick=()=>b.dataset.q==="client"?clientModal():b.dataset.q==="inventory"?inventoryModal():b.dataset.q==="quote"?quoteModal():openChat());
 }
-async function clients(){const {data}=await S.from("marc_clients").select("*").eq("user_id",st.u.id).order("name");const c=$("#content");c.innerHTML=`<div class="head"><div><div class="eyebrow2">CLIENTES</div><h1>Relaciones y contexto.</h1><p>Los clientes son memoria operativa de M.A.R.C.</p></div><button id="new" class="primary">＋ Nuevo cliente</button></div><section class="card table"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar…"></div><button id="ask" class="secondary">Preguntar</button></div><div class="scroll"><table class="data"><thead><tr><th>Cliente</th><th>Contacto</th><th>Correo</th><th>Teléfono</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></section>`;const rows=$("#rows"),draw=list=>rows.innerHTML=list.map(x=>`<tr><td><b>${esc(x.name)}</b><br><small>${esc(x.document_number||"")}</small></td><td>${esc(x.contact_name||"—")}</td><td>${esc(x.email||"—")}</td><td>${esc(x.phone||"—")}</td><td><button class="secondary" type="button" data-id="${x.id}">Editar</button></td></tr>`).join("")||'<tr><td colspan="5" class="empty">Aún no tienes clientes.</td></tr>';draw(data||[]);$("#search").oninput=e=>{const q=e.target.value.toLowerCase();draw((data||[]).filter(x=>[x.name,x.email,x.phone,x.document_number].some(v=>String(v||"").toLowerCase().includes(q))))};$("#new").onclick=()=>clientModal();$("#ask").onclick=()=>openChat();$$("[data-id]",c).forEach(b=>b.onclick=()=>clientModal((data||[]).find(x=>x.id===b.dataset.id)))}
+async function clients(){const {data}=await S.from("marc_clients").select("*").eq("user_id",st.u.id).order("name");const c=$("#content");c.innerHTML=`<div class="head"><div><div class="eyebrow2">CLIENTES</div><h1>Relaciones y contexto.</h1><p>Los clientes son memoria operativa de M.A.R.C.</p></div><button id="new" class="primary">＋ Nuevo cliente</button></div><section class="card table"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar…"></div><button id="ask" class="secondary">Preguntar</button></div><div class="scroll"><table class="data"><thead><tr><th>Cliente</th><th>Contacto</th><th>Correo</th><th>Teléfono</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></section>`;const rows=$("#rows"),draw=list=>rows.innerHTML=list.map(x=>`<tr><td><b>${esc(x.name)}</b><br><small>${esc(x.document_number||"")}</small></td><td>${esc(x.contact_name||"—")}</td><td>${esc(x.email||"—")}</td><td>${esc(x.phone||"—")}</td><td><button class="secondary" type="button" data-id="${x.id}">Editar</button></td></tr>`).join("")||'<tr><td colspan="5" class="empty">Aún no tienes clientes.</td></tr>';draw(data||[]);$("#search").oninput=e=>{const q=e.target.value.toLowerCase();draw((data||[]).filter(x=>[x.name,x.email,x.phone,x.document_number].some(v=>String(v||"").toLowerCase().includes(q))))};$("#new").onclick=()=>clientModal();$("#ask").onclick=()=>openChat();$$$("[data-id]",c).forEach(b=>b.onclick=()=>clientModal((data||[]).find(x=>x.id===b.dataset.id)))}
 async function ensurePdfJs(){
   if(window.pdfjsLib)return window.pdfjsLib;
   throw new Error("No se pudo cargar el lector PDF. Recarga la página e inténtalo nuevamente.");
@@ -2170,10 +2170,10 @@ function wire(){
   $("#exitConversation").onclick=closeChat;
   $("#menu").onclick=()=>$("#sidebar").classList.toggle("open");
   $("#mobileScrim").onclick=()=>$("#sidebar").classList.remove("open");
-  $(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.onclick=()=>view(b.dataset.view));
+  $$(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.onclick=()=>view(b.dataset.view));
   $("#chatForm").onsubmit=e=>{e.preventDefault();const v=$("#chatInput").value.trim();if(v){$("#chatInput").value="";chatSend(v)}};
   $("#chatInput").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("#chatForm").requestSubmit()}};
-  $(".chips button").forEach(b=>b.onclick=()=>{$("#chatInput").value=b.dataset.q;$("#chatInput").focus()});
+  $$(".chips button").forEach(b=>b.onclick=()=>{$("#chatInput").value=b.dataset.q;$("#chatInput").focus()});
 
   // OAuth callback: let Supabase handle the browser redirect.
   // M.A.R.C. is a client-side app, so the implicit flow avoids a PKCE

@@ -401,7 +401,7 @@ async function extractPdfCatalogRows(page){
 
       // Agrupa precios de la misma fila. Si hay precio normal + oferta, toma el
       // que está más a la derecha; suele ser el precio final publicado.
-      const rowRadius=12;
+      const rowRadius=5;
       const sameRow=candidates.filter(q=>Math.abs(q.y-p.y)<=rowRadius);
       const chosen=sameRow.slice().sort((a,b)=>{
         if(Boolean(a.currency)!==Boolean(b.currency))return a.currency?-1:1;
@@ -414,7 +414,7 @@ async function extractPdfCatalogRows(page){
       const gapPrev=prev?Math.abs(prev.y-chosen.y):0;
       const gapNext=next?Math.abs(chosen.y-next.y):0;
       const nearest=Math.min(gapPrev||999,gapNext||999);
-      const radius=Math.max(9,Math.min(20,nearest===999?15:nearest*.46));
+      const radius=Math.max(9,Math.min(28,nearest===999?18:nearest*.60));
       const rowItems=items.filter(x=>Math.abs(x.y-chosen.y)<=radius);
 
       const nameItems=rowItems
@@ -422,6 +422,8 @@ async function extractPdfCatalogRows(page){
         .sort((a,b)=>a.x-b.x);
       const nameParts=[...new Set(nameItems.map(x=>normalize(x.text)))].filter(x=>x&&!generic.test(x));
       const name=nameParts.join(" ").replace(/\s+/g," ").trim();
+      const leftTextCount=nameParts.length;
+      if(leftTextCount===0)continue;
 
       // El código/SKU se busca en una zona más conservadora y se excluyen
       // explícitamente las celdas de precio para no convertir precios/páginas en SKU.

@@ -93,19 +93,19 @@ async function chatSend(text){
     .trim();
 
   if(/^(nueva cotizacion|\+ cotizacion|crear cotizacion)$/.test(normalized)){
-    addBubble("u",raw);
-    closeChat();
-    return quoteModal();
+    addBubble("u",raw); closeChat(); return quoteModal();
   }
   if(/^(inventario|revisar inventario|mostrar inventario)$/.test(normalized)){
-    addBubble("u",raw);
-    closeChat();
-    return inventory();
+    addBubble("u",raw); closeChat(); return inventory();
   }
-  if(/^(cliente|buscar cliente|nuevo cliente)$/.test(normalized)){
-    addBubble("u",raw);
-    closeChat();
-    return normalized==="nuevo cliente"?clientModal():clients();
+  if(/^(cliente|buscar cliente)$/.test(normalized)){
+    addBubble("u",raw); closeChat(); return clients();
+  }
+  if(/^(nuevo cliente)$/.test(normalized)){
+    addBubble("u",raw); closeChat(); return clientModal();
+  }
+  if(/^(caja|cierre de caja|cerrar caja|abrir caja)$/.test(normalized)){
+    addBubble("u",raw); closeChat(); return cash();
   }
 
   addBubble("u",raw);
@@ -1740,7 +1740,7 @@ async function telegramStatus(){
     return {error:e.message||"No se pudo consultar Telegram."};
   }
 }
-async function connectTelegram(){
+async async function connectTelegram(){
   const b=$("#connectTelegram");
   if(b)b.disabled=true;
   try{
@@ -1758,7 +1758,7 @@ async function connectTelegram(){
   }catch(e){toast(e.message||"No se pudo conectar Telegram.","err")}
   finally{if(b)b.disabled=false}
 }
-async function refreshTelegramSettings(){
+async async function refreshTelegramSettings(){
   const box=$("#telegramState"),connect=$("#connectTelegram"),unlink=$("#unlinkTelegram");
   if(!box)return;
   const s=await telegramStatus();

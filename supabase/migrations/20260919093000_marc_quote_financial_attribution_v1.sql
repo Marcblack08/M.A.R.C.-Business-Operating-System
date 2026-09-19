@@ -215,3 +215,5 @@ set cost_total=coalesce(cost_total,0),
     profit=coalesce(profit,0),
     profit_margin=coalesce(profit_margin,0)
 where cost_total is null or profit is null or profit_margin is null;
+
+update public.marc_quote_items set material_provider=case when item_type='TRABAJO' and coalesce(cost,0)=0 then 'CLIENT' else 'MARC' end;

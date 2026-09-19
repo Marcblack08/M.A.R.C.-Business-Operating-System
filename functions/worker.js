@@ -298,28 +298,63 @@ async function ensureTelegramConversation(env,adminToken,userId){
 async function telegramLinkFromStart(env,adminToken,update,rawToken){
   const msg=update.message;
   const chatId=String(msg.chat.id), externalUserId=String(msg.from.id);
-  if(!rawToken||!rawToken.startsWith("LNK_")){
-    const identity=await telegramIdentity(env,adminToken,externalUserId);
-    await sendTelegram(env,chatId,identity?"M.A.R.C. ya está conectado a esta cuenta.":"Abre M.A.R.C. en la web, entra a Configuración y pulsa «Conectar Telegram».");
-    return;
-  }
-  const hash=await sha256Hex(rawToken);
-  const now=new Date().toISOString();
-  const tokenRows=await sb(env,adminToken,"marc_link_tokens?channel=eq.TELEGRAM&token_hash=eq."+encodeURIComponent(hash)+"&used_at=is.null&expires_at=gt."+encodeURIComponent(now),{method:"PATCH",body:{used_at:now}});
-  const tokenRow=tokenRows?.[0];
-  if(!tokenRow){await sendTelegram(env,chatId,"Este enlace de conexión ya venció o ya fue utilizado. Genera uno nuevo desde M.A.R.C. > Configuración > Conectar Telegram.");return}
   try{
-    const identityRows=await sb(env,adminToken,"marc_channel_identities?on_conflict=user_id%2Cchannel",{method:"POST",prefer:"resolution=merge-duplicates,return=representation",body:{user_id:tokenRow.user_id,channel:"TELEGRAM",external_user_id:externalUserId,chat_id:chatId,username:msg.from.username||null,status:"LINKED",linked_at:now,last_seen_at:now,updated_at:now}});
+    if(!rawToken||!rawToken.startsWith("LNK_")){
+      const identity=await telegramIdentity(env,adminToken,externalUserId);
+      await sendTelegram(env,chatId,identity
+        ?"M.A.R.C. ya está conectado a esta cuenta."
+        :"Abre M.A.R.C. en la web, entra en Configuración y pulsa «Conectar Telegram» para obtener un enlace de vinculación.");
+      return;
+    }
+
+    const hash=await sha256Hex(rawToken);
+    const now=new Date().toISOString();
+    const tokenRows=await sb(
+      env,adminToken,
+      "marc_link_tokens?channel=eq.TELEGRAM&token_hash=eq."+encodeURIComponent(hash)+"&used_at=is.null&expires_at=gt."+encodeURIComponent(now),
+      {method:"PATCH",body:{used_at:now}}
+    );
+    const tokenRow=tokenRows?.[0];
+    if(!tokenRow){
+      await sendTelegram(env,chatId,"Este enlace de conexión ya venció o ya fue utilizado. Genera uno nuevo desde M.A.R.C. > Configuración > Conectar Telegram.");
+      return;
+    }
+
+    const identityRows=await sb(env,adminToken,"marc_channel_identities?on_conflict=user_id%2Cchannel",{
+      method:"POST",
+      prefer:"resolution=merge-duplicates,return=representation",
+      body:{
+        user_id:tokenRow.user_id,
+        channel:"TELEGRAM",
+        external_user_id:externalUserId,
+        chat_id:chatId,
+        username:msg.from.username||null,
+        status:"LINKED",
+        linked_at:now,
+        last_seen_at:now,
+        updated_at:now
+      }
+    });
     const identity=identityRows?.[0];
-    await audit(env,adminToken,tokenRow.user_id,"CHANNEL",identity?.id||null,"TELEGRAM_LINK",{telegram_user_id:externalUserId}, "TELEGRAM");
+    await audit(env,adminToken,tokenRow.user_id,"CHANNEL",identity?.id||null,"TELEGRAM_LINK",{telegram_user_id:externalUserId},"TELEGRAM");
+
     const access=await entitlement(env,adminToken,tokenRow.user_id);
-    const planText=access.kind==="paid"?"Tu suscripción activa también funciona aquí.":access.kind==="trial"?`Tu prueba sigue activa: te quedan ${access.remaining} acciones de IA.`:"Tu prueba terminó. Puedes reactivarla desde la web.";
-    await sendTelegram(env,chatId,"✅ Telegram quedó conectado a tu cuenta M.A.R.C.\n\n"+planText+"\n\nAhora puedes escribir aquí y M.A.R.C. usará los mismos clientes, inventario, cotizaciones y límites de tu cuenta.");
+    const planText=access.kind==="master"
+      ?"Tu cuenta MASTER está activa aquí y no tiene límites de prueba."
+      :access.kind==="paid"
+        ?"Tu suscripción activa también funciona aquí."
+        :access.kind==="trial"
+          ?`Tu prueba sigue activa: te quedan ${access.remaining} acciones de IA.`
+          :"Tu prueba terminó. Puedes reactivarla desde la web.";
+
+    await sendTelegram(env,chatId,"✅ Telegram quedó conectado a tu cuenta M.A.R.C.\n\n"+planText+"\n\nAhora puedes escribir aquí y M.A.R.C. usará los mismos clientes, inventario, cotizaciones y contexto de tu cuenta.");
   }catch(e){
-    await sendTelegram(env,chatId,"No se pudo completar la vinculación. Si este Telegram ya está conectado a otra cuenta, desconéctalo allí antes de volver a intentarlo.").catch(()=>{});
+    const detail=String(e?.message||e||"Error desconocido").slice(0,700);
+    await sendTelegram(env,chatId,"⚠️ M.A.R.C. recibió tu solicitud, pero falló la vinculación.\n\nDiagnóstico: "+detail).catch(()=>{});
     throw e;
   }
 }
+
 async function telegramWebhook(request,env,ctx){
   if(request.method!=="POST")return json({error:"Método no permitido"},405);
   const expected=String(env.TELEGRAM_WEBHOOK_SECRET||"");

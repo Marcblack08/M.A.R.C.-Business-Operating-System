@@ -1534,3 +1534,14 @@ body,
   .inventory-summary small{display:none}
   .inventory-card-meta{gap:4px}
 }
+
+/* ===== AI QUOTE DESCRIPTION IMPROVER ===== */
+.ai-description-actions{display:flex;align-items:center;gap:8px;margin-top:-4px;margin-bottom:9px}
+.ai-description-actions span{font-size:7px;color:var(--muted);line-height:1.35}
+.ai-description-actions button{white-space:nowrap}
+[data-theme="dark"] .ai-description-actions span{color:#8298ae}
+@media(max-width:560px){
+  .ai-description-actions{align-items:flex-start;flex-direction:column;gap:5px}
+  .ai-description-actions button{width:100%}
+  .ai-description-actions span{font-size:7px}
+}

@@ -100,8 +100,7 @@ async function quoteModal(existing=null){
       if(r.error)return toast(r.error.message,"err");
       const del=await S.from("marc_quote_items").delete().eq("quote_id",quote.id).eq("user_id",st.u.id);if(del.error)return toast(del.error.message,"err");
     }else{
-      const {count}=await S.from("marc_quotes").select("id",{count:"exact",head:true}).eq("user_id",st.u.id);
-      const n=Number(count||0)+1;
+      const prefix="COT-"+new Date().toISOString().slice(0,7).replace("-","");
       const {data:lastQuotes}=await S.from("marc_quotes").select("number").eq("user_id",st.u.id).like("number",prefix+"-%").order("created_at",{ascending:false}).limit(1);const last=String(lastQuotes?.[0]?.number||"");const m=last.match(/(\d+)$/);const n2=(m?Number(m[1]):0)+1;const num=prefix+"-"+String(n2).padStart(4,"0");
       const r=await S.from("marc_quotes").insert({user_id:st.u.id,number:num,client_id:d.get("client_id")||null,title:d.get("title")||"Cotización",status:"BORRADOR",currency:"PEN",tax_enabled:taxEnabled,tax_rate:taxRate,subtotal,tax,total,notes:d.get("notes")||null}).select("id").single();
       if(r.error)return toast(r.error.message,"err");qid=r.data.id;

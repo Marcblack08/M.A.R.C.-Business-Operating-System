@@ -36,6 +36,7 @@ async function quoteModal(existing=null){
     '<label>Título<input name="title" required value="'+esc(quote?.title||"Nueva cotización")+'"></label>'+
     '<label>IGV <select name="tax_enabled"><option value="false" '+(!quote?.tax_enabled?"selected":"")+'>No incluir</option><option value="true" '+(quote?.tax_enabled?"selected":"")+'>Incluir</option></select></label>'+
     '<label>% IGV<input name="tax_rate" type="number" min="0" max="100" step="0.01" value="'+(quote?.tax_rate??18)+'"></label>'+
+    '<label>Estado<select name="status"><option value="BORRADOR" '+((quote?.status||"BORRADOR")==="BORRADOR"?"selected":"")+'>Borrador</option><option value="ENVIADA" '+((quote?.status||"BORRADOR")==="ENVIADA"?"selected":"")+'>Enviada</option><option value="ACEPTADA" '+((quote?.status||"BORRADOR")==="ACEPTADA"?"selected":"")+'>Aceptada</option><option value="RECHAZADA" '+((quote?.status||"BORRADOR")==="RECHAZADA"?"selected":"")+'>Rechazada</option><option value="ANULADA" '+((quote?.status||"BORRADOR")==="ANULADA"?"selected":"")+'>Anulada</option><option value="COBRADA" '+((quote?.status||"BORRADOR")==="COBRADA"?"selected":"")+'>Cobrada</option></select></label>'+
     '</div>'+
     '<div style="display:flex;justify-content:space-between;align-items:center;margin:9px 0 5px"><b style="font-size:9px">PARTIDAS</b><button type="button" id="add" class="secondary">＋ Línea</button></div>'+
     '<div id="lines"></div><label>Notas<textarea name="notes" rows="3">'+esc(quote?.notes||"")+'</textarea></label>'+
@@ -92,22 +93,14 @@ async function quoteModal(existing=null){
     if(!valid.length)return toast("Agrega al menos una partida.","err");
     if(valid.some(x=>Number(x.qty)<=0||Number(x.price)<0))return toast("Revisa cantidades y precios.","err");
     if(valid.some(x=>x.type==="TRABAJO"&&!Number(x.price)))return toast("Cada trabajo debe tener precio.","err");
-    const subtotal=valid.reduce((a,x)=>a+Number(x.qty)*Number(x.price),0);
-    const taxEnabled=d.get("tax_enabled")==="true",taxRate=Number(d.get("tax_rate")||18),tax=taxEnabled?subtotal*taxRate/100:0,total=subtotal+tax;
-    let qid=quote?.id;
-    if(quote){
-      const r=await S.from("marc_quotes").update({client_id:d.get("client_id")||null,title:d.get("title")||"Cotización",tax_enabled:taxEnabled,tax_rate:taxRate,subtotal,tax,total,notes:d.get("notes")||null,updated_at:new Date().toISOString()}).eq("id",quote.id).eq("user_id",st.u.id);
-      if(r.error)return toast(r.error.message,"err");
-      const del=await S.from("marc_quote_items").delete().eq("quote_id",quote.id).eq("user_id",st.u.id);if(del.error)return toast(del.error.message,"err");
-    }else{
-      const prefix="COT-"+new Date().toISOString().slice(0,7).replace("-","");
-      const {data:lastQuotes}=await S.from("marc_quotes").select("number").eq("user_id",st.u.id).like("number",prefix+"-%").order("created_at",{ascending:false}).limit(1);const last=String(lastQuotes?.[0]?.number||"");const m=last.match(/(\d+)$/);const n2=(m?Number(m[1]):0)+1;const num=prefix+"-"+String(n2).padStart(4,"0");
-      const r=await S.from("marc_quotes").insert({user_id:st.u.id,number:num,client_id:d.get("client_id")||null,title:d.get("title")||"Cotización",status:"BORRADOR",currency:"PEN",tax_enabled:taxEnabled,tax_rate:taxRate,subtotal,tax,total,notes:d.get("notes")||null}).select("id").single();
-      if(r.error)return toast(r.error.message,"err");qid=r.data.id;
-    }
-    for(const x of valid){
-      const p={quote_id:qid,user_id:st.u.id,inventory_id:x.type==="PRODUCTO"?x.inventory_id:null,item_type:x.type,name:x.type==="PRODUCTO"?(inv.find(p=>p.id===x.inventory_id)?.name||x.name):x.name,description:x.description||null,quantity:Number(x.qty),unit:x.unit||"UND",unit_price:Number(x.price),cost:Number(x.cost||0),line_total:Number(x.qty)*Number(x.price)};
-      const r=await S.from("marc_quote_items").insert(p);if(r.error)return toast(r.error.message,"err");
+    const taxEnabled=d.get("tax_enabled")==="true",taxRate=Number(d.get("tax_rate")||18),status=d.get("status")||"BORRADOR";
+    const items=valid.map(x=>({inventory_id:x.type==="PRODUCTO"?x.inventory_id:null,item_type:x.type,name:x.name,description:x.description||null,quantity:Number(x.qty),unit:x.unit||"UND",unit_price:Number(x.price),cost:Number(x.cost||0)}));
+    const {data,error}=await S.rpc("marc_save_quote",{p_quote_id:quote?.id||null,p_client_id:d.get("client_id")||null,p_title:d.get("title")||"Cotización",p_status:status,p_tax_enabled:taxEnabled,p_tax_rate:taxRate,p_notes:d.get("notes")||null,p_items:items});
+    if(error){
+      const msg=String(error.message||"");
+      if(msg.includes("TRIAL_QUOTE_LIMIT"))return toast("Llegaste al límite de 5 cotizaciones de la prueba.","err");
+      if(msg.includes("TRIAL_EXPIRED"))return toast("Tu prueba terminó. Activa un plan para continuar.","err");
+      return toast(error.message,"err");
     }
     close();toast(quote?"Cotización actualizada":"Cotización guardada","ok");await trial();quotes();
   };

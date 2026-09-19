@@ -1626,3 +1626,35 @@ body,
   .inventory-card-actions button{width:100%}
 }
 [data-theme="dark"] .inventory-card{box-shadow:0 8px 22px rgba(0,0,0,.18)}
+
+/* ===== INVENTORY PRODUCT FORM MOBILE ===== */
+.inventory-photo-box{min-width:0}
+.inventory-photo-box label{min-width:0}
+.inventory-photo-box input[type="file"]{width:100%;min-width:0}
+.inventory-photo-box small{line-height:1.4;color:var(--muted)}
+#analyzeProductPhoto{min-height:40px}
+@media(max-width:560px){
+  .modal-root{padding:8px}
+  .modal{width:100%;max-height:94vh;border-radius:16px;padding:14px}
+  .modal-head{position:sticky;top:0;z-index:2;background:inherit;padding-bottom:8px}
+  .modal-head h2{font-size:17px}
+  .inventory-photo-box{flex-direction:column;align-items:stretch;padding:10px}
+  .inventory-photo-preview{width:100%;height:150px}
+  .inventory-photo-box label{font-size:8px}
+  .inventory-photo-box input[type="file"]{min-height:42px}
+  #analyzeProductPhoto{width:100%;min-height:42px}
+  .modal .form-grid{grid-template-columns:1fr 1fr;gap:8px}
+  .modal .form-grid input,.modal .form-grid select,.modal .form-grid textarea{min-height:42px}
+  .modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+  .modal-actions .danger{grid-column:1/-1;order:3}
+  .modal-actions button{min-height:42px}
+}
+@media(max-width:380px){
+  .modal{padding:12px}
+  .modal .form-grid{grid-template-columns:1fr}
+  .modal-actions{grid-template-columns:1fr}
+  .modal-actions .danger{grid-column:auto;order:3}
+  .inventory-photo-preview{height:130px}
+}
+[data-theme="dark"] .inventory-photo-box{background:#0d1a29;border-color:#294059}
+[data-theme="dark"] .inventory-photo-box small{color:#8ca1b5}

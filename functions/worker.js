@@ -489,6 +489,17 @@ async function telegramWebhook(request,env,ctx){
   if(!msg?.chat?.id||!msg?.from?.id)return json({ok:true},200);
   if(msg.chat.type&&msg.chat.type!=="private")return json({ok:true},200);
   const chatId=String(msg.chat.id),externalUserId=String(msg.from.id),incoming=String(msg.text||"").trim();
+  if(msg.document){
+    const isPdf=String(msg.document.mime_type||"").toLowerCase()==="application/pdf" || String(msg.document.file_name||"").toLowerCase().endsWith(".pdf");
+    if(!isPdf){await sendTelegram(env,chatId,"📄 Puedo importar catálogos en PDF. Envíame un archivo PDF.");return json({ok:true},200);}
+    await sendTelegram(env,chatId,"📄 Recibí el PDF. Voy a analizar el catálogo con Gemini y preparar una vista previa…");
+    const job=processTelegramInventoryPdf(env,adminToken,userId,chatId,msg.document).catch(async e=>{
+      await sendTelegram(env,chatId,"⚠️ No pude analizar el PDF: "+String(e?.message||"Error desconocido").slice(0,700));
+    });
+    if(ctx?.waitUntil)ctx.waitUntil(job);else await job;
+    return json({ok:true},200);
+  }
+
   if(incoming.startsWith("/start")){
     const param=incoming.split(/\s+/,2)[1]||"";
     const job=telegramLinkFromStart(env,adminToken,update,param).catch(async()=>{
@@ -515,6 +526,23 @@ async function telegramWebhook(request,env,ctx){
   if(access.kind==="trial_limited"){
     const origin=new URL(request.url).origin;
     await sendTelegram(env,chatId,"Llegaste al límite de 30 acciones de IA de la prueba. Activa un plan desde "+origin+" para continuar.");
+    return json({ok:true},200);
+  }
+  if(/^(IMPORTAR|IMPORTA|SI|SÍ)$/i.test(incoming)){
+    const pendingRows=await sb(env,adminToken,"marc_pending_imports?select=id,items&user_id=eq."+encodeURIComponent(userId)+"&channel=eq.TELEGRAM&chat_id=eq."+encodeURIComponent(chatId)+"&status=eq.PENDING&expires_at=gt."+encodeURIComponent(new Date().toISOString())+"&order=created_at.desc&limit=1");
+    const pending=pendingRows?.[0];
+    if(!pending){await sendTelegram(env,chatId,"No hay una importación de PDF pendiente. Envía primero el catálogo PDF.");return json({ok:true},200);}
+    try{
+      const result=await importPendingInventory(env,adminToken,userId,pending.id,true,"TELEGRAM");
+      await sendTelegram(env,chatId,"✅ Inventario actualizado.
+
+Productos procesados: "+result.total+"\nNuevos: "+result.created+"\nActualizados: "+result.updated);
+    }catch(e){await sendTelegram(env,chatId,"⚠️ No pude importar los productos: "+String(e?.message||"Error").slice(0,700));}
+    return json({ok:true},200);
+  }
+  if(/^(CANCELAR|CANCEL)$/i.test(incoming)){
+    await sb(env,adminToken,"marc_pending_imports?user_id=eq."+encodeURIComponent(userId)+"&channel=eq.TELEGRAM&chat_id=eq."+encodeURIComponent(chatId)+"&status=eq.PENDING",{method:"PATCH",body:{status:"CANCELLED",updated_at:new Date().toISOString()}});
+    await sendTelegram(env,chatId,"Importación cancelada.");
     return json({ok:true},200);
   }
   if(!incoming){await sendTelegram(env,chatId,"Escríbeme una operación o una pregunta. Por ejemplo: «revisa mi inventario» o «crea una cotización»." );return json({ok:true},200);}
@@ -569,6 +597,231 @@ async function saveCompanyProfile(request,env){
   return json({profile:rows?.[0]||profile,entitlement:access},200,corsHeaders(request));
 }
 
+
+function bytesToBase64(bytes){
+  let out="";
+  const chunk=0x8000;
+  for(let i=0;i<bytes.length;i+=chunk){
+    const part=bytes.subarray(i,Math.min(i+chunk,bytes.length));
+    out+=String.fromCharCode(...part);
+  }
+  return btoa(out);
+}
+
+async function geminiGeneratePdf(env,pdfBytes,prompt,options={}){
+  const apiKeys=[env.GEMINI_API_KEY,env.GEMINI_API_KEY2].filter((x,i,a)=>x&&a.indexOf(x)===i);
+  if(!apiKeys.length)throw Object.assign(new Error("GEMINI_API_KEY no está configurada en el Worker."),{status:503});
+  const models=[env.GEMINI_MODEL||GEMINI_MODEL_DEFAULT,env.GEMINI_MODEL_FALLBACK||"gemini-3.7-flash",env.GEMINI_MODEL_FALLBACK2||"gemini-2.5-flash"].filter((x,i,a)=>x&&a.indexOf(x)===i);
+  const data=bytesToBase64(new Uint8Array(pdfBytes));
+  let last=null;
+  for(const model of models){
+    for(const key of apiKeys){
+      try{
+        const body={
+          contents:[{parts:[
+            {text:String(prompt)},
+            {inlineData:{mimeType:"application/pdf",data}}
+          ]}],
+          generationConfig:{
+            responseMimeType:"application/json",
+            maxOutputTokens:options.maxTokens||8000
+          }
+        };
+        const res=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":generateContent",{
+          method:"POST",
+          headers:{"content-type":"application/json","x-goog-api-key":key},
+          body:JSON.stringify(body)
+        });
+        const raw=await res.text();
+        let json=null;try{json=raw?JSON.parse(raw):null}catch{}
+        if(res.ok)return json;
+        const err=new Error(json?.error?.message||"Gemini PDF error");
+        err.status=res.status;err.details=json;
+        last=err;
+        if(![429,500,502,503,504,529].includes(Number(res.status)))throw err;
+      }catch(err){
+        last=err;
+        if(![429,500,502,503,504,529].includes(Number(err?.status)))throw err;
+      }
+    }
+  }
+  throw last||Object.assign(new Error("Gemini no está disponible temporalmente."),{status:503});
+}
+
+function sanitizePdfItems(items){
+  if(!Array.isArray(items))return [];
+  const out=[];
+  for(const raw of items.slice(0,500)){
+    const name=String(raw?.name||"").trim().slice(0,180);
+    if(!name)continue;
+    const n=v=>{
+      if(v===null||v===undefined||v==="")return null;
+      const x=Number(String(v).replace(",",".").replace(/[^\d.-]/g,""));
+      return Number.isFinite(x)?x:null;
+    };
+    out.push({
+      sku:String(raw?.sku||"").trim().slice(0,80)||null,
+      name,
+      brand:String(raw?.brand||"").trim().slice(0,100)||null,
+      model:String(raw?.model||"").trim().slice(0,120)||null,
+      category:String(raw?.category||"").trim().slice(0,100)||null,
+      unit:String(raw?.unit||"UND").trim().slice(0,20)||"UND",
+      cost:n(raw?.cost),
+      price:n(raw?.price),
+      stock:n(raw?.stock),
+      min_stock:n(raw?.min_stock)
+    });
+  }
+  const seen=new Set(),clean=[];
+  for(const x of out){
+    const key=(x.sku||[x.name,x.brand,x.model].filter(Boolean).join("|")).toLowerCase();
+    if(seen.has(key))continue;
+    seen.add(key);clean.push(x);
+  }
+  return clean;
+}
+
+async function analyzeInventoryPdf(env,pdfBytes,filename){
+  const prompt='Analiza este catálogo PDF y extrae exclusivamente PRODUCTOS que puedan convertirse en registros de inventario. Devuelve SOLO JSON válido con esta forma: {"items":[{"sku":string|null,"name":string,"brand":string|null,"model":string|null,"category":string|null,"unit":string|null,"cost":number|null,"price":number|null,"stock":number|null,"min_stock":number|null}]}. No inventes valores. Si el PDF no muestra precio, stock o costo, usa null. Conserva códigos SKU/modelo cuando aparezcan. Si una fila contiene variantes reales, sepáralas solo cuando el documento las presenta como productos diferentes. Ignora servicios, textos promocionales, títulos, imágenes decorativas y accesorios que no estén identificados como productos. Nombre y descripción deben ser suficientemente claros para identificar cada producto. Archivo: '+String(filename||"catalogo.pdf");
+  const out=await geminiGeneratePdf(env,pdfBytes,prompt,{maxTokens:10000});
+  const text=out?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("")||"";
+  if(!text)throw Object.assign(new Error("Gemini no devolvió productos del PDF."),{status:502});
+  let parsed;
+  try{parsed=extractJson(text)}catch{throw Object.assign(new Error("Gemini analizó el PDF pero no devolvió JSON válido."),{status:502,details:{preview:text.slice(0,500)}})}
+  const items=sanitizePdfItems(parsed?.items);
+  return {items,raw_preview:text.slice(0,1000)};
+}
+
+async function storePdfDocument(env,adminToken,userId,source,filename,pdfBytes,items){
+  const safeName=String(filename||"catalogo.pdf").replace(/[^A-Za-z0-9._-]/g,"_").slice(-120)||"catalogo.pdf";
+  const path=userId+"/"+Date.now()+"-"+crypto.randomUUID()+"-"+safeName;
+  const upload=await fetch(env.SUPABASE_URL+"/storage/v1/object/marc-documents/"+path,{
+    method:"POST",
+    headers:{
+      Authorization:"Bearer "+adminToken,
+      apikey:adminToken,
+      "Content-Type":"application/pdf",
+      "x-upsert":"false"
+    },
+    body:pdfBytes
+  });
+  if(!upload.ok){
+    const t=await upload.text();
+    throw new Error("No se pudo guardar el PDF: "+t.slice(0,500));
+  }
+  const rows=await sb(env,adminToken,"marc_documents",{
+    method:"POST",
+    body:{
+      user_id:userId,source,filename:safeName,mime_type:"application/pdf",size_bytes:pdfBytes.byteLength,
+      storage_path:path,status:"ANALYZED",extracted_count:items.length,metadata:{source,ai:"gemini"}
+    }
+  });
+  return rows?.[0];
+}
+
+async function createPendingImport(env,adminToken,userId,channel,chatId,filename,pdfBytes){
+  if(pdfBytes.byteLength>20*1024*1024)throw Object.assign(new Error("El PDF supera el límite de 20 MB."),{status:413});
+  const analyzed=await analyzeInventoryPdf(env,pdfBytes,filename);
+  if(!analyzed.items.length)throw Object.assign(new Error("No encontré productos identificables en el PDF."),{status:422});
+  const document=await storePdfDocument(env,adminToken,userId,channel,filename,pdfBytes,analyzed.items);
+  const rows=await sb(env,adminToken,"marc_pending_imports",{
+    method:"POST",
+    body:{
+      user_id:userId,channel,chat_id:chatId||null,document_id:document?.id||null,
+      items:analyzed.items,status:"PENDING",expires_at:new Date(Date.now()+15*60*1000).toISOString()
+    }
+  });
+  return {pending:rows?.[0],document,items:analyzed.items};
+}
+
+async function findExistingInventory(env,adminToken,userId,item){
+  if(item.sku){
+    const rows=await sb(env,adminToken,"marc_inventory?select=id&user_id=eq."+encodeURIComponent(userId)+"&sku=eq."+encodeURIComponent(item.sku)+"&limit=1");
+    if(rows?.[0])return rows[0];
+  }
+  const url=new URL(env.SUPABASE_URL+"/rest/v1/marc_inventory");
+  url.searchParams.set("select","id");
+  url.searchParams.set("user_id","eq."+userId);
+  url.searchParams.set("name","eq."+item.name);
+  if(item.brand)url.searchParams.set("brand","eq."+item.brand); else url.searchParams.set("brand","is.null");
+  if(item.model)url.searchParams.set("model","eq."+item.model); else url.searchParams.set("model","is.null");
+  url.searchParams.set("limit","1");
+  return (await sb(env,adminToken,url.pathname.slice("/rest/v1/".length)+url.search))[0]||null;
+}
+
+async function importPendingInventory(env,adminToken,userId,pendingId,updateExisting=true,source="WEB"){
+  const rows=await sb(env,adminToken,"marc_pending_imports?select=id,user_id,items,status,expires_at&user_id=eq."+encodeURIComponent(userId)+"&id=eq."+encodeURIComponent(pendingId)+"&status=eq.PENDING&expires_at=gt."+encodeURIComponent(new Date().toISOString())+"&limit=1");
+  const pending=rows?.[0];
+  if(!pending)throw Object.assign(new Error("La importación ya venció, fue importada o no existe."),{status:404});
+  const items=sanitizePdfItems(pending.items);
+  let created=0,updated=0;
+  for(const item of items){
+    const row={
+      user_id:userId,sku:item.sku,name:item.name,brand:item.brand,model:item.model,category:item.category,
+      unit:item.unit,cost:item.cost??0,price:item.price??0,stock:item.stock??0,min_stock:item.min_stock??0,
+      active:true,updated_at:new Date().toISOString()
+    };
+    const existing=updateExisting?await findExistingInventory(env,adminToken,userId,item):null;
+    if(existing){
+      await sb(env,adminToken,"marc_inventory?id=eq."+encodeURIComponent(existing.id)+"&user_id=eq."+encodeURIComponent(userId),{method:"PATCH",body:row});
+      updated++;
+    }else{
+      await sb(env,adminToken,"marc_inventory",{method:"POST",body:row});
+      created++;
+    }
+  }
+  await sb(env,adminToken,"marc_pending_imports?id=eq."+encodeURIComponent(pendingId)+"&user_id=eq."+encodeURIComponent(userId),{method:"PATCH",body:{status:"IMPORTED",updated_at:new Date().toISOString()}});
+  await audit(env,adminToken,userId,"DOCUMENT",pendingId,"INVENTORY_IMPORT",{created,updated,count:items.length},source);
+  return {status:"IMPORTED",created,updated,total:items.length};
+}
+
+async function inventoryPdfPreview(request,env){
+  if(request.method!=="POST")return json({error:"Método no permitido"},405);
+  const {token,user}=await authUser(request,env);
+  const access=await entitlement(env,token,user.id);
+  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request));
+  if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request));
+  const form=await request.formData();
+  const file=form.get("file");
+  if(!file||typeof file.arrayBuffer!=="function")return json({error:"Adjunta un archivo PDF."},400,corsHeaders(request));
+  const mime=String(file.type||"application/pdf").toLowerCase(),name=String(file.name||"catalogo.pdf");
+  if(mime!=="application/pdf"&&!name.toLowerCase().endsWith(".pdf"))return json({error:"Solo se aceptan archivos PDF."},400,corsHeaders(request));
+  const bytes=await file.arrayBuffer();
+  if(bytes.byteLength>20*1024*1024)return json({error:"El PDF supera el límite de 20 MB."},413,corsHeaders(request));
+  const adminToken=env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY;
+  const job=await createPendingImport(env,adminToken,user.id,"WEB",null,name,bytes);
+  await incrementAiUsage(env,token,user.id,access);
+  return json({pendingId:job.pending.id,documentId:job.document?.id||null,count:job.items.length,items:job.items.slice(0,50)},200,corsHeaders(request));
+}
+
+async function inventoryPdfImport(request,env){
+  if(request.method!=="POST")return json({error:"Método no permitido"},405);
+  const {token,user}=await authUser(request,env);
+  const body=await request.json();
+  const access=await entitlement(env,token,user.id);
+  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request));
+  const result=await importPendingInventory(env,env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY,user.id,String(body?.pendingId||""),body?.updateExisting!==false,"WEB");
+  return json(result,200,corsHeaders(request));
+}
+
+async function processTelegramInventoryPdf(env,adminToken,userId,chatId,document){
+  const fileId=String(document?.file_id||"");
+  if(!fileId)return;
+  if(Number(document?.file_size||0)>20*1024*1024){
+    await sendTelegram(env,chatId,"📄 El PDF supera el límite de 20 MB para archivos de Telegram.");
+    return;
+  }
+  const meta=await fetch("https://api.telegram.org/bot"+env.TELEGRAM_BOT_TOKEN+"/getFile?file_id="+encodeURIComponent(fileId));
+  const mj=await meta.json().catch(()=>null);
+  if(!meta.ok||!mj?.ok||!mj?.result?.file_path)throw new Error(mj?.description||"Telegram no pudo preparar el PDF.");
+  const dl=await fetch("https://api.telegram.org/file/bot"+env.TELEGRAM_BOT_TOKEN+"/"+mj.result.file_path);
+  if(!dl.ok)throw new Error("No pude descargar el PDF desde Telegram.");
+  const bytes=await dl.arrayBuffer();
+  const name=String(document.file_name||"catalogo.pdf");
+  const job=await createPendingImport(env,adminToken,userId,"TELEGRAM",chatId,name,bytes);
+  const preview=job.items.slice(0,10).map((x,i)=>(i+1)+". "+x.name+(x.brand?" · "+x.brand:"")+(x.model?" · "+x.model:"")+(x.price!=null?" · S/ "+x.price.toFixed(2):"")).join("\n");
+  await sendTelegram(env,chatId,"📦 Analicé el PDF con Gemini.\n\nEncontré "+job.items.length+" productos.\n\n"+preview+"\n"+(job.items.length>10?"\n…y "+(job.items.length-10)+" más.\n":"")+"\nResponde IMPORTAR para agregarlos al inventario o CANCELAR para descartarlos. El enlace de importación dura 15 minutos.");
+}
 async function quoteAiDraft(request,env){
   if(request.method!=="POST")return json({error:"Método no permitido"},405);
   const {token,user}=await authUser(request,env);
@@ -718,6 +971,12 @@ export default{
       try{return await telegramWebhook(request,env,ctx)}catch(err){
         return json({error:err?.message||"Error del webhook",detail:err?.details||null},err?.status||500);
       }
+    }
+    if(url.pathname==="/api/inventory/pdf-preview"){
+      try{return await inventoryPdfPreview(request,env)}catch(err){return json({error:err?.message||"No se pudo analizar el PDF"},err?.status||500,headers)}
+    }
+    if(url.pathname==="/api/inventory/pdf-import"){
+      try{return await inventoryPdfImport(request,env)}catch(err){return json({error:err?.message||"No se pudo importar el inventario"},err?.status||500,headers)}
     }
     if(url.pathname==="/api/company/profile"){
       try{

@@ -234,6 +234,132 @@ Los únicos sistemas previstos en esta etapa son:
 
 No se inventarán endpoints, credenciales, formatos ni capacidades. Cada integración debe tener un contrato documentado antes de implementarse.
 
+
+## 7. Telegram + modelo de pago
+
+M.A.R.C. también será un producto comercial accesible mediante Telegram.
+
+### Telegram como canal, no como sistema independiente
+
+Telegram no tendrá una lógica de negocio separada.
+
+El bot se conectará al mismo núcleo de M.A.R.C. que utiliza la plataforma web.
+
+El usuario deberá poder:
+- iniciar una conversación con M.A.R.C.;
+- hacer preguntas;
+- consultar información autorizada;
+- pedir acciones;
+- dictar instrucciones;
+- consultar clientes;
+- consultar inventario;
+- preparar cotizaciones;
+- comunicarse con Sakit, Q, Sumasa y Clover cuando exista el contrato correspondiente;
+- recibir confirmaciones y resultados.
+
+La web y Telegram deberán compartir:
+- identidad;
+- cuenta;
+- permisos;
+- historial;
+- contexto;
+- suscripción;
+- límites de uso.
+
+### Vinculación de cuentas
+
+Debe existir un mecanismo seguro para vincular:
+- cuenta M.A.R.C. web;
+- cuenta Telegram.
+
+No se debe confiar únicamente en el nombre visible de Telegram.
+
+La vinculación deberá utilizar un identificador y un flujo temporal verificable.
+
+### Monetización
+
+M.A.R.C. será de pago.
+
+La arquitectura de monetización deberá separar:
+- identidad del usuario;
+- plan contratado;
+- estado de la suscripción;
+- límites del plan;
+- consumo;
+- pagos;
+- facturación;
+- estado de acceso.
+
+Se diseñará el producto como SaaS, con planes configurables y posibilidad de prueba inicial.
+
+### Pagos en Telegram
+
+Para vender el acceso digital de M.A.R.C. dentro de Telegram, la implementación deberá utilizar Telegram Stars y la moneda XTR, conforme al flujo de pagos de Telegram. Telegram también documenta suscripciones periódicas de 30 días para pagos en Stars. 
+
+El bot deberá contemplar:
+- selección de plan;
+- factura;
+- confirmación de pago;
+- activación de suscripción;
+- renovación;
+- cancelación;
+- reembolso cuando corresponda;
+- /terms;
+- /support;
+- registro de pagos;
+- comprobación de transacciones.
+
+### Pago desde la web
+
+También se podrá contratar M.A.R.C. desde la plataforma web mediante un proveedor de pagos externo que se defina posteriormente.
+
+La suscripción web y la suscripción adquirida mediante Telegram deberán converger en un mismo registro de suscripción de M.A.R.C.
+
+### Control de acceso
+
+El núcleo deberá poder determinar en cada solicitud:
+- usuario;
+- plan;
+- estado de pago;
+- fecha de vencimiento;
+- límites;
+- consumo;
+- permisos;
+- canal de origen.
+
+No se debe bloquear el acceso solamente por venir desde Telegram o desde la web. El acceso dependerá de la cuenta y del estado de la suscripción.
+
+### Arquitectura conceptual
+
+Web / Telegram -> Gateway de acceso -> Núcleo M.A.R.C. -> herramientas -> datos / integraciones
+
+La IA será una capacidad del núcleo, no el producto completo.
+
+### Telegram no debe duplicar módulos
+
+El usuario no verá en Telegram menús equivalentes a toda la aplicación web.
+
+La conversación será el principal mecanismo:
+- preguntar;
+- ordenar;
+- confirmar;
+- recibir resultado.
+
+Cuando una tarea requiera una interfaz gráfica compleja, M.A.R.C. podrá enviar un enlace seguro a la plataforma web.
+
+### Requisitos comerciales
+
+Antes del lanzamiento deberán existir:
+- términos y condiciones;
+- política de privacidad;
+- soporte;
+- política de cancelación/reembolso;
+- identificación del plan;
+- control de suscripción;
+- registro de pagos;
+- límites antiabuso;
+- protección contra uso automatizado no autorizado.
+
 ## Principio de diseño
 
 **Si una función puede vivir naturalmente dentro de un módulo existente, no se crea otro módulo.**

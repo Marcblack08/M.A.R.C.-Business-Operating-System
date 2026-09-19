@@ -1309,7 +1309,7 @@ async function communications(){
         '<div style="margin-top:11px"><button class="secondary" data-integration="'+esc(row.system_name)+'">'+esc(action)+'</button></div>'+
       '</section>';
     }).join("");
-    $("[data-integration]",grid).forEach(b=>b.onclick=()=>{
+    Array.from(grid.querySelectorAll("[data-integration]")).forEach(b=>b.onclick=()=>{
       const row=integrations.find(x=>x.system_name===b.dataset.integration);
       if(row)communicationIntegrationModal(row);
     });

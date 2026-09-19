@@ -95,7 +95,7 @@ async function quoteModal(existing=null){
     if(valid.some(x=>x.type==="TRABAJO"&&!Number(x.price)))return toast("Cada trabajo debe tener precio.","err");
     const taxEnabled=d.get("tax_enabled")==="true",taxRate=Number(d.get("tax_rate")||18),status=d.get("status")||"BORRADOR";
     const items=valid.map(x=>({inventory_id:x.type==="PRODUCTO"?x.inventory_id:null,item_type:x.type,name:x.name,description:x.description||null,quantity:Number(x.qty),unit:x.unit||"UND",unit_price:Number(x.price),cost:Number(x.cost||0)}));
-    const {data,error}=await S.rpc("marc_save_quote",{p_quote_id:quote?.id||null,p_client_id:d.get("client_id")||null,p_title:d.get("title")||"Cotización",p_status:status,p_tax_enabled:taxEnabled,p_tax_rate:taxRate,p_notes:d.get("notes")||null,p_items:items});
+    const {data,error}=await S.rpc("marc_save_quote",{p_quote_id:quote?.id||null,p_client_id:d.get("client_id")||null,p_title:d.get("title")||"Cotización",p_status:status,p_tax_enabled:taxEnabled,p_tax_rate:taxRate,p_notes:d.get("notes")||null,p_items:items,p_source:"WEB"});
     if(error){
       const msg=String(error.message||"");
       if(msg.includes("TRIAL_QUOTE_LIMIT"))return toast("Llegaste al límite de 5 cotizaciones de la prueba.","err");

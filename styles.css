@@ -1687,3 +1687,32 @@ body,
 [data-theme="dark"] .serial-product-summary,
 [data-theme="dark"] .serial-existing{background:#0d1a29;border-color:#294059}
 [data-theme="dark"] .serial-row{background:#0d1927;border-color:#263a50}
+
+/* ===== PDF INVENTORY IMPORT MOBILE ===== */
+@media(max-width:560px){
+  #pdfInventoryForm{gap:9px}
+  #inventoryPdfFile{width:100%;min-height:44px}
+  .pdf-import-hint{font-size:8px;padding:10px}
+  .pdf-progress-wrap{padding:10px;border-radius:12px}
+  .pdf-progress-top{font-size:8px;flex-wrap:wrap}
+  .pdf-progress{height:9px}
+  .pdf-live-items{max-height:30vh}
+  .pdf-live-row{grid-template-columns:54px 1fr;padding:8px 9px}
+  .pdf-live-row b,.pdf-live-row small{overflow-wrap:anywhere}
+  .pdf-import-preview{max-height:48vh;overflow:auto;padding:9px}
+  .pdf-final-summary{display:grid;gap:3px}
+  .pdf-product-row{display:grid;grid-template-columns:1fr;gap:3px;padding:9px 2px}
+  .pdf-product-row small{text-align:left;overflow-wrap:anywhere}
+  .pdf-photo-option{align-items:flex-start;line-height:1.35;padding:11px}
+  .pdf-photo-option input{width:20px;height:20px;flex:none;margin-top:1px}
+}
+@media(max-width:380px){
+  .pdf-live-items{max-height:25vh}
+  .pdf-import-preview{max-height:44vh}
+  .pdf-progress-top{font-size:7.5px}
+}
+[data-theme="dark"] .pdf-import-preview,
+[data-theme="dark"] .pdf-progress-wrap,
+[data-theme="dark"] .pdf-live-items,
+[data-theme="dark"] .pdf-photo-option{background:#0d1a29;border-color:#294059}
+[data-theme="dark"] .pdf-live-title{background:#0d1a29;color:#dce8f4}

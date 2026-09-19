@@ -1820,3 +1820,10 @@ body,
 .marketing-history-row small{display:block;margin-top:4px;color:#8191a2;font-size:7px}
 @media(max-width:900px){.marketing-layout{grid-template-columns:1fr}}
 @media(max-width:520px){.marketing-copy-grid{grid-template-columns:1fr}.marketing-form-card,.marketing-preview-card,.marketing-copy-card,.marketing-history{padding:14px}}
+
+/* Marketing refinements */
+.marketing-form-card label>input,.marketing-form-card label>select,.marketing-form-card label>textarea{background:#f8fbfe}
+.marketing-form-card{border:1px solid #dce7f1}
+.marketing-preview-card{position:sticky;top:12px}
+.marketing-banner-actions button{min-height:36px}
+@media(max-width:900px){.marketing-preview-card{position:static}}

@@ -488,35 +488,33 @@ async function telegramWebhook(request,env,ctx){
   const msg=update?.message;
   if(!msg?.chat?.id||!msg?.from?.id)return json({ok:true},200);
   if(msg.chat.type&&msg.chat.type!=="private")return json({ok:true},200);
-  const chatId=String(msg.chat.id),externalUserId=String(msg.from.id),incoming=String(msg.text||"").trim();
-  if(msg.document){
-    const isPdf=String(msg.document.mime_type||"").toLowerCase()==="application/pdf" || String(msg.document.file_name||"").toLowerCase().endsWith(".pdf");
-    if(!isPdf){await sendTelegram(env,chatId,"📄 Puedo importar catálogos en PDF. Envíame un archivo PDF.");return json({ok:true},200);}
-    await sendTelegram(env,chatId,"📄 Recibí el PDF. Voy a analizar el catálogo con Gemini y preparar una vista previa…");
-    const job=processTelegramInventoryPdf(env,adminToken,userId,chatId,msg.document).catch(async e=>{
-      await sendTelegram(env,chatId,"⚠️ No pude analizar el PDF: "+String(e?.message||"Error desconocido").slice(0,700));
-    });
-    if(ctx?.waitUntil)ctx.waitUntil(job);else await job;
-    return json({ok:true},200);
-  }
+
+  const chatId=String(msg.chat.id);
+  const externalUserId=String(msg.from.id);
+  const incoming=String(msg.text||"").trim();
 
   if(incoming.startsWith("/start")){
     const param=incoming.split(/\s+/,2)[1]||"";
     const job=telegramLinkFromStart(env,adminToken,update,param).catch(async()=>{
       await sendTelegram(env,chatId,"⚠️ Recibí tu solicitud, pero no pude completar la vinculación todavía. Vuelve a M.A.R.C. y genera un nuevo enlace en Configuración > Telegram.");
     });
-    if(ctx?.waitUntil)ctx.waitUntil(job);
-    else await job;
+    if(ctx?.waitUntil)ctx.waitUntil(job);else await job;
     return json({ok:true},200);
   }
+
   const identity=await telegramIdentity(env,adminToken,externalUserId);
   if(!identity){
     const origin=new URL(request.url).origin;
-    await sendTelegram(env,chatId,"🔗 Primero conecta este Telegram con tu cuenta M.A.R.C.\n\nAbre "+origin+" y entra en Configuración > Conectar Telegram.");
+    await sendTelegram(env,chatId,"🔗 Primero conecta este Telegram con tu cuenta M.A.R.C.\\n\\nAbre "+origin+" y entra en Configuración > Conectar Telegram.");
     return json({ok:true},200);
   }
-  await sb(env,adminToken,"marc_channel_identities?id=eq."+encodeURIComponent(identity.id)+"&user_id=eq."+encodeURIComponent(identity.user_id),{method:"PATCH",body:{last_seen_at:new Date().toISOString(),updated_at:new Date().toISOString()}}).catch(()=>{});
+
   const userId=identity.user_id;
+  await sb(env,adminToken,"marc_channel_identities?id=eq."+encodeURIComponent(identity.id)+"&user_id=eq."+encodeURIComponent(userId),{
+    method:"PATCH",
+    body:{last_seen_at:new Date().toISOString(),updated_at:new Date().toISOString()}
+  }).catch(()=>{});
+
   const access=await entitlement(env,adminToken,userId);
   if(access.kind==="expired"){
     const origin=new URL(request.url).origin;
@@ -528,36 +526,72 @@ async function telegramWebhook(request,env,ctx){
     await sendTelegram(env,chatId,"Llegaste al límite de 30 acciones de IA de la prueba. Activa un plan desde "+origin+" para continuar.");
     return json({ok:true},200);
   }
-  if(/^(IMPORTAR|IMPORTA|SI|SÍ)$/i.test(incoming)){
-    const pendingRows=await sb(env,adminToken,"marc_pending_imports?select=id,items&user_id=eq."+encodeURIComponent(userId)+"&channel=eq.TELEGRAM&chat_id=eq."+encodeURIComponent(chatId)+"&status=eq.PENDING&expires_at=gt."+encodeURIComponent(new Date().toISOString())+"&order=created_at.desc&limit=1");
-    const pending=pendingRows?.[0];
-    if(!pending){await sendTelegram(env,chatId,"No hay una importación de PDF pendiente. Envía primero el catálogo PDF.");return json({ok:true},200);}
-    try{
-      const result=await importPendingInventory(env,adminToken,userId,pending.id,true,"TELEGRAM");
-      await sendTelegram(env,chatId,"✅ Inventario actualizado.
 
-Productos procesados: "+result.total+"\nNuevos: "+result.created+"\nActualizados: "+result.updated);
-    }catch(e){await sendTelegram(env,chatId,"⚠️ No pude importar los productos: "+String(e?.message||"Error").slice(0,700));}
+  if(msg.document){
+    const isPdf=String(msg.document.mime_type||"").toLowerCase()==="application/pdf"||String(msg.document.file_name||"").toLowerCase().endsWith(".pdf");
+    if(!isPdf){
+      await sendTelegram(env,chatId,"📄 Puedo importar catálogos en PDF. Envíame un archivo PDF.");
+      return json({ok:true},200);
+    }
+    await sendTelegram(env,chatId,"📄 Recibí el PDF. Voy a analizar el catálogo con Gemini y preparar una vista previa…");
+    const job=processTelegramInventoryPdf(env,adminToken,userId,chatId,msg.document).catch(async e=>{
+      await sendTelegram(env,chatId,"⚠️ No pude analizar el PDF: "+String(e?.message||"Error desconocido").slice(0,700));
+    });
+    if(ctx?.waitUntil)ctx.waitUntil(job);else await job;
     return json({ok:true},200);
   }
+
+  if(/^(IMPORTAR|IMPORTA|SI|SÍ)$/i.test(incoming)){
+    const pendingRows=await sb(env,adminToken,"marc_pending_imports?select=id&user_id=eq."+encodeURIComponent(userId)+"&channel=eq.TELEGRAM&chat_id=eq."+encodeURIComponent(chatId)+"&status=eq.PENDING&expires_at=gt."+encodeURIComponent(new Date().toISOString())+"&order=created_at.desc&limit=1");
+    const pending=pendingRows?.[0];
+    if(!pending){
+      await sendTelegram(env,chatId,"No hay una importación de PDF pendiente. Envía primero el catálogo PDF.");
+      return json({ok:true},200);
+    }
+    try{
+      const result=await importPendingInventory(env,adminToken,userId,pending.id,true,"TELEGRAM");
+      await sendTelegram(env,chatId,"✅ Inventario actualizado.\\n\\nProductos procesados: "+result.total+"\\nNuevos: "+result.created+"\\nActualizados: "+result.updated);
+    }catch(err){
+      await sendTelegram(env,chatId,"⚠️ No pude importar los productos: "+String(err?.message||"Error").slice(0,700));
+    }
+    return json({ok:true},200);
+  }
+
   if(/^(CANCELAR|CANCEL)$/i.test(incoming)){
-    await sb(env,adminToken,"marc_pending_imports?user_id=eq."+encodeURIComponent(userId)+"&channel=eq.TELEGRAM&chat_id=eq."+encodeURIComponent(chatId)+"&status=eq.PENDING",{method:"PATCH",body:{status:"CANCELLED",updated_at:new Date().toISOString()}});
+    await sb(env,adminToken,"marc_pending_imports?user_id=eq."+encodeURIComponent(userId)+"&channel=eq.TELEGRAM&chat_id=eq."+encodeURIComponent(chatId)+"&status=eq.PENDING",{
+      method:"PATCH",
+      body:{status:"CANCELLED",updated_at:new Date().toISOString()}
+    });
     await sendTelegram(env,chatId,"Importación cancelada.");
     return json({ok:true},200);
   }
-  if(!incoming){await sendTelegram(env,chatId,"Escríbeme una operación o una pregunta. Por ejemplo: «revisa mi inventario» o «crea una cotización»." );return json({ok:true},200);}
+
+  if(!incoming){
+    await sendTelegram(env,chatId,"Escríbeme una operación o una pregunta. Por ejemplo: «revisa mi inventario» o «crea una cotización».");
+    return json({ok:true},200);
+  }
+
   const conversationId=await ensureTelegramConversation(env,adminToken,userId);
-  await sb(env,adminToken,"marc_messages",{method:"POST",body:{conversation_id:conversationId,user_id:userId,role:"USER",content:incoming,action_type:"TELEGRAM",action_payload:{telegram_update_id:update.update_id,telegram_user_id:externalUserId}}});
+  await sb(env,adminToken,"marc_messages",{method:"POST",body:{
+    conversation_id:conversationId,user_id:userId,role:"USER",content:incoming,action_type:"TELEGRAM",
+    action_payload:{telegram_update_id:update.update_id,telegram_user_id:externalUserId}
+  }});
   const history=await recentMessages(env,adminToken,userId,conversationId);
   const pl=await plan(env,incoming,history);
   const executed=await executePlan(env,adminToken,{id:userId},pl,"TELEGRAM");
   await incrementAiUsage(env,adminToken,userId,access);
   const answer=await finalReply(env,incoming,{plan:pl,execution:executed,entitlement:access});
-  await sb(env,adminToken,"marc_messages",{method:"POST",body:{conversation_id:conversationId,user_id:userId,role:"ASSISTANT",content:answer,action_type:executed.action,action_payload:{channel:"TELEGRAM",result:executed.result||null}}});
-  await sb(env,adminToken,"marc_conversations?id=eq."+encodeURIComponent(conversationId)+"&user_id=eq."+encodeURIComponent(userId),{method:"PATCH",body:{updated_at:new Date().toISOString()}}).catch(()=>{});
+  await sb(env,adminToken,"marc_messages",{method:"POST",body:{
+    conversation_id:conversationId,user_id:userId,role:"ASSISTANT",content:answer,action_type:executed.action,
+    action_payload:{channel:"TELEGRAM",result:executed.result||null}
+  }});
+  await sb(env,adminToken,"marc_conversations?id=eq."+encodeURIComponent(conversationId)+"&user_id=eq."+encodeURIComponent(userId),{
+    method:"PATCH",body:{updated_at:new Date().toISOString()}
+  }).catch(()=>{});
   await sendTelegram(env,chatId,answer);
   return json({ok:true},200);
 }
+
 async function companyProfile(request,env){
   const {user}=await authUser(request,env);
   const adminToken=env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY;

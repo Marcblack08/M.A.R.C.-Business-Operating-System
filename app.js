@@ -1763,27 +1763,62 @@ async function quoteModal(existing=null,preset=null){
   const cls=(await S.from("marc_clients").select("id,name").eq("user_id",st.u.id).order("name")).data||[];
   const inv=(await S.from("marc_inventory").select("id,name,brand,model,price,cost,unit,stock").eq("user_id",st.u.id).eq("active",true).order("name")).data||[];
   let lines=[];
-  let quote=existing;
+  const quote=existing;
+
   if(existing){
     const {data}=await S.from("marc_quote_items").select("*").eq("quote_id",existing.id).eq("user_id",st.u.id).order("created_at");
-    lines=(data||[]).map(x=>({id:x.id,type:x.item_type,inventory_id:x.inventory_id||"",name:x.name||"",description:x.description||"",qty:Number(x.quantity||1),price:Number(x.unit_price||0),cost:Number(x.cost||0),unit:x.unit||"UND"}));
+    lines=(data||[]).map(x=>({
+      id:x.id,
+      type:x.item_type,
+      inventory_id:x.inventory_id||"",
+      name:x.name||"",
+      description:x.description||"",
+      qty:Number(x.quantity||1),
+      price:Number(x.unit_price||0),
+      cost:Number(x.cost||0),
+      unit:x.unit||"UND",
+      material_provider:x.material_provider|| (x.item_type==="PRODUCTO"?"MARC":"CLIENT"),
+      transport:Number(x.transport_cost||0),
+      labor:Number(x.labor_cost||0),
+      other:Number(x.other_cost||0)
+    }));
   }else if(preset){
-    lines=(preset.items||[]).map(x=>({type:x.type||"TRABAJO",inventory_id:x.inventory_id||"",name:x.name||"",description:x.description||"",qty:Number(x.qty||1),price:Number(x.price||0),cost:Number(x.cost||0),unit:x.unit||"UND"}));
+    lines=(preset.items||[]).map(x=>({
+      type:x.type||"TRABAJO",
+      inventory_id:x.inventory_id||"",
+      name:x.name||"",
+      description:x.description||"",
+      qty:Number(x.qty||1),
+      price:Number(x.price||0),
+      cost:Number(x.cost||0),
+      unit:x.unit||"UND",
+      material_provider:x.material_provider||(x.type==="PRODUCTO"?"MARC":"CLIENT"),
+      transport:Number(x.transport||x.transport_cost||0),
+      labor:Number(x.labor||x.labor_cost||0),
+      other:Number(x.other||x.other_cost||0)
+    }));
   }
+
+  const defaultLine=()=>({type:"TRABAJO",inventory_id:"",name:"",description:"",qty:1,price:0,cost:0,unit:"UND",material_provider:"CLIENT",transport:0,labor:0,other:0});
   const close=modal(
-    '<div class="modal-head"><div><h2>'+(quote?"Cotización "+esc(quote.number):"Nueva cotización")+'</h2><p>Productos del inventario + trabajos libres.</p></div><button class="close" id="x">×</button></div>'+
-    '<form id="f"><div class="form-grid">'+
-    '<label>Cliente<select name="client_id"><option value="">Sin cliente</option>'+cls.map(x=>'<option value="'+x.id+'" '+((quote?.client_id||preset?.client_id)===x.id?"selected":"")+'>'+esc(x.name)+'</option>').join("")+'</select></label>'+
-    '<label>Título<input name="title" required value="'+esc(quote?.title||preset?.title||"Nueva cotización")+'"></label>'+
-    '<label>IGV <select name="tax_enabled"><option value="false" '+(!quote?.tax_enabled?"selected":"")+'>No incluir</option><option value="true" '+(quote?.tax_enabled?"selected":"")+'>Incluir</option></select></label>'+
-    '<label>% IGV<input name="tax_rate" type="number" min="0" max="100" step="0.01" value="'+(quote?.tax_rate??18)+'"></label>'+
-    '<label>Estado<select name="status"><option value="BORRADOR" '+((quote?.status||"BORRADOR")==="BORRADOR"?"selected":"")+'>Borrador</option><option value="ENVIADA" '+((quote?.status||"BORRADOR")==="ENVIADA"?"selected":"")+'>Enviada</option><option value="ACEPTADA" '+((quote?.status||"BORRADOR")==="ACEPTADA"?"selected":"")+'>Aceptada</option><option value="RECHAZADA" '+((quote?.status||"BORRADOR")==="RECHAZADA"?"selected":"")+'>Rechazada</option><option value="ANULADA" '+((quote?.status||"BORRADOR")==="ANULADA"?"selected":"")+'>Anulada</option><option value="COBRADA" '+((quote?.status||"BORRADOR")==="COBRADA"?"selected":"")+'>Cobrada</option></select></label>'+
-    '</div>'+
-    '<div style="display:flex;justify-content:space-between;align-items:center;margin:9px 0 5px"><b style="font-size:9px">PARTIDAS</b><button type="button" id="add" class="secondary">＋ Línea</button></div>'+
-    '<div id="lines"></div><label>Notas<textarea name="notes" rows="3">'+esc(quote?.notes||"")+'</textarea></label>'+
-    '<div id="summary" class="quote-summary"></div>'+
-    '<div class="modal-actions">'+(quote?'<button type="button" class="danger" id="deleteQuote">Eliminar cotización</button>':'')+'<button type="button" class="secondary" id="cancel">Cerrar</button><button type="button" class="secondary" id="print">Imprimir</button><button type="button" class="secondary" id="pdf">Descargar PDF</button><button class="primary">'+(quote?"Guardar cambios":"Guardar cotización")+'</button></div></form>'
+    '<div class="modal-head"><div><h2>'+(quote?"Cotización "+esc(quote.number):"Nueva cotización")+'</h2><p>Controla precio, material, transporte, tiempo y ganancia.</p></div><button class="close" id="x">×</button></div>'+
+    '<form id="f">'+
+      '<div class="form-grid">'+
+        '<label>Cliente<select name="client_id"><option value="">Sin cliente</option>'+cls.map(x=>'<option value="'+x.id+'" '+((quote?.client_id||preset?.client_id)===x.id?"selected":"")+'>'+esc(x.name)+'</option>').join("")+'</select></label>'+
+        '<label>Título<input name="title" required value="'+esc(quote?.title||preset?.title||"Nueva cotización")+'"></label>'+
+        '<label>IGV <select name="tax_enabled"><option value="false" '+(!quote?.tax_enabled?"selected":"")+'>No incluir</option><option value="true" '+(quote?.tax_enabled?"selected":"")+'>Incluir</option></select></label>'+
+        '<label>% IGV<input name="tax_rate" type="number" min="0" max="100" step="0.01" value="'+(quote?.tax_rate??18)+'"></label>'+
+        '<label>Estado<select name="status"><option value="BORRADOR" '+((quote?.status||"BORRADOR")==="BORRADOR"?"selected":"")+'>Borrador</option><option value="ENVIADA" '+((quote?.status||"BORRADOR")==="ENVIADA"?"selected":"")+'>Enviada</option><option value="ACEPTADA" '+((quote?.status||"BORRADOR")==="ACEPTADA"?"selected":"")+'>Aceptada</option><option value="RECHAZADA" '+((quote?.status||"BORRADOR")==="RECHAZADA"?"selected":"")+'>Rechazada</option><option value="ANULADA" '+((quote?.status||"BORRADOR")==="ANULADA"?"selected":"")+'>Anulada</option><option value="COBRADA" '+((quote?.status||"BORRADOR")==="COBRADA"?"selected":"")+'>Cobrada</option></select></label>'+
+      '</div>'+
+      '<div class="quote-finance-hint"><b>¿Quién proporciona los materiales?</b><span>Cliente = no cuenta como costo de material para M.A.R.C.</span></div>'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin:10px 0 5px"><b style="font-size:9px">PARTIDAS</b><button type="button" id="add" class="secondary">＋ Línea</button></div>'+
+      '<div id="lines"></div>'+
+      '<label>Notas<textarea name="notes" rows="3">'+esc(quote?.notes||"")+'</textarea></label>'+
+      '<div id="summary" class="quote-summary"></div>'+
+      '<div class="modal-actions">'+(quote?'<button type="button" class="danger" id="deleteQuote">Eliminar cotización</button>':'')+'<button type="button" class="secondary" id="cancel">Cerrar</button><button type="button" class="secondary" id="print">Imprimir</button><button type="button" class="secondary" id="pdf">Descargar PDF</button><button class="primary">'+(quote?"Guardar cambios":"Guardar cotización")+'</button></div>'+
+    '</form>'
   );
+
   $("#x").onclick=close;$("#cancel").onclick=close;
   if(quote&&$("#deleteQuote")){
     $("#deleteQuote").onclick=async()=>{
@@ -1797,45 +1832,129 @@ async function quoteModal(existing=null,preset=null){
       }catch(err){toast(err.message||"No se pudo eliminar la cotización.","err");b.disabled=false}
     };
   }
+
   const box=$("#lines");
-  if(!lines.length)lines=[{type:"PRODUCTO",inventory_id:"",name:"",description:"",qty:1,price:0,cost:0,unit:"UND"}];
+  if(!lines.length)lines=[defaultLine()];
+
+  const providerOptions=(value)=>[
+    ["CLIENT","Cliente — pone el material"],
+    ["MARC","M.A.R.C. — material propio / todo costo"],
+    ["MIXTO","Mixto — parte del material"]
+  ].map(o=>'<option value="'+o[0]+'" '+(value===o[0]?"selected":"")+'>'+o[1]+'</option>').join("");
 
   const productOptions=(selected)=>'<option value="">Seleccionar producto…</option>'+inv.map(x=>'<option value="'+x.id+'" '+(selected===x.id?"selected":"")+'>'+esc(x.name+(x.brand?" · "+x.brand:"")+(x.model?" · "+x.model:""))+' — '+money(x.price)+' · stock '+x.stock+'</option>').join("");
+
+  const updateSummary=()=>{
+    const sub=lines.reduce((a,x)=>a+Number(x.qty||0)*Number(x.price||0),0);
+    const internalCost=lines.reduce((a,x)=>a+(Number(x.qty||0)*Number(x.cost||0))+Number(x.transport||0)+Number(x.labor||0)+Number(x.other||0),0);
+    const profit=sub-internalCost;
+    const margin=sub>0?(profit/sub)*100:0;
+    const enabled=$("#f [name=tax_enabled]").value==="true";
+    const rate=Number($("#f [name=tax_rate]").value||18);
+    const tax=enabled?sub*rate/100:0;
+    const total=sub+tax;
+    $("#summary").innerHTML=
+      '<div><span>Subtotal</span><b>'+money(sub)+'</b></div>'+
+      '<div><span>Costo interno</span><b>'+money(internalCost)+'</b></div>'+
+      '<div><span>Ganancia bruta</span><b class="'+(profit<0?"profit-negative":"profit-positive")+'">'+money(profit)+'</b></div>'+
+      '<div><span>Margen</span><b>'+margin.toFixed(1)+'%</b></div>'+
+      '<div><span>IGV ('+rate+'%)</span><b>'+money(tax)+'</b></div>'+
+      '<div class="grand"><span>Total cliente</span><b>'+money(total)+'</b></div>';
+  };
+
   const draw=()=>{
     box.innerHTML=lines.map((x,i)=>{
       const isP=x.type==="PRODUCTO";
-      return '<div class="quote-line" data-line="'+i+'">'+
+      const clientMaterial=x.material_provider==="CLIENT";
+      return '<div class="quote-line financial-line" data-line="'+i+'">'+
         '<div class="quote-line-top"><select data-i="'+i+'" data-k="type"><option value="PRODUCTO" '+(isP?"selected":"")+'>Producto</option><option value="TRABAJO" '+(!isP?"selected":"")+'>Trabajo</option></select>'+
         (isP?'<select data-i="'+i+'" data-k="inventory_id">'+productOptions(x.inventory_id)+'</select>':'<input data-i="'+i+'" data-k="name" placeholder="Descripción del trabajo" value="'+esc(x.name)+'">')+
         '<button type="button" data-r="'+i+'" class="close">×</button></div>'+
-        '<div class="quote-line-fields"><input data-i="'+i+'" data-k="qty" type="number" min="0.01" step="0.01" value="'+x.qty+'" placeholder="Cant.">'+
-        '<input data-i="'+i+'" data-k="price" type="number" min="0" step="0.01" value="'+x.price+'" placeholder="Precio unitario">'+
-        '<input data-i="'+i+'" data-k="description" placeholder="Descripción (opcional)" value="'+esc(x.description)+'"></div>'+
+        '<div class="quote-line-fields">'+
+          '<input data-i="'+i+'" data-k="qty" type="number" min="0.01" step="0.01" value="'+x.qty+'" placeholder="Cant.">'+
+          '<input data-i="'+i+'" data-k="price" type="number" min="0" step="0.01" value="'+x.price+'" placeholder="Precio unitario">'+
+          '<input data-i="'+i+'" data-k="description" placeholder="Descripción (opcional)" value="'+esc(x.description)+'">'+
+        '</div>'+
+        '<div class="quote-cost-grid">'+
+          '<label>Material<select data-i="'+i+'" data-k="material_provider">'+providerOptions(x.material_provider)+'</select></label>'+
+          '<label>Costo material<input data-i="'+i+'" data-k="cost" type="number" min="0" step="0.01" value="'+(clientMaterial?0:Number(x.cost||0))+'" '+(clientMaterial?"disabled":"")+'></label>'+
+          '<label>Transporte<input data-i="'+i+'" data-k="transport" type="number" min="0" step="0.01" value="'+Number(x.transport||0)+'"></label>'+
+          '<label>Tiempo / mano de obra<input data-i="'+i+'" data-k="labor" type="number" min="0" step="0.01" value="'+Number(x.labor||0)+'"></label>'+
+          '<label>Otros costos<input data-i="'+i+'" data-k="other" type="number" min="0" step="0.01" value="'+Number(x.other||0)+'"></label>'+
+        '</div>'+
+        '<div class="quote-line-total">Costo interno de esta línea: <b>'+money((Number(x.qty||0)*Number(x.cost||0))+Number(x.transport||0)+Number(x.labor||0)+Number(x.other||0))+'</b></div>'+
       '</div>';
     }).join("");
     updateSummary();
   };
-  const updateSummary=()=>{
-    const sub=lines.reduce((a,x)=>a+Number(x.qty||0)*Number(x.price||0),0);
-    const enabled=$("#f [name=tax_enabled]").value==="true",rate=Number($("#f [name=tax_rate]").value||18),tax=enabled?sub*rate/100:0,total=sub+tax;
-    $("#summary").innerHTML='<div><span>Subtotal</span><b>'+money(sub)+'</b></div><div><span>IGV ('+rate+'%)</span><b>'+money(tax)+'</b></div><div class="grand"><span>Total</span><b>'+money(total)+'</b></div>';
-  };
+
   box.onchange=e=>{
-    const i=e.target.dataset.i;if(i==null)return;const k=e.target.dataset.k;
-    if(k==="type"){lines[i].type=e.target.value; if(e.target.value==="TRABAJO"){lines[i].inventory_id="";} draw(); return;}
-    lines[i][k]=e.target.value;
-    if(k==="inventory_id"){
-      const p=inv.find(x=>x.id===e.target.value);if(p){lines[i].name=p.name;lines[i].price=Number(p.price||0);lines[i].cost=Number(p.cost||0);lines[i].unit=p.unit||"UND";}
+    const i=e.target.dataset.i;
+    if(i==null)return;
+    const k=e.target.dataset.k;
+
+    if(k==="type"){
+      lines[i].type=e.target.value;
+      lines[i].inventory_id=e.target.value==="TRABAJO"?"":"";
+      lines[i].material_provider=e.target.value==="PRODUCTO"?"MARC":"CLIENT";
+      lines[i].cost=0;
+      draw();
+      return;
     }
+
+    lines[i][k]=e.target.value;
+
+    if(k==="inventory_id"){
+      const p=inv.find(x=>x.id===e.target.value);
+      if(p){
+        lines[i].name=p.name;
+        lines[i].price=Number(p.price||0);
+        lines[i].cost=Number(p.cost||0);
+        lines[i].unit=p.unit||"UND";
+        if(!lines[i].material_provider)lines[i].material_provider="MARC";
+      }
+    }
+
+    if(k==="material_provider"){
+      if(e.target.value==="CLIENT")lines[i].cost=0;
+      if(e.target.value==="MARC" && lines[i].type==="PRODUCTO"){
+        const p=inv.find(x=>x.id===lines[i].inventory_id);
+        if(p)lines[i].cost=Number(p.cost||0);
+      }
+      draw();
+      return;
+    }
+
     updateSummary();
   };
+
   box.oninput=e=>{
-    const i=e.target.dataset.i;if(i==null)return;const k=e.target.dataset.k;
-    lines[i][k]=(k==="description"||k==="name")?e.target.value:Number(e.target.value||0);updateSummary();
+    const i=e.target.dataset.i;
+    if(i==null)return;
+    const k=e.target.dataset.k;
+    lines[i][k]=(k==="description"||k==="name")?e.target.value:Number(e.target.value||0);
+    updateSummary();
+    const row=e.target.closest(".quote-line");
+    if(row){
+      const costLine=row.querySelector(".quote-line-total");
+      if(costLine){
+        const x=lines[i];
+        costLine.innerHTML='Costo interno de esta línea: <b>'+money((Number(x.qty||0)*Number(x.cost||0))+Number(x.transport||0)+Number(x.labor||0)+Number(x.other||0))+'</b>';
+      }
+    }
   };
-  box.onclick=e=>{if(e.target.dataset.r!=null){lines.splice(Number(e.target.dataset.r),1);if(!lines.length)lines.push({type:"PRODUCTO",inventory_id:"",name:"",description:"",qty:1,price:0,cost:0,unit:"UND"});draw();}};
-  $("#add").onclick=()=>{lines.push({type:"PRODUCTO",inventory_id:"",name:"",description:"",qty:1,price:0,cost:0,unit:"UND"});draw();};
-  $("#f [name=tax_enabled]").onchange=updateSummary;$("#f [name=tax_rate]").oninput=updateSummary;
+
+  box.onclick=e=>{
+    if(e.target.dataset.r!=null){
+      lines.splice(Number(e.target.dataset.r),1);
+      if(!lines.length)lines.push(defaultLine());
+      draw();
+    }
+  };
+
+  $("#add").onclick=()=>{lines.push(defaultLine());draw();};
+  $("#f [name=tax_enabled]").onchange=updateSummary;
+  $("#f [name=tax_rate]").oninput=updateSummary;
   $("#print").onclick=async()=>printQuote(existing?.id);
   $("#pdf").onclick=async()=>downloadQuotePdf(existing?.id);
   draw();
@@ -1847,16 +1966,50 @@ async function quoteModal(existing=null,preset=null){
     if(!valid.length)return toast("Agrega al menos una partida.","err");
     if(valid.some(x=>Number(x.qty)<=0||Number(x.price)<0))return toast("Revisa cantidades y precios.","err");
     if(valid.some(x=>x.type==="TRABAJO"&&!Number(x.price)))return toast("Cada trabajo debe tener precio.","err");
-    const taxEnabled=d.get("tax_enabled")==="true",taxRate=Number(d.get("tax_rate")||18),status=d.get("status")||"BORRADOR";
-    const items=valid.map(x=>({inventory_id:x.type==="PRODUCTO"?x.inventory_id:null,item_type:x.type,name:x.name,description:x.description||null,quantity:Number(x.qty),unit:x.unit||"UND",unit_price:Number(x.price),cost:Number(x.cost||0)}));
-    const {data,error}=await S.rpc("marc_save_quote",{p_quote_id:quote?.id||null,p_client_id:d.get("client_id")||null,p_title:d.get("title")||"Cotización",p_status:status,p_tax_enabled:taxEnabled,p_tax_rate:taxRate,p_notes:d.get("notes")||null,p_items:items,p_source:"WEB"});
+    if(valid.some(x=>Number(x.cost||0)<0||Number(x.transport||0)<0||Number(x.labor||0)<0||Number(x.other||0)<0))return toast("Los costos no pueden ser negativos.","err");
+
+    const taxEnabled=d.get("tax_enabled")==="true";
+    const taxRate=Number(d.get("tax_rate")||18);
+    const status=d.get("status")||"BORRADOR";
+
+    const items=valid.map(x=>({
+      inventory_id:x.type==="PRODUCTO"?x.inventory_id:null,
+      item_type:x.type,
+      name:x.name,
+      description:x.description||null,
+      quantity:Number(x.qty),
+      unit:x.unit||"UND",
+      unit_price:Number(x.price),
+      cost:Number(x.cost||0),
+      material_provider:x.material_provider||"CLIENT",
+      transport_cost:Number(x.transport||0),
+      labor_cost:Number(x.labor||0),
+      other_cost:Number(x.other||0)
+    }));
+
+    const {data,error}=await S.rpc("marc_save_quote",{
+      p_quote_id:quote?.id||null,
+      p_client_id:d.get("client_id")||null,
+      p_title:d.get("title")||"Cotización",
+      p_status:status,
+      p_tax_enabled:taxEnabled,
+      p_tax_rate:taxRate,
+      p_notes:d.get("notes")||null,
+      p_items:items,
+      p_source:"WEB"
+    });
+
     if(error){
       const msg=String(error.message||"");
       if(msg.includes("TRIAL_QUOTE_LIMIT"))return toast("Llegaste al límite de 5 cotizaciones de la prueba.","err");
       if(msg.includes("TRIAL_EXPIRED"))return toast("Tu prueba terminó. Activa un plan para continuar.","err");
       return toast(error.message,"err");
     }
-    close();toast(quote?"Cotización actualizada":"Cotización guardada","ok");await trial();quotes();
+
+    close();
+    toast(quote?"Cotización actualizada":"Cotización guardada","ok");
+    await trial();
+    quotes();
   };
 }
 

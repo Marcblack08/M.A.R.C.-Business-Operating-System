@@ -2275,12 +2275,25 @@ async function downloadQuotePdf(id){
     y+=h+3;doc.setDrawColor(235);doc.line(margin,y-1,pageW-margin,y-1);
   }
   y+=5;
+  if(y>245){doc.addPage();y=18}
   const totalsX=126;
   doc.setFont("helvetica","normal");doc.text("Subtotal",totalsX,y);doc.text(money(q.subtotal).replace("PEN","S/"),pageW-margin,y,{align:"right"});y+=6;
   doc.text("IGV",totalsX,y);doc.text(money(q.tax).replace("PEN","S/"),pageW-margin,y,{align:"right"});y+=7;
   doc.setDrawColor(30);doc.line(totalsX,y-3,pageW-margin,y-3);
   doc.setFont("helvetica","bold");doc.setFontSize(12);doc.text("TOTAL",totalsX,y+3);doc.text(money(q.total).replace("PEN","S/"),pageW-margin,y+3,{align:"right"});y+=12;
-  if(q.notes){doc.setFont("helvetica","bold");doc.setFontSize(9);doc.text("NOTAS",margin,y);y+=6;doc.setFont("helvetica","normal");doc.setFontSize(8);doc.text(doc.splitTextToSize(String(q.notes),pageW-margin*2),margin,y)}
+  if(q.notes){
+    if(y>255){doc.addPage();y=18}
+    doc.setFont("helvetica","bold");doc.setFontSize(9);doc.text("NOTAS",margin,y);y+=6;doc.setFont("helvetica","normal");doc.setFontSize(8);
+    const noteLines=doc.splitTextToSize(String(q.notes),pageW-margin*2);
+    doc.text(noteLines,margin,y);
+  }
+  const pageCount=doc.getNumberOfPages();
+  for(let page=1;page<=pageCount;page++){
+    doc.setPage(page);doc.setFont("helvetica","normal");doc.setFontSize(7);doc.setTextColor(120);
+    doc.text("M.A.R.C. · "+String(q.number||"Cotización"),margin,289);
+    doc.text("Página "+page+" de "+pageCount,pageW-margin,289,{align:"right"});
+  }
+  doc.setTextColor(0);
   const filename=String(q.number||"cotizacion").replace(/[^\w.-]+/g,"_")+".pdf";
   doc.save(filename);
   toast("PDF descargado","ok");

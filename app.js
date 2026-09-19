@@ -914,9 +914,12 @@ async function inventory(){
   S.from("marc_inventory").select("*").eq("user_id",st.u.id).eq("active",true).order("name").then(({data,error})=>{
     if(error)return toast(error.message,"err");
     const c=$("#content");
-    c.innerHTML=`<div class="head"><div><div class="eyebrow2">INVENTARIO</div><h1>Productos + stock.</h1><p>Todo producto vive dentro del inventario.</p></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button id="photos" class="secondary">📷 Subir por fotos</button><button id="importPdf" class="secondary">📄 Importar PDF</button><button id="new" class="primary">＋ Nuevo producto</button></div></div><section class="card table"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar producto…"></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button id="selectAll" class="secondary" type="button">☐ Seleccionar todos</button><button id="bulkDelete" class="danger" type="button" disabled>Eliminar seleccionados <span id="selectedCount">0</span></button><button id="ask" class="secondary">Preguntar</button></div></div><div class="scroll"><table class="data"><thead><tr><th style="width:42px;text-align:center"><input id="selectAllHead" type="checkbox" aria-label="Seleccionar todos los productos"></th><th>Producto</th><th>Marca/modelo</th><th>Stock</th><th>Precio</th><th>Estado</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></section>`;
+    const total=(data||[]).length,low=(data||[]).filter(x=>Number(x.stock)>0&&Number(x.stock)<=Number(x.min_stock)).length,out=(data||[]).filter(x=>Number(x.stock)<=0).length;
+    c.innerHTML=`<div class="head"><div><div class="eyebrow2">INVENTARIO</div><h1>Productos + stock.</h1><p>Controla existencias, precios y unidades desde un solo lugar.</p></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button id="photos" class="secondary">📷 Subir por fotos</button><button id="importPdf" class="secondary">📄 Importar PDF</button><button id="new" class="primary">＋ Nuevo producto</button></div></div>
+    <section class="inventory-summary"><div><span>PRODUCTOS</span><strong>${total}</strong><small>En inventario activo</small></div><div><span>STOCK BAJO</span><strong>${low}</strong><small>Requieren reposición</small></div><div><span>AGOTADOS</span><strong>${out}</strong><small>Sin unidades disponibles</small></div></section>
+    <section class="card table inventory-browser"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar producto, SKU, marca o modelo…"></div><div class="inventory-toolbar-actions"><button id="selectAll" class="secondary" type="button">☐ Seleccionar</button><button id="bulkDelete" class="danger" type="button" disabled>Eliminar <span id="selectedCount">0</span></button><button id="ask" class="secondary">✦ Preguntar</button></div></div><div class="scroll inventory-desktop"><table class="data"><thead><tr><th style="width:42px;text-align:center"><input id="selectAllHead" type="checkbox" aria-label="Seleccionar todos los productos"></th><th>Producto</th><th>Marca/modelo</th><th>Stock</th><th>Precio</th><th>Estado</th><th></th></tr></thead><tbody id="rows"></tbody></table></div><div id="inventoryCards" class="inventory-cards"></div></section>`;
 
-    const rows=$("#rows");
+    const rows=$("#rows"),cards=$("#inventoryCards");
     const selected=new Set();
 
     const visibleData=()=>{const q=String($("#search")?.value||"").toLowerCase();return (data||[]).filter(x=>[x.name,x.sku,x.brand,x.model,x.category].some(v=>String(v||"").toLowerCase().includes(q)));};
@@ -937,6 +940,11 @@ async function inventory(){
         const stock=Number(x.stock),min=Number(x.min_stock),cls=stock<=0?"out":stock<=min?"low":"ok";
         return `<tr><td style="text-align:center"><input class="inventory-check" type="checkbox" data-id="${x.id}" ${selected.has(x.id)?"checked":""} aria-label="Seleccionar ${esc(x.name)}"></td><td><b>${esc(x.name)}</b><br><small>${esc(x.sku||"Sin código")}</small></td><td>${esc([x.brand,x.model].filter(Boolean).join(" · ")||"—")}</td><td><b>${stock}</b> ${esc(x.unit)}</td><td>${money(x.price)}</td><td><span class="badge ${cls}">${stock<=0?"Agotado":stock<=min?"Bajo":"Disponible"}</span></td><td style="display:flex;gap:5px;flex-wrap:wrap"><button class="secondary" type="button" data-action="edit-inventory" data-id="${x.id}">Editar</button><button class="secondary" type="button" data-action="serials-inventory" data-id="${x.id}">📷 Series</button><button class="danger" type="button" data-action="delete-inventory" data-id="${x.id}">Eliminar</button></td></tr>`;
       }).join("")||'<tr><td colspan="7" class="empty">Agrega tu primer producto.</td></tr>';
+      cards.innerHTML=(list||[]).map(x=>{
+        const stock=Number(x.stock),min=Number(x.min_stock),cls=stock<=0?"out":stock<=min?"low":"ok";
+        const photo=x.image_url?'<img src="'+esc(x.image_url)+'" alt="Producto">':'<span>📦</span>';
+        return '<article class="inventory-card"><div class="inventory-card-top"><div class="inventory-photo">'+photo+'</div><div class="inventory-card-name"><h3>'+esc(x.name)+'</h3><small>'+esc(x.sku||"Sin SKU")+'</small></div><input class="inventory-check" type="checkbox" data-id="'+x.id+'" '+(selected.has(x.id)?"checked":"")+' aria-label="Seleccionar '+esc(x.name)+'"></div><div class="inventory-card-meta"><div><span>Stock</span><b>'+stock+' '+esc(x.unit||"UND")+'</b></div><div><span>Precio</span><b>'+money(x.price)+'</b></div><div><span>Estado</span><em class="badge '+cls+'">'+(stock<=0?"Agotado":stock<=min?"Stock bajo":"Disponible")+'</em></div></div><div class="inventory-card-actions"><button class="primary" type="button" data-action="edit-inventory" data-id="'+x.id+'">Editar</button><button class="secondary" type="button" data-action="serials-inventory" data-id="'+x.id+'">📷 Series</button></div></article>';
+      }).join("")||'<div class="empty-state"><span>📦</span><b>Inventario vacío</b><small>Agrega tu primer producto.</small></div>';
       syncSelectionUi();
     };
 
@@ -962,6 +970,10 @@ async function inventory(){
       else visible.forEach(x=>selected.delete(x.id));
       draw(visible);
     };
+
+    cards.onchange=e=>{const cb=e.target.closest(".inventory-check");if(!cb)return;if(cb.checked)selected.add(cb.dataset.id);else selected.delete(cb.dataset.id);syncSelectionUi()};
+
+    cards.onclick=async e=>{const b=e.target.closest("button[data-action]");if(!b)return;const item=(data||[]).find(x=>x.id===b.dataset.id);if(!item)return;if(b.dataset.action==="edit-inventory")return inventoryModal(item);if(b.dataset.action==="serials-inventory")return inventorySerialsModal(item)};
 
     rows.onchange=e=>{
       const cb=e.target.closest(".inventory-check");

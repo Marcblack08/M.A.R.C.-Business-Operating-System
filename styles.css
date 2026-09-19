@@ -1552,3 +1552,6 @@ body,
 .quote-ai-line{white-space:nowrap;min-height:38px;padding:8px 10px!important;font-size:8px!important}
 [data-theme="dark"] .quote-ai-line{background:#132235;color:#b7c9da;border-color:#294059}
 @media(max-width:560px){.quote-description-wrap{grid-template-columns:1fr}.quote-ai-line{width:100%;min-height:36px}}
+
+/* AI quote review */
+.ai-review-grid{display:grid;gap:12px;max-height:55vh;overflow:auto;padding:4px}.ai-review-section{border:1px solid #e1e7ef;border-radius:12px;padding:12px;background:#fbfcfe}.ai-review-section>b{display:block;font-size:11px;margin-bottom:8px}.ai-review-item{display:grid;gap:3px;padding:10px;border-radius:9px;margin-top:7px;font-size:11px}.ai-review-item span{line-height:1.45;color:#68758a}.ai-review-item.issue{background:#fff7e8;border:1px solid #f1d49b}.ai-review-item.good{background:#eefaf4;border:1px solid #b9dfca}[data-theme="dark"] .ai-review-section{background:#0e1824;border-color:#26384c}[data-theme="dark"] .ai-review-item.issue{background:#2b2415;border-color:#5c4a24}[data-theme="dark"] .ai-review-item.good{background:#12261d;border-color:#28583e}

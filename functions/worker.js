@@ -1119,10 +1119,14 @@ async function quoteAiDraft(request,env){
   const body=await request.json();
   const description=String(body?.description||"").trim().slice(0,4000);
   const allCost=Boolean(body?.allCost);
+  const improveOnly=Boolean(body?.improveOnly);
   const clientQuery=String(body?.clientQuery||"").trim().slice(0,200);
   if(!description)return json({error:"Escribe la descripción del trabajo."},400,corsHeaders(request));
 
-  const prompt={messages:[
+  const prompt=improveOnly?{messages:[
+    {role:"system",content:'Eres un redactor técnico de cotizaciones para una empresa de servicios. Devuelve SOLO JSON válido con {"title":"...","description":"..."}. Mejora la redacción del texto sin inventar datos técnicos, cantidades, precios, materiales, marcas, medidas ni trabajos que no estén escritos. Conserva todos los datos aportados. Hazlo profesional, claro, específico y apto para una cotización. Si faltan datos, no los inventes.'},
+    {role:"user",content:"TEXTO ORIGINAL:\n"+description}
+  ]}:{messages:[
     {role:"system",content:'Eres el asistente de cotizaciones de M.A.R.C. Devuelve SOLO JSON válido. No inventes precios, clientes, productos ni cantidades. Si el usuario escribe un precio, extrae el número. Si no escribe precio, unit_price debe ser null. En modo A TODO COSTO la cotización debe tener una sola partida de tipo TRABAJO, cantidad 1, y el nombre debe ser un título corto; la descripción debe conservar los detalles técnicos del trabajo. Si el texto contiene "a todo costo", mantén esa idea en la descripción. Extrae un título profesional. Formato exacto: {"title":"...","client_query":"...","items":[{"type":"TRABAJO","name":"...","description":"...","quantity":1,"unit_price":number|null}]}.'},
     {role:"user",content:"MODO A TODO COSTO: "+(allCost?"SI":"NO")+"\nCLIENTE SUGERIDO: "+clientQuery+"\nDESCRIPCIÓN:\n"+description}
   ]};
@@ -1136,6 +1140,12 @@ async function quoteAiDraft(request,env){
   const responseText=out?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("")||"";
   if(!responseText){
     throw Object.assign(new Error("Gemini devolvió una respuesta vacía. Revisa el modelo y la cuota de la API key."),{status:502,details:{finishReason:out?.candidates?.[0]?.finishReason||null}});
+  }
+  if(improveOnly){
+    let improved;
+    try{improved=JSON.parse(responseText.replace(/^```json\s*|^```\s*$/g,"").trim())}catch{improved={title:"",description:description}}
+    await incrementAiUsage(env,token,user.id,access);
+    return json({improved:{title:String(improved.title||"").trim(),description:String(improved.description||description).trim()},entitlement:access},200,corsHeaders(request));
   }
   const draft=recoverQuoteDraft(responseText,description,clientQuery,allCost);
   if(!draft?.items?.length)throw Object.assign(new Error("La IA no generó una partida."),{status:502});

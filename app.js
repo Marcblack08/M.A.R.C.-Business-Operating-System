@@ -417,9 +417,17 @@ async function extractPdfCatalogRows(page){
       const radius=Math.max(9,Math.min(28,nearest===999?18:nearest*.60));
       const rowItems=items.filter(x=>Math.abs(x.y-chosen.y)<=radius);
 
+      // Delimita la columna del producto usando las posiciones de los precios.
+      // En catálogos de varias columnas, esto evita que el nombre de la columna
+      // vecina termine fusionado con el producto actual.
+      const priceXs=[...new Set(candidates.map(x=>Math.round(x.x)))].sort((a,b)=>a-b);
+      const leftPrice=priceXs.filter(x=>x<chosen.x).at(-1);
+      const rightPrice=priceXs.find(x=>x>chosen.x);
+      const columnLeft=leftPrice===undefined?0:(leftPrice+chosen.x)/2;
+      const columnRight=rightPrice===undefined?width:(chosen.x+rightPrice)/2;
       const nameItems=rowItems
-        .filter(x=>x.x<width*.50 && !priceRe.test(normalize(x.text)))
-        .sort((a,b)=>a.x-b.x);
+        .filter(x=>x.x>=columnLeft-6 && x.x<Math.min(columnRight-8,chosen.x-8) && !priceRe.test(normalize(x.text)))
+        .sort((a,b)=>a.y-b.y||a.x-b.x);
       const nameParts=[...new Set(nameItems.map(x=>normalize(x.text)))].filter(x=>x&&!generic.test(x));
       const name=nameParts.join(" ").replace(/\s+/g," ").trim();
       const leftTextCount=nameParts.length;
@@ -428,8 +436,8 @@ async function extractPdfCatalogRows(page){
       // El código/SKU se busca en una zona más conservadora y se excluyen
       // explícitamente las celdas de precio para no convertir precios/páginas en SKU.
       const codeItems=rowItems
-        .filter(x=>x.x>=width*.28&&x.x<width*.66&&!priceRe.test(normalize(x.text)))
-        .sort((a,b)=>a.x-b.x);
+        .filter(x=>x.x>=columnLeft-6&&x.x<Math.min(columnRight-8,chosen.x-8)&&!priceRe.test(normalize(x.text)))
+        .sort((a,b)=>a.y-b.y||a.x-b.x);
       const codeText=[...new Set(codeItems.map(x=>normalize(x.text)))].join(" ").replace(/\s+/g," ").trim();
 
       if(!name||name.length<3||generic.test(name))continue;
@@ -445,7 +453,7 @@ async function extractPdfCatalogRows(page){
 
       // Para fotos no usamos la columna de precio: solo el bloque de nombre/código,
       // evitando capturar la ficha del producto vecino.
-      const photoItems=rowItems.filter(x=>x.x<width*.66);
+      const photoItems=rowItems.filter(x=>x.x>=columnLeft-6&&x.x<Math.min(columnRight-8,chosen.x-8));
       const photoXs=photoItems.map(x=>x.x).filter(Number.isFinite);
       const photoLeft=photoXs.length?Math.max(0,Math.min(...photoXs)-18):0;
       const photoRight=photoXs.length?Math.min(width,Math.max(...photoXs)+24):Math.min(width,chosen.x-12);

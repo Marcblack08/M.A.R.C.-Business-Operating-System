@@ -9,6 +9,8 @@ binding="AI"
 MARC_AI_MODEL="@cf/meta/llama-3.1-8b-instruct-fast"
 SUPABASE_URL="https://hmnzzknuiejchypalpig.supabase.co"
 SUPABASE_PUBLISHABLE_KEY="sb_publishable_mhRoYMQTWrmYpuclqzQ1MA_6TMtGikq"
+TELEGRAM_BOT_USERNAME="TU_BOT_USERNAME_SIN_ARROBA"
+# Secretos: SUPABASE_SECRET_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET
 
 [assets]
 directory="."

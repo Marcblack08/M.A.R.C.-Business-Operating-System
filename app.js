@@ -2165,26 +2165,27 @@ function wire(){
   $(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.onclick=()=>view(b.dataset.view));
   $("#chatForm").onsubmit=e=>{e.preventDefault();const v=$("#chatInput").value.trim();if(v){$("#chatInput").value="";chatSend(v)}};
   $("#chatInput").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("#chatForm").requestSubmit()}};
-  $$(".chips button").forEach(b=>b.onclick=()=>{$("#chatInput").value=b.dataset.q;$("#chatInput").focus()});
+  $(".chips button").forEach(b=>b.onclick=()=>{$("#chatInput").value=b.dataset.q;$("#chatInput").focus()});
 
+  // OAuth callback: never reset the UI just because INITIAL_SESSION arrives
+  // without a session. Supabase may still be resolving the OAuth callback.
   S.auth.onAuthStateChange((ev,s)=>{
-    setTimeout(()=>{
-      if(s){
-        enter(s);
-        return;
-      }
-      if(ev==="SIGNED_OUT"){
-        resetUiToLogin();
-        return;
-      }
-      if(ev==="INITIAL_SESSION" && !location.hash.includes("access_token=") && !location.search.includes("code=")){
-        resetUiToLogin();
-      }
-    },0)
+    if(s){
+      enter(s);
+      return;
+    }
+    if(ev==="SIGNED_OUT")resetUiToLogin();
   });
 
+  // Supabase automatically initializes the client and detects OAuth data
+  // in the URL. We only enter the app when a real session exists.
   S.auth.getSession().then(({data})=>{
-    if(data.session)enter(data.session);
-  })
+    if(data?.session)enter(data.session);
+  });
+
+  // Surface OAuth callback errors instead of silently returning to login.
+  const params=new URLSearchParams(location.hash.replace(/^#/,""));
+  const oauthError=params.get("error_description")||params.get("error");
+  if(oauthError)msg(decodeURIComponent(oauthError.replace(/\+/g," ")),"error");
 }
-wire()})();
+wire())();

@@ -175,7 +175,7 @@ async function extractPdfCatalogRows(page){
     // One product per price cell: preserve page order and remove exact duplicates only.
     const clean=[],seen=new Set();
     for(const row of rows){
-      const key=(row.sku||row.name+"|"+row.price).toLowerCase();
+      const key=((row.sku||"")+"|"+row.name+"|"+row.price).toLowerCase();
       if(seen.has(key))continue;
       seen.add(key);clean.push(row);
     }

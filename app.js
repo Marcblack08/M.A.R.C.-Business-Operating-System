@@ -804,10 +804,11 @@ async function inventoryPdfModal(){
           if(error)throw new Error(error.message||"No se pudo importar el lote.");
           if(!data||data.status!=="IMPORTED")throw new Error("Supabase no confirmó la importación.");
           const photoResult=await attachPdfProductPhotos();
-
-          toast("Importación completa: "+data.total+" procesados, "+data.created+" nuevos, "+data.updated+" actualizados, "+(data.reactivated||0)+" reactivados · "+photoResult.attached+" fotos asociadas.","ok");
+          const photoMsg=photoResult.skipped
+            ? " · "+photoResult.attached+" fotos asociadas, "+photoResult.skipped+" sin asociar"
+            : " · "+photoResult.attached+" fotos asociadas";
           status.className="msg ok";
-          status.textContent="Importación completada. "+data.total+" productos procesados.";
+          status.textContent="Importación completada: "+data.total+" productos procesados, "+data.created+" nuevos, "+data.updated+" actualizados, "+(data.reactivated||0)+" reactivados"+photoMsg+".";
           close();
           await trial();
           await inventory();

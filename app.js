@@ -769,9 +769,12 @@ async function inventoryPdfModal(){
       const duplicateDetail=duplicateGroups.map(x=>{
         const pages=(x._sourcePages||[]).sort((a,b)=>a-b).join(", ");
         const conflict=x._priceConflict?' · ⚠️ precios distintos':'';
+        const prices=[x.price,...(x._priceConflicts||[]).map(p=>p.price)].filter(v=>v!=null&&!Number.isNaN(Number(v))).map(Number);
+        const uniquePrices=[...new Set(prices)];
+        const options=uniquePrices.map((price,i)=>'<label class="pdf-price-option"><input type="radio" name="pdf-price-'+esc(normalizeKey(x.sku||x.name))+'" data-pdf-price="'+price+'" data-pdf-product="'+esc(normalizeKey(x.sku||x.name))+'" '+(i===0?'checked':'')+'> S/ '+price.toFixed(2)+'</label>').join("");
         return '<details class="pdf-duplicate-detail"><summary>'+esc(x.name)+' · '+x._duplicateCount+' duplicado(s) · páginas '+esc(pages)+conflict+'</summary><div>'+
           (x._duplicateSources||[]).map(d=>'P'+Number(d.page||1)+' · '+esc([d.sku,d.price!=null?"S/ "+Number(d.price).toFixed(2):"Precio no detectado"].filter(Boolean).join(" · "))).join("<br>")+
-          (x._priceConflict?'<br><b>⚠️ El precio consolidado será S/ '+Number(x.price).toFixed(2)+'; revisa las páginas indicadas porque el catálogo muestra precios diferentes.</b>':'')+
+          (x._priceConflict?'<div class="pdf-price-choice"><b>Elige el precio que se importará:</b>'+options+'</div>':'')+
           '</div></details>';
       }).join("");
       const preview=$("#pdfImportPreview");
@@ -803,6 +806,14 @@ async function inventoryPdfModal(){
         '</div>'+
         (duplicateGroups.length?'<div class="pdf-duplicates"><strong>Duplicados consolidados</strong>'+duplicateDetail+'</div>':'');
       preview.classList.remove("hidden");
+
+      preview.querySelectorAll("input[data-pdf-price]").forEach(function(input){
+        input.addEventListener("change",function(){
+          const key=input.dataset.pdfProduct;
+          const product=listItems.find(x=>normalizeKey(x.sku||x.name)===key);
+          if(product)product.price=Number(input.dataset.pdfPrice);
+        });
+      });
 
       btn.type="button";
       btn.disabled=false;

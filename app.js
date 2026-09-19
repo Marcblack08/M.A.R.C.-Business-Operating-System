@@ -1928,7 +1928,7 @@ async function quoteModal(existing=null,preset=null){
       '<div id="lines"></div>'+
       '<label>Notas<textarea name="notes" rows="3">'+esc(quote?.notes||"")+'</textarea></label>'+
       '<div id="summary" class="quote-summary"></div>'+
-      '<div class="modal-actions">'+(quote?'<button type="button" class="danger" id="deleteQuote">Eliminar cotización</button>':'')+'<button type="button" class="secondary" id="cancel">Cerrar</button><button type="button" class="secondary" id="print">Imprimir</button><button type="button" class="secondary" id="pdf">Descargar PDF</button><button class="primary">'+(quote?"Guardar cambios":"Guardar cotización")+'</button></div>'+
+      '<div class="modal-actions">'+(quote?'<button type="button" class="danger" id="deleteQuote">Eliminar cotización</button>':'')+'<button type="button" class="secondary" id="cancel">Cerrar</button><button type="button" class="secondary" id="print">Imprimir</button><button type="button" class="secondary" id="pdf">Descargar PDF</button><button type="button" class="secondary" id="reviewQuote">✦ Revisar con IA</button><button class="primary">'+(quote?"Guardar cambios":"Guardar cotización")+'</button></div>'+
     '</form>'
   );
 
@@ -2092,6 +2092,21 @@ async function quoteModal(existing=null,preset=null){
     }
   };
 
+  $("#reviewQuote").onclick=async()=>{
+    const btn=$("#reviewQuote");
+    const valid=lines.filter(x=>x.type==="PRODUCTO"?!!x.inventory_id:!!String(x.name||"").trim());
+    if(!valid.length)return toast("Agrega al menos una partida antes de revisar.","err");
+    const payload=valid.map((x,i)=>({index:i,type:x.type,name:x.name||"",description:x.description||"",quantity:Number(x.qty||0),unit_price:Number(x.price||0),cost:Number(x.cost||0),transport:Number(x.transport||0),labor:Number(x.labor||0),other:Number(x.other||0),material_provider:x.material_provider||"CLIENT"}));
+    btn.disabled=true;const prev=btn.textContent;btn.textContent="✦ Revisando…";
+    try{
+      const r=await fetch("/api/quote-ai",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({reviewQuote:true,items:payload,taxEnabled:$("#f [name=tax_enabled]").value==="true",taxRate:Number($("#f [name=tax_rate]").value||18),title:$("#f [name=title]").value||"Cotización",notes:$("#f [name=notes]").value||""})});
+      const j=await r.json();if(!r.ok)throw new Error(j.message||j.error||"No se pudo revisar la cotización.");
+      const issues=Array.isArray(j.review?.issues)?j.review.issues:[], positives=Array.isArray(j.review?.positives)?j.review.positives:[];
+      const body=(issues.length?'<div class="ai-review-section"><b>Revisar antes de guardar</b>'+issues.map(x=>'<div class="ai-review-item issue"><strong>⚠ '+esc(x.title||"Observación")+'</strong><span>'+esc(x.detail||"")+'</span></div>').join("")+"</div>":'<div class="ai-review-section"><b>Revisión técnica</b><div class="ai-review-item good"><strong>✓ Sin observaciones importantes</strong><span>No se detectaron problemas relevantes con los datos proporcionados.</span></div></div>’)+(positives.length?'<div class="ai-review-section"><b>Correcto</b>'+positives.map(x=>'<div class="ai-review-item good"><strong>✓ '+esc(x.title||"Correcto")+'</strong><span>'+esc(x.detail||"")+'</span></div>').join("")+"</div>":"");
+      const close=modal('<div class="modal-head"><div><h2>✦ Revisión de M.A.R.C.</h2><p>Análisis previo al guardado. No modifica la cotización.</p></div><button class="close" id="closeReview">×</button></div><div class="ai-review-grid">'+body+'</div><div class="modal-actions"><button type="button" class="primary" id="closeReview2">Continuar con la cotización</button></div>');
+      $("#closeReview").onclick=close;$("#closeReview2").onclick=close;
+    }catch(err){toast(err.message||"No se pudo revisar la cotización.","err")}finally{btn.disabled=false;btn.textContent=prev}
+  };
   $("#add").onclick=()=>{lines.push(defaultLine());draw();};
   $("#improveAllQuote").onclick=async()=>{
     const btn=$("#improveAllQuote");

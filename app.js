@@ -497,6 +497,7 @@ async function inventoryPdfModal(){
       };
 
       const detected=[];
+      const failedPages=[];
       const live=$("#pdfLiveItems");
       live.classList.remove("hidden");
       live.innerHTML='<div class="pdf-live-title">Productos detectados hasta ahora</div><div id="pdfLiveRows"></div>';
@@ -557,7 +558,7 @@ async function inventoryPdfModal(){
           return {pageNumber,items:Array.isArray(analyzed.items)?analyzed.items:[],mode:analyzed.mode||"GEMINI"};
         }));
 
-        const failedPages=settled.filter(x=>x.status==="rejected").map((x,idx)=>({pageNumber:batch[idx],error:x.reason?.message||"Error desconocido"}));
+        failedPages.push(...settled.filter(x=>x.status==="rejected").map((x,idx)=>({pageNumber:batch[idx],error:x.reason?.message||"Error desconocido"})));
         const results=settled.filter(x=>x.status==="fulfilled").map(x=>x.value);
         results.sort((a,b)=>a.pageNumber-b.pageNumber);
         for(const result of results){

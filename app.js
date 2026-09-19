@@ -2261,15 +2261,12 @@ async function downloadQuotePdf(id){
   box(margin,y,88,30,"CLIENTE",[client.name||"Sin cliente",client.document_type&&client.document_number?client.document_type+" "+client.document_number:"",client.phone||"",client.email||"",client.address||""]);
   box(108,y,88,30,"CONDICIONES",["Título: "+String(q.title||"Cotización"),"Moneda: "+String(q.currency||"PEN"),"IGV: "+(q.tax_enabled?String(q.tax_rate)+"%":"No incluido"),"Estado: "+String(q.status||"BORRADOR")]);
   y+=38;
-  doc.setFillColor(242,246,250);doc.rect(margin,y,pageW-margin*2,8,"F");
-  doc.setFont("helvetica","bold");doc.setFontSize(8);
-  doc.text("CONCEPTO",margin+2,y+5);doc.text("DESCRIPCIÓN",70,y+5);doc.text("CANT.",140,y+5);doc.text("PRECIO",158,y+5);doc.text("TOTAL",184,y+5);
-  y+=12;doc.setFont("helvetica","normal");
+  const drawTableHeader=()=>{doc.setFillColor(242,246,250);doc.rect(margin,y,pageW-margin*2,8,"F");doc.setFont("helvetica","bold");doc.setFontSize(8);doc.text("CONCEPTO",margin+2,y+5);doc.text("DESCRIPCIÓN",70,y+5);doc.text("CANT.",140,y+5);doc.text("PRECIO",158,y+5);doc.text("TOTAL",184,y+5);y+=12;doc.setFont("helvetica","normal")};drawTableHeader();
   for(const it of items){
     const desc=doc.splitTextToSize(String(it.description||""),64);
     const name=doc.splitTextToSize(String(it.name||""),55);
     const h=Math.max(7,4.2*Math.max(desc.length,name.length));
-    if(y+h>270){doc.addPage();y=18}
+    if(y+h>270){doc.addPage();y=18;drawTableHeader()}
     doc.setFont("helvetica","bold");doc.text(name,margin+2,y);
     doc.setFont("helvetica","normal");doc.text(desc,70,y);
     doc.text(String(it.quantity||1),142,y);

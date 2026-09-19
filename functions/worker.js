@@ -530,6 +530,45 @@ async function telegramWebhook(request,env,ctx){
   await sendTelegram(env,chatId,answer);
   return json({ok:true},200);
 }
+async function companyProfile(request,env){
+  const {user}=await authUser(request,env);
+  const adminToken=env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY;
+  if(!adminToken)throw Object.assign(new Error("Falta la clave de servidor de Supabase."),{status:503});
+  const rows=await sb(env,adminToken,"marc_company_profiles?select=user_id,business_name,legal_name,ruc,address,phone,email,logo_data,updated_at&user_id=eq."+encodeURIComponent(user.id)+"&limit=1");
+  return json({profile:rows?.[0]||null},200,corsHeaders(request));
+}
+async function saveCompanyProfile(request,env){
+  const {user}=await authUser(request,env);
+  const userToken=request.headers.get("Authorization")?.replace(/^Bearer\s+/i,"")||"";
+  const access=await entitlement(env,userToken,user.id);
+  if(access.kind!=="master" && access.kind!=="paid"){
+    throw Object.assign(new Error("El perfil empresarial, logo y marca en PDF requieren M.A.R.C. Pro o Business."),{status:403});
+  }
+  const body=await request.json();
+  const profile={
+    user_id:user.id,
+    business_name:String(body?.business_name||"").trim().slice(0,160)||null,
+    legal_name:String(body?.legal_name||"").trim().slice(0,200)||null,
+    ruc:String(body?.ruc||"").trim().slice(0,40)||null,
+    address:String(body?.address||"").trim().slice(0,240)||null,
+    phone:String(body?.phone||"").trim().slice(0,60)||null,
+    email:String(body?.email||"").trim().slice(0,180)||null,
+    logo_data:typeof body?.logo_data==="string"&&body.logo_data.length<700000?body.logo_data:null,
+    updated_at:new Date().toISOString()
+  };
+  if(body?.logo_data && typeof body.logo_data==="string" && body.logo_data.length>=700000){
+    throw Object.assign(new Error("El logo es demasiado grande. Usa una imagen de hasta 500 KB."),{status:413});
+  }
+  const adminToken=env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY;
+  if(!adminToken)throw Object.assign(new Error("Falta la clave de servidor de Supabase."),{status:503});
+  const rows=await sb(env,adminToken,"marc_company_profiles?on_conflict=user_id",{
+    method:"POST",
+    prefer:"resolution=merge-duplicates,return=representation",
+    body:profile
+  });
+  return json({profile:rows?.[0]||profile,entitlement:access},200,corsHeaders(request));
+}
+
 async function quoteAiDraft(request,env){
   if(request.method!=="POST")return json({error:"Método no permitido"},405);
   const {token,user}=await authUser(request,env);
@@ -679,6 +718,13 @@ export default{
       try{return await telegramWebhook(request,env,ctx)}catch(err){
         return json({error:err?.message||"Error del webhook",detail:err?.details||null},err?.status||500);
       }
+    }
+    if(url.pathname==="/api/company/profile"){
+      try{
+        if(request.method==="GET")return await companyProfile(request,env);
+        if(request.method==="POST")return await saveCompanyProfile(request,env);
+        return json({error:"Método no permitido"},405,headers);
+      }catch(err){return json({error:err?.message||"No se pudo gestionar el perfil empresarial"},err?.status||500,headers)}
     }
     if(url.pathname==="/api/quote-ai"){
       try{return await quoteAiDraft(request,env)}catch(err){

@@ -180,58 +180,91 @@ function resizeLogo(file){
   });
 }
 async function companySettings(){
-  const c=$("#content"),profile=await getCompanyProfile();
+  const c=$("#content");
+  const profile=await getCompanyProfile();
   if(profile.error){toast(profile.error,"err");return}
-  c.innerHTML=\`<div class="head"><div><div class="eyebrow2">EMPRESA</div><h1>Marca y datos comerciales.</h1><p>Tu logo y datos aparecerán automáticamente en las cotizaciones PDF.</p></div></div>
-  <section class="card panel company-branding">
-    <div class="company-logo-preview" id="companyLogoPreview">\${profile.logo_data?\`<img src="\${profile.logo_data}" alt="Logo de empresa">\`:'<div class="company-logo-empty">LOGO</div>'}</div>
-    <div class="company-branding-copy">
-      <div class="eyebrow2">BRANDING PARA PDF</div>
-      <h3>Logo de la empresa</h3>
-      <p>Disponible para cuentas MASTER y planes pagados. La imagen se optimiza automáticamente para los documentos.</p>
-      <div class="company-actions">
-        <label class="secondary file-btn">Seleccionar logo<input id="companyLogo" type="file" accept="image/png,image/jpeg,image/webp" hidden></label>
-        <button id="removeLogo" class="secondary" type="button">Quitar logo</button>
-      </div>
-      <small id="logoStatus" class="muted-small"></small>
-    </div>
-  </section>
-  <section class="card panel" style="margin-top:12px">
-    <div class="eyebrow2">DATOS DE LA EMPRESA</div>
-    <form id="companyForm" class="form-grid">
-      <label>Nombre comercial<input name="business_name" value="\${esc(profile.business_name||"")}" placeholder="Tecnovigilancia Marc"></label>
-      <label>Razón social<input name="legal_name" value="\${esc(profile.legal_name||"")}" placeholder="Razón social"></label>
-      <label>RUC<input name="ruc" value="\${esc(profile.ruc||"")}" placeholder="20xxxxxxxxx"></label>
-      <label>Teléfono<input name="phone" value="\${esc(profile.phone||"")}" placeholder="+51 ..."></label>
-      <label>Correo<input name="email" value="\${esc(profile.email||"")}" placeholder="ventas@empresa.com"></label>
-      <label>Dirección<input name="address" value="\${esc(profile.address||"")}" placeholder="Dirección comercial"></label>
-      <div class="modal-actions" style="grid-column:1/-1"><button type="submit" class="primary" id="saveCompany">Guardar datos de empresa</button></div>
-    </form>
-  </section>\`;
+
+  c.innerHTML=
+    '<div class="head"><div><div class="eyebrow2">EMPRESA</div><h1>Marca y datos comerciales.</h1><p>Tu logo y datos aparecerán automáticamente en las cotizaciones PDF.</p></div></div>'+
+    '<section class="card panel company-branding">'+
+      '<div class="company-logo-preview" id="companyLogoPreview">'+
+        (profile.logo_data?'<img src="'+profile.logo_data+'" alt="Logo de empresa">':'<div class="company-logo-empty">LOGO</div>')+
+      '</div>'+
+      '<div class="company-branding-copy">'+
+        '<div class="eyebrow2">BRANDING PARA PDF</div>'+
+        '<h3>Logo de la empresa</h3>'+
+        '<p>Disponible para cuentas MASTER y planes pagados. La imagen se optimiza automáticamente para los documentos.</p>'+
+        '<div class="company-actions">'+
+          '<label class="secondary file-btn">Seleccionar logo<input id="companyLogo" type="file" accept="image/png,image/jpeg,image/webp" hidden></label>'+
+          '<button id="removeLogo" class="secondary" type="button">Quitar logo</button>'+
+        '</div>'+
+        '<small id="logoStatus" class="muted-small"></small>'+
+      '</div>'+
+    '</section>'+
+    '<section class="card panel" style="margin-top:12px">'+
+      '<div class="eyebrow2">DATOS DE LA EMPRESA</div>'+
+      '<form id="companyForm" class="form-grid">'+
+        '<label>Nombre comercial<input name="business_name" value="'+esc(profile.business_name||"")+'" placeholder="Tecnovigilancia Marc"></label>'+
+        '<label>Razón social<input name="legal_name" value="'+esc(profile.legal_name||"")+'" placeholder="Razón social"></label>'+
+        '<label>RUC<input name="ruc" value="'+esc(profile.ruc||"")+'" placeholder="20xxxxxxxxx"></label>'+
+        '<label>Teléfono<input name="phone" value="'+esc(profile.phone||"")+'" placeholder="+51 ..."></label>'+
+        '<label>Correo<input name="email" value="'+esc(profile.email||"")+'" placeholder="ventas@empresa.com"></label>'+
+        '<label>Dirección<input name="address" value="'+esc(profile.address||"")+'" placeholder="Dirección comercial"></label>'+
+        '<div class="modal-actions" style="grid-column:1/-1"><button type="submit" class="primary" id="saveCompany">Guardar datos de empresa</button></div>'+
+      '</form>'+
+    '</section>';
+
   let logoData=profile.logo_data||null;
-  $("#companyLogo").onchange=async e=>{
-    const file=e.target.files?.[0];if(!file)return;
+
+  $("#companyLogo").onchange=async function(e){
+    const file=e.target.files&&e.target.files[0];
+    if(!file)return;
     try{
       logoData=await resizeLogo(file);
       $("#companyLogoPreview").innerHTML='<img src="'+logoData+'" alt="Logo de empresa">';
       $("#logoStatus").textContent="Logo listo para guardar.";
-    }catch(err){toast(err.message||"No se pudo preparar el logo.","err")}
+    }catch(err){
+      toast(err.message||"No se pudo preparar el logo.","err");
+    }
   };
-  $("#removeLogo").onclick=()=>{logoData=null;$("#companyLogoPreview").innerHTML='<div class="company-logo-empty">LOGO</div>';$("#logoStatus").textContent="El logo será eliminado al guardar."};
-  $("#companyForm").onsubmit=async e=>{
+
+  $("#removeLogo").onclick=function(){
+    logoData=null;
+    $("#companyLogoPreview").innerHTML='<div class="company-logo-empty">LOGO</div>';
+    $("#logoStatus").textContent="El logo será eliminado al guardar.";
+  };
+
+  $("#companyForm").onsubmit=async function(e){
     e.preventDefault();
-    const d=new FormData(e.currentTarget),btn=$("#saveCompany");
+    const d=new FormData(e.currentTarget);
+    const btn=$("#saveCompany");
     btn.disabled=true;
     try{
-      const body={business_name:d.get("business_name"),legal_name:d.get("legal_name"),ruc:d.get("ruc"),phone:d.get("phone"),email:d.get("email"),address:d.get("address"),logo_data:logoData};
-      const r=await fetch("/api/company/profile",{method:"POST",headers:{Authorization:"Bearer "+st.session?.access_token,"Content-Type":"application/json"},body:JSON.stringify(body)});
+      const body={
+        business_name:d.get("business_name"),
+        legal_name:d.get("legal_name"),
+        ruc:d.get("ruc"),
+        phone:d.get("phone"),
+        email:d.get("email"),
+        address:d.get("address"),
+        logo_data:logoData
+      };
+      const r=await fetch("/api/company/profile",{
+        method:"POST",
+        headers:{
+          Authorization:"Bearer "+st.session?.access_token,
+          "Content-Type":"application/json"
+        },
+        body:JSON.stringify(body)
+      });
       const j=await r.json();
       if(!r.ok)throw new Error(j.message||j.error||"No se pudo guardar.");
       toast("Datos de empresa guardados","ok");
-      await settings();
-      setTimeout(companySettings,50);
-    }catch(err){toast(err.message||"No se pudo guardar.","err")}
-    finally{btn.disabled=false}
+    }catch(err){
+      toast(err.message||"No se pudo guardar.","err");
+    }finally{
+      btn.disabled=false;
+    }
   };
 }
 

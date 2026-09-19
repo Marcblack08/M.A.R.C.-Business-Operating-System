@@ -593,10 +593,33 @@ async function inventoryPdfModal(){
       $("#pdfProgressText").textContent="Lectura terminada · "+totalPages+" páginas";
       $("#pdfProgressCount").textContent=detected.length+" productos detectados";
 
-      const listItems=detected;
+      // Consolidación global: un mismo producto puede aparecer en varias páginas del catálogo.
+      // Conservamos el primer registro y completamos campos faltantes con datos posteriores.
+      const mergedItems=[];
+      const mergedByKey=new Map();
+      const normalizeKey=v=>String(v||"").toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").replace(/\\s+/g," ").trim();
+      for(const rawItem of detected){
+        const item=Object.assign({},rawItem);
+        const skuKey=normalizeKey(item.sku);
+        const identity=skuKey
+          ? "sku:"+skuKey
+          : "name:"+normalizeKey([item.name,item.brand,item.model].filter(Boolean).join("|"));
+        if(!identity||identity==="name:")continue;
+        const existing=mergedByKey.get(identity);
+        if(existing){
+          ["sku","name","brand","model","category","unit","cost","price","stock","min_stock","page_number"].forEach(k=>{
+            if((existing[k]===null||existing[k]===undefined||existing[k]==="")&&(item[k]!==null&&item[k]!==undefined&&item[k]!==""))existing[k]=item[k];
+          });
+          continue;
+        }
+        mergedByKey.set(identity,item);
+        mergedItems.push(item);
+      }
+      const listItems=mergedItems;
+      const duplicateCount=Math.max(0,detected.length-listItems.length);
       const preview=$("#pdfImportPreview");
       preview.innerHTML=
-        '<div class="pdf-final-summary"><strong>Se procesarán '+listItems.length+' productos</strong><span>'+totalPages+' páginas revisadas</span></div>'+'<label class="pdf-photo-option"><input type="checkbox" id="keepPdfProductPhotos" checked> Conservar la foto del producto desde el PDF cuando la página contenga imágenes</label>'+
+        '<div class="pdf-final-summary"><strong>Se procesarán '+listItems.length+' productos únicos</strong><span>'+totalPages+' páginas revisadas'+(duplicateCount?' · '+duplicateCount+' duplicados consolidados':'')+'</span></div>'+'<label class="pdf-photo-option"><input type="checkbox" id="keepPdfProductPhotos" checked> Conservar la foto del producto desde el PDF cuando la página contenga imágenes</label>'+
         '<div class="pdf-product-list">'+
           listItems.map((x,i)=>'<div class="pdf-product-row"><span><b>'+(i+1)+'.</b> '+esc(x.name)+'</span><small>Página '+Number(x.page_number||1)+' · '+esc([x.sku,x.brand,x.model].filter(Boolean).join(" · ")||"Sin código")+(x.price!=null?" · S/ "+Number(x.price).toFixed(2):"")+'</small></div>').join("")+
         '</div>';

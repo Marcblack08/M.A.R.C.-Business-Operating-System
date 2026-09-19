@@ -1747,3 +1747,50 @@ body,
 @media(max-width:1060px){.cash-kpis{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:780px){.cash-kpis{grid-template-columns:1fr 1fr;gap:8px}.cash-kpi{padding:12px}.cash-kpi strong{font-size:15px}.cash-action-grid{grid-template-columns:1fr}.cash-movements{padding:12px}.cash-movements .data{min-width:600px}}
 @media(max-width:390px){.cash-kpis{grid-template-columns:1fr}.cash-total{grid-column:auto}}
+
+/* ===== Caja — informes y diagramas ===== */
+.cash-report-panel{padding:16px;margin-bottom:13px}
+.cash-report-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0}
+.cash-report-summary>div{padding:11px 12px;border:1px solid #e2eaf2;border-radius:12px;background:#fbfdff}
+.cash-report-summary span{display:block;font-size:7px;font-weight:900;letter-spacing:.12em;color:#8394a6}
+.cash-report-summary strong{display:block;margin-top:5px;font-size:16px}
+.cash-chart,.cash-difference-chart{margin-top:14px;border:1px solid #e1eaf2;border-radius:14px;padding:14px;background:#fff}
+.cash-chart-title{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}
+.cash-chart-title b{display:block;font-size:11px}
+.cash-chart-title small{display:block;margin-top:3px;font-size:7px;color:#8797a8}
+.cash-chart-title>span{font-size:7px;color:#718396;white-space:nowrap}
+.cash-chart-title>span i{display:inline-block;width:7px;height:7px;border-radius:50%;margin:0 3px 0 8px}
+.cash-legend-income{background:#1878e8}.cash-legend-expense{background:#d64b5d}
+.cash-chart-group{display:grid;grid-template-columns:1fr 130px;gap:12px;align-items:end;padding:10px 0;border-bottom:1px solid #edf2f6}
+.cash-chart-group:last-child{border-bottom:0}
+.cash-chart-bars{display:flex;gap:12px;height:155px;align-items:flex-end}
+.cash-chart-col{height:100%;flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;min-width:0}
+.cash-chart-value{font-size:7px;font-weight:800;margin-bottom:5px;white-space:nowrap}
+.cash-chart-track{width:34px;height:105px;border-radius:8px 8px 3px 3px;background:#edf3f8;display:flex;align-items:flex-end;overflow:hidden}
+.cash-chart-track i{display:block;width:100%;border-radius:8px 8px 3px 3px;min-height:6px}
+.cash-chart-income{background:#1878e8}.cash-chart-expense{background:#d64b5d}
+.cash-chart-col b{font-size:7px;color:#75879a;margin-top:5px}
+.cash-chart-month{padding-bottom:5px}.cash-chart-month strong{display:block;font-size:10px}.cash-chart-month span{display:block;margin-top:4px;font-size:7px;color:#8292a3;line-height:1.5}
+.cash-diff-row{display:grid;grid-template-columns:170px 1fr 90px;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid #edf2f6}
+.cash-diff-row:last-child{border-bottom:0}.cash-diff-row b{font-size:8px}.cash-diff-row small{display:block;margin-top:3px;font-size:7px;color:#8797a8}
+.cash-diff-track{height:9px;background:#edf3f8;border-radius:99px;overflow:hidden}.cash-diff-track i{display:block;height:100%;border-radius:99px}.cash-diff-track i.positive{background:#2a9a63}.cash-diff-track i.negative{background:#d64b5d}
+.cash-diff-row>strong{text-align:right;font-size:9px}
+[data-theme="dark"] .cash-report-summary>div,[data-theme="dark"] .cash-chart,[data-theme="dark"] .cash-difference-chart{background:#0d1a29;border-color:#294059}
+[data-theme="dark"] .cash-report-summary>div,[data-theme="dark"] .cash-chart-title small,[data-theme="dark"] .cash-chart-month span,[data-theme="dark"] .cash-diff-row small{color:#8ea2b7}
+[data-theme="dark"] .cash-chart-group,.cash-diff-row{border-color:#263a50}
+@media(max-width:780px){
+  .cash-report-summary{grid-template-columns:1fr 1fr}
+  .cash-chart{padding:11px}
+  .cash-chart-title{display:block}
+  .cash-chart-title>span{display:block;margin-top:7px}
+  .cash-chart-group{grid-template-columns:1fr 96px}
+  .cash-chart-bars{height:135px;gap:8px}
+  .cash-chart-track{width:27px;height:92px}
+  .cash-diff-row{grid-template-columns:110px 1fr 72px}
+  .cash-diff-row>strong{font-size:8px}
+}
+@media(max-width:390px){
+  .cash-report-summary{grid-template-columns:1fr}
+  .cash-chart-group{grid-template-columns:1fr}
+  .cash-chart-month{padding-bottom:3px}
+}

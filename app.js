@@ -323,7 +323,7 @@ async function home(){
   $("#heroQuote").onclick=quoteModal;
   $("#openInventory").onclick=inventory;
   $("#openQuotes").onclick=quotes;
-  $$(".quick-modern-grid button",c).forEach(b=>b.onclick=()=>b.dataset.q==="client"?clientModal():b.dataset.q==="inventory"?inventoryModal():b.dataset.q==="quote"?quoteModal():b.dataset.q==="cash"?cash():openChat());
+  $(".quick-modern-grid button",c).forEach(b=>b.onclick=()=>b.dataset.q==="client"?clientModal():b.dataset.q==="inventory"?inventoryModal():b.dataset.q==="quote"?quoteModal():b.dataset.q==="marketing"?marketing():b.dataset.q==="cash"?cash():openChat());
 }
 async function clients(){
   const {data,error}=await S.from("marc_clients").select("*").eq("user_id",st.u.id).order("name");

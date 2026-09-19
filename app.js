@@ -684,12 +684,31 @@ async function inventoryPdfModal(){
       const duplicateGroups=[];
       const normalizeKey=v=>String(v||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g," ").replace(/\s+/g," ").trim();
       const mergeWords=v=>new Set(normalizeKey(v).split(" ").filter(w=>w.length>1));
+      const variantTokens=v=>{
+        const s=normalizeKey(v);
+        const out=new Set();
+        // Resolución, almacenamiento, distancia focal, velocidad y otras
+        // especificaciones que identifican variantes distintas.
+        const patterns=[
+          /\\b\\d+(?:\\.\\d+)?\\s*(?:mp|megapixel|gb|tb|mb|mm|cm|m|x|w|v|a|hz|mah|mah)\\b/g,
+          /\\b(?:2mp|4mp|5mp|8mp|12mp|16mp|32gb|64gb|128gb|256gb|512gb|1tb|2tb)\\b/g,
+          /\\b(?:blanco|negro|white|black|rojo|roja|azul|verde|gris|plata|dorado|gold|silver)\\b/g,
+          /\\b(?:2\\.8|3\\.6|4|6|8|12|16)\\s*mm\\b/g
+        ];
+        patterns.forEach(re=>{const m=s.match(re)||[];m.forEach(x=>out.add(x.replace(/\\s+/g," ")));});
+        return out;
+      };
       const fuzzyDuplicate=(a,b)=>{
         if(normalizeKey(a.sku)||normalizeKey(b.sku))return false;
         const brandA=normalizeKey(a.brand),brandB=normalizeKey(b.brand);
         const modelA=normalizeKey(a.model),modelB=normalizeKey(b.model);
         if(brandA&&brandB&&brandA!==brandB)return false;
         if(modelA&&modelB&&modelA!==modelB)return false;
+        const variantsA=variantTokens([a.name,a.model].filter(Boolean).join(" "));
+        const variantsB=variantTokens([b.name,b.model].filter(Boolean).join(" "));
+        for(const token of new Set([...variantsA,...variantsB])){
+          if(variantsA.has(token)!==variantsB.has(token))return false;
+        }
         const na=normalizeKey(a.name),nb=normalizeKey(b.name);
         if(!na||!nb)return false;
         if(na===nb)return true;

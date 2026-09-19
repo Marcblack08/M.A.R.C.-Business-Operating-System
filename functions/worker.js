@@ -9,7 +9,7 @@ async function geminiGenerate(env,input,options={}){
 
   const primary=env.GEMINI_MODEL||GEMINI_MODEL_DEFAULT;
   const fallback1=env.GEMINI_MODEL_FALLBACK||"gemini-3.7-flash";
-  const fallback2=env.GEMINI_MODEL_FALLBACK2||"gemini-2.5-flash";
+  const fallback2=env.GEMINI_MODEL_FALLBACK2||"gemini-3.6-flash";
   const models=[...new Set([primary,fallback1,fallback2].filter(Boolean))];
 
   const system=messages.filter(m=>m.role==="system").map(m=>String(m.content||"")).join("\n\n");
@@ -645,7 +645,7 @@ function bytesToBase64(bytes){
 async function geminiGeneratePdf(env,pdfBytes,prompt,options={}){
   const apiKeys=[env.GEMINI_API_KEY,env.GEMINI_API_KEY2].filter((x,i,a)=>x&&a.indexOf(x)===i);
   if(!apiKeys.length)throw Object.assign(new Error("GEMINI_API_KEY no está configurada en el Worker."),{status:503});
-  const models=[env.GEMINI_MODEL||GEMINI_MODEL_DEFAULT,env.GEMINI_MODEL_FALLBACK||"gemini-3.7-flash",env.GEMINI_MODEL_FALLBACK2||"gemini-2.5-flash"].filter((x,i,a)=>x&&a.indexOf(x)===i);
+  const models=[env.GEMINI_MODEL||GEMINI_MODEL_DEFAULT,env.GEMINI_MODEL_FALLBACK||"gemini-3.7-flash",env.GEMINI_MODEL_FALLBACK2||"gemini-3.6-flash"].filter((x,i,a)=>x&&a.indexOf(x)===i);
   const data=bytesToBase64(new Uint8Array(pdfBytes));
   let last=null;
   for(const model of models){

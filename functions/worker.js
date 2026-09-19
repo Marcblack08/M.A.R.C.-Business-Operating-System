@@ -362,7 +362,7 @@ async function telegramWebhook(request,env){
   const history=await recentMessages(env,adminToken,userId,conversationId);
   const pl=await plan(env,incoming,history);
   const executed=await executePlan(env,adminToken,{id:userId},pl,"TELEGRAM");
-  await incrementAiUsage(env,adminToken,userId);
+  await incrementAiUsage(env,adminToken,userId,access);
   const answer=await finalReply(env,incoming,{plan:pl,execution:executed,entitlement:access});
   await sb(env,adminToken,"marc_messages",{method:"POST",body:{conversation_id:conversationId,user_id:userId,role:"ASSISTANT",content:answer,action_type:executed.action,action_payload:{channel:"TELEGRAM",result:executed.result||null}}});
   await sb(env,adminToken,"marc_conversations?id=eq."+encodeURIComponent(conversationId)+"&user_id=eq."+encodeURIComponent(userId),{method:"PATCH",body:{updated_at:new Date().toISOString()}}).catch(()=>{});

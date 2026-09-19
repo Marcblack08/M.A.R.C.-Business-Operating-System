@@ -443,6 +443,38 @@ async function telegramWebhook(request,env,ctx){
   await sendTelegram(env,chatId,answer);
   return json({ok:true},200);
 }
+async function quoteAiDraft(request,env){
+  if(request.method!=="POST")return json({error:"Método no permitido"},405);
+  const {token,user}=await authUser(request,env);
+  const access=await entitlement(env,token,user.id);
+  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request));
+  if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request));
+  const body=await request.json();
+  const description=String(body?.description||"").trim().slice(0,4000);
+  const allCost=Boolean(body?.allCost);
+  const clientQuery=String(body?.clientQuery||"").trim().slice(0,200);
+  if(!description)return json({error:"Escribe la descripción del trabajo."},400,corsHeaders(request));
+
+  const prompt={messages:[
+    {role:"system",content:'Eres el asistente de cotizaciones de M.A.R.C. Devuelve SOLO JSON válido. No inventes precios, clientes, productos ni cantidades. Si el usuario escribe un precio, extrae el número. Si no escribe precio, unit_price debe ser null. En modo A TODO COSTO la cotización debe tener una sola partida de tipo TRABAJO, cantidad 1, y el nombre debe ser un título corto; la descripción debe conservar los detalles técnicos del trabajo. Si el texto contiene "a todo costo", mantén esa idea en la descripción. Extrae un título profesional. Formato exacto: {"title":"...","client_query":"...","items":[{"type":"TRABAJO","name":"...","description":"...","quantity":1,"unit_price":number|null}]}.'},
+    {role:"user",content:"MODO A TODO COSTO: "+(allCost?"SI":"NO")+"\nCLIENTE SUGERIDO: "+clientQuery+"\nDESCRIPCIÓN:\n"+description}
+  ]};
+  const out=await env.AI.run(env.MARC_AI_MODEL||SYSTEM_MODEL,{...prompt,max_tokens:500,temperature:.1});
+  let draft;
+  try{draft=extractJson(out?.response)}catch{throw Object.assign(new Error("La IA no pudo estructurar la cotización."),{status:502})}
+  if(!draft?.items?.length)throw Object.assign(new Error("La IA no generó una partida."),{status:502});
+  const item=draft.items[0]||{};
+  draft={title:String(draft.title||"Cotización").slice(0,160),client_query:String(draft.client_query||clientQuery||"").slice(0,200),all_cost:allCost,items:[{
+    type:"TRABAJO",
+    name:String(item.name||"Trabajo").slice(0,180),
+    description:String(item.description||description).slice(0,2000),
+    quantity:1,
+    unit_price:item.unit_price===null||item.unit_price===undefined?null:Number(item.unit_price)
+  }]};
+  await incrementAiUsage(env,token,user.id,access);
+  return json({draft,entitlement:access},200,corsHeaders(request));
+}
+
 async function telegramDiagnostics(request,env){
   if(request.method!=="GET")return json({error:"Método no permitido"},405);
   if(!env.TELEGRAM_BOT_TOKEN)return json({ok:false,error:"TELEGRAM_BOT_TOKEN missing"},503);
@@ -558,6 +590,11 @@ export default{
     if(url.pathname==="/api/telegram/webhook"){
       try{return await telegramWebhook(request,env,ctx)}catch(err){
         return json({error:err?.message||"Error del webhook",detail:err?.details||null},err?.status||500);
+      }
+    }
+    if(url.pathname==="/api/quote-ai"){
+      try{return await quoteAiDraft(request,env)}catch(err){
+        return json({error:err?.message||"No se pudo generar la cotización con IA.",detail:err?.details||null},err?.status||500,headers);
       }
     }
     if(url.pathname==="/api/telegram/diagnostics"){return telegramDiagnostics(request,env)}

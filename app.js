@@ -111,15 +111,37 @@ async function home(){
   const [cl,iv,qt]=await Promise.all([
     S.from("marc_clients").select("*",{count:"exact"}).eq("user_id",st.u.id),
     S.from("marc_inventory").select("*").eq("user_id",st.u.id).eq("active",true).order("name"),
-    S.from("marc_quotes").select("*").eq("user_id",st.u.id).order("created_at",{ascending:false}).limit(6)
+    S.from("marc_quotes").select("*").eq("user_id",st.u.id).is("deleted_at",null).order("created_at",{ascending:false}).limit(120)
   ]);
 
   const inventory=iv.data||[];
   const quotes=qt.data||[];
   const low=inventory.filter(x=>Number(x.stock)<=Number(x.min_stock));
   const totalStock=inventory.reduce((sum,x)=>sum+Number(x.stock||0),0);
-  const quoteTotal=quotes.reduce((sum,x)=>sum+Number(x.total||0),0);
   const recent=quotes.slice(0,4);
+
+  const validFinance=quotes.filter(x=>!["ANULADA","RECHAZADA","BORRADOR"].includes(String(x.status||"").toUpperCase()));
+  const realizedFinance=quotes.filter(x=>String(x.status||"").toUpperCase()==="COBRADA");
+
+  const now=new Date();
+  const monthKey=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+  const monthLabel=d=>d.toLocaleDateString("es-PE",{month:"short"}).replace(".","").replace(/^./,m=>m.toUpperCase());
+  const months=Array.from({length:6},(_,i)=>new Date(now.getFullYear(),now.getMonth()-5+i,1));
+
+  const monthly=months.map(m=>{
+    const key=monthKey(m);
+    const projected=validFinance.filter(x=>monthKey(new Date(x.created_at))===key).reduce((s,x)=>s+Number(x.ganancia??x.profit??0),0);
+    const collected=realizedFinance.filter(x=>monthKey(new Date(x.created_at))===key).reduce((s,x)=>s+Number(x.ganancia??x.profit??0),0);
+    const sales=validFinance.filter(x=>monthKey(new Date(x.created_at))===key).reduce((s,x)=>s+Number(x.total||0),0);
+    return {key,label:monthLabel(m),projected,collected,sales};
+  });
+
+  const current=monthly[monthly.length-1];
+  const currentMargin=current.sales>0?Math.max(0,Math.min(100,(current.projected/current.sales)*100)):0;
+  const sixMonthProjected=monthly.reduce((s,m)=>s+m.projected,0);
+  const sixMonthCollected=monthly.reduce((s,m)=>s+m.collected,0);
+  const maxGain=Math.max(1,...monthly.map(m=>m.projected));
+  const quoteTotal=validFinance.reduce((sum,x)=>sum+Number(x.total||0),0);
 
   c.innerHTML=`
     <div class="dashboard-shell">
@@ -127,7 +149,7 @@ async function home(){
         <div class="hero-copy">
           <div class="hero-eyebrow">CENTRO DE OPERACIONES</div>
           <h1>Tu negocio, más claro.<br><span>M.A.R.C. se encarga.</span></h1>
-          <p>Clientes, inventario, cotizaciones e IA reunidos en un solo lugar para que puedas actuar rápido.</p>
+          <p>Clientes, inventario, cotizaciones, resultados y rentabilidad reunidos en un solo lugar para que puedas actuar rápido.</p>
           <div class="hero-actions">
             <button id="askHome" class="primary hero-primary">✦ Hablar con M.A.R.C.</button>
             <button id="heroQuote" class="hero-secondary">＋ Nueva cotización</button>
@@ -137,7 +159,7 @@ async function home(){
           <div class="hero-orbit-card orbit-main"><span>✦</span><b>Copiloto</b><small>Operación en tiempo real</small></div>
           <div class="hero-orbit-card orbit-small orbit-a">Clientes</div>
           <div class="hero-orbit-card orbit-small orbit-b">Inventario</div>
-          <div class="hero-orbit-card orbit-small orbit-c">Cotizaciones</div>
+          <div class="hero-orbit-card orbit-small orbit-c">Rentabilidad</div>
         </div>
       </section>
 
@@ -157,9 +179,9 @@ async function home(){
           <div><span>Atención</span><strong>${low.length}</strong><small>${low.length?"Productos requieren revisión":"Sin alertas de stock"}</small></div>
           <b class="kpi-arrow">${low.length?"!":"✓"}</b>
         </article>
-        <article class="kpi-modern">
-          <div class="kpi-icon violet">▤</div>
-          <div><span>Cotizaciones</span><strong>${quotes.length}</strong><small>${money(quoteTotal)} recientes</small></div>
+        <article class="kpi-modern kpi-profit">
+          <div class="kpi-icon violet">↗</div>
+          <div><span>Ganancia del mes</span><strong>${money(current.projected)}</strong><small>Proyectada · ${money(current.collected)} cobrada</small></div>
           <b class="kpi-arrow">↗</b>
         </article>
       </section>
@@ -187,6 +209,36 @@ async function home(){
             `).join("")||'<div class="empty-state"><span>✓</span><b>Todo en orden</b><small>No hay productos con stock crítico.</small></div>'}
           </div>
         </article>
+      </section>
+
+      <section class="finance-dashboard">
+        <div class="finance-heading">
+          <div><div class="panel-eyebrow">ESTADÍSTICAS</div><h2>Ganancia mensual</h2><p>Últimos 6 meses. Las cotizaciones anuladas, rechazadas y borradores no se incluyen.</p></div>
+          <div class="finance-summary"><span>6 meses</span><strong>${money(sixMonthProjected)}</strong><small>${money(sixMonthCollected)} cobrados</small></div>
+        </div>
+        <div class="finance-grid">
+          <article class="dashboard-panel profit-chart-panel">
+            <div class="panel-title-row"><div><h3>Tendencia de ganancia</h3><small class="finance-subtitle">Ganancia proyectada por mes</small></div><span class="finance-dot"><i></i> Proyectada</span></div>
+            <div class="profit-bars">
+              ${monthly.map((m,i)=>{
+                const h=Math.max(5,Math.round((m.projected/maxGain)*100));
+                return `<div class="profit-bar-col"><div class="profit-value">${money(m.projected)}</div><div class="profit-bar-track"><div class="profit-bar-fill ${i===monthly.length-1?"current":""}" style="height:${h}%"></div></div><b>${esc(m.label)}</b></div>`;
+              }).join("")}
+            </div>
+          </article>
+
+          <article class="dashboard-panel margin-panel">
+            <div class="panel-title-row"><div><h3>Margen del mes</h3><small class="finance-subtitle">${monthLabel(now)} · sobre ventas proyectadas</small></div></div>
+            <div class="margin-ring-wrap">
+              <div class="margin-ring" style="--ring:${currentMargin}%"><div><strong>${Math.round(currentMargin)}%</strong><span>margen</span></div></div>
+              <div class="margin-copy">
+                <div><span>Ganancia</span><b>${money(current.projected)}</b></div>
+                <div><span>Ventas</span><b>${money(current.sales)}</b></div>
+                <div><span>Cobrada</span><b>${money(current.collected)}</b></div>
+              </div>
+            </div>
+          </article>
+        </div>
       </section>
 
       <section class="dashboard-panel activity-panel">

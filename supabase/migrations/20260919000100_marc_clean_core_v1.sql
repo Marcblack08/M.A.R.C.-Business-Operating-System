@@ -1,0 +1,2 @@
+-- M.A.R.C. clean core v1 (applied in Supabase)
+-- See project migration history for the applied DDL.

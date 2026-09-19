@@ -352,7 +352,7 @@ async function ensurePdfJs(){
   throw new Error("No se pudo cargar el lector PDF. Recarga la página e inténtalo nuevamente.");
 }
 
-async function extractPdfCatalogRows(page){
+async async function extractPdfCatalogRows(page){
   try{
     const content=await page.getTextContent({normalizeWhitespace:true,disableCombineTextItems:false});
     const items=(content.items||[]).map(item=>({
@@ -362,10 +362,11 @@ async function extractPdfCatalogRows(page){
     })).filter(x=>x.text);
 
     const width=page.view?.[2]||page.getViewport({scale:1}).width||595;
-    const prices=items
-      .filter(x=>x.x>width*.74 && /^\d+(?:[.,]\d{1,2})$/.test(x.text.replace(/[^\d.,]/g,"")))
-      .map(x=>({...x,price:Number(x.text.replace(",","."))}))
-      .sort((a,b)=>b.y-a.y);
+    const cleanText=items.map(x=>x.text).join(" ");
+    const priceRe=/^(?:S\/|US\$|\$|€|EUR)?\s*\d{1,6}(?:[.,]\d{1,3}){0,2}$/i;
+    const prices=items.filter(x=>x.x>width*.68&&priceRe.test(x.text.replace(/\s+/g," ")))
+      .map(x=>({...x,price:Number(x.text.replace(/[^\d.,-]/g,"").replace(/\.(?=.*\.)/g,"").replace(",","."))}))
+      .filter(x=>Number.isFinite(x.price)).sort((a,b)=>b.y-a.y);
 
     if(!prices.length)return {rows:[],text:items.map(x=>x.text).join("\n"),usedLocal:false};
 
@@ -373,50 +374,33 @@ async function extractPdfCatalogRows(page){
     for(let i=0;i<prices.length;i++){
       const p=prices[i];
       const prev=prices[i-1],next=prices[i+1];
-      const gapPrev=prev?Math.abs(prev.y-p.y):Math.abs(p.y-(next?.y||p.y));
-      const gapNext=next?Math.abs(p.y-next.y):gapPrev;
-      const radius=Math.max(13,Math.min(28,Math.min(gapPrev||20,gapNext||20)*.55));
+      const gapPrev=prev?Math.abs(prev.y-p.y):0;
+      const gapNext=next?Math.abs(p.y-next.y):0;
+      const nearest=Math.min(gapPrev||999,gapNext||999);
+      const radius=Math.max(10,Math.min(22,nearest===999?16:nearest*.48));
       const rowItems=items.filter(x=>Math.abs(x.y-p.y)<=radius);
-
-      const nameParts=rowItems
-        .filter(x=>x.x<width*.34 && Math.abs(x.y-p.y)<=radius)
-        .sort((a,b)=>Math.abs(a.y-p.y)-Math.abs(b.y-p.y)||a.x-b.x)
-        .map(x=>x.text);
-
-      const codeParts=rowItems
-        .filter(x=>x.x>=width*.32 && x.x<width*.74)
-        .sort((a,b)=>Math.abs(a.y-p.y)-Math.abs(b.y-p.y)||a.x-b.x)
-        .map(x=>x.text);
-
+      const nameParts=rowItems.filter(x=>x.x<width*.48).sort((a,b)=>a.x-b.x).map(x=>x.text);
+      const codeParts=rowItems.filter(x=>x.x>=width*.30&&x.x<width*.72).sort((a,b)=>a.x-b.x).map(x=>x.text);
       const name=[...new Set(nameParts)].join(" ").replace(/\s+/g," ").trim();
       const codeText=[...new Set(codeParts)].join(" ").replace(/\s+/g," ").trim();
-      if(!name)return;
+      if(!name||/^(sku|codigo|código|producto|descripción|precio|página|pagina)$/i.test(name))continue;
 
-      const skuMatch=codeText.match(/\b(?:[A-Z]{1,6})-[A-Z0-9]{1,12}\b/i);
+      const skuMatch=codeText.match(/\b(?:[A-Z]{1,8}[A-Z0-9]*[-_/][A-Z0-9._/-]{1,24}|\d{5,18})\b/i);
       const sku=skuMatch?.[0]||null;
-      const variant=codeText.replace(skuMatch?.[0]||"","").replace(/\s+/g," ").trim();
+      const variant=codeText.replace(skuMatch?.[0]||"","").replace(/\b(?:S\/|US\$|\$|€|EUR)\s*[\d.,]+\b/gi,"").replace(/\s+/g," ").trim();
       const fullName=[name,variant].filter(Boolean).join(" ").replace(/\s+/g," ").trim();
+      if(fullName.length<3)continue;
 
       rows.push({
-        sku,
-        name:fullName.slice(0,180),
-        brand:null,
-        model:sku,
-        category:name.slice(0,100),
-        unit:"UND",
-        cost:null,
-        price:p.price,
-        stock:null,
-        min_stock:null,
-        pdf_y:p.y,
-        pdf_radius:radius
+        sku, name:fullName.slice(0,180), brand:null, model:sku,
+        category:null, unit:"UND", cost:null, price:p.price, stock:null, min_stock:null,
+        pdf_y:p.y, pdf_radius:radius
       });
     }
 
-    // One product per price cell: preserve page order and remove exact duplicates only.
     const clean=[],seen=new Set();
     for(const row of rows){
-      const key=((row.sku||"")+"|"+row.name+"|"+row.price).toLowerCase();
+      const key=((row.sku||"")+"|"+row.name+"|"+row.price).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();
       if(seen.has(key))continue;
       seen.add(key);clean.push(row);
     }

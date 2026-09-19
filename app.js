@@ -597,7 +597,7 @@ async function inventoryPdfModal(){
       // Conservamos el primer registro y completamos campos faltantes con datos posteriores.
       const mergedItems=[];
       const mergedByKey=new Map();
-      const normalizeKey=v=>String(v||"").toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").replace(/\\s+/g," ").trim();
+      const normalizeKey=v=>String(v||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();
       for(const rawItem of detected){
         const item=Object.assign({},rawItem);
         const skuKey=normalizeKey(item.sku);

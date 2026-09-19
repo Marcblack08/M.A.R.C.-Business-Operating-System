@@ -193,3 +193,20 @@ body{background:radial-gradient(circle at 72% -10%,#ddebff 0,#f3f6fb 32%,#eef3f9
   .margin-ring>div{width:88px;height:88px}
   .margin-ring strong{font-size:23px}
 }
+
+
+/* Quote financial attribution */
+.quote-finance-hint{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid #cfe5f9;background:linear-gradient(135deg,#f5fbff,#edf7ff);border-radius:12px;color:#365977;font-size:8px}
+.quote-finance-hint b{font-size:9px;color:#173a5d}
+.quote-finance-hint span{color:#70869a;text-align:right}
+.quote-cost-grid{display:grid;grid-template-columns:1.15fr .8fr .8fr .8fr .8fr;gap:7px;margin-top:8px;padding:9px;border-radius:11px;background:#f8fafc;border:1px solid #e6ecf2}
+.quote-cost-grid label{font-size:7px!important;font-weight:800!important;color:#718398!important}
+.quote-cost-grid input,.quote-cost-grid select{font-size:8px!important;padding:8px!important;border-radius:8px!important;background:#fff!important}
+.quote-line-total{margin-top:7px;font-size:7px;color:#78899a;text-align:right}
+.quote-line-total b{color:#324d67}
+.profit-positive{color:#1e8b57}.profit-negative{color:#d14555}
+@media(max-width:720px){
+  .quote-finance-hint{align-items:flex-start;flex-direction:column}
+  .quote-finance-hint span{text-align:left}
+  .quote-cost-grid{grid-template-columns:1fr 1fr}
+}

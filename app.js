@@ -724,6 +724,15 @@ async function inventoryPdfModal(){
         existing._duplicateCount=(existing._duplicateCount||0)+1;
         if(!existing._duplicateSources)existing._duplicateSources=[];
         existing._duplicateSources.push({page:Number(item.page_number||1),name:item.name,sku:item.sku,price:item.price});
+        if(existing.price!=null&&item.price!=null&&Number(existing.price)!==Number(item.price)){
+          existing._priceConflict=true;
+          if(!existing._priceConflicts)existing._priceConflicts=[];
+          existing._priceConflicts.push({
+            page:Number(item.page_number||1),
+            price:Number(item.price),
+            previous:Number(existing.price)
+          });
+        }
         ["sku","name","brand","model","category","unit","cost","price","stock","min_stock","page_number"].forEach(k=>{
           if((existing[k]===null||existing[k]===undefined||existing[k]==="")&&(item[k]!==null&&item[k]!==undefined&&item[k]!==""))existing[k]=item[k];
         });
@@ -756,10 +765,13 @@ async function inventoryPdfModal(){
       }
       const listItems=mergedItems;
       const duplicateCount=Math.max(0,detected.length-listItems.length);
+      const priceConflictCount=duplicateGroups.filter(x=>x._priceConflict).length;
       const duplicateDetail=duplicateGroups.map(x=>{
         const pages=(x._sourcePages||[]).sort((a,b)=>a-b).join(", ");
-        return '<details class="pdf-duplicate-detail"><summary>'+esc(x.name)+' · '+x._duplicateCount+' duplicado(s) · páginas '+esc(pages)+'</summary><div>'+
-          (x._duplicateSources||[]).map(d=>'P'+Number(d.page||1)+' · '+esc([d.sku,d.price!=null?"S/ "+Number(d.price).toFixed(2):""].filter(Boolean).join(" · "))).join("<br>")+
+        const conflict=x._priceConflict?' · ⚠️ precios distintos':'';
+        return '<details class="pdf-duplicate-detail"><summary>'+esc(x.name)+' · '+x._duplicateCount+' duplicado(s) · páginas '+esc(pages)+conflict+'</summary><div>'+
+          (x._duplicateSources||[]).map(d=>'P'+Number(d.page||1)+' · '+esc([d.sku,d.price!=null?"S/ "+Number(d.price).toFixed(2):"Precio no detectado"].filter(Boolean).join(" · "))).join("<br>")+
+          (x._priceConflict?'<br><b>⚠️ El precio consolidado será S/ '+Number(x.price).toFixed(2)+'; revisa las páginas indicadas porque el catálogo muestra precios diferentes.</b>':'')+
           '</div></details>';
       }).join("");
       const preview=$("#pdfImportPreview");
@@ -774,6 +786,7 @@ async function inventoryPdfModal(){
           '<span>🏷️ '+(listItems.length-missingSkuCount)+' con SKU</span>'+
           '<span>📷 '+photoReadyCount+' con zona de foto detectada</span>'+
         '</div>'+
+        (priceConflictCount?'<div class="msg error">⚠️ '+priceConflictCount+' producto(s) aparecen con precios diferentes en distintas páginas. M.A.R.C. conserva el primer precio detectado y los marca para revisión.</div>':'')+
         (missingPriceCount?'<div class="msg error">⚠️ '+missingPriceCount+' producto(s) no tienen precio detectado. Puedes importarlos y completar el precio después.</div>':'')+
         '<label class="pdf-photo-option"><input type="checkbox" id="keepPdfProductPhotos" checked> Conservar la foto del producto desde el PDF cuando la página contenga imágenes</label>'+
         '<div class="pdf-product-list">'+

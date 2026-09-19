@@ -2123,8 +2123,8 @@ async function quoteModal(existing=null,preset=null){
   };
   $("#f [name=tax_enabled]").onchange=updateSummary;
   $("#f [name=tax_rate]").oninput=updateSummary;
-  $("#print").onclick=async()=>printQuote(existing?.id);
-  $("#pdf").onclick=async()=>downloadQuotePdf(existing?.id);
+  $("#print").onclick=async()=>{const b=$("#print");b.disabled=true;try{await printQuote(existing?.id)}catch(err){toast(err?.message||"No se pudo preparar la impresión.","err")}finally{b.disabled=false}};
+  $("#pdf").onclick=async()=>{const b=$("#pdf");b.disabled=true;const prev=b.textContent;b.textContent="Preparando PDF…";try{await downloadQuotePdf(existing?.id)}catch(err){toast(err?.message||"No se pudo generar el PDF.","err")}finally{b.disabled=false;b.textContent=prev}};
   draw();
 
   $("#f").onsubmit=async e=>{

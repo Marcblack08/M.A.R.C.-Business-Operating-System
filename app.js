@@ -406,13 +406,111 @@ async function inventoryPdfModal(){
 }
 
 
-async function inventory(){const {data}=S.from("marc_inventory").select("*").eq("user_id",st.u.id).eq("active",true).order("name").then(({data,error})=>{if(error)return toast(error.message,"err");const c=$("#content");c.innerHTML=`<div class="head"><div><div class="eyebrow2">INVENTARIO</div><h1>Productos + stock.</h1><p>Todo producto vive dentro del inventario.</p></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button id="importPdf" class="secondary">📄 Importar PDF</button><button id="new" class="primary">＋ Nuevo producto</button></div></div><section class="card table"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar producto…"></div><button id="ask" class="secondary">Preguntar</button></div><div class="scroll"><table class="data"><thead><tr><th>Producto</th><th>Marca/modelo</th><th>Stock</th><th>Precio</th><th>Estado</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></section>`;const rows=$("#rows");const draw=list=>rows.innerHTML=list.map(x=>{const s=Number(x.stock),m=Number(x.min_stock),cls=s<=0?"out":s<=m?"low":"ok";return`<tr><td><b>${esc(x.name)}</b><br><small>${esc(x.sku||"Sin código")}</small></td><td>${esc([x.brand,x.model].filter(Boolean).join(" · ")||"—")}</td><td><b>${s}</b> ${esc(x.unit)}</td><td>${money(x.price)}</td><td><span class="badge ${cls}">${s<=0?"Agotado":s<=m?"Bajo":"Disponible"}</span></td><td style="display:flex;gap:5px;flex-wrap:wrap"><button class="secondary" type="button" data-action="edit-inventory" data-id="${x.id}">Editar</button><button class="danger" type="button" data-action="delete-inventory" data-id="${x.id}">Eliminar</button></td></tr>`}).join("")||'<tr><td colspan="6" class="empty">Agrega tu primer producto.</td></tr>';draw(data||[]);$("#search").oninput=e=>{const q=e.target.value.toLowerCase();draw((data||[]).filter(x=>[x.name,x.sku,x.brand,x.model,x.category].some(v=>String(v||"").toLowerCase().includes(q))))};$("#new").onclick=()=>inventoryModal();$("#importPdf").onclick=inventoryPdfModal;$("#ask").onclick=openChat;rows.onclick=async e=>{const b=e.target.closest("button[data-action]");if(!b)return;const id=b.dataset.id,item=(data||[]).find(x=>x.id===id);if(!item)return;if(b.dataset.action==="edit-inventory")return inventoryModal(item);if(b.dataset.action==="delete-inventory"){const ok=confirm("¿Eliminar "+item.name+" del inventario?\n\nDejará de aparecer del inventario activo, pero conservaremos el registro para el historial.");if(!ok)return;b.disabled=true;try{const {error}=await S.from("marc_inventory").update({active:false,updated_at:new Date().toISOString()}).eq("id",id).eq("user_id",st.u.id);if(error)throw error;toast("Producto eliminado del inventario","ok");await inventory()}catch(err){toast(err.message||"No se pudo eliminar el producto.","err");b.disabled=false}}}})}
-async function clients(){const {data}=await S.from("marc_clients").select("*").eq("user_id",st.u.id).order("name");const c=$("#content");c.innerHTML=`<div class="head"><div><div class="eyebrow2">CLIENTES</div><h1>Relaciones y contexto.</h1><p>Los clientes son memoria operativa de M.A.R.C.</p></div><button id="new" class="primary">＋ Nuevo cliente</button></div><section class="card table"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar…"></div><button id="ask" class="secondary">Preguntar</button></div><div class="scroll"><table class="data"><thead><tr><th>Cliente</th><th>Contacto</th><th>Correo</th><th>Teléfono</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></section>`;const rows=$("#rows"),draw=list=>rows.innerHTML=list.map(x=>`<tr><td><b>${esc(x.name)}</b><br><small>${esc(x.document_number||"")}</small></td><td>${esc(x.contact_name||"—")}</td><td>${esc(x.email||"—")}</td><td>${esc(x.phone||"—")}</td><td style="display:flex;gap:5px;flex-wrap:wrap"><button class="secondary" type="button" data-action="edit-inventory" data-id="${x.id}">Editar</button><button class="danger" type="button" data-action="delete-inventory" data-id="${x.id}">Eliminar</button></td></tr>`).join("")||'<tr><td colspan="5" class="empty">Aún no tienes clientes.</td></tr>';draw(data||[]);$("#search").oninput=e=>{const q=e.target.value.toLowerCase();draw((data||[]).filter(x=>[x.name,x.email,x.phone,x.document_number].some(v=>String(v||"").toLowerCase().includes(q))))};$("#new").onclick=()=>clientModal();$("#ask").onclick=()=>openChat();$$("[data-id]",c).forEach(b=>b.onclick=()=>clientModal((data||[]).find(x=>x.id===b.dataset.id)))}
-async function ensurePdfJs(){
-  if(window.pdfjsLib)return window.pdfjsLib;
-  throw new Error("No se pudo cargar el lector PDF. Recarga la página e inténtalo nuevamente.");
-}
+async function inventory(){
+  S.from("marc_inventory").select("*").eq("user_id",st.u.id).eq("active",true).order("name").then(({data,error})=>{
+    if(error)return toast(error.message,"err");
+    const c=$("#content");
+    c.innerHTML=`<div class="head"><div><div class="eyebrow2">INVENTARIO</div><h1>Productos + stock.</h1><p>Todo producto vive dentro del inventario.</p></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button id="importPdf" class="secondary">📄 Importar PDF</button><button id="new" class="primary">＋ Nuevo producto</button></div></div><section class="card table"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar producto…"></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button id="selectAll" class="secondary" type="button">☐ Seleccionar todos</button><button id="bulkDelete" class="danger" type="button" disabled>Eliminar seleccionados <span id="selectedCount">0</span></button><button id="ask" class="secondary">Preguntar</button></div></div><div class="scroll"><table class="data"><thead><tr><th style="width:42px;text-align:center"><input id="selectAllHead" type="checkbox" aria-label="Seleccionar todos los productos"></th><th>Producto</th><th>Marca/modelo</th><th>Stock</th><th>Precio</th><th>Estado</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></section>`;
 
+    const rows=$("#rows");
+    const selected=new Set();
+
+    const visibleData=()=>{const q=String($("#search")?.value||"").toLowerCase();return (data||[]).filter(x=>[x.name,x.sku,x.brand,x.model,x.category].some(v=>String(v||"").toLowerCase().includes(q)));};
+
+    const syncSelectionUi=()=>{
+      const visible=visibleData();
+      const checkedVisible=visible.filter(x=>selected.has(x.id)).length;
+      const allVisible=visible.length>0&&checkedVisible===visible.length;
+      const head=$("#selectAllHead");
+      if(head){head.checked=allVisible;head.indeterminate=checkedVisible>0&&!allVisible;}
+      $("#selectedCount").textContent=selected.size;
+      $("#bulkDelete").disabled=selected.size===0;
+      $("#selectAll").textContent=allVisible?"☑ Quitar selección":"☐ Seleccionar todos";
+    };
+
+    const draw=list=>{
+      rows.innerHTML=(list||[]).map(x=>{
+        const stock=Number(x.stock),min=Number(x.min_stock),cls=stock<=0?"out":stock<=min?"low":"ok";
+        return `<tr><td style="text-align:center"><input class="inventory-check" type="checkbox" data-id="${x.id}" ${selected.has(x.id)?"checked":""} aria-label="Seleccionar ${esc(x.name)}"></td><td><b>${esc(x.name)}</b><br><small>${esc(x.sku||"Sin código")}</small></td><td>${esc([x.brand,x.model].filter(Boolean).join(" · ")||"—")}</td><td><b>${stock}</b> ${esc(x.unit)}</td><td>${money(x.price)}</td><td><span class="badge ${cls}">${stock<=0?"Agotado":stock<=min?"Bajo":"Disponible"}</span></td><td style="display:flex;gap:5px;flex-wrap:wrap"><button class="secondary" type="button" data-action="edit-inventory" data-id="${x.id}">Editar</button><button class="danger" type="button" data-action="delete-inventory" data-id="${x.id}">Eliminar</button></td></tr>`;
+      }).join("")||'<tr><td colspan="7" class="empty">Agrega tu primer producto.</td></tr>';
+      syncSelectionUi();
+    };
+
+    draw(data||[]);
+
+    $("#search").oninput=e=>{draw(visibleData());};
+    $("#new").onclick=()=>inventoryModal();
+    $("#importPdf").onclick=inventoryPdfModal;
+    $("#ask").onclick=openChat;
+
+    $("#selectAll").onclick=()=>{
+      const visible=visibleData();
+      const allSelected=visible.length>0&&visible.every(x=>selected.has(x.id));
+      if(allSelected)visible.forEach(x=>selected.delete(x.id));
+      else visible.forEach(x=>selected.add(x.id));
+      draw(visible);
+    };
+
+    $("#selectAllHead").onchange=e=>{
+      const visible=visibleData();
+      if(e.target.checked)visible.forEach(x=>selected.add(x.id));
+      else visible.forEach(x=>selected.delete(x.id));
+      draw(visible);
+    };
+
+    rows.onchange=e=>{
+      const cb=e.target.closest(".inventory-check");
+      if(!cb)return;
+      if(cb.checked)selected.add(cb.dataset.id);
+      else selected.delete(cb.dataset.id);
+      syncSelectionUi();
+    };
+
+    $("#bulkDelete").onclick=async()=>{
+      const ids=[...selected];
+      if(!ids.length)return;
+      const chosen=(data||[]).filter(x=>ids.includes(x.id));
+      const preview=chosen.slice(0,5).map(x=>x.name).join(", ");
+      const extra=chosen.length>5?" …":"";
+      if(!confirm("¿Eliminar "+ids.length+" producto(s) del inventario?\n\n"+preview+extra+"\n\nDejarán de aparecer del inventario activo, pero se conservarán para el historial."))return;
+
+      const b=$("#bulkDelete");
+      b.disabled=true;
+      try{
+        const result=await S.from("marc_inventory")
+          .update({active:false,updated_at:new Date().toISOString()})
+          .in("id",ids)
+          .eq("user_id",st.u.id);
+        if(result.error)throw result.error;
+        selected.clear();
+        toast(ids.length+" producto(s) eliminado(s) del inventario","ok");
+        await inventory();
+      }catch(err){
+        toast(err.message||"No se pudieron eliminar los productos seleccionados.","err");
+        b.disabled=false;
+      }
+    };
+
+    rows.onclick=async e=>{
+      const b=e.target.closest("button[data-action]"); if(!b)return;
+      const item=(data||[]).find(x=>x.id===b.dataset.id); if(!item)return;
+      if(b.dataset.action==="edit-inventory")return inventoryModal(item);
+      if(b.dataset.action==="delete-inventory"){
+        if(!confirm("¿Eliminar \""+item.name+"\" del inventario?\n\nDejará de aparecer del inventario activo, pero se conservará el registro para el historial."))return;
+        b.disabled=true;
+        try{
+          const result=await S.from("marc_inventory").update({active:false,updated_at:new Date().toISOString()}).eq("id",item.id).eq("user_id",st.u.id);
+          if(result.error)throw result.error;
+          toast("Producto eliminado del inventario","ok");
+          await inventory();
+        }catch(err){
+          toast(err.message||"No se pudo eliminar el producto.","err");
+          b.disabled=false;
+        }
+      }
+    };
+  });
+}
 async function extractPdfCatalogRows(page){
   try{
     const content=await page.getTextContent({normalizeWhitespace:true,disableCombineTextItems:false});

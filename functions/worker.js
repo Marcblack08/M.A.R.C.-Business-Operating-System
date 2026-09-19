@@ -1271,6 +1271,13 @@ export default{
       try{return await telegramUnlink(request,env)}catch(err){return json({error:err?.message||"No se pudo desconectar Telegram"},err?.status||500,headers)}
     }
     if(url.pathname.startsWith("/api/"))return json({error:"Ruta no encontrada"},404,headers);
-    return env.ASSETS.fetch(request);
+    const assetResponse=await env.ASSETS.fetch(request);
+    const assetHeaders=new Headers(assetResponse.headers);
+    if(["/","/index.html"].includes(url.pathname)||/\\.(?:js|css|html)$/.test(url.pathname)){
+      assetHeaders.set("Cache-Control","no-store, no-cache, must-revalidate, max-age=0");
+      assetHeaders.set("Pragma","no-cache");
+      assetHeaders.set("Expires","0");
+    }
+    return new Response(assetResponse.body,{status:assetResponse.status,statusText:assetResponse.statusText,headers:assetHeaders});
   }
 };

@@ -410,24 +410,42 @@ async function inventoryPdfModal(){
 async function inventorySerialsModal(x){
   let files=[];
   let results=[];
+  let existing=[];
   const close=modal(
     '<div class="modal-head"><div><h2>Unidades y números de serie</h2><p>'+esc(x.name)+' · stock actual: '+Number(x.stock||0)+'</p></div><button class="close" id="x">×</button></div>'+
-    '<div class="serial-product-summary"><div class="inventory-photo-preview">'+(x.image_url?'<img src="'+esc(x.image_url)+'" alt="Producto">':'<span>📦</span>')+'</div><div><b>'+esc(x.name)+'</b><br><small>Precio: '+money(x.price)+'</small><br><small>Fotografía cada caja para registrar el número de serie.</small></div></div>'+
-    '<label>Fotografías de las cajas<input id="serialPhotos" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" multiple></label>'+
-    '<small>Puedes seleccionar varias fotos de una vez. M.A.R.C. analizará cada caja.</small>'+
+    '<div class="serial-product-summary"><div class="inventory-photo-preview">'+(x.image_url?'<img src="'+esc(x.image_url)+'" alt="Producto">':'<span>📦</span>')+'</div><div><b>'+esc(x.name)+'</b><br><small>Precio: '+money(x.price)+'</small><br><small>Stock serializado: cada unidad queda identificada individualmente.</small></div></div>'+
+    '<div class="serial-existing"><div style="display:flex;justify-content:space-between;gap:8px"><b>Series registradas</b><span id="existingSerialCount">0</span></div><div id="existingSerialsList" class="serial-existing-list"><div class="empty">Cargando…</div></div></div>'+
+    '<hr>'+
+    '<label>Fotografías de nuevas cajas<input id="serialPhotos" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" multiple></label>'+
+    '<small>Puedes seleccionar varias fotos de una vez. M.A.R.C. analizará cada caja y detectará el serial si aparece visible.</small>'+
     '<div id="serialStatus" class="msg"></div>'+
     '<div id="serialResults" class="serial-results"></div>'+
     '<div class="modal-actions"><button type="button" class="secondary" id="cancel">Cerrar</button><button type="button" class="primary" id="saveSerials" disabled>Guardar unidades</button></div>'
   );
   $("#x").onclick=close;$("#cancel").onclick=close;
   const input=$("#serialPhotos"),status=$("#serialStatus"),list=$("#serialResults"),save=$("#saveSerials");
+  const existingList=$("#existingSerialsList"),existingCount=$("#existingSerialCount");
 
+  function renderExisting(){
+    existingCount.textContent=String(existing.length);
+    existingList.innerHTML=existing.length?existing.map(function(r,i){
+      return '<div class="serial-existing-row"><span>'+(i+1)+'</span><b>'+esc(r.serial_number)+'</b><small>'+esc(r.status||"IN_STOCK")+'</small></div>';
+    }).join(""):'<div class="empty">No hay números de serie registrados todavía.</div>';
+  }
+  async function loadExisting(){
+    const r=await S.from("marc_inventory_instances").select("id,serial_number,status,image_url,created_at").eq("user_id",st.u.id).eq("inventory_id",x.id).order("created_at",{ascending:true});
+    if(r.error)throw r.error;
+    existing=r.data||[];
+    renderExisting();
+  }
   function render(){
     list.innerHTML=results.map(function(r,i){
-      return '<div class="serial-row"><div class="inventory-thumb">'+(r.preview?'<img src="'+r.preview+'" alt="Caja">':'📦')+'</div><div class="serial-main"><b>Unidad '+(i+1)+'</b><div>'+esc(r.name||x.name)+'</div><small>SKU: '+esc(r.sku||x.sku||"—")+'</small></div><div class="serial-input"><label>Serie<input data-serial-index="'+i+'" value="'+esc(r.serial_number||"")+'" placeholder="Número de serie"></label><small>'+esc(r.note||"")+'</small></div></div>';
-    }).join("")||'<div class="empty">Aún no has agregado fotografías.</div>';
+      return '<div class="serial-row"><div class="inventory-thumb">'+(r.preview?'<img src="'+r.preview+'" alt="Caja">':'📦')+'</div><div class="serial-main"><b>Nueva unidad '+(i+1)+'</b><div>'+esc(r.name||x.name)+'</div><small>SKU: '+esc(r.sku||x.sku||"—")+'</small></div><div class="serial-input"><label>Serie<input data-serial-index="'+i+'" value="'+esc(r.serial_number||"")+'" placeholder="Número de serie"></label><small>'+esc(r.note||"")+'</small></div></div>';
+    }).join("");
     save.disabled=!results.length||results.some(function(r){return !String(r.serial_number||"").trim()});
   }
+
+  try{await loadExisting()}catch(err){existing=[];renderExisting();status.className="msg error";status.textContent="No se pudieron cargar las series existentes: "+(err.message||"error")}
 
   input.onchange=async function(){
     files=[].slice.call(input.files||[]);
@@ -461,7 +479,10 @@ async function inventorySerialsModal(x){
   save.onclick=async function(){
     const items=results.map(function(r){return {serial_number:String(r.serial_number||"").trim(),image_url:null}});
     const serials=items.map(function(r){return r.serial_number.toLowerCase()});
-    if(new Set(serials).size!==serials.length)return toast("Hay números de serie repetidos.","err");
+    const existingSerials=existing.map(function(r){return String(r.serial_number||"").toLowerCase()});
+    if(new Set(serials).size!==serials.length)return toast("Hay números de serie repetidos entre las nuevas unidades.","err");
+    const duplicateExisting=serials.find(function(serial){return existingSerials.includes(serial)});
+    if(duplicateExisting)return toast("El número de serie "+duplicateExisting+" ya está registrado.","err");
     save.disabled=true;status.textContent="Guardando "+items.length+" unidades…";
     try{
       for(let i=0;i<results.length;i++){

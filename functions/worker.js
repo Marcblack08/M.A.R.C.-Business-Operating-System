@@ -897,7 +897,7 @@ async function analyzeInventoryProductPhoto(request,env){
   if(!["image/jpeg","image/png","image/webp"].includes(mime))return json({error:"Formato de imagen no permitido."},400,corsHeaders(request));
   image=image.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/,"");
   if(image.length>7000000)return json({error:"La imagen es demasiado grande para analizarla. Usa una foto más pequeña."},413,corsHeaders(request));
-  const prompt='Analiza esta foto de la caja o empaque de un producto para inventario. Extrae SOLO información que realmente puedas leer o identificar en la imagen. No inventes SKU, marca, modelo ni categoría. No extraigas ni calcules precios de venta. Devuelve SOLO JSON con este formato exacto: {"name":"","sku":null,"brand":null,"model":null,"category":"","confidence":0}. name es el nombre comercial visible. sku es el código, SKU o part number visible; usa null si no aparece. brand y model solo si aparecen. category solo si es evidente. confidence entre 0 y 1.';
+  const prompt='Analiza esta foto de la caja o empaque de un producto para inventario. Extrae SOLO información que realmente puedas leer o identificar en la imagen. No inventes SKU, marca, modelo, categoría ni número de serie. No extraigas ni calcules precios de venta. Devuelve SOLO JSON con este formato exacto: {"name":"","sku":null,"brand":null,"model":null,"category":"","serial_number":null,"confidence":0}. name es el nombre comercial visible. sku es el código/SKU/part number del producto. serial_number es el número de serie único de ESTA unidad si aparece claramente en la caja o etiqueta; no confundas SKU o modelo con serial y usa null si no es visible. brand y model solo si aparecen. category solo si es evidente. confidence entre 0 y 1.';
   const out=await geminiGenerateImage(env,image,prompt,{maxTokens:500,json:true});
   const text=out?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("")||"";
   if(!text)throw Object.assign(new Error("Gemini no devolvió datos de la imagen."),{status:502});
@@ -909,6 +909,7 @@ async function analyzeInventoryProductPhoto(request,env){
     brand:parsed?.brand?String(parsed.brand).trim().slice(0,120):null,
     model:parsed?.model?String(parsed.model).trim().slice(0,120):null,
     category:String(parsed?.category||"").trim().slice(0,120),
+    serial_number:parsed?.serial_number?String(parsed.serial_number).trim().slice(0,180):null,
     confidence:Math.min(1,Math.max(0,Number(parsed?.confidence||0)))
   };
   await incrementAiUsage(env,token,user.id,access);

@@ -682,7 +682,33 @@ async function inventoryPdfModal(){
       const mergedItems=[];
       const mergedByKey=new Map();
       const duplicateGroups=[];
-      const normalizeKey=v=>String(v||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();
+      const normalizeKey=v=>String(v||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g," ").replace(/\s+/g," ").trim();
+      const mergeWords=v=>new Set(normalizeKey(v).split(" ").filter(w=>w.length>1));
+      const fuzzyDuplicate=(a,b)=>{
+        if(normalizeKey(a.sku)||normalizeKey(b.sku))return false;
+        const brandA=normalizeKey(a.brand),brandB=normalizeKey(b.brand);
+        const modelA=normalizeKey(a.model),modelB=normalizeKey(b.model);
+        if(brandA&&brandB&&brandA!==brandB)return false;
+        if(modelA&&modelB&&modelA!==modelB)return false;
+        const na=normalizeKey(a.name),nb=normalizeKey(b.name);
+        if(!na||!nb)return false;
+        if(na===nb)return true;
+        const compactA=na.replace(/\s/g,""),compactB=nb.replace(/\s/g,"");
+        if((compactA.includes(compactB)||compactB.includes(compactA))&&Math.min(compactA.length,compactB.length)/Math.max(compactA.length,compactB.length)>=.82)return true;
+        const wa=mergeWords(a.name),wb=mergeWords(b.name);
+        const inter=[...wa].filter(x=>wb.has(x)).length;
+        const union=new Set([...wa,...wb]).size;
+        return union>0&&inter/union>=.86&&inter>=3;
+      };
+      const registerDuplicate=(existing,item)=>{
+        existing._sourcePages=Array.from(new Set([...(existing._sourcePages||[]),Number(item.page_number||1)]));
+        existing._duplicateCount=(existing._duplicateCount||0)+1;
+        if(!existing._duplicateSources)existing._duplicateSources=[];
+        existing._duplicateSources.push({page:Number(item.page_number||1),name:item.name,sku:item.sku,price:item.price});
+        ["sku","name","brand","model","category","unit","cost","price","stock","min_stock","page_number"].forEach(k=>{
+          if((existing[k]===null||existing[k]===undefined||existing[k]==="")&&(item[k]!==null&&item[k]!==undefined&&item[k]!==""))existing[k]=item[k];
+        });
+      };
       for(const rawItem of detected){
         const item=Object.assign({},rawItem);
         const skuKey=normalizeKey(item.sku);
@@ -690,15 +716,14 @@ async function inventoryPdfModal(){
           ? "sku:"+skuKey
           : "name:"+normalizeKey([item.name,item.brand,item.model].filter(Boolean).join("|"));
         if(!identity||identity==="name:")continue;
-        const existing=mergedByKey.get(identity);
+        let existing=mergedByKey.get(identity);
+        if(!existing&&!skuKey){
+          // Segunda capa: tolera diferencias de OCR/redacción entre páginas,
+          // pero no fusiona marcas/modelos explícitamente diferentes.
+          existing=mergedItems.find(x=>!normalizeKey(x.sku)&&fuzzyDuplicate(x,item));
+        }
         if(existing){
-          existing._sourcePages=Array.from(new Set([...(existing._sourcePages||[]),Number(item.page_number||1)]));
-          existing._duplicateCount=(existing._duplicateCount||0)+1;
-          if(!existing._duplicateSources)existing._duplicateSources=[];
-          existing._duplicateSources.push({page:Number(item.page_number||1),name:item.name,sku:item.sku,price:item.price});
-          ["sku","name","brand","model","category","unit","cost","price","stock","min_stock","page_number"].forEach(k=>{
-            if((existing[k]===null||existing[k]===undefined||existing[k]==="")&&(item[k]!==null&&item[k]!==undefined&&item[k]!==""))existing[k]=item[k];
-          });
+          registerDuplicate(existing,item);
           continue;
         }
         item._sourcePages=[Number(item.page_number||1)];

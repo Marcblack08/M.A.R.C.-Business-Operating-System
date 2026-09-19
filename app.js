@@ -25,7 +25,74 @@ async function trial(){
 }
 async function chatLoad(){const box=$("#messages");box.innerHTML="";const {data}=await S.from("marc_messages").select("role,content").eq("conversation_id",st.cid).order("created_at",{ascending:true}).limit(60);if(!data?.length)addBubble("a","Hola. Soy M.A.R.C. Dime qué quieres hacer.");else data.forEach(x=>addBubble(x.role==="USER"?"u":"a",x.content))}
 function addBubble(type,text){const e=document.createElement("div");e.className="bubble "+type;e.textContent=text;$("#messages").appendChild(e);$("#messages").scrollTop=$("#messages").scrollHeight}
-async function chatSend(text){if(!text.trim())return;addBubble("u",text);await S.from("marc_messages").insert({conversation_id:st.cid,user_id:st.u.id,role:"USER",content:text});const loading=document.createElement("div");loading.className="bubble a";loading.textContent="Pensando…";$("#messages").appendChild(loading);try{const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({message:text,conversationId:st.cid})}),j=await r.json();const reply=r.ok?(j.text||"No pude responder."):j.message||j.error||"El núcleo de IA no está disponible.";loading.textContent=reply;await S.from("marc_messages").insert({conversation_id:st.cid,user_id:st.u.id,role:"ASSISTANT",content:reply,action_type:"CHAT"})}catch(e){loading.textContent="No pude conectar con el núcleo de IA. La plataforma sigue disponible."}}
+async function chatSend(text){
+  const raw=String(text||"").trim();
+  if(!raw)return;
+
+  const normalized=raw.toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g,"")
+    .trim();
+
+  if(/^(nueva cotizacion|\+ cotizacion|crear cotizacion)$/.test(normalized)){
+    addBubble("u",raw);
+    closeChat();
+    return quoteModal();
+  }
+  if(/^(inventario|revisar inventario|mostrar inventario)$/.test(normalized)){
+    addBubble("u",raw);
+    closeChat();
+    return inventory();
+  }
+  if(/^(cliente|buscar cliente|nuevo cliente)$/.test(normalized)){
+    addBubble("u",raw);
+    closeChat();
+    return normalized==="nuevo cliente"?clientModal():clients();
+  }
+
+  addBubble("u",raw);
+  const inserted=await S.from("marc_messages").insert({
+    conversation_id:st.cid,
+    user_id:st.u.id,
+    role:"USER",
+    content:raw
+  });
+  if(inserted.error){
+    const loading=document.createElement("div");
+    loading.className="bubble a";
+    loading.textContent="No pude registrar el mensaje. Inténtalo nuevamente.";
+    $("#messages").appendChild(loading);
+    return;
+  }
+
+  const loading=document.createElement("div");
+  loading.className="bubble a";
+  loading.textContent="Pensando…";
+  $("#messages").appendChild(loading);
+
+  try{
+    const r=await fetch("/api/chat",{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        Authorization:"Bearer "+st.session?.access_token
+      },
+      body:JSON.stringify({message:raw,conversationId:st.cid})
+    });
+    const j=await r.json();
+    const reply=r.ok?(j.text||"No pude responder."):j.message||j.error||"El núcleo de IA no está disponible.";
+    loading.textContent=reply;
+    await S.from("marc_messages").insert({
+      conversation_id:st.cid,
+      user_id:st.u.id,
+      role:"ASSISTANT",
+      content:reply,
+      action_type:j.action||"CHAT"
+    });
+  }catch(e){
+    loading.textContent="No pude conectar con el núcleo de IA. La plataforma sigue disponible.";
+  }
+}
 function openChat(){
   $("#chat").classList.remove("closed");
   $("#app").classList.remove("chat-closed");

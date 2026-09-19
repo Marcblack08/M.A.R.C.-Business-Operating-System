@@ -1,4 +1,4 @@
-(()=>{const C=window.MARC_CONFIG,S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"implicit"}});const st={u:null,session:null,view:"home",cid:null,authEpoch:0};const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)],esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])),money=v=>new Intl.NumberFormat("es-PE",{style:"currency",currency:"PEN"}).format(Number(v||0)),toast=(t,c="")=>{const e=document.createElement("div");e.className="toast "+c;e.textContent=t;$("#toast").appendChild(e);setTimeout(()=>e.remove(),2600)},initials=n=>String(n||"M").split(/\s+/).slice(0,2).map(x=>x[0]?.toUpperCase()).join("");let authMode="login",recoveryMode=new URLSearchParams(location.search).get("recovery")==="1"||/type=recovery/i.test(location.hash);
+(()=>{const C=window.MARC_CONFIG,S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"implicit"}});const st={u:null,session:null,view:"home",cid:null,authEpoch:0};let authListenerSession=null,authTimer=null,authEnteredSessionId=null;S.auth.onAuthStateChange((ev,s)=>{authListenerSession=s||null;console.info("[M.A.R.C. auth]",ev,!!s,s?.user?.id||"");if(s?.user){clearTimeout(authTimer);authTimer=setTimeout(()=>handleAuthSession(s),0)}else if(ev==="SIGNED_OUT"){clearTimeout(authTimer);authTimer=setTimeout(()=>resetUiToLogin(),0)}});const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)],esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])),money=v=>new Intl.NumberFormat("es-PE",{style:"currency",currency:"PEN"}).format(Number(v||0)),toast=(t,c="")=>{const e=document.createElement("div");e.className="toast "+c;e.textContent=t;$("#toast").appendChild(e);setTimeout(()=>e.remove(),2600)},initials=n=>String(n||"M").split(/\s+/).slice(0,2).map(x=>x[0]?.toUpperCase()).join("");let authMode="login",recoveryMode=new URLSearchParams(location.search).get("recovery")==="1"||/type=recovery/i.test(location.hash);
 function msg(t,c=""){const e=$("#authMsg");e.textContent=t;e.className="msg "+c}
 function authRateLimitMessage(e){const raw=String(e?.message||"").toLowerCase();return raw.includes("rate limit")||raw.includes("too many")||raw.includes("over_email_send_rate_limit")}
 function mode(m){authMode=m;const title=m==="login"?"Inicia sesión en M.A.R.C.":"Accede a M.A.R.C.";const sub=m==="login"?"Accede a M.A.R.C. de forma rápida y segura con tu cuenta de Google.":"Accede a M.A.R.C. con tu cuenta de Google.";if($("#authTitle"))$("#authTitle").textContent=title;if($("#authSub"))$("#authSub").textContent=sub;msg("")}
@@ -17,7 +17,7 @@ async function signInGoogle(){
     if(b)b.disabled=false;
   }
 }
-function resetUiToLogin(message="",type=""){st.authEpoch++;st.u=null;st.session=null;st.cid=null;$("#app").classList.add("hidden");$("#auth").classList.remove("hidden");mode("login");if(message)msg(message,type)}
+async function handleAuthSession(s){if(!s?.user)return;const id=s.user.id;if(authEnteredSessionId===id && st.u?.id===id && !$("#app").classList.contains("hidden"))return;authEnteredSessionId=id;try{await enter(s)}catch(e){authEnteredSessionId=null;throw e}}function resetUiToLogin(message="",type=""){st.authEpoch++;st.u=null;st.session=null;st.cid=null;$("#app").classList.add("hidden");$("#auth").classList.remove("hidden");mode("login");if(message)msg(message,type)}
 async function ensure(){const u=st.u;if(!u)return;await S.from("marc_accounts").upsert({id:u.id,display_name:u.email?.split("@")[0]||"Usuario"},{onConflict:"id"});const {data:t}=await S.from("marc_trials").select("id").eq("user_id",u.id).maybeSingle();if(!t)await S.from("marc_trials").insert({user_id:u.id});const {data:c}=await S.from("marc_conversations").select("id").eq("user_id",u.id).eq("channel","WEB").order("updated_at",{ascending:false}).limit(1).maybeSingle();st.cid=c?.id||(await S.from("marc_conversations").insert({user_id:u.id,channel:"WEB",title:"Conversación principal"}).select("id").single()).data?.id}
 async function enter(s){
   if(!s?.user)return;
@@ -2178,38 +2178,22 @@ function wire(){
   // OAuth callback: let Supabase handle the browser redirect.
   // M.A.R.C. is a client-side app, so the implicit flow avoids a PKCE
   // verifier mismatch when the browser returns from Google.
-  let authEventSeen=false;
-  let authEventSession=null;
-  S.auth.onAuthStateChange((ev,s)=>{
-    authEventSeen=true;
-    authEventSession=s||null;
-    console.info("[M.A.R.C. auth]",ev,!!s,s?.user?.id||"");
-    // Supabase advises keeping the auth callback synchronous. Calling
-    // database/auth APIs directly from this callback can deadlock the client.
-    if(s){
-      setTimeout(()=>enter(s),0);
-      return;
-    }
-    if(ev==="SIGNED_OUT")setTimeout(()=>resetUiToLogin(),0);
-  });
-
   const bootAuth=async()=>{
     const current=await S.auth.getSession();
     if(current.error)throw current.error;
     if(current.data?.session){
-      if(!authEventSession)await enter(current.data.session);
+      await handleAuthSession(current.data.session);
       return;
     }
-    await new Promise(r=>setTimeout(r,1200));
+    await new Promise(r=>setTimeout(r,1500));
     const retry=await S.auth.getSession();
     if(retry.error)throw retry.error;
     if(retry.data?.session){
-      if(!authEventSession)await enter(retry.data.session);
+      await handleAuthSession(retry.data.session);
       return;
     }
-    msg(authDiag(authEventSeen
-      ?"Google volvió al sitio, pero Supabase no dejó una sesión activa."
-      :"Google volvió al sitio, pero no llegó ningún evento de autenticación.")+" · getSession(): sin sesión","error");
+    const ev=authListenerSession?"evento con sesión":"sin sesión detectada";
+    msg(authDiag("Google regresó, pero M.A.R.C. no pudo recuperar la sesión")+" · "+ev,"error");
   };
 
   bootAuth().catch(e=>{

@@ -1986,8 +1986,7 @@ async function quoteModal(existing=null,preset=null){
         '<div class="quote-line-fields">'+
           '<input data-i="'+i+'" data-k="qty" type="number" min="0.01" step="0.01" value="'+x.qty+'" placeholder="Cant.">'+
           '<input data-i="'+i+'" data-k="price" type="number" min="0" step="0.01" value="'+x.price+'" placeholder="Precio unitario">'+
-          '<input data-i="'+i+'" data-k="description" placeholder="Descripción (opcional)" value="'+esc(x.description)+'">'+
-        '</div>'+
+          '<div class="quote-description-wrap"><input data-i="'+i+'" data-k="description" placeholder="Descripción (opcional)" value="'+esc(x.description)+'"><button type="button" class="secondary quote-ai-line" data-ai-line="'+i+'" title="Mejorar esta descripción con IA">✦ Mejorar</button></div></div>'+
         '<div class="quote-cost-grid">'+
           '<label>Material<select data-i="'+i+'" data-k="material_provider">'+providerOptions(x.material_provider)+'</select></label>'+
           '<label>Costo material<input data-i="'+i+'" data-k="cost" type="number" min="0" step="0.01" value="'+(clientMaterial?0:Number(x.cost||0))+'" '+(clientMaterial?"disabled":"")+'></label>'+
@@ -2057,11 +2056,39 @@ async function quoteModal(existing=null,preset=null){
     }
   };
 
-  box.onclick=e=>{
+  box.onclick=async e=>{
     if(e.target.dataset.r!=null){
       lines.splice(Number(e.target.dataset.r),1);
       if(!lines.length)lines.push(defaultLine());
       draw();
+      return;
+    }
+    const aiLine=e.target.closest(".quote-ai-line");
+    if(!aiLine)return;
+    const i=Number(aiLine.dataset.aiLine);
+    const line=lines[i];
+    if(!line)return;
+    const original=String(line.description||"").trim();
+    if(!original)return toast("Escribe primero la descripción de esta partida.","err");
+    aiLine.disabled=true;
+    const previous=aiLine.textContent;
+    aiLine.textContent="✦ Mejorando…";
+    try{
+      const r=await fetch("/api/quote-ai",{
+        method:"POST",
+        headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},
+        body:JSON.stringify({description:original,improveOnly:true})
+      });
+      const j=await r.json();
+      if(!r.ok)throw new Error(j.message||j.error||"No se pudo mejorar la descripción.");
+      if(j.improved?.description)line.description=String(j.improved.description).trim();
+      if(j.improved?.title && line.type==="TRABAJO" && (!String(line.name||"").trim() || /^trabajo$/i.test(String(line.name||"").trim())))line.name=String(j.improved.title).trim();
+      draw();
+      toast("Descripción mejorada por IA.","ok");
+    }catch(err){
+      toast(err.message||"No se pudo mejorar la descripción.","err");
+      aiLine.disabled=false;
+      aiLine.textContent=previous;
     }
   };
 

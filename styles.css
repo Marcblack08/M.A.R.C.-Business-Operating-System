@@ -1354,3 +1354,11 @@ body,
   .theme-toggle #themeLabel{display:none}
   .topright{gap:6px}
 }
+
+.auth-card-top-actions{display:flex;align-items:center;gap:8px}
+.auth-card-top-actions .theme-toggle{min-height:34px;padding:7px 9px}
+[data-theme="dark"] .auth-card-top-actions .theme-toggle{background:#102033;border-color:#29425d;color:#d8e7f6}
+@media(max-width:390px){
+  .auth-card-top-actions>span{font-size:6px}
+  .auth-card-top-actions .theme-toggle{min-width:34px}
+}

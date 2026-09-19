@@ -1,4 +1,4 @@
-(()=>{const C=window.MARC_CONFIG,S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false,flowType:"pkce"}});const st={u:null,session:null,view:"home",cid:null,authEpoch:0};const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)],esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])),money=v=>new Intl.NumberFormat("es-PE",{style:"currency",currency:"PEN"}).format(Number(v||0)),toast=(t,c="")=>{const e=document.createElement("div");e.className="toast "+c;e.textContent=t;$("#toast").appendChild(e);setTimeout(()=>e.remove(),2600)},initials=n=>String(n||"M").split(/\s+/).slice(0,2).map(x=>x[0]?.toUpperCase()).join("");let authMode="login",recoveryMode=new URLSearchParams(location.search).get("recovery")==="1"||/type=recovery/i.test(location.hash);
+(()=>{const C=window.MARC_CONFIG,S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"implicit"}});const st={u:null,session:null,view:"home",cid:null,authEpoch:0};const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)],esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])),money=v=>new Intl.NumberFormat("es-PE",{style:"currency",currency:"PEN"}).format(Number(v||0)),toast=(t,c="")=>{const e=document.createElement("div");e.className="toast "+c;e.textContent=t;$("#toast").appendChild(e);setTimeout(()=>e.remove(),2600)},initials=n=>String(n||"M").split(/\s+/).slice(0,2).map(x=>x[0]?.toUpperCase()).join("");let authMode="login",recoveryMode=new URLSearchParams(location.search).get("recovery")==="1"||/type=recovery/i.test(location.hash);
 function msg(t,c=""){const e=$("#authMsg");e.textContent=t;e.className="msg "+c}
 function authRateLimitMessage(e){const raw=String(e?.message||"").toLowerCase();return raw.includes("rate limit")||raw.includes("too many")||raw.includes("over_email_send_rate_limit")}
 function mode(m){authMode=m;const title=m==="login"?"Inicia sesión en M.A.R.C.":"Accede a M.A.R.C.";const sub=m==="login"?"Accede a M.A.R.C. de forma rápida y segura con tu cuenta de Google.":"Accede a M.A.R.C. con tu cuenta de Google.";if($("#authTitle"))$("#authTitle").textContent=title;if($("#authSub"))$("#authSub").textContent=sub;msg("")}
@@ -2167,9 +2167,9 @@ function wire(){
   $("#chatInput").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("#chatForm").requestSubmit()}};
   $(".chips button").forEach(b=>b.onclick=()=>{$("#chatInput").value=b.dataset.q;$("#chatInput").focus()});
 
-  // OAuth callback: handle the PKCE code explicitly.
-  // This page is served by a Cloudflare Worker, so we keep the callback
-  // entirely in the browser and exchange the one-time code for the session.
+  // OAuth callback: let Supabase handle the browser redirect.
+  // M.A.R.C. is a client-side app, so the implicit flow avoids a PKCE
+  // verifier mismatch when the browser returns from Google.
   S.auth.onAuthStateChange((ev,s)=>{
     if(s){
       enter(s);
@@ -2179,39 +2179,18 @@ function wire(){
   });
 
   const bootAuth=async()=>{
-    const params=new URLSearchParams(location.search);
-    const code=params.get("code");
-    const flowId=params.get("sb_flow_id");
-    const oauthError=params.get("error_description")||params.get("error");
-
-    if(oauthError){
-      msg(decodeURIComponent(String(oauthError).replace(/\+/g," ")),"error");
-      return;
-    }
-
-    if(code){
-      msg("Finalizando acceso con Google…");
-      const result=await S.auth.exchangeCodeForSession(code,flowId?{flowId}:undefined);
-      if(result.error)throw result.error;
-      history.replaceState({},document.title,location.pathname);
-      if(result.data?.session){
-        await enter(result.data.session);
-        return;
-      }
-    }
-
     const current=await S.auth.getSession();
     if(current.error)throw current.error;
     if(current.data?.session){
       await enter(current.data.session);
       return;
     }
-
-    await new Promise(r=>setTimeout(r,300));
+    await new Promise(r=>setTimeout(r,700));
     const retry=await S.auth.getSession();
     if(retry.error)throw retry.error;
     if(retry.data?.session)await enter(retry.data.session);
   };
+
   bootAuth().catch(e=>{
     msg(e?.message||"No se pudo completar el acceso con Google.","error");
   });

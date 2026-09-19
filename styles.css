@@ -415,6 +415,7 @@ body{overflow-x:hidden}
 .mobile-bottom-nav{display:none}
 
 @media(max-width:780px){
+  #auth:not(.hidden) ~ .mobile-bottom-nav{display:none!important}
   /* Keep the application anchored correctly below the browser chrome. */
   .app{display:block!important;min-height:100svh;width:100%;overflow-x:hidden}
   .main{width:100%;min-width:0}

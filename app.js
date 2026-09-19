@@ -320,7 +320,33 @@ async function home(){
   $("#openQuotes").onclick=quotes;
   $$(".quick-modern-grid button",c).forEach(b=>b.onclick=()=>b.dataset.q==="client"?clientModal():b.dataset.q==="inventory"?inventoryModal():b.dataset.q==="quote"?quoteModal():openChat());
 }
-async function clients(){const {data}=await S.from("marc_clients").select("*").eq("user_id",st.u.id).order("name");const c=$("#content");c.innerHTML=`<div class="head"><div><div class="eyebrow2">CLIENTES</div><h1>Relaciones y contexto.</h1><p>Los clientes son memoria operativa de M.A.R.C.</p></div><button id="new" class="primary">＋ Nuevo cliente</button></div><section class="card table"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar…"></div><button id="ask" class="secondary">Preguntar</button></div><div class="scroll"><table class="data"><thead><tr><th>Cliente</th><th>Contacto</th><th>Correo</th><th>Teléfono</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></section>`;const rows=$("#rows"),draw=list=>rows.innerHTML=list.map(x=>`<tr><td><b>${esc(x.name)}</b><br><small>${esc(x.document_number||"")}</small></td><td>${esc(x.contact_name||"—")}</td><td>${esc(x.email||"—")}</td><td>${esc(x.phone||"—")}</td><td><button class="secondary" type="button" data-id="${x.id}">Editar</button></td></tr>`).join("")||'<tr><td colspan="5" class="empty">Aún no tienes clientes.</td></tr>';draw(data||[]);$("#search").oninput=e=>{const q=e.target.value.toLowerCase();draw((data||[]).filter(x=>[x.name,x.email,x.phone,x.document_number].some(v=>String(v||"").toLowerCase().includes(q))))};$("#new").onclick=()=>clientModal();$("#ask").onclick=()=>openChat();$("[data-id]",c).forEach(b=>b.onclick=()=>clientModal((data||[]).find(x=>x.id===b.dataset.id)))}
+async function clients(){
+  const {data,error}=await S.from("marc_clients").select("*").eq("user_id",st.u.id).order("name");
+  if(error)return toast(error.message,"err");
+  const list=data||[],c=$("#content");
+  c.innerHTML=`<div class="head"><div><div class="eyebrow2">CLIENTES</div><h1>Relaciones y contexto.</h1><p>Una ficha clara para cada cliente y toda su información operativa.</p></div><button id="new" class="primary">＋ Nuevo cliente</button></div>
+  <section class="client-summary">
+    <div><span>CLIENTES REGISTRADOS</span><strong>${list.length}</strong><small>Base de contactos de M.A.R.C.</small></div>
+    <div><span>CON CORREO</span><strong>${list.filter(x=>x.email).length}</strong><small>Contactos con email</small></div>
+    <div><span>CON TELÉFONO</span><strong>${list.filter(x=>x.phone).length}</strong><small>Contactos localizables</small></div>
+  </section>
+  <section class="card table clients-browser"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar cliente, documento, correo o teléfono…"></div><button id="ask" class="secondary">✦ Preguntar</button></div>
+    <div class="scroll clients-desktop"><table class="data"><thead><tr><th>Cliente</th><th>Contacto</th><th>Correo</th><th>Teléfono</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
+    <div id="clientCards" class="client-cards"></div>
+  </section>`;
+  const rows=$("#rows"),cards=$("#clientCards");
+  const draw=(items)=>{
+    rows.innerHTML=items.map(x=>`<tr><td><b>${esc(x.name)}</b><br><small>${esc(x.document_number||"")}</small></td><td>${esc(x.contact_name||"—")}</td><td>${esc(x.email||"—")}</td><td>${esc(x.phone||"—")}</td><td><button class="secondary" type="button" data-id="${x.id}">Editar</button></td></tr>`).join("")||'<tr><td colspan="5" class="empty">Aún no tienes clientes.</td></tr>';
+    cards.innerHTML=items.map(x=>`<article class="client-card"><div class="client-card-top"><div class="client-avatar">${esc(initials(x.name)||"C")}</div><div class="client-card-name"><h3>${esc(x.name)}</h3><small>${esc(x.document_number||"Sin documento")}</small></div><button class="icon" type="button" data-id="${x.id}" aria-label="Editar cliente">✎</button></div><div class="client-details">${x.contact_name?`<div><span>Contacto</span><b>${esc(x.contact_name)}</b></div>`:""}${x.email?`<div><span>Correo</span><b>${esc(x.email)}</b></div>`:""}${x.phone?`<div><span>Teléfono</span><b>${esc(x.phone)}</b></div>`:""}${(!x.contact_name&&!x.email&&!x.phone)?'<small class="client-empty">Sin datos adicionales registrados.</small>':""}</div></article>`).join("")||'<div class="empty-state"><span>＋</span><b>Aún no tienes clientes</b><small>Crea tu primer cliente para comenzar.</small></div>';
+  };
+  draw(list);
+  const filter=()=>{const q=($("#search").value||"").toLowerCase();draw(list.filter(x=>[x.name,x.email,x.phone,x.document_number,x.contact_name].some(v=>String(v||"").toLowerCase().includes(q))))};
+  $("#search").oninput=filter;
+  $("#new").onclick=()=>clientModal();
+  $("#ask").onclick=()=>openChat();
+  cards.onclick=e=>{const b=e.target.closest("[data-id]");if(b)clientModal(list.find(x=>x.id===b.dataset.id))};
+  rows.onclick=e=>{const b=e.target.closest("[data-id]");if(b)clientModal(list.find(x=>x.id===b.dataset.id))};
+}
 async function ensurePdfJs(){
   if(window.pdfjsLib)return window.pdfjsLib;
   throw new Error("No se pudo cargar el lector PDF. Recarga la página e inténtalo nuevamente.");

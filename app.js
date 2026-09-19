@@ -2135,6 +2135,15 @@ async function quoteModal(existing=null,preset=null){
     if(valid.some(x=>Number(x.qty)<=0||Number(x.price)<0))return toast("Revisa cantidades y precios.","err");
     if(valid.some(x=>x.type==="TRABAJO"&&!Number(x.price)))return toast("Cada trabajo debe tener precio.","err");
     if(valid.some(x=>Number(x.cost||0)<0||Number(x.transport||0)<0||Number(x.labor||0)<0||Number(x.other||0)<0))return toast("Los costos no pueden ser negativos.","err");
+    const localWarnings=[];
+    valid.forEach((x,i)=>{
+      if(!String(x.description||"").trim())localWarnings.push("Partida "+(i+1)+": falta una descripción.");
+      if(x.type==="TRABAJO" && !Number(x.labor||0) && !Number(x.transport||0) && !Number(x.other||0) && x.material_provider!=="CLIENT")localWarnings.push("Partida "+(i+1)+": no tiene costos internos registrados.");
+    });
+    if(localWarnings.length){
+      const proceed=confirm("M.A.R.C. detectó estas observaciones antes de guardar:\n\n• "+localWarnings.join("\n• ")+"\n\n¿Deseas guardar de todas formas?");
+      if(!proceed)return;
+    }
 
     const taxEnabled=d.get("tax_enabled")==="true";
     const taxRate=Number(d.get("tax_rate")||18);

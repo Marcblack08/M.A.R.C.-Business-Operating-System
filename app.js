@@ -16,7 +16,98 @@ async function clients(){const {data}=await S.from("marc_clients").select("*").e
 async function inventory(){const {data}=await S.from("marc_inventory").select("*").eq("user_id",st.u.id).eq("active",true).order("name");const c=$("#content");c.innerHTML=`<div class="head"><div><div class="eyebrow2">INVENTARIO</div><h1>Productos + stock.</h1><p>Todo producto vive dentro del inventario.</p></div><button id="new" class="primary">＋ Nuevo producto</button></div><section class="card table"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar producto…"></div><button id="ask" class="secondary">Preguntar</button></div><div class="scroll"><table class="data"><thead><tr><th>Producto</th><th>Marca/modelo</th><th>Stock</th><th>Precio</th><th>Estado</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></section>`;const rows=$("#rows"),draw=list=>rows.innerHTML=list.map(x=>{const s=Number(x.stock),m=Number(x.min_stock),cls=s<=0?"out":s<=m?"low":"ok";return`<tr><td><b>${esc(x.name)}</b><br><small>${esc(x.sku||"Sin código")}</small></td><td>${esc([x.brand,x.model].filter(Boolean).join(" · ")||"—")}</td><td><b>${s}</b> ${esc(x.unit)}</td><td>${money(x.price)}</td><td><span class="badge ${cls}">${s<=0?"Agotado":s<=m?"Bajo":"Disponible"}</span></td><td><button class="secondary" data-id="${x.id}">Editar</button></td></tr>`}).join("")||'<tr><td colspan="6" class="empty">Agrega tu primer producto.</td></tr>';draw(data||[]);$("#search").oninput=e=>{const q=e.target.value.toLowerCase();draw((data||[]).filter(x=>[x.name,x.sku,x.brand,x.model,x.category].some(v=>String(v||"").toLowerCase().includes(q))))};$("#new").onclick=()=>inventoryModal();$("#ask").onclick=openChat;$$("[data-id]",c).forEach(b=>b.onclick=()=>inventoryModal((data||[]).find(x=>x.id===b.dataset.id)))}
 async function quotes(){const {data,error}=await S.from("marc_quotes").select("*,marc_clients(name)").eq("user_id",st.u.id).order("created_at",{ascending:false});if(error)return toast(error.message,"err");const rows=data||[];const c=$("#content");c.innerHTML=`<div class="head"><div><div class="eyebrow2">COTIZACIONES</div><h1>Convierte una orden en propuesta.</h1><p>Productos del inventario y trabajos escritos o dictados.</p></div><button id="new" class="primary">＋ Nueva cotización</button></div><section class="card table"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar número, cliente o título…"></div><select id="statusFilter" class="secondary" style="min-width:130px"><option value="">Todos</option><option>BORRADOR</option><option>ENVIADA</option><option>ACEPTADA</option><option>RECHAZADA</option><option>ANULADA</option><option>COBRADA</option></select><button id="ask" class="secondary">Preguntar</button></div><div class="scroll"><table class="data"><thead><tr><th>Número</th><th>Cliente</th><th>Título</th><th>Estado</th><th>Total</th><th>Fecha</th><th></th></tr></thead><tbody id="qrows"></tbody></table></div></section>`;const body=$("#qrows");const draw=()=>{const q=($("#search").value||"").toLowerCase(),sf=$("#statusFilter").value;const list=rows.filter(x=>(!sf||x.status===sf)&&[x.number,x.title,x.marc_clients?.name].some(v=>String(v||"").toLowerCase().includes(q)));body.innerHTML=list.map(x=>`<tr><td><b>${esc(x.number)}</b></td><td>${esc(x.marc_clients?.name||"Sin cliente")}</td><td>${esc(x.title)}</td><td><span class="badge">${esc(x.status)}</span></td><td><b>${money(x.total)}</b></td><td>${new Date(x.created_at).toLocaleDateString("es-PE")}</td><td><button class="secondary" data-open="${x.id}">Abrir</button></td></tr>`).join("")||'<tr><td colspan="7" class="empty">No hay cotizaciones que coincidan.</td></tr>';$("[data-open]",c).forEach(b=>b.onclick=()=>quoteModal(rows.find(x=>x.id===b.dataset.open)))};$("#new").onclick=()=>quoteModal();$("#ask").onclick=openChat;$("#search").oninput=draw;$("#statusFilter").onchange=draw;draw()}
 async function communications(){const c=$("#content");c.innerHTML=`<div class="head"><div><div class="eyebrow2">COMUNICACIONES</div><h1>M.A.R.C. como centro de enlace.</h1><p>Las conexiones con Sakit, Q, Sumasa y Clover se activarán cuando sus contratos estén definidos.</p></div><button id="goChat" class="primary">✦ Preguntar</button></div><div class="commgrid">${["SAKIT","Q","SUMASA","CLOVER"].map(x=>`<section class="card comm"><h3>${x}</h3><p>Canal reservado. Falta definir autenticación, eventos, permisos y formato de mensajes.</p><span class="badge">Pendiente</span><div style="margin-top:10px"><button class="secondary" data-sys="${x}">Preparar conexión</button></div></section>`).join("")}</div><section class="card panel" style="margin-top:13px"><h3>Canales</h3><p>El mismo núcleo operará por web y Telegram.</p><div class="list"><div class="row"><div><b>Web</b><small>Chat dentro de M.A.R.C.</small></div><span class="badge ok">Activo</span></div><div class="row"><div><b>Telegram</b><small>Bot con la misma cuenta y suscripción.</small></div><span class="badge">Próximo</span></div></div></section>`;$("#goChat").onclick=openChat;$$("[data-sys]",c).forEach(b=>b.onclick=()=>{openChat();$("#chatInput").value="Quiero conectar "+b.dataset.sys;$("#chatInput").focus()})}
-async function settings(){const {data:a}=await S.from("marc_accounts").select("*").eq("id",st.u.id).single();$("#content").innerHTML=`<div class="head"><div><div class="eyebrow2">CONFIGURACIÓN</div><h1>Cuenta y producto.</h1><p>La suscripción, seguridad y preferencias viven aquí.</p></div></div><div class="settings"><section class="card panel"><div class="eyebrow2">M.A.R.C. PRO</div><h3 style="font-size:17px;margin:0">Prueba gratuita</h3><p>Web + chat + clientes + inventario + cotizaciones.</p><div class="quick"><div class="card panel"><b style="font-size:9px">7 días</b><small>Prueba</small></div><div class="card panel"><b style="font-size:9px">Telegram</b><small>Próximo</small></div></div><button class="primary" id="plans">Ver planes</button></section><section class="card panel"><div class="eyebrow2">CUENTA</div><h3 style="margin:0">${esc(a?.display_name||"Usuario")}</h3><p>${esc(st.u.email||"")}</p><button id="out2" class="secondary">Cerrar sesión</button></section></div>`;$("#out2").onclick=()=>S.auth.signOut();$("#plans").onclick=()=>toast("El checkout se conecta después de validar precios y proveedor de pago.","")}
+async function telegramStatus(){
+  try{
+    const r=await fetch("/api/telegram/status",{headers:{Authorization:"Bearer "+st.session?.access_token}});
+    const j=await r.json();
+    if(!r.ok)throw new Error(j.message||j.error||"No se pudo consultar Telegram.");
+    return j;
+  }catch(e){
+    return {error:e.message||"No se pudo consultar Telegram."};
+  }
+}
+async function connectTelegram(){
+  const b=$("#connectTelegram");
+  if(b)b.disabled=true;
+  try{
+    const r=await fetch("/api/telegram/link",{method:"POST",headers:{Authorization:"Bearer "+st.session?.access_token,"Content-Type":"application/json"}});
+    const j=await r.json();
+    if(!r.ok)throw new Error(j.message||j.error||"No se pudo generar el enlace.");
+    if(j.deepLink){
+      window.location.href=j.deepLink;
+      toast("Abriendo Telegram…","ok");
+    }
+  }catch(e){toast(e.message||"No se pudo conectar Telegram.","err")}
+  finally{if(b)b.disabled=false}
+}
+async function refreshTelegramSettings(){
+  const box=$("#telegramState"),connect=$("#connectTelegram"),unlink=$("#unlinkTelegram");
+  if(!box)return;
+  const s=await telegramStatus();
+  if(s.error){
+    box.innerHTML='<span class="badge">No disponible</span><small>'+esc(s.error)+'</small>';
+    return;
+  }
+  if(s.linked){
+    box.innerHTML='<span class="badge ok">Conectado</span><small>Telegram comparte tu cuenta, datos, suscripción y límites de M.A.R.C.</small>';
+    if(connect)connect.classList.add("hidden");
+    if(unlink)unlink.classList.remove("hidden");
+  }else{
+    box.innerHTML='<span class="badge">No conectado</span><small>Conéctalo una sola vez. No tendrás que pagar otra suscripción.</small>';
+    if(connect)connect.classList.remove("hidden");
+    if(unlink)unlink.classList.add("hidden");
+  }
+}
+async function unlinkTelegram(){
+  if(!confirm("¿Desconectar Telegram de esta cuenta?"))return;
+  try{
+    const r=await fetch("/api/telegram/unlink",{method:"POST",headers:{Authorization:"Bearer "+st.session?.access_token}});
+    const j=await r.json();
+    if(!r.ok)throw new Error(j.message||j.error||"No se pudo desconectar Telegram.");
+    toast("Telegram desconectado","ok");
+    await refreshTelegramSettings();
+  }catch(e){toast(e.message||"No se pudo desconectar.","err")}
+}
+async function settings(){
+  const {data:a}=await S.from("marc_accounts").select("*").eq("id",st.u.id).single();
+  const {data:sub}=await S.from("marc_subscriptions").select("plan,status,current_period_end,provider").eq("user_id",st.u.id).eq("status","active").order("current_period_end",{ascending:false}).limit(1).maybeSingle();
+  $("#content").innerHTML=`<div class="head"><div><div class="eyebrow2">CONFIGURACIÓN</div><h1>Cuenta y conexiones.</h1><p>La suscripción pertenece a tu cuenta M.A.R.C.; los canales solo la utilizan.</p></div></div>
+  <div class="settings">
+    <section class="card panel">
+      <div class="eyebrow2">SUSCRIPCIÓN</div>
+      <h3 style="font-size:17px;margin:0">${sub?"M.A.R.C. "+esc(sub.plan):"Prueba gratuita"}</h3>
+      <p>${sub?"Suscripción activa · "+esc(sub.provider||"Proveedor"): "Web + chat + clientes + inventario + cotizaciones."}</p>
+      <div class="quick">
+        <div class="card panel"><b style="font-size:9px">${sub?"ACTIVA":"7 DÍAS"}</b><small>${sub?"Mismo acceso en Web y Telegram":"Prueba"}</small></div>
+        <div class="card panel"><b style="font-size:9px">Telegram</b><small id="telegramMini">${sub?"Disponible al conectar":"Disponible al conectar"}</small></div>
+      </div>
+      <button class="primary" id="plans">Ver planes</button>
+    </section>
+    <section class="card panel">
+      <div class="eyebrow2">TELEGRAM</div>
+      <h3 style="margin:0">Una cuenta, dos canales.</h3>
+      <p>Compra en la web una sola vez. Después de vincular Telegram, M.A.R.C. reconoce la misma suscripción, clientes, inventario, cotizaciones y límites de IA.</p>
+      <div id="telegramState" class="list" style="margin:12px 0"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="primary" id="connectTelegram">Conectar Telegram</button>
+        <button class="secondary hidden" id="unlinkTelegram">Desconectar</button>
+        <button class="secondary" id="refreshTelegram">Actualizar estado</button>
+      </div>
+    </section>
+    <section class="card panel">
+      <div class="eyebrow2">CUENTA</div>
+      <h3 style="margin:0">${esc(a?.display_name||"Usuario")}</h3>
+      <p>${esc(st.u.email||"")}</p>
+      <button id="out2" class="secondary">Cerrar sesión</button>
+    </section>
+  </div>`;
+  $("#out2").onclick=()=>S.auth.signOut();
+  $("#plans").onclick=()=>toast("El checkout se conecta después de validar precios y proveedor de pago.","");
+  $("#connectTelegram").onclick=connectTelegram;
+  $("#unlinkTelegram").onclick=unlinkTelegram;
+  $("#refreshTelegram").onclick=refreshTelegramSettings;
+  await refreshTelegramSettings();
+}
 function modal(html){$("#modal").innerHTML='<div class="modal">'+html+"</div>";const close=()=>$("#modal").innerHTML="";return close}
 function clientModal(x=null){const close=modal(`<div class="modal-head"><div><h2>${x?"Editar":"Nuevo"} cliente</h2><p>Disponible para el contexto de M.A.R.C.</p></div><button class="close" id="x">×</button></div><form id="f"><div class="form-grid"><label>Nombre / razón social<input name="name" required value="${esc(x?.name)}"></label><label>Documento<input name="document_number" value="${esc(x?.document_number)}"></label><label>Contacto<input name="contact_name" value="${esc(x?.contact_name)}"></label><label>Teléfono<input name="phone" value="${esc(x?.phone)}"></label><label>Correo<input name="email" type="email" value="${esc(x?.email)}"></label><label>Dirección<input name="address" value="${esc(x?.address)}"></label><label style="grid-column:1/-1">Notas<textarea name="notes" rows="3">${esc(x?.notes)}</textarea></label></div><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Guardar</button></div></form>`);$("#x").onclick=close;$("#cancel").onclick=close;$("#f").onsubmit=async e=>{e.preventDefault();const d=new FormData(e.currentTarget),p={user_id:st.u.id,name:d.get("name").trim(),document_type:"OTRO",document_number:d.get("document_number")||null,contact_name:d.get("contact_name")||null,phone:d.get("phone")||null,email:d.get("email")||null,address:d.get("address")||null,notes:d.get("notes")||null,updated_at:new Date().toISOString()};const r=x?await S.from("marc_clients").update(p).eq("id",x.id).eq("user_id",st.u.id):await S.from("marc_clients").insert(p);if(r.error)return toast(r.error.message,"err");close();toast("Cliente guardado","ok");await trial();clients()}}
 function inventoryModal(x=null){const close=modal(`<div class="modal-head"><div><h2>${x?"Editar":"Nuevo"} producto</h2><p>Productos + inventario, juntos.</p></div><button class="close" id="x">×</button></div><form id="f"><div class="form-grid"><label>Nombre<input name="name" required value="${esc(x?.name)}"></label><label>Código / SKU<input name="sku" value="${esc(x?.sku)}"></label><label>Marca<input name="brand" value="${esc(x?.brand)}"></label><label>Modelo<input name="model" value="${esc(x?.model)}"></label><label>Categoría<input name="category" value="${esc(x?.category)}"></label><label>Unidad<input name="unit" value="${esc(x?.unit||"UND")}"></label><label>Costo<input name="cost" type="number" min="0" step="0.01" value="${x?.cost??0}"></label><label>Precio<input name="price" type="number" min="0" step="0.01" value="${x?.price??0}"></label><label>Stock<input name="stock" type="number" min="0" step="0.01" value="${x?.stock??0}"></label><label>Mínimo<input name="min_stock" type="number" min="0" step="0.01" value="${x?.min_stock??0}"></label></div><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Guardar</button></div></form>`);$("#x").onclick=close;$("#cancel").onclick=close;$("#f").onsubmit=async e=>{e.preventDefault();const d=new FormData(e.currentTarget),p={user_id:st.u.id,name:d.get("name").trim(),sku:d.get("sku")||null,brand:d.get("brand")||null,model:d.get("model")||null,category:d.get("category")||null,unit:d.get("unit")||"UND",cost:Number(d.get("cost")||0),price:Number(d.get("price")||0),stock:Number(d.get("stock")||0),min_stock:Number(d.get("min_stock")||0),updated_at:new Date().toISOString()};const r=x?await S.from("marc_inventory").update(p).eq("id",x.id).eq("user_id",st.u.id):await S.from("marc_inventory").insert(p);if(r.error)return toast(r.error.message,"err");close();toast("Producto guardado","ok");await trial();inventory()}}

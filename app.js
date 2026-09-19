@@ -107,6 +107,9 @@ async function chatSend(text){
   if(/^(caja|cierre de caja|cerrar caja|abrir caja)$/.test(normalized)){
     addBubble("u",raw); closeChat(); return cash();
   }
+  if(/^(publicidad|crear publicidad|marketing|banner)$/.test(normalized)){
+    addBubble("u",raw); closeChat(); return marketing();
+  }
 
   addBubble("u",raw);
   const inserted=await S.from("marc_messages").insert({
@@ -162,8 +165,8 @@ function closeChat(){
   $("#chat").classList.add("closed");
   $("#app").classList.add("chat-closed");
 }
-function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",quotes:"Cotizaciones",settings:"Configuración",cash:"Cierre de caja"}[x]||"Inicio";$$(".sidebar nav button, #mobileNav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
-async function view(x){st.view=x;title(x);$("#sidebar").classList.remove("open");document.body.style.overflow="";if(window.innerWidth<=780)window.scrollTo(0,0);$$(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x));if(x==="home")return home();if(x==="clients")return clients();if(x==="inventory")return inventory();if(x==="quotes")return quotes();if(x==="cash")return cash();return settings()}
+function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",quotes:"Cotizaciones",marketing:"Publicidad",settings:"Configuración",cash:"Cierre de caja"}[x]||"Inicio";$$(".sidebar nav button, #mobileNav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
+async function view(x){st.view=x;title(x);$("#sidebar").classList.remove("open");document.body.style.overflow="";if(window.innerWidth<=780)window.scrollTo(0,0);$$(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x));if(x==="home")return home();if(x==="clients")return clients();if(x==="inventory")return inventory();if(x==="quotes")return quotes();if(x==="marketing")return marketing();if(x==="cash")return cash();return settings()}
 async function home(){
   const c=$("#content");
   const [cl,iv,qt]=await Promise.all([
@@ -251,6 +254,7 @@ async function home(){
             <button data-q="client"><span class="quick-icon blue">＋</span><div><b>Nuevo cliente</b><small>Guardar un contacto</small></div><em>→</em></button>
             <button data-q="inventory"><span class="quick-icon cyan">＋</span><div><b>Nuevo producto</b><small>Agregar al inventario</small></div><em>→</em></button>
             <button data-q="quote"><span class="quick-icon violet">＋</span><div><b>Nueva cotización</b><small>Preparar una propuesta</small></div><em>→</em></button>
+            <button data-q="marketing"><span class="quick-icon blue">✦</span><div><b>Crear publicidad</b><small>Banner y mensajes con IA</small></div><em>→</em></button>
             <button data-q="chat"><span class="quick-icon dark">✦</span><div><b>Preguntar a M.A.R.C.</b><small>Ordenar o consultar</small></div><em>→</em></button>
             <button data-q="cash"><span class="quick-icon amber">▣</span><div><b>Cierre de caja</b><small>Abrir, registrar y cerrar</small></div><em>→</em></button>
           </div>
@@ -2090,6 +2094,130 @@ function downloadCashExcel(report){
   const filename="MARC_Cierre_Caja_"+report.start.getFullYear()+"-"+String(report.start.getMonth()+1).padStart(2,"0")+"_"+String(report.end.getFullYear())+"-"+String(report.end.getMonth()+1).padStart(2,"0")+".xlsx";
   XLSX.writeFile(wb,filename);
   toast("Excel generado correctamente","ok");
+}
+
+async function marketing(){
+  const {data:products,error}=await S.from("marc_inventory").select("id,name,sku,brand,model,category,price,stock,image_url").eq("user_id",st.u.id).eq("active",true).order("name").limit(1000);
+  if(error){toast(error.message,"err");return}
+  const list=products||[];
+  const saved=JSON.parse(localStorage.getItem("marc_marketing_last")||"null");
+  $("#content").innerHTML=`
+    <div class="head">
+      <div><div class="eyebrow2">CENTRO DE PUBLICIDAD</div><h1>Publicidad que sale de tu inventario.</h1><p>Selecciona un producto, define el objetivo y M.A.R.C. crea el texto comercial y un banner listo para descargar.</p></div>
+      <button class="secondary" id="marketingClear">Limpiar</button>
+    </div>
+    <div class="marketing-layout">
+      <section class="card panel marketing-form-card">
+        <div class="eyebrow2">1 · PRODUCTO Y CAMPAÑA</div>
+        <div class="form-grid">
+          <label>Producto del inventario
+            <select id="adProduct">${list.length?list.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}${p.sku?" · "+esc(p.sku):""}</option>`).join(""):'<option value="">No hay productos activos</option>'}</select>
+          </label>
+          <label>Plataforma
+            <select id="adPlatform"><option value="WHATSAPP">WhatsApp</option><option value="INSTAGRAM">Instagram</option><option value="FACEBOOK">Facebook</option><option value="TIKTOK">TikTok</option><option value="MARKETPLACE">Marketplace</option></select>
+          </label>
+          <label>Objetivo
+            <select id="adObjective"><option>VENDER</option><option>GENERAR CONSULTAS</option><option>PROMOCIONAR PRODUCTO</option><option>REACTIVAR CLIENTES</option></select>
+          </label>
+          <label>Tono
+            <select id="adTone"><option>PROFESIONAL</option><option>DIRECTO Y COMERCIAL</option><option>AMIGABLE</option><option>PREMIUM</option><option>URGENTE</option></select>
+          </label>
+          <label>Público objetivo<input id="adAudience" placeholder="Ej.: clientes de CCTV, hogares, empresas, técnicos…"></label>
+          <label>Oferta / precio especial<input id="adOffer" placeholder="Ej.: S/ 149.90 · instalación incluida"></label>
+          <label>CTA<input id="adCta" value="Escríbenos para cotizar"></label>
+          <label>Formato del banner<select id="adFormat"><option value="1080x1080">Cuadrado · 1:1</option><option value="1080x1350">Vertical · 4:5</option><option value="1080x1920">Historia · 9:16</option></select></label>
+        </div>
+        <label style="margin-top:10px">Detalles que quieres comunicar<textarea id="adDetails" rows="5" placeholder="Características, uso, instalación, condiciones, zona de atención, etc. No inventaremos datos que no escribas."></textarea></label>
+        <div class="marketing-photo-row">
+          <label class="file-btn secondary">📷 Foto para el banner<input id="adImage" type="file" accept="image/jpeg,image/png,image/webp" hidden></label>
+          <span id="adImageName">Se usará la foto del producto si existe.</span>
+        </div>
+        <div class="modal-actions" style="margin-top:12px"><button class="primary" id="generateAd" ${list.length?"":"disabled"}>✦ Crear publicidad con IA</button></div>
+        <div id="adStatus" class="msg"></div>
+      </section>
+      <section class="card panel marketing-preview-card">
+        <div class="eyebrow2">2 · BANNER PUBLICITARIO</div>
+        <div class="marketing-canvas-wrap"><canvas id="adCanvas" width="1080" height="1080"></canvas></div>
+        <div class="marketing-banner-actions"><button class="primary" id="downloadAd" disabled>↓ Descargar PNG</button><button class="secondary" id="copyBanner">Copiar texto</button></div>
+        <small id="bannerHint" class="muted-small">Genera una campaña para preparar el banner.</small>
+      </section>
+    </div>
+    <section class="card panel marketing-copy-card">
+      <div class="eyebrow2">3 · MENSAJES PUBLICITARIOS</div>
+      <div class="marketing-copy-grid">
+        <article><div class="marketing-copy-head"><b>Texto principal</b><button class="secondary" data-copy="primary_text">Copiar</button></div><p id="adPrimary">—</p></article>
+        <article><div class="marketing-copy-head"><b>WhatsApp</b><button class="secondary" data-copy="whatsapp_text">Copiar</button></div><p id="adWhatsapp">—</p></article>
+        <article><div class="marketing-copy-head"><b>Texto corto</b><button class="secondary" data-copy="short_text">Copiar</button></div><p id="adShort">—</p></article>
+        <article><div class="marketing-copy-head"><b>Hashtags</b><button class="secondary" data-copy="hashtags">Copiar</button></div><p id="adHashtags">—</p></article>
+      </div>
+    </section>
+    <section class="card panel marketing-history">
+      <div class="panel-title-row"><div><div class="eyebrow2">HISTORIAL</div><h3>Últimas campañas creadas</h3></div></div>
+      <div id="marketingHistory" class="marketing-history-list"><span class="muted-small">Cargando…</span></div>
+    </section>
+  `;
+
+  let currentCampaign=saved?.campaign||null,currentProduct=list.find(p=>p.id===saved?.productId)||list[0]||null,currentImage=null;
+  const $p=id=>document.getElementById(id);
+  const renderCanvas=async()=>{
+    const canvas=$p("adCanvas");if(!canvas||!currentProduct)return;
+    const [w,h]=($p("adFormat").value||"1080x1080").split("x").map(Number);canvas.width=w;canvas.height=h;
+    const ctx=canvas.getContext("2d");
+    const g=ctx.createLinearGradient(0,0,w,h);g.addColorStop(0,"#071a32");g.addColorStop(.58,"#0b4c91");g.addColorStop(1,"#18a5ee");ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
+    ctx.fillStyle="rgba(255,255,255,.08)";ctx.beginPath();ctx.arc(w*.86,h*.12,Math.min(w,h)*.24,0,Math.PI*2);ctx.fill();
+    let img=null;const src=currentImage||currentProduct.image_url;
+    if(src){try{img=await new Promise((resolve,reject)=>{const im=new Image();im.crossOrigin="anonymous";im.onload=()=>resolve(im);im.onerror=reject;im.src=src})}catch{}}
+    if(img){
+      const boxW=w*.82,boxH=h*.43,scale=Math.min(boxW/img.width,boxH/img.height),iw=img.width*scale,ih=img.height*scale,x=(w-iw)/2,y=h*.12+(boxH-ih)/2;
+      ctx.fillStyle="rgba(255,255,255,.95)";ctx.roundRect?.(x-18,y-18,iw+36,ih+36,28);if(!ctx.roundRect)ctx.fillRect(x-18,y-18,iw+36,ih+36);ctx.drawImage(img,x,y,iw,ih);
+    }else{
+      ctx.fillStyle="rgba(255,255,255,.12)";ctx.beginPath();ctx.roundRect?.(w*.12,h*.12,w*.76,h*.38,30);if(!ctx.roundRect)ctx.fillRect(w*.12,h*.12,w*.76,h*.38);ctx.font="900 "+Math.round(Math.min(w,h)*.09)+"px Inter";ctx.fillStyle="#fff";ctx.textAlign="center";ctx.fillText("M.A.R.C.",w/2,h*.32);
+    }
+    ctx.textAlign="left";ctx.fillStyle="#8ee4ff";ctx.font="800 "+Math.round(Math.min(w,h)*.026)+"px Inter";ctx.fillText("PUBLICIDAD · M.A.R.C.",w*.08,h*.61);
+    const banner=String(currentCampaign?.banner_text||currentCampaign?.headline||currentProduct.name||"Tu producto").split(/\n/).slice(0,3);
+    ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*.065)+"px Inter";
+    let y=h*.68;banner.forEach(line=>{const words=line.split(" "),lines=[];let row="";const max=w*.84;for(const word of words){const test=row?row+" "+word:word;if(ctx.measureText(test).width>max&&row){lines.push(row);row=word}else row=test}if(row)lines.push(row);lines.slice(0,3).forEach(t=>{ctx.fillText(t,w*.08,y);y+=Math.round(Math.min(w,h)*.073)})});
+    if(currentProduct.price!=null&&currentProduct.price!==""){ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*.038)+"px Inter";ctx.fillText(money(currentProduct.price),w*.08,h*.89)}
+    ctx.fillStyle="#d9efff";ctx.font="700 "+Math.round(Math.min(w,h)*.022)+"px Inter";ctx.fillText(String(currentCampaign?.title||currentProduct.name).slice(0,55),w*.08,h*.94);
+    ctx.fillStyle="#fff";ctx.fillRect(w*.69,h*.87,w*.23,h*.07);ctx.fillStyle="#1269c9";ctx.font="900 "+Math.round(Math.min(w,h)*.021)+"px Inter";ctx.textAlign="center";ctx.fillText(String($p("adCta").value||"Escríbenos").slice(0,24),w*.805,h*.915);ctx.textAlign="left";
+  };
+  const setCampaign=async campaign=>{
+    currentCampaign=campaign||null;
+    $p("adPrimary").textContent=campaign?.primary_text||"—";$p("adWhatsapp").textContent=campaign?.whatsapp_text||"—";$p("adShort").textContent=campaign?.short_text||"—";$p("adHashtags").textContent=(campaign?.hashtags||[]).join(" ");
+    await renderCanvas();$p("downloadAd").disabled=!campaign;
+    if(campaign)localStorage.setItem("marc_marketing_last",JSON.stringify({campaign,productId:currentProduct?.id}));
+  };
+  $p("adProduct").onchange=async()=>{currentProduct=list.find(p=>p.id===$p("adProduct").value)||list[0];currentImage=null;await renderCanvas()};
+  $p("adFormat").onchange=renderCanvas;
+  $p("adImage").onchange=async e=>{const f=e.target.files?.[0];if(!f)return;currentImage=URL.createObjectURL(f);$p("adImageName").textContent=f.name;await renderCanvas()};
+  $p("adCta").oninput=renderCanvas;
+  $p("generateAd").onclick=async()=>{
+    const status=$p("adStatus"),btn=$p("generateAd");btn.disabled=true;status.className="msg";status.textContent="M.A.R.C. está creando la campaña…";
+    try{
+      currentProduct=list.find(p=>p.id===$p("adProduct").value)||list[0];
+      const r=await fetch("/api/marketing-ai",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({product:currentProduct,platform:$p("adPlatform").value,objective:$p("adObjective").value,tone:$p("adTone").value,audience:$p("adAudience").value,offer:$p("adOffer").value,details:$p("adDetails").value,cta:$p("adCta").value})});
+      const j=await r.json();if(!r.ok)throw new Error(j.message||j.error||"No se pudo crear la publicidad.");
+      await setCampaign(j.campaign);await saveMarketingCampaign(j.campaign,currentProduct,$p);
+      status.className="msg ok";status.textContent="Publicidad creada. El banner y los textos están listos.";
+    }catch(e){status.className="msg error";status.textContent=e.message||"No se pudo generar."}finally{btn.disabled=false}
+  };
+  $p("downloadAd").onclick=()=>{if(!currentCampaign)return;const a=document.createElement("a");a.href=$p("adCanvas").toDataURL("image/png");a.download="MARC_Publicidad_"+String(currentProduct?.name||"producto").replace(/[^a-z0-9áéíóúñü]+/gi,"-").slice(0,50)+".png";a.click()};
+  $p("copyBanner").onclick=async()=>{const text=currentCampaign?.banner_text||currentCampaign?.headline||"";if(!text)return toast("Primero genera una publicidad.","err");await navigator.clipboard?.writeText(text);toast("Texto del banner copiado","ok")};
+  $("[data-copy]").forEach(b=>b.onclick=async()=>{const key=b.dataset.copy,val=key==="hashtags"?(currentCampaign?.hashtags||[]).join(" "):currentCampaign?.[key]||"";if(!val)return toast("No hay texto para copiar.","err");await navigator.clipboard?.writeText(val);toast("Texto copiado","ok")});
+  $p("marketingClear").onclick=()=>setCampaign(null);
+  await renderMarketingHistory();
+  if(currentProduct){$p("adProduct").value=currentProduct.id;await renderCanvas()}
+  if(saved?.campaign)setCampaign(saved.campaign);
+}
+async function saveMarketingCampaign(campaign,product,$p){
+  const row={user_id:st.u.id,inventory_id:product?.id||null,product_name:product?.name||"Producto",platform:$p("adPlatform").value,objective:$p("adObjective").value,tone:$p("adTone").value,audience:$p("adAudience").value,offer:$p("adOffer").value,details:$p("adDetails").value,cta:$p("adCta").value,title:campaign.title,headline:campaign.headline,primary_text:campaign.primary_text,short_text:campaign.short_text,whatsapp_text:campaign.whatsapp_text,banner_text:campaign.banner_text,hashtags:JSON.stringify(campaign.hashtags||[])};
+  const {error}=await S.from("marc_ad_campaigns").insert(row);if(error)toast("La campaña se creó, pero no se pudo guardar el historial.","err");
+}
+async function renderMarketingHistory(){
+  const box=$("#marketingHistory");if(!box)return;
+  const {data,error}=await S.from("marc_ad_campaigns").select("id,product_name,platform,title,created_at").eq("user_id",st.u.id).order("created_at",{ascending:false}).limit(10);
+  if(error){box.innerHTML='<span class="muted-small">No se pudo cargar el historial.</span>';return}
+  box.innerHTML=data?.length?data.map(x=>'<div class="marketing-history-row"><div><b>'+esc(x.title||x.product_name)+'</b><small>'+esc(x.product_name)+' · '+esc(x.platform)+' · '+new Date(x.created_at).toLocaleString("es-PE")+'</small></div></div>').join(""):'<span class="muted-small">Aún no hay campañas.</span>';
 }
 
 async function settings(){

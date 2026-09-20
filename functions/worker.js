@@ -583,6 +583,40 @@ async function telegramWebhook(request,env,ctx){
     return sb(env,adminToken,path);
   };
   const moneyText=n=>new Intl.NumberFormat("es-PE",{style:"currency",currency:"PEN"}).format(Number(n||0));
+  // Consultas sobre el último cierre: responden directamente desde los movimientos reales, sin pasar por Gemini.
+  if(/\b(ultimo|ultima|reciente)\b.*\b(cierre|caja)\b/.test(simple) && /\b(movimiento|movimientos|ingreso|ingresos|egreso|egresos|gasto|gastos|venta|ventas)\b/.test(simple)){
+    try{
+      const closedRows=await cashRows("CLOSED",1);
+      const last=closedRows?.[0];
+      if(!last){
+        await sendTelegram(env,chatId,"▣ No encuentro ningún cierre de caja registrado todavía.");
+        return json({ok:true,fastPath:"cash_last_close",found:false},200);
+      }
+      const mv=await sb(env,adminToken,"marc_cash_movements?select=*&user_id=eq."+encodeURIComponent(userId)+"&cash_register_id=eq."+encodeURIComponent(last.id)+"&order=created_at.asc");
+      const movements=Array.isArray(mv)?mv:[];
+      const income=movements.filter(x=>String(x.type||"").toUpperCase()==="INCOME").reduce((s,x)=>s+Number(x.amount||0),0);
+      const expense=movements.filter(x=>String(x.type||"").toUpperCase()==="EXPENSE").reduce((s,x)=>s+Number(x.amount||0),0);
+      const opening=Number(last.opening_amount||0);
+      const expected=Number(last.expected_amount??(opening+income-expense));
+      const counted=Number(last.closing_amount??last.counted_amount??0);
+      const difference=Number(last.difference??(counted-expected));
+      const when=last.closed_at||last.updated_at||last.opened_at;
+      const lines=["▣ ÚLTIMO CIERRE DE CAJA","",when?"📅 "+new Date(when).toLocaleString("es-PE"):"","💵 Apertura: "+moneyText(opening),"📥 Ingresos: "+moneyText(income),"📤 Egresos: "+moneyText(expense),"💰 Esperado: "+moneyText(expected),"🧾 Contado: "+moneyText(counted),"↕ Diferencia: "+moneyText(difference),"","Movimientos: "+movements.length];
+      if(movements.length){
+        lines.push(...movements.slice(0,30).map(x=>{
+          const type=String(x.type||"").toUpperCase()==="INCOME"?"📥":"📤";
+          const concept=String(x.concept||x.description||x.notes||"Movimiento de caja").trim();
+          return type+" "+moneyText(x.amount)+" · "+concept;
+        }));
+        if(movements.length>30)lines.push("… y "+(movements.length-30)+" movimientos más.");
+      }else lines.push("Sin movimientos registrados en ese cierre.");
+      await sendTelegram(env,chatId,lines.filter(Boolean).join("\n"));
+      return json({ok:true,fastPath:"cash_last_close",found:true,movements:movements.length},200);
+    }catch(err){
+      await sendTelegram(env,chatId,"⚠️ No pude consultar los movimientos del último cierre de caja. Inténtalo nuevamente.");
+      return json({ok:true,fastPath:"cash_last_close_error"},200);
+    }
+  }
   if(/^(\/resumen|resumen|resumen general|estado general|mi negocio)$/.test(simple)){
     const [inv,quotes,openRows]=await Promise.all([
       sb(env,adminToken,"marc_inventory?select=id,stock,min_stock,active&user_id=eq."+encodeURIComponent(userId)+"&active=eq.true"),

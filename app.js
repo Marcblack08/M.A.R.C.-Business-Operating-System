@@ -2984,30 +2984,7 @@ function wire(){
       return;
     }
 
-    // En una visita normal no existe todavía una sesión: no mostramos
-    // un error rojo. Si venimos de Google, esperamos al evento SIGNED_IN
-    // en lugar de depender de una ventana fija de 900 ms.
-    if(!oauthPending){
-      return;
-    }
-
-    const session=await new Promise(resolve=>{
-      const started=Date.now();
-      const poll=()=>{
-        if(authListenerSession?.user)return resolve(authListenerSession);
-        if(Date.now()-started>=10000)return resolve(null);
-        setTimeout(poll,200);
-      };
-      poll();
-    });
-
-    if(session?.user){
-      sessionStorage.removeItem("marc_google_oauth_pending");
-      cleanAuthUrl();
-      await handleAuthSession(session);
-      return;
-    }
-
+    await new Promise(r=>setTimeout(r,900));
     const retry=await S.auth.getSession();
     if(retry.error)throw retry.error;
     if(retry.data?.session){
@@ -3019,9 +2996,9 @@ function wire(){
 
     const fresh=authCallbackParams();
     const failure=describeAuthFailure(fresh.search,fresh.hash);
-    sessionStorage.removeItem("marc_google_oauth_pending");
-    msg(authDiag("Google volvió a M.A.R.C., pero no se pudo recuperar la sesión",failure),"error");
+    msg(authDiag(oauthPending?"Google volvió a M.A.R.C. pero la sesión no quedó disponible":"No hay una sesión activa",oauthPending?failure:"Inicia sesión con Google para continuar"),"error");
   };
+
   bootAuth().catch(e=>{
     console.error("[M.A.R.C. auth error]",e);
     msg(authDiag("Error de autenticación",e?.message||"Error desconocido"),"error");

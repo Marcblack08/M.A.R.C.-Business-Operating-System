@@ -490,12 +490,23 @@ async function plan(env,message,history,entityContext={},contextToken="",context
     const found=await getQuoteForEdit(env,contextToken,contextUserId,ref);
     if(found.status==="NOT_FOUND")return {action:"CHAT",execute:false,params:{clarification:"No encontré la cotización "+ref+"."}};
     const rawAdd=String(message||"").replace(new RegExp("\\b"+ref+"\\b","i"),"").replace(/\b(?:agrega|añade|anade|incluye|suma)\b/i,"").replace(/\b(?:a|en)\s+(?:la\s+)?(?:cotizacion|proforma|presupuesto)\s*$/i,"").trim();
-    const pm=rawAdd.match(/^(.*?)\s+(?:por|a)\s+(?:s\/\.?\s*)?(\d+(?:[.,]\d{1,2})?)\s*(?:soles?)?$/i);
-    if(!pm)return {action:"CHAT",execute:false,params:{clarification:"Indícame también el precio de la nueva partida, por ejemplo: «agrega instalación por 300 a la cotización "+ref+"»."}};
-    const name=pm[1].trim(),value=Number(pm[2].replace(",",".")); 
+    const pm=rawAdd.match(/^(?:(\d+(?:[.,]\d+)?)\s+(?:unidades?|uds?|und|piezas?|metros?|horas?)\s+)?(.+?)\s+(?:por|a)\s+(?:s\/\.?\s*)?(\d+(?:[.,]\d{1,2})?)\s*(?:soles?)?$/i);
+    if(!pm)return {action:"CHAT",execute:false,params:{clarification:"Indícame la partida y el precio, por ejemplo: «agrega 3 cámaras Hikvision por 280 a la cotización "+ref+"»."}};
+    const quantity=Math.max(1,Number(String(pm[1]||"1").replace(",",".")));
+    const name=String(pm[2]||"").trim();
+    const value=Number(String(pm[3]||"").replace(",","."));
     if(!name||!Number.isFinite(value)||value<=0)return {action:"CHAT",execute:false,params:{clarification:"Necesito un nombre de partida y un precio válido."}};
     const items=found.items.map(x=>({type:String(x.item_type||"TRABAJO").toUpperCase(),inventory_id:x.inventory_id||null,name:x.name||"Partida",description:x.description||null,quantity:Number(x.quantity||1),unit:x.unit||"UND",unit_price:Number(x.unit_price||0),cost:Number(x.cost||0)}));
-    items.push({type:"TRABAJO",name:name.slice(0,180),description:name.slice(0,2000),quantity:1,unit:"UND",unit_price:value});
+    const inv=await resolveInventory(env,contextToken,contextUserId,name);
+    if(inv.status==="FOUND"){
+      const it=inv.item;
+      items.push({type:"PRODUCTO",inventory_id:it.id,name:it.name,description:null,quantity,unit:it.unit||"UND",unit_price:value,cost:Number(it.cost||0)});
+    }else if(inv.status==="AMBIGUOUS"){
+      const opts=(inv.options||[]).map((x,i)=>(i+1)+". "+String(x.name||"Producto")+" — S/ "+Number(x.price||0).toFixed(2)).join("\n");
+      return {action:"CHAT",execute:false,params:{clarification:"Encontré varios productos para «"+name+"»:\n"+opts+"\n\nIndícame cuál deseas agregar."}};
+    }else{
+      items.push({type:"TRABAJO",name:name.slice(0,180),description:name.slice(0,2000),quantity,unit:"UND",unit_price:value});
+    }
     return {action:"UPDATE_QUOTE",execute:false,params:{quote_id:found.quote.id,quote_number:found.quote.number,client_query:found.quote.client_id||"",client_name:found.client?.name||"",title:found.quote.title||"Cotización",items,tax_enabled:found.quote.tax_enabled!==false,tax_rate:Number(found.quote.tax_rate||18),tax_included:false,prices_are_net:true,notes:found.quote.notes||null,status:found.quote.status||"BORRADOR"}};
   }
 const editQuoteMatch=s.match(/\b(?:modifica|modificar|edita|editar|abre|abrir|actualiza|actualizar)\b[\s\S]{0,40}?(?:cotizacion|proforma|presupuesto)\s+(COT-\d{6}-\d{4})/i);

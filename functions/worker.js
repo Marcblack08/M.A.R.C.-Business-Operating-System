@@ -509,7 +509,7 @@ async function plan(env,message,history,entityContext={},contextToken="",context
   }
   // Cotización estructurada: si la orden ya trae cliente y partidas, evitamos Gemini
   // y reutilizamos el flujo seguro de confirmación.
-  const quoteCommand=/^(?:crea|crear|haz|hacer|prepara|preparar|genera|generar|cotiza|cotizar|elabora|elaborar)\s+(?:una\s+)?(?:cotizacion|cotización|proforma|presupuesto)\b/i.test(String(message||"").trim());
+  const quoteCommand=/^(?:crea|crear|creemos|creemos|haz|hacer|hagamos|prepara|preparar|genera|generar|cotiza|cotizar|elabora|elaborar)\s+(?:una\s+)?(?:cotizacion|cotización|proforma|presupuesto)\b/i.test(String(message||"").trim());
   if(quoteCommand){
     const rawMessage=String(message||"").trim();
     // Detecta el tratamiento fiscal solicitado en lenguaje natural.
@@ -521,7 +521,9 @@ async function plan(env,message,history,entityContext={},contextToken="",context
     const taxRate=taxRateMatch?Number(taxRateMatch[1].replace(",",".")):18;
 
     let clientQuery="";
-    const clientMatch=rawMessage.match(/\b(?:para|cliente)\s+(.+?)(?=\s+(?:por|a|precio|costo|total|de|con)\s+|\s*[:,-]\s*|$)/i);
+    let clientMatch=rawMessage.match(/\b(?:para|cliente)\s+(?:es\s+|:\s*)?(.+?)(?=\s+(?:por|a|precio|costo|total)\s+|\s*[:,-]\s*|$)/i);
+    // "el cliente es ..." suele venir al final de la orden.
+    if(!clientMatch)clientMatch=rawMessage.match(/\bcliente\s+es\s+(.+?)\s*$/i);
     if(clientMatch)clientQuery=clientMatch[1].trim();
     if(!clientQuery)return {action:"CHAT",execute:false,params:{clarification:"Con gusto. ¿Para qué cliente desea preparar la cotización?"}};
 
@@ -533,7 +535,8 @@ async function plan(env,message,history,entityContext={},contextToken="",context
 
     let body=rawMessage
       .replace(/^(?:crea|crear|haz|hacer|prepara|preparar|genera|generar|cotiza|cotizar|elabora|elaborar)\s+(?:una\s+)?(?:cotizacion|cotización|proforma|presupuesto)\s*/i,"")
-      .replace(/\b(?:para|cliente)\s+.+?(?=\s+(?:por|a|precio|costo|total|de|con)\s+|\s*[:,-]\s*|$)/i,"")
+      .replace(/\b(?:para|cliente)\s+(?:es\s+|:\s*)?.+?(?=\s+(?:por|a|precio|costo|total|de|con)\s+|\s*[:,-]\s*|$)/i,"")
+      .replace(/\bcliente\s+es\s+.+?$/i,"")
       .replace(/\s+/g," ").trim();
 
     // Separadores naturales de partidas: coma, punto y coma o "y".

@@ -823,16 +823,29 @@ async function telegramWebhook(request,env,ctx){
     conversation_id:conversationId,user_id:userId,role:"USER",content:incoming,action_type:"TELEGRAM",
     action_payload:{telegram_update_id:update.update_id,telegram_user_id:externalUserId}
   }});
-  const history=await recentMessages(env,adminToken,userId,conversationId);
-  const pl=await plan(env,incoming,history);
-  const executed=await executePlan(env,adminToken,{id:userId},pl,"TELEGRAM");
-  await incrementAiUsage(env,adminToken,userId,access);
-  const answer=await finalReply(env,incoming,{plan:pl,execution:executed,entitlement:access});
+  let pl=null,executed=null,answer="";
+  try{
+    const history=await recentMessages(env,adminToken,userId,conversationId);
+    pl=await plan(env,incoming,history);
+    executed=await executePlan(env,adminToken,{id:userId},pl,"TELEGRAM");
+    await incrementAiUsage(env,adminToken,userId,access);
+    answer=String(await finalReply(env,incoming,{plan:pl,execution:executed,entitlement:access})||"").trim();
+  }catch(err){
+    const detail=String(err?.message||"").toLowerCase();
+    if(/gemini|modelo|api|temporar|timeout|fetch/.test(detail)){
+      answer="🤖 M.A.R.C.\n\nEstoy teniendo una demora con el análisis inteligente. Las consultas rápidas de caja, inventario, clientes y cotizaciones siguen disponibles.\n\nIntenta nuevamente en unos segundos.";
+    }else if(/permission|forbidden|unauthorized|rls/.test(detail)){
+      answer="⚠️ M.A.R.C. no pudo acceder temporalmente a esos datos. Tu cuenta sigue conectada; vuelve a intentarlo.";
+    }else{
+      answer="⚠️ No pude completar esa consulta ahora. Prueba con algo como «revisa mi caja», «busca a Delgado» o «muestra mi inventario».";
+    }
+  }
+  if(!answer)answer="Listo. ¿Qué necesitas revisar?";
   await sb(env,adminToken,"marc_messages",{method:"POST",body:{
-    conversation_id:conversationId,user_id:userId,role:"ASSISTANT",content:answer,action_type:executed.action,
-    action_payload:{channel:"TELEGRAM",result:executed.result||null}
-  }});
-  await sb(env,adminToken,"marc_conversations?id=eq."+encodeURIComponent(conversationId)+"&user_id=eq."+encodeURIComponent(userId),{
+    conversation_id:conversationId,user_id:userId,role:"ASSISTANT",content:answer,action_type:executed?.action||"CHAT",
+    action_payload:{channel:"TELEGRAM",result:executed?.result||null}
+  }}).catch(()=>{});
+  await sb(env,adminToken,"marc_conversations?id="+encodeURIComponent(conversationId)+"&user_id="+encodeURIComponent(userId),{
     method:"PATCH",body:{updated_at:new Date().toISOString()}
   }).catch(()=>{});
   await sendTelegram(env,chatId,answer);

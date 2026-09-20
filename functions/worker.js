@@ -572,6 +572,7 @@ async function plan(env,message,history,entityContext={},contextToken="",context
     return {action:"CREATE_QUOTE",execute:false,params:{
       client_query:client.id,
       client_id:client.id,
+      client_name:String(client.name||clientQuery),
       title:"Cotización · "+String(client.name||clientQuery),
       items
     }};
@@ -658,7 +659,7 @@ async function finalReply(env,message,planData,userName=""){
       const igv=taxEnabled?subtotal*taxRate/100:0;
       const total=subtotal+igv;
       const rows=items.map((x,i)=>"• "+(i+1)+". "+String(x.name||x.description||"Partida")+" · "+Number(x.quantity||1)+" × S/ "+Number(x.unit_price||0).toFixed(2)+" = S/ "+(Number(x.quantity||1)*Number(x.unit_price||0)).toFixed(2));
-      return "⚠️ PREPARÉ ESTA COTIZACIÓN\n\n👤 Cliente: "+String(p.client_query||"seleccionado")+"\n🧾 "+String(p.title||"Cotización")+"\n\n"+(rows.length?rows.join("\n"):"• Falta agregar una partida")+
+      return "⚠️ PREPARÉ ESTA COTIZACIÓN\n\n👤 Cliente: "+String(p.client_name||p.client_query||"seleccionado")+"\n🧾 "+String(p.title||"Cotización")+"\n\n"+(rows.length?rows.join("\n"):"• Falta agregar una partida")+
         "\n\nSubtotal: S/ "+subtotal.toFixed(2)+"\n"+(taxEnabled?"IGV "+taxRate+"%: S/ "+igv.toFixed(2)+"\n":"IGV: No incluido\n")+"💰 TOTAL: S/ "+total.toFixed(2)+
         "\n\nResponde «sí» para crearla, «agrega ...» para añadir otra partida, o «cancelar» para no realizar cambios.";
     }

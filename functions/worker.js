@@ -1496,8 +1496,18 @@ async function telegramWebhook(request,env,ctx){
     const conversationId=await ensureTelegramConversation(env,adminToken,userId);
     const ctxMem=await getConversationContext(env,adminToken,userId,conversationId);
     const pending=ctxMem?.pending_action;
-    if(pending?.action==="CREATE_QUOTE" && pending?.params){
+    if(pending?.params){
       const text=String(incoming||"").trim();
+      const fiscalNoTax=/\b(?:sin|no)\s+(?:igv|igb|impuesto)\b|\bno\s+incluyas?\s+(?:igv|igb|impuesto)\b/i.test(text);
+      const fiscalWithTax=/\b(?:con|incluye|incluido)\s+(?:el\s+)?(?:igv|igb|impuesto)\b/i.test(text);
+      if(pending.action==="CREATE_CLIENT" && pending.params._next_quote && (fiscalNoTax||fiscalWithTax)){
+        const nextQuote={...pending.params._next_quote,tax_enabled:!fiscalNoTax,tax_included:fiscalWithTax};
+        const next={...ctxMem,pending_action:{...pending,params:{...pending.params,_next_quote:nextQuote}}};
+        await saveConversationContext(env,adminToken,userId,conversationId,next);
+        await sendTelegram(env,chatId,"🧾 Actualicé el tratamiento del impuesto en la cotización encadenada: "+(fiscalNoTax?"sin IGV.":"IGV incluido.")+"\n\nResponde «sí» para continuar.");
+        return json({ok:true,fastPath:"client_quote_tax"},200);
+      }
+      if(pending.action==="CREATE_QUOTE" && pending.params){
       if(/\b(?:sin|no)\s+igv\b|\bno\s+incluyas?\s+igv\b|\bsin\s+igb\b|\bno\s+incluyas?\s+igb\b|\bsin\s+impuesto\b|\bno\s+incluyas?\s+impuesto\b/i.test(text)){
         const next={...ctxMem,pending_action:{...pending,params:{...pending.params,tax_enabled:false}}};
         await saveConversationContext(env,adminToken,userId,conversationId,next);
@@ -1510,6 +1520,7 @@ async function telegramWebhook(request,env,ctx){
         await saveConversationContext(env,adminToken,userId,conversationId,next);
         await sendTelegram(env,chatId,"🧾 IGV 18% incluido. Responde «sí» para crear la cotización o agrega otra partida.");
         return json({ok:true,fastPath:"quote_add_tax"},200);
+      }
       }
     }
   }

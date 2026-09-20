@@ -507,38 +507,73 @@ async function plan(env,message,history,entityContext={},contextToken="",context
       }
     }
   }
-  // Cotización estructurada: cuando el mensaje ya contiene cliente, trabajo y precio,
-  // evitamos Gemini y pasamos directamente al flujo seguro de confirmación.
+  // Cotización estructurada: si la orden ya trae cliente y partidas, evitamos Gemini
+  // y reutilizamos el flujo seguro de confirmación.
   const quoteCommand=/^(?:crea|crear|haz|hacer|prepara|preparar|genera|generar|cotiza|cotizar|elabora|elaborar)\\s+(?:una\\s+)?(?:cotizacion|cotización|proforma|presupuesto)\\b/i.test(String(message||"").trim());
   if(quoteCommand){
     const rawMessage=String(message||"").trim();
     let clientQuery="";
     const clientMatch=rawMessage.match(/\\b(?:para|cliente)\\s+(.+?)(?=\\s+(?:por|a|precio|costo|total|de|con)\\s+|\\s*[:,-]\\s*|$)/i);
     if(clientMatch)clientQuery=clientMatch[1].trim();
-    const priceMatches=[...rawMessage.matchAll(/(?:\\ba\\s+|\\bpor\\s+|\\bprecio\\s*[:=]?\\s*|\\bcosto\\s*[:=]?\\s*|\\btotal\\s*[:=]?\\s*|\\bs\\/\\.?\\s*)(\\d+(?:[.,]\\d{1,2})?)/gi)];
-    const price=priceMatches.length?Number(priceMatches[priceMatches.length-1][1].replace(",",".")):null;
-    let description=rawMessage
+    if(!clientQuery)return {action:"CHAT",execute:false,params:{clarification:"Con gusto. ¿Para qué cliente desea preparar la cotización?"}};
+
+    const hit=await resolveOneClient(env,contextToken,contextUserId,clientQuery).catch(()=>null);
+    if(hit?.status==="AMBIGUOUS")return {action:"CHAT",execute:false,params:{clarification:"Encontré varios clientes para «"+clientQuery+"». Indícame cuál desea usar."}};
+    if(hit?.status==="NOT_FOUND")return {action:"CHAT",execute:false,params:{clarification:"No encontré al cliente «"+clientQuery+"». Indícame el nombre exacto o primero registra al cliente."}};
+    const client=hit?.client;
+    if(!client)return {action:"CHAT",execute:false,params:{clarification:"No pude identificar al cliente. Indícame el nombre exacto, por favor."}};
+
+    let body=rawMessage
       .replace(/^(?:crea|crear|haz|hacer|prepara|preparar|genera|generar|cotiza|cotizar|elabora|elaborar)\\s+(?:una\\s+)?(?:cotizacion|cotización|proforma|presupuesto)\\s*/i,"")
       .replace(/\\b(?:para|cliente)\\s+.+?(?=\\s+(?:por|a|precio|costo|total|de|con)\\s+|\\s*[:,-]\\s*|$)/i,"")
-      .replace(/(?:\\bpor\\s+|\\ba\\s+|\\bprecio\\s*[:=]?\\s*|\\bcosto\\s*[:=]?\\s*|\\btotal\\s*[:=]?\\s*|\\bs\\/\\.?\\s*)\\d+(?:[.,]\\d{1,2})?/gi,"")
       .replace(/\\s+/g," ").trim();
-    // Si hay una estructura inequívoca pero falta cliente, pedimos únicamente ese dato.
-    if(!clientQuery){
-      return {action:"CHAT",execute:false,params:{clarification:"Con gusto. ¿Para qué cliente desea preparar la cotización?"}};
+
+    // Separadores naturales de partidas: coma, punto y coma o "y".
+    // "y" solo separa cuando viene después de una partida ya expresada.
+    const rawParts=body.split(/\\s*[,;]\\s*|\\s+\\by\\b\\s+/i).map(x=>x.trim()).filter(Boolean);
+    const parts=rawParts.length?rawParts:[body];
+    const items=[];
+    for(const part of parts){
+      let textPart=part.trim();
+      if(!textPart)continue;
+
+      const qtyMatch=textPart.match(/^(\\d+(?:[.,]\\d+)?)\\s+(?=\\S)/);
+      const quantity=qtyMatch?Number(qtyMatch[1].replace(",",".")):1;
+      if(qtyMatch)textPart=textPart.slice(qtyMatch[0].length).trim();
+
+      let price=null;
+      let priceMatch=textPart.match(/(?:\\b(?:a|por|precio|costo|total)\\s*[:=]?\\s*|\\bs\\/\\.?\\s*)(\\d+(?:[.,]\\d{1,2})?)(?:\\s*(?:soles?|pen))?\\s*$/i);
+      if(priceMatch){
+        price=Number(priceMatch[1].replace(",","."));
+        textPart=textPart.slice(0,priceMatch.index).trim();
+      }else{
+        // También acepta "mano de obra 300" o "instalación 850" al final.
+        const trailing=textPart.match(/(?:\\s|^)\\b(\\d+(?:[.,]\\d{1,2})?)\\s*(?:soles?|pen)?$/i);
+        if(trailing){
+          price=Number(trailing[1].replace(",","."));
+          textPart=textPart.slice(0,trailing.index).trim();
+        }
+      }
+
+      if(!textPart)continue;
+      const inv=await resolveInventory(env,contextToken,contextUserId,textPart).catch(()=>null);
+      if(inv?.status==="AMBIGUOUS"){
+        return {action:"CHAT",execute:false,params:{clarification:"Encontré varios productos para «"+textPart+"». Indícame cuál quieres usar."}};
+      }
+      if(inv?.status==="FOUND"){
+        const it=inv.item;
+        items.push({type:"PRODUCTO",inventory_query:it.name,name:it.name,description:null,quantity,unit_price:Number.isFinite(price)&&price>0?price:null});
+      }else{
+        items.push({type:"TRABAJO",name:textPart.slice(0,180),description:textPart.slice(0,2000),quantity,unit_price:Number.isFinite(price)&&price>0?price:null});
+      }
     }
-    const hit=await resolveOneClient(env,contextToken,contextUserId,clientQuery).catch(()=>null);
-    if(hit?.status==="AMBIGUOUS"){
-      return {action:"CHAT",execute:false,params:{clarification:"Encontré varios clientes para «"+clientQuery+"». Indícame cuál desea usar."}};
-    }
-    if(hit?.status==="NOT_FOUND"){
-      return {action:"CHAT",execute:false,params:{clarification:"No encontré al cliente «"+clientQuery+"». Indícame el nombre exacto o primero registra al cliente."}};
-    }
-    const client=hit.client;
+
+    if(!items.length)return {action:"CHAT",execute:false,params:{clarification:"Indícame al menos un trabajo, producto o servicio para la cotización."}};
     return {action:"CREATE_QUOTE",execute:false,params:{
       client_query:client.id,
       client_id:client.id,
       title:"Cotización · "+String(client.name||clientQuery),
-      items:[{type:"TRABAJO",name:description.slice(0,180)||"Trabajo solicitado",description:description.slice(0,2000),quantity:1,unit_price:Number.isFinite(price)&&price>0?price:null}]
+      items
     }};
   }
   const deterministic=deterministicIntent(message);

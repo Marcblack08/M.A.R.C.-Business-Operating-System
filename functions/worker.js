@@ -214,6 +214,7 @@ async function createQuote(env,token,userId,p,source="AI_AGENT"){
       if(hit.status!=="FOUND")return {status:"NEEDS_INPUT",field:"inventory",item:raw,detail:hit};
       const it=hit.item;
       const price=raw.unit_price===null||raw.unit_price===undefined?Number(it.price||0):Number(raw.unit_price);
+      if(!Number.isFinite(price)||price<=0)return {status:"NEEDS_INPUT",field:"product_price",item:raw,message:"El producto «"+String(it.name||raw.name||"Producto")+"» no tiene un precio válido. Indícame el precio para esta cotización."};
       resolved.push({inventory_id:it.id,item_type:"PRODUCTO",name:it.name,description:raw.description||null,quantity:qty,unit:it.unit||"UND",unit_price:Math.max(0,price),cost:Number(it.cost||0)});
     }else{
       const price=Number(raw.unit_price);
@@ -226,7 +227,7 @@ async function createQuote(env,token,userId,p,source="AI_AGENT"){
     p_client_id:client.status==="FOUND"?client.client.id:null,
     p_title:p.title||"Cotización",
     p_status:"BORRADOR",
-    p_tax_enabled:Boolean(p.tax_enabled),
+    p_tax_enabled:p.tax_enabled===undefined?true:Boolean(p.tax_enabled),
     p_tax_rate:Number(p.tax_rate||18),
     p_notes:p.notes||null,
     p_items:resolved,p_source:source
@@ -524,6 +525,8 @@ async function finalReply(env,message,planData){
     }
     if(execution.action==="CREATE_QUOTE"){
       const items=Array.isArray(p.items)?p.items:[];
+      const missingPrice=items.find(x=>String(x.type||"").toUpperCase()!=="PRODUCTO"&&(!Number.isFinite(Number(x.unit_price))||Number(x.unit_price)<=0));
+      if(missingPrice)return "⚠️ Me falta el precio de: "+String(missingPrice.name||missingPrice.description||"Trabajo")+" .\n\nIndícame el precio, por ejemplo: «a 350 soles».";
       const subtotal=items.reduce((s,x)=>s+Math.max(0,Number(x.quantity||1))*Math.max(0,Number(x.unit_price||0)),0);
       const taxEnabled=p.tax_enabled!==false;
       const taxRate=Number(p.tax_rate||18);
@@ -644,46 +647,32 @@ async function sendTelegram(env,chatId,text){
 
 function pdfText(value){return String(value??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^\x20-\x7E]/g,"?");}
 function pdfEscape(value){return pdfText(value).replace(/\\/g,"\\\\").replace(/\(/g,"\\(").replace(/\)/g,"\\)");}
+function base64ToBytes(dataUri){const raw=String(dataUri||""),b64=raw.includes(",")?raw.slice(raw.indexOf(",")+1):raw,bin=atob(b64),out=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)out[i]=bin.charCodeAt(i);return out;}
+function jpegInfo(bytes){if(!bytes||bytes.length<4||bytes[0]!==0xFF||bytes[1]!==0xD8)return null;let i=2;while(i+9<bytes.length){if(bytes[i]!==0xFF){i++;continue}while(i<bytes.length&&bytes[i]===0xFF)i++;const marker=bytes[i++];if(marker===0xD8||marker===0xD9||marker===0x01||(marker>=0xD0&&marker<=0xD7))continue;if(i+1>=bytes.length)break;const len=(bytes[i]<<8)|bytes[i+1];if(len<2||i+len>bytes.length)break;const sof=(marker>=0xC0&&marker<=0xC3)||(marker>=0xC5&&marker<=0xC7)||(marker>=0xC9&&marker<=0xCB)||(marker>=0xCD&&marker<=0xCF);if(sof&&len>=7)return {width:(bytes[i+3]<<8)|bytes[i+4],height:(bytes[i+5]<<8)|bytes[i+6],components:bytes[i+7]||3};i+=len;}return null;}
+function bytesToLatin1(bytes){let out="";const step=0x8000;for(let i=0;i<bytes.length;i+=step)out+=String.fromCharCode(...bytes.subarray(i,Math.min(i+step,bytes.length)));return out;}
 function buildQuotePdf(data){
   const q=data?.quote||{},client=data?.client||{},company=data?.company||{},items=Array.isArray(data?.items)?data.items:[];
-  const taxEnabled=data?.tax_enabled!==false,taxRate=Number(data?.tax_rate||18);
+  const taxEnabled=data?.tax_enabled===undefined?true:Boolean(data?.tax_enabled),taxRate=Number(data?.tax_rate||18);
   const subtotal=items.reduce((s,x)=>s+Number(x.quantity||1)*Number(x.unit_price||0),0),igv=taxEnabled?subtotal*taxRate/100:0,total=subtotal+igv;
-  const lines=[
-    String(company.business_name||"M.A.R.C.").toUpperCase(),
-    company.legal_name?"Razon social: "+company.legal_name:"",
-    company.ruc?"RUC: "+company.ruc:"",
-    company.address?"Direccion: "+company.address:"",
-    company.phone?"Telefono: "+company.phone:"",
-    company.email?"Email: "+company.email:"",
-    "",
-    "COTIZACION",
-    "Numero: "+(q.numero||q.number||q.id||"SIN NUMERO"),
-    "Fecha: "+new Date().toLocaleDateString("es-PE"),
-    "",
-    "CLIENTE",
-    String(client.name||client.nombre_razon_social||data?.client_name||"Cliente"),
-    client.phone?"Telefono: "+client.phone:"",
-    client.email?"Email: "+client.email:"",
-    client.address?"Direccion: "+client.address:"",
-    "",
-    "DETALLE",
+  const logoBytes=company.logo_data?base64ToBytes(company.logo_data):null,logo=logoBytes?jpegInfo(logoBytes):null;
+  const lines=[String(company.business_name||"M.A.R.C.").toUpperCase(),company.legal_name?"Razon social: "+company.legal_name:"",company.ruc?"RUC: "+company.ruc:"",company.address?"Direccion: "+company.address:"",company.phone?"Telefono: "+company.phone:"",company.email?"Email: "+company.email:"","",
+    "COTIZACION","Numero: "+(q.numero||q.number||q.id||"SIN NUMERO"),"Fecha: "+new Date().toLocaleDateString("es-PE"),"","CLIENTE",
+    String(client.name||client.nombre_razon_social||data?.client_name||"Cliente"),client.phone?"Telefono: "+client.phone:"",client.email?"Email: "+client.email:"",client.address?"Direccion: "+client.address:"","DETALLE",
     ...items.map((x,i)=>(i+1)+". "+String(x.name||x.description||"Partida")+" | "+Number(x.quantity||1)+" x S/ "+Number(x.unit_price||0).toFixed(2)+" | S/ "+(Number(x.quantity||1)*Number(x.unit_price||0)).toFixed(2)),
-    "",
-    "Subtotal: S/ "+subtotal.toFixed(2),
-    taxEnabled?"IGV "+taxRate+"%: S/ "+igv.toFixed(2):"IGV: NO INCLUIDO",
-    "TOTAL: S/ "+total.toFixed(2),
-    data?.notes?"Observaciones: "+data.notes:""
-  ].filter(Boolean).slice(0,48);
-  const stream=["BT","/F1 18 Tf","50 790 Td","("+pdfEscape(lines[0])+") Tj","/F1 10 Tf"];
-  for(let i=1;i<lines.length;i++){
-    const heading=/^(COTIZACION|CLIENTE|DETALLE|TOTAL:)/.test(lines[i]);
-    stream.push("0 -18 Td",heading?"/F1 12 Tf":"", "("+pdfEscape(lines[i])+") Tj",heading?"/F1 10 Tf":"");
-  }
-  stream.push("ET"); const content=stream.join("\n");
-  const objects={1:"<< /Type /Catalog /Pages 2 0 R >>",2:"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",3:"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>",4:"<< /Length "+content.length+" >>\nstream\n"+content+"\nendstream",5:"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"};
-  let pdf="%PDF-1.4\n",offs=[];for(let i=1;i<=5;i++){offs[i]=pdf.length;pdf+=i+" 0 obj\n"+objects[i]+"\nendobj\n";}
-  const xref=pdf.length;pdf+="xref\n0 6\n0000000000 65535 f \n";for(let i=1;i<=5;i++)pdf+=String(offs[i]).padStart(10,"0")+" 00000 n \n";pdf+="trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n"+xref+"\n%%EOF";
-  return new TextEncoder().encode(pdf);
+    "","Subtotal: S/ "+subtotal.toFixed(2),taxEnabled?"IGV "+taxRate+"%: S/ "+igv.toFixed(2):"IGV: NO INCLUIDO","TOTAL: S/ "+total.toFixed(2),data?.notes?"Observaciones: "+data.notes:""
+  ].filter(Boolean).slice(0,40);
+  const stream=["BT"];
+  stream.push("/F1 18 Tf","50 "+(logo?700:790)+" Td","("+pdfEscape(lines[0])+") Tj","/F1 10 Tf");
+  for(let i=1;i<lines.length;i++){const heading=/^(COTIZACION|CLIENTE|DETALLE|TOTAL:)/.test(lines[i]);stream.push("0 -18 Td",heading?"/F1 12 Tf":"","("+pdfEscape(lines[i])+") Tj",heading?"/F1 10 Tf":"");}
+  stream.push("ET");
+  let content=stream.join("\n");
+  const objects={1:"<< /Type /Catalog /Pages 2 0 R >>",2:"<< /Type /Pages /Kids [3 0 R] /Count 1 >>"};
+  objects[3]="<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >>"+(logo?" /XObject << /Im1 6 0 R >>":"")+" >> /Contents 4 0 R >>";
+  if(logo){const maxW=120,maxH=55,scale=Math.min(maxW/logo.width,maxH/logo.height),w=logo.width*scale,h=logo.height*scale,imageY=842-h-25;content="q\n"+w.toFixed(2)+" 0 0 "+h.toFixed(2)+" 50 "+imageY.toFixed(2)+" cm\n/Im1 Do\nQ\n"+content;}
+  objects[4]="<< /Length "+content.length+" >>\nstream\n"+content+"\nendstream";
+  objects[5]="<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
+  if(logo)objects[6]="<< /Type /XObject /Subtype /Image /Width "+logo.width+" /Height "+logo.height+" /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length "+logoBytes.length+" >>\nstream\n"+bytesToLatin1(logoBytes)+"\nendstream";
+  const count=logo?6:5;let pdfOut="%PDF-1.4\n",offs=[];for(let i=1;i<=count;i++){offs[i]=pdfOut.length;pdfOut+=i+" 0 obj\n"+objects[i]+"\nendobj\n";}const xref=pdfOut.length;pdfOut+="xref\n0 "+(count+1)+"\n0000000000 65535 f \n";for(let i=1;i<=count;i++)pdfOut+=String(offs[i]).padStart(10,"0")+" 00000 n \n";pdfOut+="trailer\n<< /Size "+(count+1)+" /Root 1 0 R >>\nstartxref\n"+xref+"\n%%EOF";return new TextEncoder().encode(pdfOut);
 }
 async function sendTelegramDocument(env,chatId,bytes,filename,caption=""){
   if(!env.TELEGRAM_BOT_TOKEN)throw new Error("TELEGRAM_BOT_TOKEN no está configurado");
@@ -1050,12 +1039,43 @@ if(/^(si|sí|confirmo|confirmar|dale|hazlo|ejecuta|ejecutar)$/i.test(incoming)){
     const ctxMem=await getConversationContext(env,adminToken,userId,conversationId);
     const pending=ctxMem?.pending_action;
     if(pending?.action && pending?.params){
+      const age=Date.now()-new Date(pending.created_at||0).getTime();
+      if(!Number.isFinite(age)||age>15*60*1000){
+        await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:null});
+        await sendTelegram(env,chatId,"⏱️ Esta operación pendiente expiró. Vuelve a indicarme la operación para preparar una nueva confirmación.");
+        return json({ok:true,fastPath:"expired_pending_action"},200);
+      }
       try{
         let done;
         if(pending.action==="ADJUST_INVENTORY")done=await adjustInventory(env,adminToken,userId,pending.params,"TELEGRAM");
         else if(pending.action==="CREATE_CLIENT")done=await createClient(env,adminToken,userId,pending.params,"TELEGRAM");
         else if(pending.action==="CREATE_QUOTE")done=await createQuote(env,adminToken,userId,pending.params,"TELEGRAM");
         else throw new Error("Operación pendiente no reconocida.");
+
+        const success=(pending.action==="ADJUST_INVENTORY"&&done?.status==="UPDATED")
+          ||(pending.action==="CREATE_CLIENT"&&done?.status==="CREATED")
+          ||(pending.action==="CREATE_QUOTE"&&done?.status==="CREATED");
+
+        if(!success){
+          if(done?.status==="NEEDS_INPUT"){
+            const detail=done?.message||(
+              done?.field==="work_price"
+                ?"Falta indicar el precio del trabajo: "+String(done?.item?.name||pending.params?.title||"Trabajo")+"."
+                :done?.field==="product_price"
+                  ?"El producto no tiene un precio válido. Indícame el precio para esta cotización."
+                  :done?.field==="client_query"
+                    ?"No pude resolver el cliente. Indícame el nombre exacto."
+                    :done?.field==="inventory"
+                      ?"No pude resolver una de las partidas del inventario. Indícame el producto exacto."
+                      :"Necesito un dato adicional para completar la operación."
+            );
+            await sendTelegram(env,chatId,"⚠️ "+detail+"\n\nLa operación sigue pendiente. Puedes completar el dato y luego responder «sí».");
+            return json({ok:true,fastPath:"pending_needs_input"},200);
+          }
+          await sendTelegram(env,chatId,"⚠️ No se realizó el cambio. "+String(done?.message||done?.status||"La operación no pudo completarse.").slice(0,400));
+          return json({ok:true,fastPath:"pending_not_completed"},200);
+        }
+
         await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:null});
         if(pending.action==="ADJUST_INVENTORY"){
           const item=done?.item||{};
@@ -1068,7 +1088,7 @@ if(/^(si|sí|confirmo|confirmar|dale|hazlo|ejecuta|ejecutar)$/i.test(incoming)){
           await sendTelegram(env,chatId,"✅ Cotización creada.\n\n🧾 "+String(q.numero||q.number||"Cotización")+"\n"+String(q.title||pending.params.title||"Cotización")+"\n💰 "+moneyText(q.total||0));
           try{
             const company=await telegramCompanyProfile(env,adminToken,userId);
-            const bytes=buildQuotePdf({quote:q,client:done?.client,company,items:done?.items,tax_enabled:pending.params?.tax_enabled!==false,tax_rate:pending.params?.tax_rate||18,notes:pending.params?.notes||""});
+            const bytes=buildQuotePdf({quote:q,client:done?.client,company,items:done?.items,tax_enabled:pending.params?.tax_enabled===undefined?true:pending.params.tax_enabled,tax_rate:pending.params?.tax_rate||18,notes:pending.params?.notes||""});
             const number=String(q.numero||q.number||q.id||"cotizacion").slice(0,40);
             await sendTelegramDocument(env,chatId,bytes,"Cotizacion-"+number+".pdf","📄 PDF de la cotización "+number);
           }catch(pdfErr){
@@ -1086,7 +1106,7 @@ if(/^(si|sí|confirmo|confirmar|dale|hazlo|ejecuta|ejecutar)$/i.test(incoming)){
     const conversationId=await ensureTelegramConversation(env,adminToken,userId);
     const ctxMem=await getConversationContext(env,adminToken,userId,conversationId);
     if(ctxMem?.pending_action){
-      await saveConversationContext(env,adminToken,userId,{...ctxMem,pending_action:null});
+      await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:null});
       await sendTelegram(env,chatId,"Operación cancelada. No se realizó ningún cambio.");
       return json({ok:true,fastPath:"cancel_pending_action"},200);
     }

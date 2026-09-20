@@ -2088,3 +2088,204 @@ body,
   .quick-modern-grid{grid-template-columns:1fr!important}
   .dashboard-hero{min-height:410px!important}
 }
+
+
+/* ===== MÓVIL — AJUSTE REAL DEL ENCABEZADO + HERO + NAVEGACIÓN ===== */
+@media(max-width:780px){
+  /* Encabezado: todo debe caber en una sola línea sin cortar M.A.R.C. */
+  #app .top{
+    height:68px!important;
+    min-height:68px!important;
+    padding:0 10px!important;
+    gap:7px!important;
+    overflow:hidden!important;
+  }
+  #app .top .brand-head{
+    flex:1 1 auto!important;
+    min-width:0!important;
+    width:auto!important;
+    gap:7px!important;
+    overflow:hidden!important;
+  }
+  #app .top .brand-logo{
+    width:42px!important;
+    height:42px!important;
+    min-width:42px!important;
+    border-radius:12px!important;
+  }
+  #app .top .brand-head>div:last-child{
+    min-width:0!important;
+    max-width:none!important;
+    overflow:hidden!important;
+  }
+  #app .top .brand-head>div:last-child>span{
+    display:block!important;
+    font-size:18px!important;
+    line-height:1!important;
+    letter-spacing:-.04em!important;
+    white-space:nowrap!important;
+  }
+  #app .top .brand-head>div:last-child>small{
+    font-size:7.5px!important;
+    line-height:1!important;
+    margin-top:4px!important;
+    white-space:nowrap!important;
+  }
+  #app .top .topright{
+    flex:0 0 auto!important;
+    margin-left:0!important;
+    gap:5px!important;
+  }
+  #app .top .topright .theme-toggle{
+    width:35px!important;
+    height:35px!important;
+    min-width:35px!important;
+    padding:0!important;
+    border-radius:11px!important;
+    display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+  }
+  #app .top .topright .theme-toggle span:last-child{display:none!important}
+  #app .top .person>div{
+    width:36px!important;
+    height:36px!important;
+    min-width:36px!important;
+    border-radius:50%!important;
+  }
+
+  /* El contenido empieza debajo del encabezado fijo. */
+  #app .content{
+    padding-top:80px!important;
+    padding-bottom:96px!important;
+  }
+
+  /* Hero: imagen y texto dejan de pelear por el mismo espacio. */
+  .dashboard-hero{
+    min-height:470px!important;
+    padding:18px 16px 16px!important;
+    border-radius:20px!important;
+    display:block!important;
+  }
+  .dashboard-hero .hero-copy{
+    position:relative!important;
+    z-index:3!important;
+    width:100%!important;
+    max-width:none!important;
+    display:block!important;
+  }
+  .hero-eyebrow{
+    margin-bottom:7px!important;
+    font-size:8px!important;
+  }
+  .dashboard-hero h1{
+    width:57%!important;
+    max-width:57%!important;
+    font-size:28px!important;
+    line-height:1.04!important;
+    letter-spacing:-.045em!important;
+    margin:0!important;
+  }
+  .dashboard-hero p{
+    width:57%!important;
+    max-width:57%!important;
+    margin:12px 0 0!important;
+    font-size:9.5px!important;
+    line-height:1.48!important;
+  }
+
+  /* Imagen M.A.R.C. más pequeña y estable en teléfonos. */
+  .hero-visual{
+    right:4px!important;
+    top:35px!important;
+    width:43%!important;
+    height:170px!important;
+    z-index:2!important;
+  }
+  .hero-visual-ring{
+    width:138px!important;
+    height:138px!important;
+  }
+  .hero-visual-logo{
+    width:122px!important;
+    height:122px!important;
+  }
+  .hero-visual-caption{
+    bottom:-2px!important;
+    right:0!important;
+    font-size:5.2px!important;
+    letter-spacing:1px!important;
+  }
+
+  /* Botones debajo del texto, nunca encima del párrafo. */
+  .hero-actions{
+    position:absolute!important;
+    left:16px!important;
+    right:16px!important;
+    bottom:16px!important;
+    width:auto!important;
+    z-index:5!important;
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:8px!important;
+    margin:0!important;
+  }
+  .hero-primary,.hero-secondary{
+    width:100%!important;
+    min-height:46px!important;
+    height:46px!important;
+    padding:0 12px!important;
+    border-radius:14px!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    font-size:10px!important;
+  }
+
+  /* Navegación inferior: 5 accesos útiles, perfectamente repartidos. */
+  .mobile-bottom-nav{
+    grid-template-columns:repeat(5,minmax(0,1fr))!important;
+    min-height:72px!important;
+    height:72px!important;
+    padding:5px 5px max(5px,env(safe-area-inset-bottom))!important;
+    gap:2px!important;
+  }
+  .mobile-bottom-nav button:nth-child(5),
+  .mobile-bottom-nav button:nth-child(7){display:none!important}
+  .mobile-bottom-nav button:nth-child(6){display:flex!important}
+  .mobile-bottom-nav button{
+    min-height:60px!important;
+    height:60px!important;
+    border-radius:13px!important;
+  }
+  .mobile-bottom-nav button span{
+    width:31px!important;
+    height:29px!important;
+    font-size:17px!important;
+  }
+  .mobile-bottom-nav button b{
+    font-size:7px!important;
+  }
+}
+
+@media(max-width:390px){
+  #app .top{padding-left:8px!important;padding-right:8px!important}
+  #app .top .brand-logo{width:39px!important;height:39px!important;min-width:39px!important}
+  #app .top .brand-head{gap:6px!important}
+  #app .top .brand-head>div:last-child>span{font-size:16px!important}
+  #app .top .brand-head>div:last-child>small{font-size:7px!important}
+  #app .top .topright{gap:4px!important}
+  #app .top .topright .theme-toggle{width:32px!important;height:32px!important;min-width:32px!important}
+  #app .top .person>div{width:33px!important;height:33px!important;min-width:33px!important}
+
+  .dashboard-hero{
+    min-height:455px!important;
+    padding:17px 14px 15px!important;
+  }
+  .dashboard-hero h1{font-size:25px!important}
+  .dashboard-hero p{font-size:9px!important}
+  .hero-visual{top:32px!important;right:1px!important}
+  .hero-visual-ring{width:128px!important;height:128px!important}
+  .hero-visual-logo{width:112px!important;height:112px!important}
+  .hero-actions{left:14px!important;right:14px!important;bottom:15px!important}
+}

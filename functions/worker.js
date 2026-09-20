@@ -1647,9 +1647,29 @@ async function telegramWebhook(request,env,ctx){
           const tax=taxEnabled?subtotal*(rate/100):0;
           return {subtotal,tax,total:subtotal+tax,count:Array.isArray(previewItems)?previewItems.length:0,taxEnabled};
         };
-        const quotePreviewText=(previewItems)=>{
+        const quotePreviewText=(previewItems,options={})=>{
           const v=quoteEditPreview(previewItems);
-          return "\n\n📊 Resumen actual: "+v.count+" partida"+(v.count===1?"":"s")+" · Subtotal S/ "+v.subtotal.toFixed(2)+(v.taxEnabled===false?"":" · IGV S/ "+v.tax.toFixed(2))+" · Total S/ "+v.total.toFixed(2);
+          const clientName=String(options.clientName||pending.params.client_name||"Cliente");
+          const title=String(options.title||pending.params.title||"Cotización");
+          const lines=[
+            "🧾 *Resumen de cotización*",
+            "👤 Cliente: "+clientName,
+            "📋 "+title,
+            ""
+          ];
+          (Array.isArray(previewItems)?previewItems:[]).forEach((it,i)=>{
+            const qty=Number(it.quantity||0);
+            const unit=Number(it.unit_price||0);
+            lines.push((i+1)+". "+String(it.name||it.description||"Partida")+" · "+qty+" × S/ "+unit.toFixed(2)+" = S/ "+(qty*unit).toFixed(2));
+          });
+          lines.push("");
+          lines.push("📦 Partidas: "+v.count);
+          lines.push("💵 Subtotal: S/ "+v.subtotal.toFixed(2));
+          if(v.taxEnabled)lines.push("🧾 IGV ("+Number(pending.params.tax_rate||18).toFixed(2)+"%): S/ "+v.tax.toFixed(2));
+          else lines.push("🧾 IGV: No incluido");
+          lines.push("💰 *TOTAL: S/ "+v.total.toFixed(2)+"*");
+          if(pending.params.notes)lines.push("📝 Observaciones: "+String(pending.params.notes).slice(0,500));
+          return "\n\n"+lines.join("\n");
         };
         const p=pending.params,items=Array.isArray(p.items)?p.items:[];
 

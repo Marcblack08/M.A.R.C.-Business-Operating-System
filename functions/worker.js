@@ -509,7 +509,7 @@ async function plan(env,message,history,entityContext={},contextToken="",context
   }
   // Cotización estructurada: si la orden ya trae cliente y partidas, evitamos Gemini
   // y reutilizamos el flujo seguro de confirmación.
-  const quoteCommand=/^(?:crea|crear|creemos|creemos|haz|hacer|hagamos|prepara|preparar|genera|generar|cotiza|cotizar|elabora|elaborar)\s+(?:una\s+)?(?:cotizacion|cotización|proforma|presupuesto)\b/i.test(String(message||"").trim());
+  const quoteCommand=/^(?:crea|crear|creemos|haz|hacer|hagamos|prepara|preparar|genera|generar|cotiza|cotizar|elabora|elaborar|necesito|quiero|armemos|vamos\s+a\s+hacer)\s+(?:una\s+)?(?:cotizacion|cotización|proforma|presupuesto)\b/i.test(String(message||"").trim());
   if(quoteCommand){
     const rawMessage=String(message||"").trim();
     // Normalizamos errores/variantes habituales para que el lenguaje del usuario
@@ -542,7 +542,9 @@ async function plan(env,message,history,entityContext={},contextToken="",context
     const client=hit?.client||null;
     if(!client && !newClientDraft)return {action:"CHAT",execute:false,params:{clarification:"No pude identificar al cliente. Indícame el nombre exacto, por favor."}};
 
-    const allCost=/\b(?:a\s+todo\s+costo|todo\s+costo|a\s+coste\s+total|por\s+todo\s+incluido)\b/i.test(rawMessage);
+    const allCost=/\b(?:a\s+todo\s+costo|todo\s+costo|a\s+coste\s+total|por\s+todo\s+incluido|a\s+todo\s+coste)\b/i.test(rawMessage);
+    const clientSupplies=/\b(?:el\s+cliente|cliente)\s+(?:pone|pondrá|pondra|suministra|suministrará|suministrara|ya\s+tiene|trae)\s+(?:el\s+)?(?:material|equipo|producto)s?\b|\bmaterial(?:es)?\s+(?:por\s+cuenta|a\s+cargo)\s+del\s+cliente\b/i.test(rawMessage);
+    const serviceOnly=allCost||clientSupplies;
     let body=fiscalText
       .replace(/\b(?:sin\s+igv|no\s+incluye\s+igv|sin\s+impuesto|no\s+incluye\s+impuesto)\b/gi,"")
       .replace(/^(?:crea|crear|creemos|hagamos|haz|hacer|prepara|preparar|genera|generar|cotiza|cotizar|elabora|elaborar)\s+(?:una\s+)?(?:cotizacion|cotización|proforma|presupuesto)\s*/i,"")
@@ -585,8 +587,8 @@ async function plan(env,message,history,entityContext={},contextToken="",context
       if(price!==null && taxIncluded)price=price/(1+(taxRate/100));
       // "A todo costo" significa que el importe es por el servicio completo:
       // no dependemos del catálogo ni exigimos que el material exista en inventario.
-      if(allCost){
-        items.push({type:"TRABAJO",name:textPart.slice(0,180),description:textPart.slice(0,2000),quantity,unit_price:Number.isFinite(price)&&price>0?price:null,gross_unit_price:Number.isFinite(grossPrice)&&grossPrice>0?grossPrice:null,price_includes_tax:taxIncluded,price_is_total:priceIsTotal,all_cost:true,material_supplied_by_client:true});
+      if(serviceOnly){
+        items.push({type:"TRABAJO",name:textPart.slice(0,180),description:textPart.slice(0,2000),quantity,unit_price:Number.isFinite(price)&&price>0?price:null,gross_unit_price:Number.isFinite(grossPrice)&&grossPrice>0?grossPrice:null,price_includes_tax:taxIncluded,price_is_total:priceIsTotal,all_cost:allCost,material_supplied_by_client:clientSupplies||allCost});
         continue;
       }
       const inv=await resolveInventory(env,contextToken,contextUserId,textPart).catch(()=>null);

@@ -1701,6 +1701,30 @@ async function telegramWebhook(request,env,ctx){
         }
       }
 
+      const quoteUndoSummary=(previewItems,params)=>{
+        let subtotal=0;
+        const taxEnabled=params.tax_enabled===undefined?true:Boolean(params.tax_enabled);
+        const rate=Number(params.tax_rate||18);
+        for(const it of (Array.isArray(previewItems)?previewItems:[])){
+          subtotal+=Math.max(0,Number(it.quantity||0))*Math.max(0,Number(it.unit_price||0));
+        }
+        const tax=taxEnabled?subtotal*rate/100:0;
+        return "\n\n📊 Resumen: "+(Array.isArray(previewItems)?previewItems.length:0)+" partidas · Subtotal S/ "+subtotal.toFixed(2)+(taxEnabled?" · IGV S/ "+tax.toFixed(2):" · Sin IGV")+" · Total S/ "+(subtotal+tax).toFixed(2)+"\n\nPuede seguir editando o responder «sí» para guardar.";
+      };
+
+      if(pending.action==="UPDATE_QUOTE" && pending.params && /^(deshacer|deshace|undo)$/i.test(text)){
+        const pUndo=pending.params;
+        if(Array.isArray(pUndo._quote_undo_items)){
+          const restored={...pUndo,items:pUndo._quote_undo_items};
+          delete restored._quote_undo_items;
+          await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:restored}});
+          await sendTelegram(env,chatId,"↩️ Deshice el último cambio de partidas."+quoteUndoSummary(restored.items,restored));
+        }else{
+          await sendTelegram(env,chatId,"No hay un cambio de partidas reciente que pueda deshacer.");
+        }
+        return json({ok:true,fastPath:"quote_update_undo"},200);
+      }
+
       if(pending.action==="UPDATE_QUOTE" && pending.params){
         if(/^(si|sí|confirmar|confirmo|guarda|guardar|ok|dale|hazlo)$/i.test(text)){
           const p=pending.params;
@@ -1863,7 +1887,7 @@ async function telegramWebhook(request,env,ctx){
             multiChanged=false;break;
           }
           if(multiChanged){
-            const nextParams={...p,items:multiItems};
+            const nextParams={...p,items:multiItems,_quote_undo_items:items};
             delete nextParams._selected_quote_item_index; delete nextParams._pending_quote_item_target; delete nextParams._multi_ops;
             await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:nextParams}});
             await sendTelegram(env,chatId,"🧾 Apliqué los cambios en la cotización:\n\n"+multiLabels.join("\n")+
@@ -1889,7 +1913,7 @@ async function telegramWebhook(request,env,ctx){
             const idx=hit.index,price=Number(String(combinedSameItem[2]).replace(",",".")),qty=Number(String(combinedSameItem[3]).replace(",","."));
             if(Number.isFinite(price)&&price>0&&Number.isFinite(qty)&&qty>0&&idx<items.length){
               const nextItems=items.map((x,i)=>i===idx?{...x,unit_price:price,quantity:qty,gross_unit_price:p.tax_included?price:x.gross_unit_price}:x);
-              const nextParams={...p,items:nextItems};
+              const nextParams={...p,items:nextItems,_quote_undo_items:items};
               delete nextParams._selected_quote_item_index; delete nextParams._pending_quote_item_target;
               await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:nextParams}});
               await sendTelegram(env,chatId,"🧾 Actualicé «"+String(items[idx].name||items[idx].description||"Partida")+"».\n💰 Precio: S/ "+price.toFixed(2)+"\n🔢 Cantidad: "+qty+"\n\nPuede seguir editando o responder «sí» para guardar.");
@@ -1912,7 +1936,7 @@ async function telegramWebhook(request,env,ctx){
             const va=Number(String(twoPriceEdit[2]).replace(",",".")),vb=Number(String(twoPriceEdit[4]).replace(",","."));
             if(va>0&&vb>0){
               const nextItems=items.map((x,i)=>i===hitA.index?{...x,unit_price:va,gross_unit_price:p.tax_included?va:x.gross_unit_price}:i===hitB.index?{...x,unit_price:vb,gross_unit_price:p.tax_included?vb:x.gross_unit_price}:x);
-              const nextParams={...p,items:nextItems};
+              const nextParams={...p,items:nextItems,_quote_undo_items:items};
               delete nextParams._selected_quote_item_index; delete nextParams._pending_quote_item_target;
               await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:nextParams}});
               await sendTelegram(env,chatId,"🧾 Apliqué los dos cambios:\n\n• "+String(items[hitA.index].name||"Partida")+" → S/ "+va.toFixed(2)+"\n• "+String(items[hitB.index].name||"Partida")+" → S/ "+vb.toFixed(2)+quotePreviewText(nextItems)+"\n\nResponde «sí» para guardar o continúa editando.");
@@ -1954,7 +1978,7 @@ async function telegramWebhook(request,env,ctx){
               nextItems=items.filter((_,i)=>i!==targetIndex);
             }
             if(Number.isInteger(targetIndex)){
-              const nextParams={...p,items:nextItems};
+              const nextParams={...p,items:nextItems,_quote_undo_items:items};
               delete nextParams._selected_quote_item_index;
               delete nextParams._pending_quote_item_target;
               await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:nextParams}});
@@ -2050,7 +2074,7 @@ async function telegramWebhook(request,env,ctx){
               ?{type:"PRODUCTO",inventory_id:product.id,name:product.name,description:null,quantity,unit:product.unit||"UND",unit_price:value,cost:Number(product.cost||0)}
               :{type:"TRABAJO",name:name.slice(0,180),description:name.slice(0,2000),quantity,unit:"UND",unit_price:value};
             const nextItems=[...items,item];
-            const nextParams={...p,items:nextItems};
+            const nextParams={...p,items:nextItems,_quote_undo_items:items};
             delete nextParams._pending_inventory_add;
             await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:nextParams}});
             await sendTelegram(env,chatId,"➕ Agregué "+quantity+" × "+String(item.name||name)+" · S/ "+value.toFixed(2)+" por unidad."+(product?"\n📦 Vinculado al inventario.":"\n🛠️ Lo trataré como trabajo/servicio.")+"\n\nResponde «sí» para guardar o continúa editando.");

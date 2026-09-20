@@ -1677,6 +1677,24 @@ async function telegramWebhook(request,env,ctx){
 
       if(pending.action==="VIEW_QUOTE" && pending.params){
         const vp=pending.params;
+        if(/^(?:pdf|pásame el pdf|pasame el pdf|envíame el pdf|enviame el pdf|mándame el pdf|mandame el pdf|genera el pdf|generame el pdf|descarga el pdf|descargar pdf)$/i.test(text)){
+          const detail=await getQuoteForEdit(env,adminToken,userId,String(vp.quote_number||vp.quote_id||""));
+          if(detail.status!=="FOUND"){
+            await sendTelegram(env,chatId,"⚠️ No pude recuperar la cotización para generar el PDF.");
+            return json({ok:true,fastPath:"quote_view_pdf_error"},200);
+          }
+          try{
+            const q=detail.quote||{},items=Array.isArray(detail.items)?detail.items:[],client=detail.client||null;
+            const company=await telegramCompanyProfile(env,adminToken,userId);
+            const bytes=buildQuotePdf({quote:q,client,company,items,tax_enabled:q.tax_enabled===undefined?true:q.tax_enabled,tax_included:Boolean(q.tax_included),tax_rate:q.tax_rate||18,notes:q.notes||""});
+            const number=String(q.number||vp.quote_number||q.id||"cotizacion").slice(0,40);
+            await sendTelegramDocument(env,chatId,bytes,"Cotizacion-"+number+".pdf","📄 PDF de la cotización "+number);
+            return json({ok:true,fastPath:"quote_view_pdf"},200);
+          }catch(e){
+            await sendTelegram(env,chatId,"⚠️ No pude generar el PDF de la cotización en este momento.");
+            return json({ok:true,fastPath:"quote_view_pdf_error"},200);
+          }
+        }
         if(/^(cancelar|cancela|salir|cerrar|listo|no)$/i.test(text)){
           await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:null});
           await sendTelegram(env,chatId,"Listo, señor. Cerré la consulta sin realizar cambios.");

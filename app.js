@@ -2994,9 +2994,9 @@ function wire(){
       return;
     }
 
-    const fresh=authCallbackParams();
-    const failure=describeAuthFailure(fresh.search,fresh.hash);
-    msg(authDiag(oauthPending?"Google volvió a M.A.R.C. pero la sesión no quedó disponible":"No hay una sesión activa",oauthPending?failure:"Inicia sesión con Google para continuar"),"error");
+    // No hay sesión: la pantalla de acceso ya comunica el estado.
+    // No mostramos diagnósticos técnicos debajo del botón de Google.
+    msg("");
   };
 
   bootAuth().catch(e=>{

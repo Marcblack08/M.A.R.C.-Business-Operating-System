@@ -498,7 +498,7 @@ async function plan(env,message,history,entityContext={},contextToken="",context
     items.push({type:"TRABAJO",name:name.slice(0,180),description:name.slice(0,2000),quantity:1,unit:"UND",unit_price:value});
     return {action:"UPDATE_QUOTE",execute:false,params:{quote_id:found.quote.id,quote_number:found.quote.number,client_query:found.quote.client_id||"",client_name:found.client?.name||"",title:found.quote.title||"Cotización",items,tax_enabled:found.quote.tax_enabled!==false,tax_rate:Number(found.quote.tax_rate||18),tax_included:false,prices_are_net:true,notes:found.quote.notes||null}};
   }
-const editQuoteMatch=s.match(/\b(?:modifica|modificar|edita|editar|abre|abrir|actualiza|actualizar)\b[\s\\S]{0,40}?(?:cotizacion|proforma|presupuesto)\s+(COT-\\d{6}-\\d{4})/i);
+const editQuoteMatch=s.match(/\b(?:modifica|modificar|edita|editar|abre|abrir|actualiza|actualizar)\b[\s\S]{0,40}?(?:cotizacion|proforma|presupuesto)\s+(COT-\d{6}-\d{4})/i);
   if(editQuoteMatch){
     const ref=editQuoteMatch[1];
     const found=await getQuoteForEdit(env,contextToken,contextUserId,ref);
@@ -506,7 +506,7 @@ const editQuoteMatch=s.match(/\b(?:modifica|modificar|edita|editar|abre|abrir|ac
     if(found.status==="AMBIGUOUS")return {action:"CHAT",execute:false,params:{clarification:"Encontré varias cotizaciones. Indícame el número exacto."}};
     const q=found.quote;
     const items=found.items.map(x=>({type:String(x.item_type||"TRABAJO").toUpperCase(),inventory_id:x.inventory_id||null,name:x.name||"Partida",description:x.description||null,quantity:Number(x.quantity||1),unit:x.unit||"UND",unit_price:Number(x.unit_price||0),cost:Number(x.cost||0)}));
-    return {action:"UPDATE_QUOTE",execute:false,params:{quote_id:q.id,quote_number:q.number,client_query:q.client_id||"",client_name:"",title:q.title||"Cotización",items,tax_enabled:q.tax_enabled!==false,tax_rate:Number(q.tax_rate||18),tax_included:false,notes:q.notes||null}};
+    return {action:"UPDATE_QUOTE",execute:false,params:{quote_id:q.id,quote_number:q.number,client_query:q.client_id||"",client_name:found.client?.name||"",title:q.title||"Cotización",items,tax_enabled:q.tax_enabled!==false,tax_rate:Number(q.tax_rate||18),tax_included:false,notes:q.notes||null}};
   }
   if(entityContext?.pending_action?.action==="UPDATE_QUOTE"){
     return {action:"UPDATE_QUOTE",execute:false,params:entityContext.pending_action.params||{}};
@@ -1622,6 +1622,45 @@ async function telegramWebhook(request,env,ctx){
           return json({ok:true,fastPath:"quote_update_cancel"},200);
         }
         const p=pending.params,items=Array.isArray(p.items)?p.items:[];
+        const clientEdit=text.match(/\b(?:cambia|cambiar|modifica|modificar)\s+(?:el\s+)?cliente\s+(?:a|por|de)\s+(.+)$/i);
+        if(clientEdit){
+          const query=String(clientEdit[1]||"").trim().replace(/[.]+$/,"");
+          if(!query)return json({ok:true,fastPath:"quote_update_client_need"},200);
+          const hit=await resolveOneClient(env,adminToken,userId,query);
+          if(hit.status==="NOT_FOUND"){
+            await sendTelegram(env,chatId,"⚠️ No encontré un cliente llamado «"+query+"».");
+            return json({ok:true,fastPath:"quote_update_client_not_found"},200);
+          }
+          if(hit.status==="AMBIGUOUS"){
+            const opts=(hit.options||[]).map((x,i)=>(i+1)+". "+String(x.name||"Cliente")).join("\n");
+            await sendTelegram(env,chatId,"Encontré varios clientes:\n"+opts+"\n\nIndícame cuál deseas usar.");
+            return json({ok:true,fastPath:"quote_update_client_ambiguous"},200);
+          }
+          const next={...ctxMem,pending_action:{...pending,params:{...p,client_id:hit.client.id,client_query:hit.client.id,client_name:hit.client.name}}};
+          await saveConversationContext(env,adminToken,userId,conversationId,next);
+          await sendTelegram(env,chatId,"👤 Cliente cambiado a «"+hit.client.name+"».\n\nResponde «sí» para guardar.");
+          return json({ok:true,fastPath:"quote_update_client"},200);
+        }
+        const titleEdit=text.match(/\b(?:cambia|cambiar|modifica|modificar|pon|poner)\s+(?:el\s+)?(?:t[ií]tulo|nombre\s+de\s+la\s+cotizaci[oó]n)\s+(?:a|por|en)\s+(.+)$/i);
+        if(titleEdit){
+          const value=String(titleEdit[1]||"").trim().replace(/[.]+$/,"").slice(0,180);
+          if(value){
+            const next={...ctxMem,pending_action:{...pending,params:{...p,title:value}}};
+            await saveConversationContext(env,adminToken,userId,conversationId,next);
+            await sendTelegram(env,chatId,"📝 Título actualizado a «"+value+"».\n\nResponde «sí» para guardar.");
+            return json({ok:true,fastPath:"quote_update_title"},200);
+          }
+        }
+        const notesEdit=text.match(/\b(?:agrega|añade|anade|cambia|modifica|actualiza)\s+(?:la\s+)?(?:observaci[oó]n|nota|notas)\s*(?:a|:|por|con)?\s*(.+)$/i);
+        if(notesEdit){
+          const value=String(notesEdit[1]||"").trim().replace(/[.]+$/,"").slice(0,4000);
+          if(value){
+            const next={...ctxMem,pending_action:{...pending,params:{...p,notes:value}}};
+            await saveConversationContext(env,adminToken,userId,conversationId,next);
+            await sendTelegram(env,chatId,"🗒️ Observaciones actualizadas.\n\nResponde «sí» para guardar.");
+            return json({ok:true,fastPath:"quote_update_notes"},200);
+          }
+        }
         const fiscalNoTax=/\b(?:sin|no)\s+(?:igv|igb|impuesto)\b|\bno\s+incluyas?\s+(?:igv|igb|impuesto)\b/i.test(text);
         const fiscalWithTax=/\b(?:con|incluye|incluido)\s+(?:el\s+)?(?:igv|igb|impuesto)\b/i.test(text);
         if(fiscalNoTax||fiscalWithTax){
@@ -1644,14 +1683,14 @@ async function telegramWebhook(request,env,ctx){
         const ord=text.toLowerCase().match(/\b(primera|primer|segunda|segundo|tercera|tercer|cuarta|cuarto|quinta|quinto|ultima|última)\b/);
         const map={primera:0,primer:0,segunda:1,segundo:1,tercera:2,tercer:2,cuarta:3,cuarto:3,quinta:4,quinto:4,ultima:Math.max(0,items.length-1),"última":Math.max(0,items.length-1)};
         const idx=ord?map[ord[1]]:(items.length?items.length-1:0);
-        const pm=text.match(/\b(?:cambia|modifica|pon|ajusta)\b[\s\\S]{0,60}?(?:precio|valor|costo|coste)\s*(?:a|en|de)?\s*(?:s\\/\\.?\s*)?(\\d+(?:[.,]\\d{1,2})?)/i);
+        const pm=text.match(/\b(?:cambia|modifica|pon|ajusta)\b[\s\S]{0,60}?(?:precio|valor|costo|coste)\s*(?:a|en|de)?\s*(?:s\\/\\.?\s*)?(\\d+(?:[.,]\\d{1,2})?)/i);
         if(pm&&idx<items.length){
           const value=Number(pm[1].replace(",",".")); const nextItems=items.map((x,i)=>i===idx?{...x,unit_price:value}:x);
           await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:{...p,items:nextItems}}});
           await sendTelegram(env,chatId,"🧾 Actualicé el precio de la partida "+(idx+1)+" a S/ "+value.toFixed(2)+".\n\nPuedes seguir editando o responder «sí» para guardar.");
           return json({ok:true,fastPath:"quote_update_edit"},200);
         }
-        const qm=text.match(/\b(?:cambia|modifica|pon|ajusta)\b[\s\\S]{0,60}?(?:cantidad|unidades)\s*(?:a|en|de)?\s*(\\d+(?:[.,]\\d+)?)/i);
+        const qm=text.match(/\b(?:cambia|modifica|pon|ajusta)\b[\s\S]{0,60}?(?:cantidad|unidades)\s*(?:a|en|de)?\s*(\\d+(?:[.,]\\d+)?)/i);
         if(qm&&idx<items.length){
           const value=Number(qm[1].replace(",","."));
           if(value>0){const nextItems=items.map((x,i)=>i===idx?{...x,quantity:value}:x);await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:{...p,items:nextItems}}});await sendTelegram(env,chatId,"🔢 Cantidad actualizada en la partida "+(idx+1)+".\n\nResponde «sí» para guardar.");return json({ok:true,fastPath:"quote_update_qty"},200);}

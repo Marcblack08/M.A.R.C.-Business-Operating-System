@@ -1945,95 +1945,6 @@ async function telegramUnlink(request,env){
   await sb(env,token,"marc_channel_identities?user_id=eq."+encodeURIComponent(user.id)+"&channel=eq.TELEGRAM&status=eq.LINKED",{method:"PATCH",body:{status:"REVOKED",updated_at:new Date().toISOString()}});
   return json({ok:true},200,corsHeaders(request));
 }
-export default{
-  async fetch(request,env,ctx){
-    const headers=corsHeaders(request);
-    if(request.method==="OPTIONS")return new Response(null,{status:204,headers});
-    const url=new URL(request.url);
-    if(url.pathname==="/api/chat"){
-      if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);
-      try{
-        const {token,user}=await authUser(request,env);
-        const access=await entitlement(env,token,user.id);
-        if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para seguir usando M.A.R.C."},402,headers);
-        if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de 30 acciones de IA de la prueba."},429,headers);
-        const body=await request.json();
-        const message=String(body?.message||"").trim();
-        if(!message)return json({error:"Mensaje vacío"},400,headers);
-        const history=await recentMessages(env,token,user.id,body?.conversationId||"");
-        const pl=await plan(env,message,history);
-        const executed=await executePlan(env,token,user,pl,"AI_AGENT");
-        await incrementAiUsage(env,token,user.id,access);
-        const text=await finalReply(env,message,{plan:pl,execution:executed,entitlement:access});
-        return json({text,action:executed.action,result:executed.result},200,headers);
-      }catch(err){
-        return json({error:err?.message||"Error del agente",detail:err?.details||null},err?.status||500,headers);
-      }
-    }
-    if(url.pathname==="/api/telegram/webhook"){
-      try{return await telegramWebhook(request,env,ctx)}catch(err){
-        return json({error:err?.message||"Error del webhook",detail:err?.details||null},err?.status||500);
-      }
-    }
-    if(url.pathname==="/api/inventory/analyze-photo"){
-      try{return await analyzeInventoryProductPhoto(request,env)}catch(err){return json({error:err?.message||"No se pudo analizar la foto del producto.",detail:err?.details||null},err?.status||500,headers)}
-    }
-    if(url.pathname==="/api/inventory/pdf-start"){
-      try{return await inventoryPdfStart(request,env)}catch(err){return json({error:err?.message||"No se pudo iniciar el análisis"},err?.status||500,headers)}
-    }
-    if(url.pathname==="/api/inventory/pdf-page"){
-      try{return await inventoryPdfPageAnalyze(request,env)}catch(err){return json({error:err?.message||"No se pudo analizar la página"},err?.status||500,headers)}
-    }
-    if(url.pathname==="/api/inventory/pdf-finalize"){
-      try{return await inventoryPdfFinalize(request,env)}catch(err){return json({error:err?.message||"No se pudo finalizar el análisis"},err?.status||500,headers)}
-    }
-    if(url.pathname==="/api/inventory/pdf-preview"){
-      try{return await inventoryPdfPreview(request,env)}catch(err){return json({error:err?.message||"No se pudo analizar el PDF"},err?.status||500,headers)}
-    }
-    if(url.pathname==="/api/inventory/pdf-import"){
-      try{return await inventoryPdfImport(request,env)}catch(err){return json({error:err?.message||"No se pudo importar el inventario"},err?.status||500,headers)}
-    }
-    if(url.pathname==="/api/company/profile"){
-      try{
-        if(request.method==="GET")return await companyProfile(request,env);
-        if(request.method==="POST")return await saveCompanyProfile(request,env);
-        return json({error:"Método no permitido"},405,headers);
-      }catch(err){return json({error:err?.message||"No se pudo gestionar el perfil empresarial"},err?.status||500,headers)}
-    }
-    if(url.pathname==="/api/quote-ai"){
-      try{return await quoteAiDraft(request,env)}catch(err){
-        return json({error:err?.message||"No se pudo generar la cotización con IA.",detail:err?.details||null},err?.status||500,headers);
-      }
-    }
-    if(url.pathname==="/api/marketing-ai"){try{return await marketingAi(request,env)}catch(err){return json({error:err?.message||"No se pudo generar la publicidad.",detail:err?.details||null},err?.status||500,headers)}}
-    if(url.pathname==="/api/telegram/diagnostics"){return telegramDiagnostics(request,env)}
-    if(url.pathname==="/api/telegram/setup"){
-      if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);
-      try{return await telegramSetup(request,env)}catch(err){return json({error:err?.message||"No se pudo configurar Telegram"},err?.status||500,headers)}
-    }
-    if(url.pathname==="/api/telegram/status"){
-      if(request.method!=="GET")return json({error:"Método no permitido"},405,headers);
-      try{return await telegramStatus(request,env)}catch(err){return json({error:err?.message||"No se pudo consultar Telegram"},err?.status||500,headers)}
-    }
-    if(url.pathname==="/api/telegram/link"){
-      if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);
-      try{return await telegramLink(request,env)}catch(err){return json({error:err?.message||"No se pudo generar el enlace"},err?.status||500,headers)}
-    }
-    if(url.pathname==="/api/telegram/unlink"){
-      if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);
-      try{return await telegramUnlink(request,env)}catch(err){return json({error:err?.message||"No se pudo desconectar Telegram"},err?.status||500,headers)}
-    }
-    if(url.pathname.startsWith("/api/"))return json({error:"Ruta no encontrada"},404,headers);
-    const assetResponse=await env.ASSETS.fetch(request);
-    const assetHeaders=new Headers(assetResponse.headers);
-    if(["/","/index.html"].includes(url.pathname)||/\\.(?:js|css|html)$/.test(url.pathname)){
-      assetHeaders.set("Cache-Control","no-store, no-cache, must-revalidate, max-age=0");
-      assetHeaders.set("Pragma","no-cache");
-      assetHeaders.set("Expires","0");
-    }
-    return new Response(assetResponse.body,{status:assetResponse.status,statusText:assetResponse.statusText,headers:assetHeaders});
-  }
-};
 function extractJson(text){
   const fence=String.fromCharCode(96).repeat(3);
   const raw=String(text||"").replaceAll(fence+"json","").replaceAll(fence,"").trim();
@@ -3364,3 +3275,94 @@ async function telegramUnlink(request,env){
   await sb(env,token,"marc_channel_identities?user_id=eq."+encodeURIComponent(user.id)+"&channel=eq.TELEGRAM&status=eq.LINKED",{method:"PATCH",body:{status:"REVOKED",updated_at:new Date().toISOString()}});
   return json({ok:true},200,corsHeaders(request));
 }
+
+
+export default{
+  async fetch(request,env,ctx){
+    const headers=corsHeaders(request);
+    if(request.method==="OPTIONS")return new Response(null,{status:204,headers});
+    const url=new URL(request.url);
+    if(url.pathname==="/api/chat"){
+      if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);
+      try{
+        const {token,user}=await authUser(request,env);
+        const access=await entitlement(env,token,user.id);
+        if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para seguir usando M.A.R.C."},402,headers);
+        if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de 30 acciones de IA de la prueba."},429,headers);
+        const body=await request.json();
+        const message=String(body?.message||"").trim();
+        if(!message)return json({error:"Mensaje vacío"},400,headers);
+        const history=await recentMessages(env,token,user.id,body?.conversationId||"");
+        const pl=await plan(env,message,history);
+        const executed=await executePlan(env,token,user,pl,"AI_AGENT");
+        await incrementAiUsage(env,token,user.id,access);
+        const text=await finalReply(env,message,{plan:pl,execution:executed,entitlement:access});
+        return json({text,action:executed.action,result:executed.result},200,headers);
+      }catch(err){
+        return json({error:err?.message||"Error del agente",detail:err?.details||null},err?.status||500,headers);
+      }
+    }
+    if(url.pathname==="/api/telegram/webhook"){
+      try{return await telegramWebhook(request,env,ctx)}catch(err){
+        return json({error:err?.message||"Error del webhook",detail:err?.details||null},err?.status||500);
+      }
+    }
+    if(url.pathname==="/api/inventory/analyze-photo"){
+      try{return await analyzeInventoryProductPhoto(request,env)}catch(err){return json({error:err?.message||"No se pudo analizar la foto del producto.",detail:err?.details||null},err?.status||500,headers)}
+    }
+    if(url.pathname==="/api/inventory/pdf-start"){
+      try{return await inventoryPdfStart(request,env)}catch(err){return json({error:err?.message||"No se pudo iniciar el análisis"},err?.status||500,headers)}
+    }
+    if(url.pathname==="/api/inventory/pdf-page"){
+      try{return await inventoryPdfPageAnalyze(request,env)}catch(err){return json({error:err?.message||"No se pudo analizar la página"},err?.status||500,headers)}
+    }
+    if(url.pathname==="/api/inventory/pdf-finalize"){
+      try{return await inventoryPdfFinalize(request,env)}catch(err){return json({error:err?.message||"No se pudo finalizar el análisis"},err?.status||500,headers)}
+    }
+    if(url.pathname==="/api/inventory/pdf-preview"){
+      try{return await inventoryPdfPreview(request,env)}catch(err){return json({error:err?.message||"No se pudo analizar el PDF"},err?.status||500,headers)}
+    }
+    if(url.pathname==="/api/inventory/pdf-import"){
+      try{return await inventoryPdfImport(request,env)}catch(err){return json({error:err?.message||"No se pudo importar el inventario"},err?.status||500,headers)}
+    }
+    if(url.pathname==="/api/company/profile"){
+      try{
+        if(request.method==="GET")return await companyProfile(request,env);
+        if(request.method==="POST")return await saveCompanyProfile(request,env);
+        return json({error:"Método no permitido"},405,headers);
+      }catch(err){return json({error:err?.message||"No se pudo gestionar el perfil empresarial"},err?.status||500,headers)}
+    }
+    if(url.pathname==="/api/quote-ai"){
+      try{return await quoteAiDraft(request,env)}catch(err){
+        return json({error:err?.message||"No se pudo generar la cotización con IA.",detail:err?.details||null},err?.status||500,headers);
+      }
+    }
+    if(url.pathname==="/api/marketing-ai"){try{return await marketingAi(request,env)}catch(err){return json({error:err?.message||"No se pudo generar la publicidad.",detail:err?.details||null},err?.status||500,headers)}}
+    if(url.pathname==="/api/telegram/diagnostics"){return telegramDiagnostics(request,env)}
+    if(url.pathname==="/api/telegram/setup"){
+      if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);
+      try{return await telegramSetup(request,env)}catch(err){return json({error:err?.message||"No se pudo configurar Telegram"},err?.status||500,headers)}
+    }
+    if(url.pathname==="/api/telegram/status"){
+      if(request.method!=="GET")return json({error:"Método no permitido"},405,headers);
+      try{return await telegramStatus(request,env)}catch(err){return json({error:err?.message||"No se pudo consultar Telegram"},err?.status||500,headers)}
+    }
+    if(url.pathname==="/api/telegram/link"){
+      if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);
+      try{return await telegramLink(request,env)}catch(err){return json({error:err?.message||"No se pudo generar el enlace"},err?.status||500,headers)}
+    }
+    if(url.pathname==="/api/telegram/unlink"){
+      if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);
+      try{return await telegramUnlink(request,env)}catch(err){return json({error:err?.message||"No se pudo desconectar Telegram"},err?.status||500,headers)}
+    }
+    if(url.pathname.startsWith("/api/"))return json({error:"Ruta no encontrada"},404,headers);
+    const assetResponse=await env.ASSETS.fetch(request);
+    const assetHeaders=new Headers(assetResponse.headers);
+    if(["/","/index.html"].includes(url.pathname)||/\\.(?:js|css|html)$/.test(url.pathname)){
+      assetHeaders.set("Cache-Control","no-store, no-cache, must-revalidate, max-age=0");
+      assetHeaders.set("Pragma","no-cache");
+      assetHeaders.set("Expires","0");
+    }
+    return new Response(assetResponse.body,{status:assetResponse.status,statusText:assetResponse.statusText,headers:assetHeaders});
+  }
+};

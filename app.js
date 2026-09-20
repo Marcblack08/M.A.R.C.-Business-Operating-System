@@ -2192,7 +2192,7 @@ async function marketing(){
     </section>
   `;
 
-  let currentCampaign=saved?.campaign||null,currentProduct=list.find(p=>p.id===saved?.productId)||list[0]||null,currentImage=null,currentImageFile=null,currentAiImage=saved?.aiImage||null,company=companyData||{};
+  let currentCampaign=saved?.campaign||null,currentProduct=list.find(p=>p.id===saved?.productId)||list[0]||null,currentImage=null,currentImageFile=null,currentAiImage=null,company=companyData||{};
   const $p=id=>document.getElementById(id);
   const renderCanvas=async()=>{
     const canvas=$p("adCanvas");if(!canvas||!currentProduct)return;
@@ -2248,7 +2248,7 @@ async function marketing(){
       const r=await fetch("/api/marketing-image",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({product:currentProduct,campaign:currentCampaign,platform:$p("adPlatform").value,objective:$p("adObjective")?.value||"VENDER",details:$p("adDetails").value,format:$p("adFormat").value,template:$p("adTemplate")?.value||"MODERN",imageData:await readFileData()})});
       const j=await r.json();if(!r.ok)throw new Error(j.message||j.error||"No se pudo generar el banner con IA.");
       currentAiImage="data:"+(j.image?.mimeType||"image/png")+";base64,"+j.image.data;await renderCanvas();
-      localStorage.setItem("marc_marketing_last",JSON.stringify({campaign:currentCampaign,productId:currentProduct?.id,aiImage:currentAiImage}));
+      localStorage.setItem("marc_marketing_last",JSON.stringify({campaign:currentCampaign,productId:currentProduct?.id}));
       status.className="msg ok";status.textContent="Banner generado con IA. El texto exacto se agregó encima para conservar precios y ofertas.";
     }catch(e){status.className="msg error";status.textContent=e.message||"No se pudo generar el banner."}finally{btn.disabled=false}
   };

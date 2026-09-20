@@ -2034,26 +2034,6 @@ export default{
     return new Response(assetResponse.body,{status:assetResponse.status,statusText:assetResponse.statusText,headers:assetHeaders});
   }
 };
-  const action=String(execution?.action||""),result=execution?.result,next={...previous};
-  if(action==="SEARCH_CLIENTS"&&Array.isArray(result)&&result.length){
-    next.clients=result.slice(0,8).map((x,i)=>({index:i+1,id:x.id,name:x.name,phone:x.phone||null,email:x.email||null}));
-    next.last_entity_type="client";
-  }
-  if(action==="SEARCH_INVENTORY"){
-    const items=Array.isArray(result)?result:(Array.isArray(result?.items)?result.items:[]);
-    if(items.length){
-      next.products=items.slice(0,8).map((x,i)=>({index:i+1,id:x.id,name:x.name,sku:x.sku||null,price:x.price??null,stock:x.stock??null}));
-      next.last_entity_type="product";
-    }
-  }
-  if(action==="LIST_QUOTES"&&Array.isArray(result)&&result.length){
-    next.quotes=result.slice(0,8).map((x,i)=>({index:i+1,id:x.id,number:x.number,title:x.title,total:x.total,status:x.status}));
-    next.last_entity_type="quote";
-  }
-  if(action==="CASH_STATUS"||action==="CASH_LAST_CLOSE")next.last_entity_type="cash";
-  return next;
-}
-
 function extractJson(text){
   const fence=String.fromCharCode(96).repeat(3);
   const raw=String(text||"").replaceAll(fence+"json","").replaceAll(fence,"").trim();

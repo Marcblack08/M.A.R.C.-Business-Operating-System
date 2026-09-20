@@ -1684,6 +1684,53 @@ async function telegramWebhook(request,env,ctx){
           }
         }
         const selectedIndex=Number.isInteger(p._selected_quote_item_index)?p._selected_quote_item_index:null;
+
+        // Varias modificaciones en una sola instrucción.
+        const combinedSameItem=text.match(/^\s*(?:cambia|cambiar|modifica|modificar|pon|poner|ajusta|ajustar)\s+(?:el\s+)?(?:precio|valor|costo|coste)\s+(?:de|del|de la|para)\s+(.+?)\s+(?:a|en)\s*(?:s\/\.?\s*)?(\d+(?:[.,]\d{1,2})?)\s+(?:y|e)\s+(?:cambia|cambiar|modifica|modificar|pon|poner|ajusta|ajustar)?\s*(?:la\s+)?(?:cantidad|unidades)\s+(?:a|en)\s*(\d+(?:[.,]\d+)?)(?:\s*soles?)?$/i);
+        if(combinedSameItem){
+          const query=String(combinedSameItem[1]||"").trim(),hit=findQuoteItem(query);
+          if(hit.status==="AMBIGUOUS"){
+            const opts=(hit.options||[]).slice(0,5);
+            const pendingParams={...p,_pending_quote_item_target:{query,options:opts.map(a=>({i:a.i,x:a.x}))}};
+            await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:pendingParams}});
+            await sendTelegram(env,chatId,"🧾 Encontré varias partidas para «"+query+"»:\n\n"+opts.map((a,i)=>(i+1)+". "+String(a.x.name||a.x.description||"Partida")).join("\n")+"\n\nIndícame cuál deseas modificar.");
+            return json({ok:true,fastPath:"quote_multi_edit_ambiguous"},200);
+          }
+          if(hit.status==="FOUND"){
+            const idx=hit.index,price=Number(String(combinedSameItem[2]).replace(",",".")),qty=Number(String(combinedSameItem[3]).replace(",","."));
+            if(Number.isFinite(price)&&price>0&&Number.isFinite(qty)&&qty>0&&idx<items.length){
+              const nextItems=items.map((x,i)=>i===idx?{...x,unit_price:price,quantity:qty,gross_unit_price:p.tax_included?price:x.gross_unit_price}:x);
+              const nextParams={...p,items:nextItems};
+              delete nextParams._selected_quote_item_index; delete nextParams._pending_quote_item_target;
+              await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:nextParams}});
+              await sendTelegram(env,chatId,"🧾 Actualicé «"+String(items[idx].name||items[idx].description||"Partida")+"».\n💰 Precio: S/ "+price.toFixed(2)+"\n🔢 Cantidad: "+qty+"\n\nPuede seguir editando o responder «sí» para guardar.");
+              return json({ok:true,fastPath:"quote_multi_edit_same_item"},200);
+            }
+          }
+        }
+
+        const twoPriceEdit=text.match(/^\s*(?:cambia|cambiar|modifica|modificar|pon|poner|ajusta|ajustar)\s+(?:el\s+)?(?:precio|valor|costo|coste)\s+(?:de|del|de la|para)\s+(.+?)\s+(?:a|en)\s*(?:s\/\.?\s*)?(\d+(?:[.,]\d{1,2})?)\s+y\s+(?:cambia|cambiar|modifica|modificar|pon|poner|ajusta|ajustar)\s+(?:el\s+)?(?:precio|valor|costo|coste)\s+(?:de|del|de la|para)\s+(.+?)\s+(?:a|en)\s*(?:s\/\.?\s*)?(\d+(?:[.,]\d{1,2})?)$/i);
+        if(twoPriceEdit){
+          const hitA=findQuoteItem(String(twoPriceEdit[1]||"").trim()),hitB=findQuoteItem(String(twoPriceEdit[3]||"").trim());
+          if(hitA.status==="AMBIGUOUS"||hitB.status==="AMBIGUOUS"){
+            const ambiguous=hitA.status==="AMBIGUOUS"?hitA:hitB,query=hitA.status==="AMBIGUOUS"?twoPriceEdit[1]:twoPriceEdit[3],opts=(ambiguous.options||[]).slice(0,5);
+            const pendingParams={...p,_pending_quote_item_target:{query,options:opts.map(a=>({i:a.i,x:a.x}))}};
+            await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:pendingParams}});
+            await sendTelegram(env,chatId,"🧾 Hay varias partidas que coinciden con «"+String(query).trim()+"»:\n\n"+opts.map((a,i)=>(i+1)+". "+String(a.x.name||a.x.description||"Partida")).join("\n")+"\n\nIndícame cuál deseas usar.");
+            return json({ok:true,fastPath:"quote_multi_edit_ambiguous"},200);
+          }
+          if(hitA.status==="FOUND"&&hitB.status==="FOUND"&&hitA.index!==hitB.index){
+            const va=Number(String(twoPriceEdit[2]).replace(",",".")),vb=Number(String(twoPriceEdit[4]).replace(",","."));
+            if(va>0&&vb>0){
+              const nextItems=items.map((x,i)=>i===hitA.index?{...x,unit_price:va,gross_unit_price:p.tax_included?va:x.gross_unit_price}:i===hitB.index?{...x,unit_price:vb,gross_unit_price:p.tax_included?vb:x.gross_unit_price}:x);
+              const nextParams={...p,items:nextItems};
+              delete nextParams._selected_quote_item_index; delete nextParams._pending_quote_item_target;
+              await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:nextParams}});
+              await sendTelegram(env,chatId,"🧾 Apliqué los dos cambios:\n\n• "+String(items[hitA.index].name||"Partida")+" → S/ "+va.toFixed(2)+"\n• "+String(items[hitB.index].name||"Partida")+" → S/ "+vb.toFixed(2)+"\n\nResponde «sí» para guardar o continúa editando.");
+              return json({ok:true,fastPath:"quote_multi_edit_two_items"},200);
+            }
+          }
+        }
         const namePrice=text.match(/\\b(?:cambia|cambiar|modifica|modificar|pon|poner|ajusta|ajustar)\\b[\\s\\S]{0,80}?\\b(?:precio|valor|costo|coste)\\s+(?:de|del|de la|para)\\s+(.+?)\\s+(?:a|en)\\s*(?:s\\/\\.?\\s*)?(\\d+(?:[.,]\\d{1,2})?)(?:\\s*soles?)?$/i);
         const nameQty=text.match(/\\b(?:cambia|cambiar|modifica|modificar|pon|poner|ajusta|ajustar)\\b[\\s\\S]{0,80}?\\b(?:cantidad|unidades)\\s+(?:de|del|de la|para)\\s+(.+?)\\s+(?:a|en)\\s*(\\d+(?:[.,]\\d+)?)/i);
         const nameRemove=text.match(/\\b(?:quita|quitar|elimina|eliminar|borra|borrar)\\b(?:\\s+(?:la|el|partida|servicio|producto))?\\s+(.+?)$/i);

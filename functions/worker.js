@@ -1653,6 +1653,83 @@ async function telegramWebhook(request,env,ctx){
           }
         }
 
+        // Edición por nombre de partida: permite trabajar con la descripción real
+        // de la cotización, sin obligar al usuario a recordar el número ordinal.
+        const normQuoteItem=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").replace(/[^a-z0-9\\s]/g," ").replace(/\\s+/g," ").trim();
+        const findQuoteItem=(query)=>{
+          const q=normQuoteItem(query);
+          if(!q)return {status:"NOT_FOUND"};
+          const candidates=items.map((x,i)=>({x,i,n:normQuoteItem(x.name||x.description)}));
+          const exact=candidates.filter(a=>a.n===q);
+          if(exact.length===1)return {status:"FOUND",index:exact[0].i};
+          if(exact.length>1)return {status:"AMBIGUOUS",options:exact};
+          const contains=candidates.filter(a=>a.n.includes(q)||q.includes(a.n));
+          if(contains.length===1)return {status:"FOUND",index:contains[0].i};
+          if(contains.length>1)return {status:"AMBIGUOUS",options:contains};
+          return {status:"NOT_FOUND"};
+        };
+        if(p._pending_quote_item_target){
+          const choice=text.match(/^(?:partida|producto|servicio)?\\s*([1-5])$/i);
+          if(choice){
+            const n=Number(choice[1]),target=(p._pending_quote_item_target.options||[])[n-1];
+            if(!target){
+              await sendTelegram(env,chatId,"La opción "+n+" no está disponible. Indícame un número entre 1 y "+Math.min(5,(p._pending_quote_item_target.options||[]).length)+".");
+              return json({ok:true,fastPath:"quote_item_choice_invalid"},200);
+            }
+            const nextParams={...p,_selected_quote_item_index:target.i};
+            delete nextParams._pending_quote_item_target;
+            await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:nextParams}});
+            await sendTelegram(env,chatId,"🧾 Seleccioné la partida "+(target.i+1)+": «"+String(target.x.name||target.x.description||"Partida")+"». Ahora indícame el cambio o responde «sí» si ya quedó como desea.");
+            return json({ok:true,fastPath:"quote_item_choice"},200);
+          }
+        }
+        const selectedIndex=Number.isInteger(p._selected_quote_item_index)?p._selected_quote_item_index:null;
+        const namePrice=text.match(/\\b(?:cambia|cambiar|modifica|modificar|pon|poner|ajusta|ajustar)\\b[\\s\\S]{0,80}?\\b(?:precio|valor|costo|coste)\\s+(?:de|del|de la|para)\\s+(.+?)\\s+(?:a|en)\\s*(?:s\\/\\.?\\s*)?(\\d+(?:[.,]\\d{1,2})?)(?:\\s*soles?)?$/i);
+        const nameQty=text.match(/\\b(?:cambia|cambiar|modifica|modificar|pon|poner|ajusta|ajustar)\\b[\\s\\S]{0,80}?\\b(?:cantidad|unidades)\\s+(?:de|del|de la|para)\\s+(.+?)\\s+(?:a|en)\\s*(\\d+(?:[.,]\\d+)?)/i);
+        const nameRemove=text.match(/\\b(?:quita|quitar|elimina|eliminar|borra|borrar)\\b(?:\\s+(?:la|el|partida|servicio|producto))?\\s+(.+?)$/i);
+        const namedEdit=namePrice||nameQty||nameRemove;
+        if(namedEdit){
+          const query=String(namedEdit[1]||"").trim().replace(/[.]+$/,"");
+          let targetIndex=selectedIndex;
+          if(!Number.isInteger(targetIndex)){
+            const hit=findQuoteItem(query);
+            if(hit.status==="NOT_FOUND"){
+              // No interceptamos frases que no parecen una edición válida.
+              targetIndex=null;
+            }else if(hit.status==="AMBIGUOUS"){
+              const opts=(hit.options||[]).slice(0,5);
+              const pendingParams={...p,_pending_quote_item_target:{query,options:opts.map(a=>({i:a.i,x:a.x}))}};
+              await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:pendingParams}});
+              await sendTelegram(env,chatId,"🧾 Encontré varias partidas que coinciden con «"+query+"»:\n\n"+opts.map((a,i)=>(i+1)+". "+String(a.x.name||a.x.description||"Partida")).join("\n")+"\n\nIndícame el número de la partida que deseas modificar.");
+              return json({ok:true,fastPath:"quote_item_ambiguous"},200);
+            }else targetIndex=hit.index;
+          }
+          if(Number.isInteger(targetIndex)&&targetIndex>=0&&targetIndex<items.length){
+            let nextItems=items;
+            if(namePrice){
+              const value=Number(String(namePrice[2]).replace(",","."));
+              if(Number.isFinite(value)&&value>0)nextItems=items.map((x,i)=>i===targetIndex?{...x,unit_price:value,gross_unit_price:p.tax_included?value:x.gross_unit_price}:x);
+              else targetIndex=null;
+            }else if(nameQty){
+              const value=Number(String(nameQty[2]).replace(",","."));
+              if(Number.isFinite(value)&&value>0)nextItems=items.map((x,i)=>i===targetIndex?{...x,quantity:value}:x);
+              else targetIndex=null;
+            }else{
+              nextItems=items.filter((_,i)=>i!==targetIndex);
+            }
+            if(Number.isInteger(targetIndex)){
+              const nextParams={...p,items:nextItems};
+              delete nextParams._selected_quote_item_index;
+              delete nextParams._pending_quote_item_target;
+              await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:nextParams}});
+              const item=items[targetIndex];
+              const label=String(item.name||item.description||"Partida");
+              const actionText=namePrice?"💰 Precio de «"+label+"» actualizado a S/ "+Number(namePrice[2].replace(",","." )).toFixed(2)+".":nameQty?"🔢 Cantidad de «"+label+"» actualizada a "+Number(nameQty[2].replace(",","."))+".":"🗑️ Eliminé «"+label+"» de la cotización.";
+              await sendTelegram(env,chatId,actionText+"\\n\\nResponde «sí» para guardar o continúa editando.");
+              return json({ok:true,fastPath:namePrice?"quote_update_named_price":nameQty?"quote_update_named_quantity":"quote_update_named_remove"},200);
+            }
+          }
+        }
         const clientEdit=text.match(/\b(?:cambia|cambiar|modifica|modificar)\s+(?:el\s+)?cliente\s+(?:a|por|de)\s+(.+)$/i);
         if(clientEdit){
           const query=String(clientEdit[1]||"").trim().replace(/[.]+$/,"");

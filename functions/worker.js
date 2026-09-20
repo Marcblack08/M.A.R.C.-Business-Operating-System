@@ -509,6 +509,14 @@ async function plan(env,message,history,entityContext={},contextToken="",context
   }
   // Cotización estructurada: si la orden ya trae cliente y partidas, evitamos Gemini
   // y reutilizamos el flujo seguro de confirmación.
+  // Ajustes fiscales cortos sobre una cotización pendiente: no necesitan Gemini.
+  const taxOnly=/^(?:sin|no)\s+(?:igv|igb|impuesto)(?:\s+(?:incluyas?|le\s+pongas?))?\s*[.!?]*$/i.test(String(message||"").trim());
+  const taxYesOnly=/^(?:con|incluye|incluido)\s+(?:el\s+)?(?:igv|igb|impuesto)(?:\s+incluido)?\s*[.!?]*$/i.test(String(message||"").trim());
+  if(entityContext?.pending_action?.action==="CREATE_QUOTE" && (taxOnly||taxYesOnly)){
+    const pending=entityContext.pending_action.params||{};
+    return {action:"CREATE_QUOTE",execute:false,params:{...pending,tax_enabled:!taxOnly,tax_included:taxYesOnly}};
+  }
+
   const quoteCommand=/^(?:crea|crear|creemos|haz|hacer|hagamos|prepara|preparar|genera|generar|cotiza|cotizar|elabora|elaborar|necesito|quiero|armemos|vamos\s+a\s+hacer)\s+(?:una\s+)?(?:cotizacion|cotización|proforma|presupuesto)\b/i.test(String(message||"").trim());
   if(quoteCommand){
     const rawMessage=String(message||"").trim();

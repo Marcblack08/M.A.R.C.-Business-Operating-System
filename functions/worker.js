@@ -514,7 +514,7 @@ async function plan(env,message,history,entityContext={},contextToken="",context
     const rawMessage=String(message||"").trim();
     // Detecta el tratamiento fiscal solicitado en lenguaje natural.
     const taxIncluded=/\b(?:precio|precios|total|monto|importe)\b[^.\n]*\b(?:incluye|incluido|incluyendo|con)\s+(?:el\s+)?igv\b|\bcon\s+igv\b|\bigv\s+incluido\b/i.test(rawMessage);
-    const taxExcluded=/\b(?:sin\s+igv|no\s+incluye\s+igv|mas\s+igv|más\s+igv|+\s*igv)\b/i.test(rawMessage);
+    const taxExcluded=/\b(?:sin\s+igv|no\s+incluye\s+igv|mas\s+igv|más\s+igv)\b/i.test(rawMessage);
     const taxEnabled=!taxExcluded;
     const taxRateMatch=rawMessage.match(/\bigv\s*(?:de|al)?\s*(\d+(?:[.,]\d+)?)\s*%?/i);
     const taxRate=taxRateMatch?Number(taxRateMatch[1].replace(",",".")):18;

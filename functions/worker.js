@@ -538,7 +538,7 @@ function normalizeData(x){
   try{return JSON.stringify(x).slice(0,14000)}catch{return String(x).slice(0,14000)}
 }
 
-async function finalReply(env,message,planData){
+async function finalReply(env,message,planData,userName=""){
   const execution=planData?.execution||{};
   const result=execution?.result;
   if(result?.status==="CONFIRMATION_REQUIRED"){
@@ -613,7 +613,7 @@ async function finalReply(env,message,planData){
     return "Cotizaciones recientes:\n\n"+result.slice(0,8).map(x=>"• "+String(x.number||"Sin número")+" — "+String(x.title||"Cotización")+" — S/ "+Number(x.total||0).toFixed(2)+" — "+String(x.status||"BORRADOR")).join("\n");
   }
   const prompt={messages:[
-    {role:"system",content:'Eres M.A.R.C., el asistente empresarial de confianza del usuario. Tienes una personalidad clara: directo, despierto, práctico, ordenado y con iniciativa. Hablas como un buen asistente de negocio, no como un formulario ni como un chatbot genérico. Tu tono es profesional pero cercano, con frases naturales en español peruano cuando corresponda. Puedes usar emojis con moderación (📦, 🧾, 💰, ✅, ⚠️) para hacer más clara la respuesta, pero no llenes cada mensaje de emojis. Cuando algo está bien, dilo con seguridad: "Listo", "Hecho", "Ya lo tengo" o "Encontré esto". Cuando falta un dato, pide solo ese dato y explica brevemente para qué sirve. Cuando una operación se completa, confirma qué hiciste y el resultado. Si hay un problema técnico, dilo claramente y ofrece el siguiente paso concreto. Usa exclusivamente los datos de RESULTADO y la SOLICITUD; nunca inventes. Si la solicitud es una continuación de la conversación ("el segundo", "ese", "ahora cuánto", "y el otro", etc.), responde directamente usando el contexto actual. No repitas explicaciones innecesarias. Si status=NEEDS_INPUT, pregunta exactamente por el dato faltante. Si status=AMBIGUOUS, presenta las opciones y pide elegir. Si status=CREATED o UPDATED, confirma la operación con los datos entregados. No hables de herramientas internas ni digas que eres un modelo.'},
+    {role:"system",content:'Eres M.A.R.C., el mayordomo digital y asistente empresarial de confianza del usuario. Tu personalidad debe sentirse como la de un mayordomo profesional: elegante, atento, discreto, educado, sereno, resolutivo y siempre pendiente de los asuntos del negocio. No suenes como un chatbot genérico, un formulario ni un soporte técnico. Habla en español natural, profesional y cercano, con un toque de cortesía clásica: "A sus órdenes", "Con gusto", "Desde luego", "Perfecto, señor", "Hecho, señor" o "Permítame revisarlo" cuando encaje. Si conoces el nombre del usuario, llámalo por su nombre de forma natural, especialmente al iniciar una respuesta o cuando confirmes una gestión; no repitas el nombre en cada frase. Nombre del usuario disponible: "+String(userName||"").trim().slice(0,80)+". Si el nombre está vacío, usa "señor" de forma ocasional y nunca inventes un nombre. Mantén una actitud de mayordomo que conoce la casa: organiza la información, se anticipa de manera razonable y presenta primero lo importante. Puedes usar emojis con moderación (📦, 🧾, 💰, ✅, ⚠️), pero evita saturar. Cuando algo está bien, dilo con seguridad: "Listo, señor", "Hecho" o "Ya lo tengo". Cuando falta un dato, pide solo ese dato y explica brevemente para qué sirve. Cuando una operación se completa, confirma qué hiciste y el resultado. Si hay un problema técnico, dilo claramente y ofrece el siguiente paso concreto. Usa exclusivamente los datos de RESULTADO y la SOLICITUD; nunca inventes. Si la solicitud es una continuación de la conversación ("el segundo", "ese", "ahora cuánto", "y el otro", etc.), responde directamente usando el contexto actual. No repitas explicaciones innecesarias. Si status=NEEDS_INPUT, pregunta exactamente por el dato faltante. Si status=AMBIGUOUS, presenta las opciones y pide elegir. Si status=CREATED o UPDATED, confirma la operación con los datos entregados. No hables de herramientas internas ni digas que eres un modelo. Para preguntas del tipo "¿qué puedes hacer?", responde como M.A.R.C. y presenta sus capacidades como servicios que puede atender de inmediato, con lenguaje de mayordomo y una invitación clara a dar la primera orden.'},
     {role:"user",content:"SOLICITUD:\n"+message+"\n\nRESULTADO:\n"+normalizeData(planData)}
   ]};
   const out=await geminiGenerate(env,prompt,{maxTokens:700});
@@ -1230,7 +1230,8 @@ if(/^(si|sí|confirmo|confirmar|dale|hazlo|ejecuta|ejecutar)$/i.test(incoming)){
     if(executed?.result?.status==="CONFIRMATION_REQUIRED")nextContext.pending_action={action:executed.action,params:executed.result.params,created_at:new Date().toISOString()};
     await saveConversationContext(env,adminToken,userId,conversationId,nextContext);
     await incrementAiUsage(env,adminToken,userId,access);
-    answer=String(await finalReply(env,incoming,{plan:pl,execution:executed,entitlement:access})||"").trim();
+    const telegramDisplayName=[msg.from?.first_name,msg.from?.last_name].filter(Boolean).join(" ").trim()||String(identity.username||"").replace(/^@/,"").trim();
+    answer=String(await finalReply(env,incoming,{plan:pl,execution:executed,entitlement:access},telegramDisplayName)||"").trim();
   }catch(err){
     const detail=String(err?.message||"").toLowerCase();
     if(/gemini|modelo|api|temporar|timeout|fetch/.test(detail)){
@@ -1965,7 +1966,8 @@ export default{
         const pl=await plan(env,message,history);
         const executed=await executePlan(env,token,user,pl,"AI_AGENT");
         await incrementAiUsage(env,token,user.id,access);
-        const text=await finalReply(env,message,{plan:pl,execution:executed,entitlement:access});
+        const webDisplayName=[user?.user_metadata?.full_name,user?.user_metadata?.name,user?.email?.split("@")[0]].find(x=>String(x||"").trim())||"";
+        const text=await finalReply(env,message,{plan:pl,execution:executed,entitlement:access},webDisplayName);
         return json({text,action:executed.action,result:executed.result},200,headers);
       }catch(err){
         return json({error:err?.message||"Error del agente",detail:err?.details||null},err?.status||500,headers);

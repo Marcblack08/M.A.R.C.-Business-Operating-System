@@ -320,6 +320,18 @@ function buildEntityContext(execution,previous={}){
     next.quotes=result.slice(0,8).map((x,i)=>({index:i+1,id:x.id,number:x.number,title:x.title,total:x.total,status:x.status}));
     next.last_entity_type="quote";
   }
+  if(action==="CREATE_QUOTE"&&result?.status==="CREATED"&&result.quote){
+    const q=result.quote;
+    next.quotes=[{index:1,id:q.id,number:q.number||q.numero||null,title:q.title||null,total:q.total??null,status:q.status||"BORRADOR"},...(Array.isArray(previous.quotes)?previous.quotes:[]).filter(x=>x.id!==q.id)].slice(0,8)
+      .map((x,i)=>({...x,index:i+1}));
+    next.last_entity_type="quote";
+  }
+  if(action==="CREATE_CLIENT"&&result?.status==="CREATED"&&result.client){
+    const cl=result.client;
+    next.clients=[{index:1,id:cl.id,name:cl.name||cl.nombre_razon_social||null,phone:cl.phone||null,email:cl.email||null},...(Array.isArray(previous.clients)?previous.clients:[]).filter(x=>x.id!==cl.id)]
+      .slice(0,8).map((x,i)=>({...x,index:i+1}));
+    next.last_entity_type="client";
+  }
   if(action==="CASH_STATUS"||action==="CASH_LAST_CLOSE")next.last_entity_type="cash";
   return next;
 }
@@ -411,6 +423,21 @@ async function plan(env,message,history,entityContext={},contextToken="",context
   if(entityContext?.pending_action?.action==="CREATE_QUOTE"){
     const pending=entityContext.pending_action.params||{};
     const text=String(message||"").trim();
+
+    // Si la cotización quedó pendiente por un precio faltante, acepta una respuesta
+    // corta como "350", "350 soles" o "a 350" y completa la primera partida sin precio.
+    const pendingItems=Array.isArray(pending.items)?pending.items:[];
+    const missingIndex=pendingItems.findIndex(x=>!Number.isFinite(Number(x.unit_price))||Number(x.unit_price)<=0);
+    if(missingIndex>=0){
+      const priceOnly=text.match(/^(?:a\s*)?(?:s\/?\.?\s*)?(\d+(?:[.,]\d{1,2})?)\s*(?:soles?|pen)?$/i);
+      if(priceOnly){
+        const value=Number(priceOnly[1].replace(",","."));
+        if(Number.isFinite(value)&&value>0){
+          const items=pendingItems.map((x,i)=>i===missingIndex?{...x,unit_price:value}:x);
+          return {action:"CREATE_QUOTE",execute:false,params:{...pending,items}};
+        }
+      }
+    }
     if(/\b(para|cliente)\b/i.test(text) && !/\b(agrega|añade|anade|incluye)\b/i.test(text)){
       const m=text.match(/\b(?:para|cliente)\s+(.+?)(?:\s+(?:con|por|a|precio|costo)\b|$)/i);
       if(m?.[1]){

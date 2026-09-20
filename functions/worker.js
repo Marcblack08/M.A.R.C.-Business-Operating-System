@@ -706,6 +706,18 @@ async function sendTelegramDocument(env,chatId,bytes,filename,caption=""){
   const form=new FormData();form.append("chat_id",String(chatId));form.append("document",new Blob([bytes],{type:"application/pdf"}),filename);if(caption)form.append("caption",caption);
   const r=await fetch("https://api.telegram.org/bot"+env.TELEGRAM_BOT_TOKEN+"/sendDocument",{method:"POST",body:form});if(!r.ok)throw new Error("Telegram PDF API: "+(await r.text()).slice(0,500));
 }
+async function getLatestQuoteForTelegram(env,adminToken,userId){
+  const quotes=await sb(env,adminToken,"marc_quotes?select=*&user_id=eq."+encodeURIComponent(userId)+"&deleted_at=is.null&order=created_at.desc&limit=1");
+  const quote=quotes?.[0];
+  if(!quote)return {status:"NOT_FOUND"};
+  const [items,clients,company]=await Promise.all([
+    sb(env,adminToken,"marc_quote_items?select=*&user_id=eq."+encodeURIComponent(userId)+"&quote_id=eq."+encodeURIComponent(quote.id)+"&order=created_at.asc"),
+    quote.client_id?sb(env,adminToken,"marc_clients?select=*&user_id=eq."+encodeURIComponent(userId)+"&id=eq."+encodeURIComponent(quote.client_id)+"&limit=1"):Promise.resolve([]),
+    telegramCompanyProfile(env,adminToken,userId)
+  ]);
+  return {status:"FOUND",quote,items:Array.isArray(items)?items:[],client:Array.isArray(clients)&&clients[0]?clients[0]:null,company:company||{}};
+}
+
 async function telegramIdentity(env,adminToken,externalUserId){
   const path="marc_channel_identities?select=id,user_id,external_user_id,chat_id,username,status&channel=eq.TELEGRAM&external_user_id=eq."+encodeURIComponent(externalUserId)+"&status=eq.LINKED&limit=1";
   const rows=await sb(env,adminToken,path);
@@ -837,12 +849,15 @@ async function telegramWebhook(request,env,ctx){
   const cashRows=async(status=null,limit=1)=>{
     let path="marc_cash_registers?select=*&user_id=eq."+encodeURIComponent(userId);
     if(status)path+="&status=eq."+encodeURIComponent(status);
-    path+="&order=opened_at.desc&limit="+limit;
+    path+="&order="+(status==="CLOSED"?"closed_at.desc,updated_at.desc":"opened_at.desc")+"&limit="+limit;
     return sb(env,adminToken,path);
   };
   const moneyText=n=>new Intl.NumberFormat("es-PE",{style:"currency",currency:"PEN"}).format(Number(n||0));
   // Consultas sobre el último cierre: responden directamente desde los movimientos reales, sin pasar por Gemini.
-  if(/\b(ultimo|ultima|reciente)\b.*\b(cierre|caja)\b/.test(simple) && /\b(movimiento|movimientos|ingreso|ingresos|egreso|egresos|gasto|gastos|venta|ventas)\b/.test(simple)){
+  if(
+    (/(?:\b(ultimo|ultima|reciente)\b.*\b(cierre|caja)\b)/.test(simple) || /\b(cierre|caja)\b.*\b(ultimo|ultima|reciente)\b/.test(simple))
+    && /\b(movimiento|movimientos|ingreso|ingresos|egreso|egresos|gasto|gastos|venta|ventas|como estuvo|como estuvieron|como esta|como estan|resumen)\b/.test(simple)
+  ){
     try{
       const closedRows=await cashRows("CLOSED",1);
       const last=closedRows?.[0];
@@ -2367,6 +2382,38 @@ async function telegramWebhook(request,env,ctx){
       return json({ok:true,fastPath:"cash_last_close_error"},200);
     }
   }
+  // PDF de la última cotización/proforma: se genera al momento y se envía como documento de Telegram.
+  if(
+    /\b(pdf|archivo|documento)\b/.test(simple)
+    && /\b(ultimo|ultima|reciente|anterior)\b/.test(simple)
+    && /\b(proforma|cotizacion|cotización|presupuesto)\b/.test(simple)
+  ){
+    try{
+      const latest=await getLatestQuoteForTelegram(env,adminToken,userId);
+      if(latest.status==="NOT_FOUND"){
+        await sendTelegram(env,chatId,"No encuentro ninguna cotización/proforma registrada.");
+        return json({ok:true,fastPath:"latest_quote_pdf",found:false},200);
+      }
+      const q=latest.quote;
+      const bytes=buildQuotePdf({
+        quote:q,
+        client:latest.client,
+        company:latest.company,
+        items:latest.items,
+        tax_enabled:q.tax_enabled===undefined?true:Boolean(q.tax_enabled),
+        tax_rate:Number(q.tax_rate||18),
+        notes:q.notes||""
+      });
+      const number=String(q.number||q.id||"cotizacion").slice(0,40);
+      await sendTelegramDocument(env,chatId,bytes,"Cotizacion-"+number+".pdf","📄 PDF de la última cotización "+number);
+      await sendTelegram(env,chatId,"✅ Te envié el PDF de la última cotización: "+number+".");
+      return json({ok:true,fastPath:"latest_quote_pdf",found:true,number},200);
+    }catch(err){
+      await sendTelegram(env,chatId,"⚠️ Encontré la última cotización, pero no pude generar o enviar el PDF. Inténtalo nuevamente.");
+      return json({ok:true,fastPath:"latest_quote_pdf_error"},200);
+    }
+  }
+
   if(/^(\/resumen|resumen|resumen general|estado general|mi negocio)$/.test(simple)){
     const [inv,quotes,openRows]=await Promise.all([
       sb(env,adminToken,"marc_inventory?select=id,stock,min_stock,active&user_id=eq."+encodeURIComponent(userId)+"&active=eq.true"),

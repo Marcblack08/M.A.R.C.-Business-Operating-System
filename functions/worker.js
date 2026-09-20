@@ -3030,7 +3030,7 @@ async function marketingImage(request,env){
     model:images[0].model
   },200,corsHeaders(request));
 }
-function marketingAi(request,env){
+async function marketingAi(request,env){
   if(request.method!=="POST")return json({error:"Método no permitido"},405);
   const {token,user}=await authUser(request,env),access=await entitlement(env,token,user.id);
   if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request));

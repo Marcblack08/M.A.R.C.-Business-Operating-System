@@ -507,6 +507,40 @@ async function plan(env,message,history,entityContext={},contextToken="",context
       }
     }
   }
+  // Cotización estructurada: cuando el mensaje ya contiene cliente, trabajo y precio,
+  // evitamos Gemini y pasamos directamente al flujo seguro de confirmación.
+  const quoteCommand=/^(?:crea|crear|haz|hacer|prepara|preparar|genera|generar|cotiza|cotizar|elabora|elaborar)\\s+(?:una\\s+)?(?:cotizacion|cotización|proforma|presupuesto)\\b/i.test(String(message||"").trim());
+  if(quoteCommand){
+    const rawMessage=String(message||"").trim();
+    let clientQuery="";
+    const clientMatch=rawMessage.match(/\\b(?:para|cliente)\\s+(.+?)(?=\\s+(?:por|a|precio|costo|total|de|con)\\s+|\\s*[:,-]\\s*|$)/i);
+    if(clientMatch)clientQuery=clientMatch[1].trim();
+    const priceMatches=[...rawMessage.matchAll(/(?:\\ba\\s+|\\bpor\\s+|\\bprecio\\s*[:=]?\\s*|\\bcosto\\s*[:=]?\\s*|\\btotal\\s*[:=]?\\s*|\\bs\\/\\.?\\s*)(\\d+(?:[.,]\\d{1,2})?)/gi)];
+    const price=priceMatches.length?Number(priceMatches[priceMatches.length-1][1].replace(",",".")):null;
+    let description=rawMessage
+      .replace(/^(?:crea|crear|haz|hacer|prepara|preparar|genera|generar|cotiza|cotizar|elabora|elaborar)\\s+(?:una\\s+)?(?:cotizacion|cotización|proforma|presupuesto)\\s*/i,"")
+      .replace(/\\b(?:para|cliente)\\s+.+?(?=\\s+(?:por|a|precio|costo|total|de|con)\\s+|\\s*[:,-]\\s*|$)/i,"")
+      .replace(/(?:\\bpor\\s+|\\ba\\s+|\\bprecio\\s*[:=]?\\s*|\\bcosto\\s*[:=]?\\s*|\\btotal\\s*[:=]?\\s*|\\bs\\/\\.?\\s*)\\d+(?:[.,]\\d{1,2})?/gi,"")
+      .replace(/\\s+/g," ").trim();
+    // Si hay una estructura inequívoca pero falta cliente, pedimos únicamente ese dato.
+    if(!clientQuery){
+      return {action:"CREATE_QUOTE",execute:false,params:{title:"Cotización",items:[{type:"TRABAJO",name:description.slice(0,180)||"Trabajo solicitado",description:description.slice(0,2000),quantity:1,unit_price:Number.isFinite(price)&&price>0?price:null}],_needs_client:true}};
+    }
+    const hit=await resolveOneClient(env,contextToken,contextUserId,clientQuery).catch(()=>null);
+    if(hit?.status==="AMBIGUOUS"){
+      return {action:"CHAT",execute:false,params:{clarification:"Encontré varios clientes para «"+clientQuery+"». Indícame cuál desea usar."}};
+    }
+    if(hit?.status==="NOT_FOUND"){
+      return {action:"CHAT",execute:false,params:{clarification:"No encontré al cliente «"+clientQuery+"». Indícame el nombre exacto o primero registra al cliente."}};
+    }
+    const client=hit.client;
+    return {action:"CREATE_QUOTE",execute:false,params:{
+      client_query:client.id,
+      client_id:client.id,
+      title:"Cotización · "+String(client.name||clientQuery),
+      items:[{type:"TRABAJO",name:description.slice(0,180)||"Trabajo solicitado",description:description.slice(0,2000),quantity:1,unit_price:Number.isFinite(price)&&price>0?price:null}]
+    }};
+  }
   const deterministic=deterministicIntent(message);
   if(deterministic)return deterministic;
   const context=history.map((x,i)=>"["+i+"] "+x.role+":"+x.content).join("\n").slice(-8000);

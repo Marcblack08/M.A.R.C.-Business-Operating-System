@@ -2202,11 +2202,63 @@ async function marketing(){
     await renderCanvas();$p("downloadAd").disabled=!campaign;
     if(campaign)localStorage.setItem("marc_marketing_last",JSON.stringify({campaign,productId:currentProduct?.id}));
   };
-  $p("adProduct").onchange=async()=>{currentProduct=list.find(p=>p.id===$p("adProduct").value)||list[0];currentImage=null;currentImageFile=null;currentAiImage=null;currentAiVariants=[];currentAiVariantIndex=0;await renderVariants();await renderCanvas()};
+  const syncPhotoPreview=()=>{
+    const box=$p("adPhotoPreview"),analysis=$p("adPhotoAnalysis");
+    if(!box)return;
+    if(!currentImage){
+      box.innerHTML='<span>📦</span><b>Sin foto</b><small>La IA puede crear la escena desde cero.</small>';
+      if(analysis)analysis.hidden=true;
+      return;
+    }
+    box.innerHTML='<img src="'+currentImage+'" alt="Foto del producto"><button type="button" class="marketing-photo-remove" id="adPhotoRemove">×</button>';
+    if(analysis)analysis.hidden=false;
+    const remove=$p("adPhotoRemove");if(remove)remove.onclick=()=>clearAdPhoto();
+  };
+  const clearAdPhoto=()=>{
+    currentImage=null;currentImageFile=null;currentAiImage=null;currentAiVariants=[];currentAiVariantIndex=0;
+    const a=$p("adImage"),cam=$p("adImageCamera");if(a)a.value="";if(cam)cam.value="";
+    const n=$p("adImageName");if(n)n.textContent="Opcional: la IA puede crear la escena visual desde cero.";
+    syncPhotoPreview();renderVariants();renderCanvas();
+  };
+  const setAdImageFile=async f=>{
+    if(!f)return;
+    if(!/^image\/(jpeg|png|webp)$/.test(f.type))return toast("Usa una imagen JPG, PNG o WEBP.","err");
+    if(f.size>6*1024*1024)return toast("La foto debe pesar menos de 6 MB.","err");
+    currentImageFile=f;currentImage=URL.createObjectURL(f);currentAiImage=null;currentAiVariants=[];currentAiVariantIndex=0;
+    const n=$p("adImageName");if(n)n.textContent=f.name;
+    syncPhotoPreview();await renderVariants();await renderCanvas();
+  };
+  const analyzeAdPhoto=async()=>{
+    if(!currentImageFile)return toast("Primero toma o sube una foto del producto.","err");
+    const btn=$p("analyzeAdPhoto"),status=$p("adStatus");if(btn)btn.disabled=true;
+    status.className="msg";status.textContent="M.A.R.C. está leyendo la foto y mejorando la información del producto…";
+    try{
+      const dataUrl=await readFileData(),parts=dataUrl.split(","),mime=currentImageFile.type||"image/jpeg";
+      const r=await fetch("/api/marketing-product-ai",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({imageBase64:parts[1]||"",mimeType:mime,brief:$p("adDetails").value})});
+      const j=await r.json();if(!r.ok)throw new Error(j.message||j.error||"No se pudo analizar la foto.");
+      const p=j.product||{};
+      currentProduct={...(currentProduct||{}),name:p.name||currentProduct?.name||"Producto",sku:p.sku||currentProduct?.sku||null,brand:p.brand||currentProduct?.brand||null,model:p.model||currentProduct?.model||null,category:p.category||currentProduct?.category||"",description:p.description||"",marketing_description:p.marketing_description||"",key_points:p.key_points||[],image_url:currentImage,price:currentProduct?.price??null,stock:currentProduct?.stock??null};
+      const detail=[p.marketing_description||p.description,(p.key_points||[]).length?"Puntos identificados: "+p.key_points.join(", "):""].filter(Boolean).join("\\n");
+      if(detail)$p("adDetails").value=detail;
+      if($p("adProductSearch"))$p("adProductSearch").value=p.name||"";
+      const hint=$p("bannerHint");if(hint)hint.textContent="Producto analizado. M.A.R.C. mejoró la descripción y usará la foto como referencia.";
+      status.className="msg ok";status.textContent="Producto identificado y descripción mejorada con IA. Revisa el texto y luego genera el banner.";
+      await renderCanvas();
+    }catch(e){status.className="msg error";status.textContent=e.message||"No se pudo analizar la foto."}
+    finally{if(btn)btn.disabled=false}
+  };
+  $p("adProduct").onchange=async()=>{currentProduct=list.find(p=>p.id===$p("adProduct").value)||list[0]||currentProduct;currentImage=null;currentImageFile=null;currentAiImage=null;currentAiVariants=[];currentAiVariantIndex=0;syncPhotoPreview();await renderVariants();await renderCanvas()};
   $p("adProductSearch").oninput=()=>{const q=$p("adProductSearch").value.toLowerCase().trim();const sel=$p("adProduct"),matches=list.filter(p=>!q||[p.name,p.sku,p.brand,p.model].join(" ").toLowerCase().includes(q));sel.innerHTML=matches.length?matches.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+(p.sku?" · "+esc(p.sku):"")+'</option>').join(""):'<option value="">Sin coincidencias</option>';if(matches.length){currentProduct=matches[0];renderCanvas()}};
   $p("adTemplate").onchange=renderCanvas;
   $p("adFormat").onchange=renderCanvas;
-  $p("adImage").onchange=async e=>{const f=e.target.files?.[0];if(!f)return;if(f.size>6*1024*1024)return toast("La foto debe pesar menos de 6 MB.","err");currentImageFile=f;currentImage=URL.createObjectURL(f);currentAiImage=null;currentAiVariants=[];currentAiVariantIndex=0;$p("adImageName").textContent=f.name;await renderVariants();await renderCanvas()}; $("[data-ad-hint]").forEach(b=>b.onclick=()=>{$p("adDetails").value=$p("adDetails").value?($p("adDetails").value+" "+b.dataset.adHint):b.dataset.adHint});
+  $$(".marketing-platform").forEach(btn=>btn.onclick=()=>{const v=btn.dataset.platform;$p("adPlatform").value=v;$$(".marketing-platform").forEach(x=>x.classList.toggle("active",x===btn));renderCanvas()});
+  $$(".marketing-format").forEach(btn=>btn.onclick=()=>{const v=btn.dataset.format;$p("adFormat").value=v;$$(".marketing-format").forEach(x=>x.classList.toggle("active",x===btn));renderCanvas()});
+  $p("adImage").onchange=async e=>{await setAdImageFile(e.target.files?.[0])};
+  $p("adImageCamera").onchange=async e=>{await setAdImageFile(e.target.files?.[0])};
+  $p("analyzeAdPhoto").onclick=analyzeAdPhoto;
+  $p("marketingPhotoClear").onclick=clearAdPhoto;
+  $p("marketingCompanyInfo").onclick=()=>toast("Datos usados: "+String(company.business_name||"Tu empresa")+(company.phone?" · "+company.phone:""),"ok");
+  $("[data-ad-hint]").forEach(b=>b.onclick=()=>{$p("adDetails").value=$p("adDetails").value?($p("adDetails").value+" "+b.dataset.adHint):b.dataset.adHint});
   $p("adCta").oninput=renderCanvas;$p("adOffer").oninput=renderCanvas;
   const readFileData=()=>currentImageFile?new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>resolve(fr.result);fr.onerror=reject;fr.readAsDataURL(currentImageFile)}):Promise.resolve("");
   const campaignPayload=()=>({product:currentProduct,platform:$p("adPlatform").value,objective:$p("adObjective")?.value||"VENDER",tone:$p("adTone")?.value||"PROFESIONAL",audience:$p("adAudience")?.value||"",offer:$p("adOffer")?.value||"",details:$p("adDetails").value,cta:$p("adCta")?.value||"Escríbenos para cotizar"});

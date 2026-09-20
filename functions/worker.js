@@ -1066,7 +1066,7 @@ async function telegramWebhook(request,env,ctx){
   }
   // Consultas deterministas de clientes e inventario: si la intención es inequívoca,
   // respondemos desde Supabase sin pasar por el planificador ni consumir IA.
-  let quickMatch=simple.match(/^(?:busca|buscar|encuentra|localiza)\\s+(?:al|a|cliente)\\s+(.+)$/);
+  let quickMatch=simple.match(/^(?:busca|buscar|encuentra|localiza)\\s+(?:(?:al|a|cliente)\\s+)?(.+)$/);
   if(quickMatch){
     const query=quickMatch[1].trim();
     const rows=await searchClients(env,adminToken,userId,query);
@@ -1080,7 +1080,7 @@ async function telegramWebhook(request,env,ctx){
     return json({ok:true,fastPath:"client_search",found:rows.length},200);
   }
 
-  quickMatch=simple.match(/^(?:stock|existencias?|inventario|precio|cuanto cuesta|cuánto cuesta)\\s+(?:de|del|del producto|producto)?\\s*(.+)$/);
+  quickMatch=simple.match(/^(?:stock|existencias?|inventario|precio|cuanto cuesta|cuánto cuesta|revisa)\\s+(?:(?:de|del|del producto|producto)\\s+)?(.+)$/);
   if(quickMatch){
     const query=quickMatch[1].trim();
     const rows=await searchInventory(env,adminToken,userId,query,8);

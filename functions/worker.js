@@ -524,7 +524,7 @@ async function plan(env,message,history,entityContext={},contextToken="",context
       .replace(/\\s+/g," ").trim();
     // Si hay una estructura inequívoca pero falta cliente, pedimos únicamente ese dato.
     if(!clientQuery){
-      return {action:"CREATE_QUOTE",execute:false,params:{title:"Cotización",items:[{type:"TRABAJO",name:description.slice(0,180)||"Trabajo solicitado",description:description.slice(0,2000),quantity:1,unit_price:Number.isFinite(price)&&price>0?price:null}],_needs_client:true}};
+      return {action:"CHAT",execute:false,params:{clarification:"Con gusto. ¿Para qué cliente desea preparar la cotización?"}};
     }
     const hit=await resolveOneClient(env,contextToken,contextUserId,clientQuery).catch(()=>null);
     if(hit?.status==="AMBIGUOUS"){

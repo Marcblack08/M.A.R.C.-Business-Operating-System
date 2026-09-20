@@ -2399,3 +2399,24 @@ body,
   .marketing-photo-analysis{align-items:flex-start;flex-direction:column}
   .marketing-photo-analysis button{width:100%}
 }
+
+
+.marketing-ai-product-card{margin:12px 0 18px;padding:13px;border:1px solid #17608b;border-radius:14px;background:linear-gradient(145deg,#071b2e,#0a253b)}
+.marketing-ai-product-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.marketing-ai-product-head b{display:block;color:#f2f8fc;font-size:11px}
+.marketing-ai-product-head small{display:block;color:#87a2b8;font-size:8px;margin-top:3px}
+.marketing-ai-product-head>span{border:1px solid #1b75a8;border-radius:999px;padding:5px 8px;color:#71c9ff;font-size:7px;font-weight:900;white-space:nowrap}
+.marketing-ai-product-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.marketing-ai-product-grid label,.marketing-ai-full{font-size:8px;color:#8fa8ba}
+.marketing-ai-product-grid input,.marketing-ai-product-grid textarea,.marketing-ai-full textarea{margin-top:4px;width:100%}
+.marketing-ai-full{display:block;margin-top:8px}
+.marketing-ai-points-title{display:block;color:#cfe2ef;font-size:8px;margin:9px 0 5px}
+.marketing-ai-points{display:flex;flex-wrap:wrap;gap:5px}
+.marketing-ai-points span{padding:5px 7px;border-radius:999px;background:#0d3450;border:1px solid #1b587d;color:#a9d8f2;font-size:7px}
+.marketing-ai-points small{color:#7995aa;font-size:8px}
+.marketing-ai-product-actions{display:flex;justify-content:flex-end;gap:7px;flex-wrap:wrap;margin-top:11px}
+.marketing-ai-product-actions button{font-size:8px}
+@media(max-width:520px){
+ .marketing-ai-product-grid{grid-template-columns:1fr}
+ .marketing-ai-product-actions{display:grid;grid-template-columns:1fr 1fr}
+}

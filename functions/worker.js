@@ -1338,6 +1338,7 @@ async function telegramWebhook(request,env,ctx){
     }
     if(detail.status==="AMBIGUOUS"){
       const qs=(detail.quotes||[]).slice(0,5);
+      await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{action:"QUERY_QUOTE",params:{options:qs.map(x=>({id:x.id,number:x.number,title:x.title,total:x.total}))}}});
       await sendTelegram(env,chatId,"🧾 Encontré varias cotizaciones:\\n\\n"+qs.map((x,i)=>"• "+(i+1)+". "+String(x.number||"Sin número")+" · "+String(x.title||"Cotización")+" · "+moneyText(x.total)).join("\\n")+"\\n\\nIndícame cuál deseas consultar.");
       return json({ok:true,fastPath:"quote_detail_ambiguous"},200);
     }
@@ -1640,6 +1641,39 @@ async function telegramWebhook(request,env,ctx){
         await sendTelegram(env,chatId,"🧾 Actualicé el tratamiento del impuesto en la cotización encadenada: "+(fiscalNoTax?"sin IGV.":"IGV incluido.")+"\n\nResponde «sí» para continuar.");
         return json({ok:true,fastPath:"client_quote_tax"},200);
       }
+      // Selección pendiente al consultar una cotización ambigua.
+      if(pending.action==="QUERY_QUOTE" && pending.params){
+        const qp=pending.params;
+        const choice=text.match(/^(?:cotizacion|cotización|opcion|opción)?\\s*([1-5])$/i);
+        if(choice&&Array.isArray(qp.options)){
+          const n=Number(choice[1]),selected=qp.options[n-1];
+          if(!selected){
+            await sendTelegram(env,chatId,"La opción "+n+" no está disponible. Indícame un número entre 1 y "+Math.min(5,qp.options.length)+".");
+            return json({ok:true,fastPath:"quote_detail_choice_invalid"},200);
+          }
+          const detail=await getQuoteForEdit(env,adminToken,userId,String(selected.number||selected.id||""));
+          if(detail.status!=="FOUND"){
+            await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:null});
+            await sendTelegram(env,chatId,"⚠️ No pude recuperar esa cotización. Inténtalo nuevamente con su número.");
+            return json({ok:true,fastPath:"quote_detail_choice_error"},200);
+          }
+          const q=detail.quote||{},items=Array.isArray(detail.items)?detail.items:[],client=detail.client||null;
+          const lines=["🧾 COTIZACIÓN "+String(q.number||selected.number||""),"","👤 Cliente: "+String(client?.name||"Sin cliente"),"📋 "+String(q.title||"Cotización")];
+          if(q.status)lines.push("📌 Estado: "+String(q.status));
+          lines.push("");
+          items.forEach((it,i)=>{const qty=Number(it.quantity||0),unit=Number(it.unit_price||0);lines.push((i+1)+". "+String(it.name||it.description||"Partida")+" · "+qty+" × S/ "+unit.toFixed(2)+" = S/ "+(qty*unit).toFixed(2));});
+          lines.push("","📦 Partidas: "+items.length,"💵 Subtotal: "+moneyText(q.subtotal));
+          const taxEnabled=q.tax_enabled===undefined?true:Boolean(q.tax_enabled);
+          if(taxEnabled)lines.push("🧾 IGV ("+Number(q.tax_rate||18).toFixed(2)+"%): "+moneyText(q.tax_amount));
+          else lines.push("🧾 IGV: No incluido");
+          lines.push("💰 TOTAL: "+moneyText(q.total));
+          if(q.notes)lines.push("","📝 Observaciones: "+String(q.notes));
+          await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:null});
+          await sendTelegram(env,chatId,lines.join("\n"));
+          return json({ok:true,fastPath:"quote_detail_choice"},200);
+        }
+      }
+
       if(pending.action==="UPDATE_QUOTE" && pending.params){
         if(/^(si|sí|confirmar|confirmo|guarda|guardar|ok|dale|hazlo)$/i.test(text)){
           const p=pending.params;

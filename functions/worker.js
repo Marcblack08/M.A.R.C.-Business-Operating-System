@@ -535,7 +535,7 @@ async function plan(env,message,history,entityContext={},contextToken="",context
       newClientDraft={name:clientName.slice(0,180),address:addressMatch?.[1]?.trim()?.slice(0,300)||null};
     }
     const client=hit?.client||null;
-    if(!client)return {action:"CHAT",execute:false,params:{clarification:"No pude identificar al cliente. Indícame el nombre exacto, por favor."}};
+    if(!client && !newClientDraft)return {action:"CHAT",execute:false,params:{clarification:"No pude identificar al cliente. Indícame el nombre exacto, por favor."}};
 
     let body=rawMessage
       .replace(/^(?:crea|crear|creemos|hagamos|haz|hacer|prepara|preparar|genera|generar|cotiza|cotizar|elabora|elaborar)\s+(?:una\s+)?(?:cotizacion|cotización|proforma|presupuesto)\s*/i,"")

@@ -165,8 +165,8 @@ function closeChat(){
   $("#chat").classList.add("closed");
   $("#app").classList.add("chat-closed");
 }
-function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",quotes:"Cotizaciones",marketing:"Publicidad",settings:"Configuración",cash:"Cierre de caja"}[x]||"Inicio";$$(".sidebar nav button, #mobileNav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
-async function view(x){st.view=x;title(x);$("#sidebar").classList.remove("open");document.body.style.overflow="";if(window.innerWidth<=780)window.scrollTo(0,0);$$(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x));if(x==="home")return home();if(x==="clients")return clients();if(x==="inventory")return inventory();if(x==="quotes")return quotes();if(x==="marketing")return marketing();if(x==="cash")return cash();return settings()}
+function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",quotes:"Cotizaciones",marketing:"Publicidad",settings:"Configuración",cash:"Cierre de caja"}[x]||"Inicio";$$$(".sidebar nav button, #mobileNav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
+async function view(x){st.view=x;title(x);$("#sidebar").classList.remove("open");document.body.style.overflow="";if(window.innerWidth<=780)window.scrollTo(0,0);$$$(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x));if(x==="home")return home();if(x==="clients")return clients();if(x==="inventory")return inventory();if(x==="quotes")return quotes();if(x==="marketing")return marketing();if(x==="cash")return cash();return settings()}
 async function home(){
   const c=$("#content");
   const [cl,iv,qt]=await Promise.all([
@@ -323,7 +323,7 @@ async function home(){
   $("#heroQuote").onclick=quoteModal;
   $("#openInventory").onclick=inventory;
   $("#openQuotes").onclick=quotes;
-  $(".quick-modern-grid button",c).forEach(b=>b.onclick=()=>b.dataset.q==="client"?clientModal():b.dataset.q==="inventory"?inventoryModal():b.dataset.q==="quote"?quoteModal():b.dataset.q==="marketing"?marketing():b.dataset.q==="cash"?cash():openChat());
+  $$(".quick-modern-grid button",c).forEach(b=>b.onclick=()=>b.dataset.q==="client"?clientModal():b.dataset.q==="inventory"?inventoryModal():b.dataset.q==="quote"?quoteModal():b.dataset.q==="marketing"?marketing():b.dataset.q==="cash"?cash():openChat());
 }
 async function clients(){
   const {data,error}=await S.from("marc_clients").select("*").eq("user_id",st.u.id).order("name");
@@ -2207,7 +2207,7 @@ async function marketing(){
   $p("downloadAd").onclick=()=>{if(!currentCampaign)return;const a=document.createElement("a");a.href=$p("adCanvas").toDataURL("image/png");a.download="MARC_Publicidad_"+String(currentProduct?.name||"producto").replace(/[^a-z0-9áéíóúñü]+/gi,"-").slice(0,50)+".png";a.click()};
   $p("copyBanner").onclick=async()=>{const text=currentCampaign?.banner_text||currentCampaign?.headline||"";if(!text)return toast("Primero genera una publicidad.","err");await navigator.clipboard?.writeText(text);toast("Texto del banner copiado","ok")};
   $p("shareAd").onclick=async()=>{if(!$p("adCanvas")||!currentCampaign)return toast("Primero genera una publicidad.","err");try{const blob=await new Promise(r=>$p("adCanvas").toBlob(r,"image/png"));const file=new File([blob],"MARC_Publicidad.png",{type:"image/png"});if(navigator.share&&navigator.canShare?.({files:[file]})){await navigator.share({title:currentCampaign.title||currentProduct.name,text:currentCampaign.short_text||"",files:[file]})}else{await navigator.clipboard?.writeText(currentCampaign.whatsapp_text||currentCampaign.primary_text||"");toast("Tu dispositivo no permite compartir la imagen directamente; el texto quedó copiado.","ok")}}catch(e){if(e?.name!=="AbortError")toast("No se pudo compartir.","err")}};
-  $("[data-copy]").forEach(b=>b.onclick=async()=>{const key=b.dataset.copy,val=key==="hashtags"?(currentCampaign?.hashtags||[]).join(" "):currentCampaign?.[key]||"";if(!val)return toast("No hay texto para copiar.","err");await navigator.clipboard?.writeText(val);toast("Texto copiado","ok")});
+  $$("[data-copy]").forEach(b=>b.onclick=async()=>{const key=b.dataset.copy,val=key==="hashtags"?(currentCampaign?.hashtags||[]).join(" "):currentCampaign?.[key]||"";if(!val)return toast("No hay texto para copiar.","err");await navigator.clipboard?.writeText(val);toast("Texto copiado","ok")});
   $p("marketingClear").onclick=()=>setCampaign(null);
   await renderMarketingHistory();
   if(currentProduct){$p("adProduct").value=currentProduct.id;await renderCanvas()}
@@ -2906,10 +2906,10 @@ function wire(){
   $("#exitConversation").onclick=closeChat;
   $("#menu").onclick=()=>$("#sidebar").classList.toggle("open");
   $("#mobileScrim").onclick=()=>$("#sidebar").classList.remove("open");
-  $$(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.onclick=()=>view(b.dataset.view));
+  $$$(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.onclick=()=>view(b.dataset.view));
   $("#chatForm").onsubmit=e=>{e.preventDefault();const v=$("#chatInput").value.trim();if(v){$("#chatInput").value="";chatSend(v)}};
   $("#chatInput").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("#chatForm").requestSubmit()}};
-  $$(".chips button").forEach(b=>b.onclick=()=>{$("#chatInput").value=b.dataset.q;$("#chatInput").focus()});
+  $$$(".chips button").forEach(b=>b.onclick=()=>{$("#chatInput").value=b.dataset.q;$("#chatInput").focus()});
 
   // OAuth callback: let Supabase handle the browser redirect.
   // M.A.R.C. is a client-side app, so the implicit flow avoids a PKCE

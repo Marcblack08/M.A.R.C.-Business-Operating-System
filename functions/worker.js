@@ -302,6 +302,7 @@ function resolveEntityReference(message,context={}){
   return {status:"FOUND",index,type,item:list[index-1]};
 }
 
+function buildEntityContext(execution,previous={}){
   const action=String(execution?.action||""),result=execution?.result,next={...previous};
   if(action==="SEARCH_CLIENTS"&&Array.isArray(result)&&result.length){
     next.clients=result.slice(0,8).map((x,i)=>({index:i+1,id:x.id,name:x.name,phone:x.phone||null,email:x.email||null}));

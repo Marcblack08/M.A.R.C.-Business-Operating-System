@@ -273,6 +273,42 @@ async function recentMessages(env,token,userId,conversationId){
   return rows.reverse();
 }
 
+async function getConversationContext(env,token,userId,conversationId){
+  if(!conversationId)return {};
+  try{
+    const rows=await sb(env,token,"marc_conversation_context?select=context&user_id=eq."+encodeURIComponent(userId)+"&conversation_id=eq."+encodeURIComponent(conversationId)+"&limit=1");
+    return rows?.[0]?.context||{};
+  }catch{return {}}
+}
+async function saveConversationContext(env,token,userId,conversationId,context){
+  if(!conversationId)return;
+  const safe={...context,updated_at:new Date().toISOString()};
+  await sb(env,token,"marc_conversation_context?on_conflict=conversation_id",{
+    method:"POST",prefer:"resolution=merge-duplicates,return=minimal",
+    body:{conversation_id:conversationId,user_id:userId,context:safe}
+  }).catch(()=>{});
+}
+function buildEntityContext(execution,previous={}){
+  const action=String(execution?.action||""),result=execution?.result,next={...previous};
+  if(action==="SEARCH_CLIENTS"&&Array.isArray(result)&&result.length){
+    next.clients=result.slice(0,8).map((x,i)=>({index:i+1,id:x.id,name:x.name,phone:x.phone||null,email:x.email||null}));
+    next.last_entity_type="client";
+  }
+  if(action==="SEARCH_INVENTORY"){
+    const items=Array.isArray(result)?result:(Array.isArray(result?.items)?result.items:[]);
+    if(items.length){
+      next.products=items.slice(0,8).map((x,i)=>({index:i+1,id:x.id,name:x.name,sku:x.sku||null,price:x.price??null,stock:x.stock??null}));
+      next.last_entity_type="product";
+    }
+  }
+  if(action==="LIST_QUOTES"&&Array.isArray(result)&&result.length){
+    next.quotes=result.slice(0,8).map((x,i)=>({index:i+1,id:x.id,number:x.number,title:x.title,total:x.total,status:x.status}));
+    next.last_entity_type="quote";
+  }
+  if(action==="CASH_STATUS"||action==="CASH_LAST_CLOSE")next.last_entity_type="cash";
+  return next;
+}
+
 function extractJson(text){
   const fence=String.fromCharCode(96).repeat(3);
   const raw=String(text||"").replaceAll(fence+"json","").replaceAll(fence,"").trim();
@@ -329,13 +365,15 @@ function deterministicIntent(message){
   if(/\b(busca|buscar|muestra|mostrar|consulta|consultar|revisa|revisar)\b/.test(s) && /\b(cliente|clientes)\b/.test(s)){const q=s.replace(/.*\b(cliente|clientes)\b\s*/,"").trim();return {action:"SEARCH_CLIENTS",execute:false,params:{query:q}};}
   return null;
 }
-async function plan(env,message,history){
+async function plan(env,message,history,entityContext={}){
   const deterministic=deterministicIntent(message);
   if(deterministic)return deterministic;
   const context=history.map((x,i)=>"["+i+"] "+x.role+":"+x.content).join("\n").slice(-8000);
+  const entityMemory=JSON.stringify(entityContext||{}).slice(0,6000);
   const prompt={messages:[
     {role:"system",content:'Eres el enrutador de M.A.R.C. Devuelve SOLO JSON válido, sin markdown ni explicación. Convierte lenguaje natural en una sola acción segura. Usa el historial reciente como contexto conversacional real: si el usuario dice "el primero", "el segundo", "ese", "esa", "ahí", "lo anterior", "el mismo", "también", "ahora", "cuánto es", etc., resuelve el referente usando el último resultado relevante del historial. No inventes referentes: si hay más de una interpretación posible, usa CHAT y pide una aclaración breve. Acciones: SEARCH_CLIENTS, SEARCH_INVENTORY, LIST_QUOTES, CASH_STATUS, CASH_LAST_CLOSE, CREATE_CLIENT, CREATE_QUOTE, ADJUST_INVENTORY, CHAT. Para cualquier consulta, pregunta o solicitud de revisar, usa una acción de consulta. Solo usa execute=true para una operación que el usuario pidió explícitamente ejecutar. Nunca inventes IDs, precios, stock, clientes o productos. Para CREATE_QUOTE: items es un arreglo. Producto {type:"PRODUCTO",inventory_query:"texto",quantity:number,unit_price:number|null}; Trabajo {type:"TRABAJO",name:"texto",quantity:number,unit_price:number|null}. Para ADJUST_INVENTORY type es ENTRADA, SALIDA o AJUSTE. Formato: {"action":"CHAT","execute":false,"params":{}}'},
     ...(context?[{role:"user",content:"Historial reciente:\n"+context}]:[]),
+    ...(entityMemory?[{role:"user",content:"Memoria de entidades de esta conversación (datos reales, no inventar):\n"+entityMemory}]:[]),
     {role:"user",content:message}
   ]};
   const out=await geminiGenerate(env,prompt,{json:true,maxTokens:1000});
@@ -827,8 +865,10 @@ async function telegramWebhook(request,env,ctx){
   let pl=null,executed=null,answer="";
   try{
     const history=await recentMessages(env,adminToken,userId,conversationId);
-    pl=await plan(env,incoming,history);
+    const entityContext=await getConversationContext(env,adminToken,userId,conversationId);
+    pl=await plan(env,incoming,history,entityContext);
     executed=await executePlan(env,adminToken,{id:userId},pl,"TELEGRAM");
+    await saveConversationContext(env,adminToken,userId,conversationId,buildEntityContext(executed,entityContext));
     await incrementAiUsage(env,adminToken,userId,access);
     answer=String(await finalReply(env,incoming,{plan:pl,execution:executed,entitlement:access})||"").trim();
   }catch(err){

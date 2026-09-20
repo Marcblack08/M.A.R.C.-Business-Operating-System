@@ -495,8 +495,16 @@ async function finalReply(env,message,planData){
       return "⚠️ Voy a registrar este cliente:\n\n👤 "+String(p.name||"Sin nombre")+(p.document_number?"\n🪪 Documento: "+p.document_number:"")+(p.phone?"\n📞 "+p.phone:"")+(p.email?"\n✉️ "+p.email:"")+"\n\nResponde «sí» para registrarlo o «cancelar» para detener la operación.";
     }
     if(execution.action==="CREATE_QUOTE"){
-      const item=Array.isArray(p.items)?p.items[0]||{}:{};
-      return "⚠️ Preparé esta cotización:\n\n👤 Cliente: "+String(p.client_query||"seleccionado")+"\n🧾 "+String(p.title||"Cotización")+"\n🔧 "+String(item.name||item.description||"Trabajo solicitado")+"\n🔢 Cantidad: "+Number(item.quantity||1)+"\n💰 Precio: S/ "+Number(item.unit_price||0).toFixed(2)+"\n\nResponde «sí» para crearla o «cancelar» para no realizar cambios.";
+      const items=Array.isArray(p.items)?p.items:[];
+      const subtotal=items.reduce((s,x)=>s+Math.max(0,Number(x.quantity||1))*Math.max(0,Number(x.unit_price||0)),0);
+      const taxEnabled=p.tax_enabled!==false;
+      const taxRate=Number(p.tax_rate||18);
+      const igv=taxEnabled?subtotal*taxRate/100:0;
+      const total=subtotal+igv;
+      const rows=items.map((x,i)=>"• "+(i+1)+". "+String(x.name||x.description||"Partida")+" · "+Number(x.quantity||1)+" × S/ "+Number(x.unit_price||0).toFixed(2)+" = S/ "+(Number(x.quantity||1)*Number(x.unit_price||0)).toFixed(2));
+      return "⚠️ PREPARÉ ESTA COTIZACIÓN\n\n👤 Cliente: "+String(p.client_query||"seleccionado")+"\n🧾 "+String(p.title||"Cotización")+"\n\n"+(rows.length?rows.join("\n"):"• Falta agregar una partida")+
+        "\n\nSubtotal: S/ "+subtotal.toFixed(2)+"\n"+(taxEnabled?"IGV "+taxRate+"%: S/ "+igv.toFixed(2)+"\n":"IGV: No incluido\n")+"💰 TOTAL: S/ "+total.toFixed(2)+
+        "\n\nResponde «sí» para crearla, «agrega ...» para añadir otra partida, o «cancelar» para no realizar cambios.";
     }
   }
   if(execution?.action==="CASH_STATUS" && result){
@@ -930,6 +938,28 @@ async function telegramWebhook(request,env,ctx){
     }catch(err){
       await sendTelegram(env,chatId,"⚠️ No pude consultar el inventario ahora. Inténtalo nuevamente.");
       return json({ok:true,fastPath:"inventory_count_error"},200);
+    }
+  }
+
+  {
+    const conversationId=await ensureTelegramConversation(env,adminToken,userId);
+    const ctxMem=await getConversationContext(env,adminToken,userId,conversationId);
+    const pending=ctxMem?.pending_action;
+    if(pending?.action==="CREATE_QUOTE" && pending?.params){
+      const text=String(incoming||"").trim();
+      if(/\b(sin|no)\s+igv\b|\bno\s+incluyas?\s+igv\b/i.test(text)){
+        const next={...ctxMem,pending_action:{...pending,params:{...pending.params,tax_enabled:false}}};
+        await saveConversationContext(env,adminToken,userId,conversationId,next);
+        const p=next.pending_action.params,items=Array.isArray(p.items)?p.items:[],subtotal=items.reduce((s,x)=>s+Number(x.quantity||1)*Number(x.unit_price||0),0);
+        await sendTelegram(env,chatId,"🧾 Cotización actualizada.\n\nSubtotal: S/ "+subtotal.toFixed(2)+"\nIGV: No incluido\n💰 Total: S/ "+subtotal.toFixed(2)+"\n\nResponde «sí» para crearla o agrega otra partida.");
+        return json({ok:true,fastPath:"quote_remove_tax"},200);
+      }
+      if(/\b(igv|incluye|incluido)\b/i.test(text) && /\b(18|dieciocho)\b/i.test(text)){
+        const next={...ctxMem,pending_action:{...pending,params:{...pending.params,tax_enabled:true,tax_rate:18}}};
+        await saveConversationContext(env,adminToken,userId,conversationId,next);
+        await sendTelegram(env,chatId,"🧾 IGV 18% incluido. Responde «sí» para crear la cotización o agrega otra partida.");
+        return json({ok:true,fastPath:"quote_add_tax"},200);
+      }
     }
   }
 

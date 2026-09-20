@@ -541,6 +541,12 @@ function normalizeData(x){
 async function finalReply(env,message,planData,userName=""){
   const execution=planData?.execution||{};
   const result=execution?.result;
+  const requestText=String(message||"").toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").trim();
+  const displayName=String(userName||"").trim();
+  if(/\\b(que puede hacer|que puedes hacer|que haces|capacidades|como puedes ayudar|para que sirves)\\b/.test(requestText)){
+    const who=displayName?displayName:"señor";
+    return "A sus órdenes, "+who+". Soy M.A.R.C., su mayordomo digital. Estoy pendiente de la operación de su negocio y puedo encargarme de:\n\n🧾 COTIZACIONES\n• Consultar cotizaciones y proformas.\n• Preparar nuevas cotizaciones de productos o servicios.\n• Añadir partidas, precios e IGV y dejar todo listo para su confirmación.\n\n📦 INVENTARIO\n• Buscar productos y revisar precios y stock.\n• Consultar productos agotados o con stock bajo.\n• Registrar entradas, salidas y ajustes, siempre con su confirmación.\n\n👤 CLIENTES\n• Buscar clientes y sus datos.\n• Registrar nuevos clientes con su autorización.\n\n💰 CAJA\n• Revisar la caja abierta.\n• Consultar ingresos, egresos y efectivo esperado.\n• Revisar el último cierre y sus movimientos.\n\nTambién puedo mantener el hilo de la conversación para que no tenga que repetir los datos que ya me indicó.\n\nDígame qué necesita, "+who+". Yo me encargo de ponerlo en orden.";
+  }
   if(result?.status==="CONFIRMATION_REQUIRED"){
     const p=result.params||{};
     if(execution.action==="ADJUST_INVENTORY"){

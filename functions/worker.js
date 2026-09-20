@@ -166,6 +166,29 @@ async function listQuotes(env,token,userId){
   return sb(env,token,url.pathname.slice("/rest/v1/".length)+url.search);
 }
 
+async function searchQuotes(env,token,userId,query,limit=10){
+  const url=new URL(env.SUPABASE_URL+"/rest/v1/marc_quotes");
+  url.searchParams.set("select","id,number,title,status,total,client_id,created_at");
+  url.searchParams.set("user_id","eq."+userId);
+  url.searchParams.set("deleted_at","is.null");
+  if(query){
+    const q=String(query).replace(/[,*()]/g," ").trim().slice(0,80);
+    url.searchParams.set("or","number.ilike.*"+q+"*,title.ilike.*"+q+"*");
+  }
+  url.searchParams.set("order","created_at.desc");
+  url.searchParams.set("limit",String(Math.max(1,Math.min(30,Number(limit)||10))));
+  return sb(env,token,url.pathname.slice("/rest/v1/".length)+url.search);
+}
+async function searchQuotesByClient(env,token,userId,clientId,limit=10){
+  const url=new URL(env.SUPABASE_URL+"/rest/v1/marc_quotes");
+  url.searchParams.set("select","id,number,title,status,total,client_id,created_at");
+  url.searchParams.set("user_id","eq."+userId);
+  url.searchParams.set("client_id","eq."+encodeURIComponent(clientId));
+  url.searchParams.set("deleted_at","is.null");
+  url.searchParams.set("order","created_at.desc");
+  url.searchParams.set("limit",String(Math.max(1,Math.min(30,Number(limit)||10))));
+  return sb(env,token,url.pathname.slice("/rest/v1/".length)+url.search);
+}
 async function createClient(env,token,userId,p,source="AI_AGENT"){
   if(!p?.name?.trim())return {status:"NEEDS_INPUT",message:"Necesito el nombre o razón social del cliente."};
   const dup=await searchClients(env,token,userId,p.name.trim());
@@ -1064,6 +1087,42 @@ async function telegramWebhook(request,env,ctx){
     await sendTelegram(env,chatId,"🤖 M.A.R.C. · MENÚ RÁPIDO\n\n▣ CAJA\n• /caja — estado de caja\n• abrir caja 100\n• ingreso 50 venta cliente\n• gasto 20 transporte\n• cerrar caja 450\n\n📦 INVENTARIO\n• /stock — productos con stock crítico\n• Envía un PDF de catálogo para analizarlo\n• IMPORTAR — confirma una importación pendiente\n\n🧾 COTIZACIONES\n• /cotizaciones — últimas cotizaciones\n\n📊 NEGOCIO\n• /resumen — resumen general\n\n🤖 COPILOTO\nTambién puedes escribir de forma natural: «revisa mi inventario», «crea una cotización para Juan», «busca al cliente Delgado» o «qué productos tengo agotados». M.A.R.C. usará tu misma cuenta y contexto de la web.");
     return json({ok:true},200);
   }
+  // Consultas rápidas de cotizaciones: lectura directa desde Supabase, sin Gemini.
+  let quoteMatch=simple.match(/^(?:busca|buscar|encuentra|localiza|ver|muestra|revisa|consulta)\\s+(?:la\\s+)?cotizaci(?:on|ón)\\s+(.+)$/);
+  if(quoteMatch){
+    const query=quoteMatch[1].trim();
+    const rows=await searchQuotes(env,adminToken,userId,query,10);
+    if(!rows.length){
+      await sendTelegram(env,chatId,"🧾 No encontré cotizaciones que coincidan con «"+query+"».");
+      return json({ok:true,fastPath:"quote_search",found:0},200);
+    }
+    const lines=rows.map((x,i)=>"• "+(i+1)+". "+String(x.number||"Sin número")+" · "+String(x.title||"Cotización")+" · "+moneyText(x.total)+" · "+String(x.status||"BORRADOR"));
+    await sendTelegram(env,chatId,"🧾 COTIZACIONES ENCONTRADAS\\n\\n"+lines.join("\\n"));
+    return json({ok:true,fastPath:"quote_search",found:rows.length},200);
+  }
+
+  let clientQuotesMatch=simple.match(/^(?:cotizaciones?|proformas?)\\s+(?:de|del|para)\\s+(.+)$/);
+  if(clientQuotesMatch){
+    const query=clientQuotesMatch[1].trim();
+    const clients=await searchClients(env,adminToken,userId,query);
+    if(!clients.length){
+      await sendTelegram(env,chatId,"👤 No encontré al cliente «"+query+"».");
+      return json({ok:true,fastPath:"client_quotes",found:0},200);
+    }
+    if(clients.length>1){
+      await sendTelegram(env,chatId,"👤 Encontré varios clientes para «"+query+"».\\n\\n"+clients.slice(0,5).map((x,i)=>"• "+(i+1)+". "+String(x.name||"Sin nombre")+(x.document_number?" · "+x.document_number:"")).join("\\n")+"\\n\\nIndícame cuál desea revisar.");
+      return json({ok:true,fastPath:"client_quotes",ambiguous:true},200);
+    }
+    const rows=await searchQuotesByClient(env,adminToken,userId,clients[0].id,10);
+    if(!rows.length){
+      await sendTelegram(env,chatId,"🧾 El cliente «"+String(clients[0].name||query)+"» no tiene cotizaciones registradas.");
+      return json({ok:true,fastPath:"client_quotes",found:0},200);
+    }
+    const lines=rows.map((x,i)=>"• "+(i+1)+". "+String(x.number||"Sin número")+" · "+String(x.title||"Cotización")+" · "+moneyText(x.total)+" · "+String(x.status||"BORRADOR"));
+    await sendTelegram(env,chatId,"🧾 COTIZACIONES DE "+String(clients[0].name||query).toUpperCase()+"\\n\\n"+lines.join("\\n"));
+    return json({ok:true,fastPath:"client_quotes",found:rows.length},200);
+  }
+
   // Consultas deterministas de clientes e inventario: si la intención es inequívoca,
   // respondemos desde Supabase sin pasar por el planificador ni consumir IA.
   let quickMatch=simple.match(/^(?:busca|buscar|encuentra|localiza)\\s+(?:(?:al|a|cliente)\\s+)?(.+)$/);

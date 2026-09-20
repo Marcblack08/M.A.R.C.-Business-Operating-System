@@ -2949,65 +2949,87 @@ async async function marketingImage(request,env){
   const format=String(body?.format||"1080x1080");
   const ratio=format==="1080x1350"?"4:5":format==="1080x1920"?"9:16":"1:1";
   const platform=String(body?.platform||"INSTAGRAM").toUpperCase();
-  const visualPrompt=[
-    "Crea el fondo visual profesional de un banner publicitario para un negocio real.",
-    "NO escribas texto, letras, números, precios, marcas, logotipos, botones, hashtags ni interfaces dentro de la imagen.",
-    "La composición debe dejar una zona limpia y legible para que la aplicación agregue posteriormente el texto exacto.",
-    "Si recibes una foto del producto, conserva fielmente el producto, su forma, color, detalles y proporciones; mejora iluminación, fondo y presentación sin alterar sus características.",
-    "Si no recibes foto, crea una representación visual coherente y comercial basada únicamente en los datos del producto.",
-    "Estética: fotografía comercial de alta calidad, iluminación profesional, profundidad, composición moderna, aspecto premium y realista.",
-    "Plataforma: "+platform+". Relación de aspecto: "+ratio+".",
-    "Producto: "+JSON.stringify({
-      name:String(p.name||"Producto"),
-      brand:String(p.brand||""),
-      model:String(p.model||""),
-      category:String(p.category||""),
-      details:String(body?.details||""),
-      headline:String(campaign.headline||""),
-      objective:String(body?.objective||"VENDER")
-    }),
-    "Diseño solicitado: "+String(body?.template||"MODERN")
-  ].join("\n");
+  const requested=Array.isArray(body?.variants)&&body.variants.length?body.variants:["MODERN"];
+  const variants=[...new Set(requested.map(x=>String(x||"MODERN").toUpperCase()))].slice(0,3);
+  const styleMap={
+    COMMERCIAL:"Comercial: impacto visual inmediato, producto protagonista, contraste claro, energía de venta y composición pensada para captar atención rápidamente.",
+    PROFESSIONAL:"Profesional: limpio, sobrio y confiable, iluminación equilibrada, espacio ordenado, estética empresarial y tecnológica.",
+    PREMIUM:"Premium: elegante, sofisticado, iluminación cinematográfica, profundidad, materiales visualmente refinados y sensación de alta gama."
+  };
 
-  const parts=[{text:visualPrompt}];
   const rawImage=String(body?.imageData||"");
-  if(rawImage){
-    const m=rawImage.match(/^data:(image\/(?:png|jpeg|jpg|webp));base64,(.+)$/);
-    if(!m)throw Object.assign(new Error("La imagen enviada no tiene un formato válido."),{status:400});
-    if(m[2].length>8_500_000)throw Object.assign(new Error("La foto es demasiado grande. Usa una imagen menor de 6 MB."),{status:413});
-    parts.push({inlineData:{mimeType:m[1]==="image/jpg"?"image/jpeg":m[1],data:m[2]}});
-  }
+  const imageData=rawImage?rawImage.match(/^data:(image\/(?:png|jpeg|jpg|webp));base64,(.+)$/):null;
+  if(rawImage&&!imageData)throw Object.assign(new Error("La imagen enviada no tiene un formato válido."),{status:400});
+  if(imageData&&imageData[2].length>8_500_000)throw Object.assign(new Error("La foto es demasiado grande. Usa una imagen menor de 6 MB."),{status:413});
 
-  const models=[env.GEMINI_IMAGE_MODEL||"gemini-2.5-flash-image", "gemini-3.1-flash-image"].filter((x,i,a)=>x&&a.indexOf(x)===i);
+  const models=[env.GEMINI_IMAGE_MODEL||"gemini-2.5-flash-image","gemini-3.1-flash-image"].filter((x,i,a)=>x&&a.indexOf(x)===i);
+  const images=[];
   let lastError=null;
-  for(const model of models){
-    try{
-      const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":generateContent",{
-        method:"POST",
-        headers:{"content-type":"application/json","x-goog-api-key":apiKey},
-        body:JSON.stringify({
-          contents:[{parts}],
-          generationConfig:{
-            responseModalities:["IMAGE"],
-            responseFormat:{image:{aspectRatio:ratio}}
-          }
-        })
-      });
-      const raw=await r.text();let data=null;try{data=raw?JSON.parse(raw):null}catch{}
-      if(!r.ok){const e=new Error(data?.error?.message||("Gemini Image API error "+r.status));e.status=r.status;e.details=data;throw e}
-      const imagePart=data?.candidates?.[0]?.content?.parts?.find(x=>x?.inlineData?.data||x?.inline_data?.data);
-      const image=imagePart?.inlineData||imagePart?.inline_data;
-      if(!image?.data)throw Object.assign(new Error("Gemini no devolvió una imagen."),{status:502,details:data});
-      await incrementAiUsage(env,token,user.id,access);
-      return json({image:{mimeType:image.mimeType||image.mime_type||"image/png",data:image.data},model},200,corsHeaders(request));
-    }catch(err){
-      lastError=err;
-      if(![429,500,502,503,504].includes(Number(err?.status)))break;
-    }
-  }
-  throw Object.assign(new Error("No se pudo generar el banner con IA: "+String(lastError?.message||"Gemini no disponible.").slice(0,500)),{status:lastError?.status||502,details:lastError?.details||null});
-}
 
+  for(const variant of variants){
+    const visualPrompt=[
+      "Crea el fondo visual profesional de un banner publicitario para un negocio real.",
+      "NO escribas texto, letras, números, precios, marcas, logotipos, botones, hashtags ni interfaces dentro de la imagen.",
+      "La composición debe dejar una zona limpia y legible para que la aplicación agregue posteriormente el texto exacto.",
+      "Si recibes una foto del producto, conserva fielmente el producto, su forma, color, detalles y proporciones; mejora iluminación, fondo y presentación sin alterar sus características.",
+      "Si no recibes foto, crea una representación visual coherente y comercial basada únicamente en los datos del producto.",
+      "Estética: fotografía comercial de alta calidad, iluminación profesional, profundidad, composición moderna, aspecto realista.",
+      "Plataforma: "+platform+". Relación de aspecto: "+ratio+".",
+      "PROPUESTA VISUAL: "+variant+". "+(styleMap[variant]||"Composición moderna y comercial equilibrada."),
+      "Producto: "+JSON.stringify({
+        name:String(p.name||"Producto"),
+        brand:String(p.brand||""),
+        model:String(p.model||""),
+        category:String(p.category||""),
+        details:String(body?.details||""),
+        headline:String(campaign.headline||""),
+        objective:String(body?.objective||"VENDER")
+      })
+    ].join("\n");
+
+    const parts=[{text:visualPrompt}];
+    if(imageData)parts.push({inlineData:{mimeType:imageData[1]==="image/jpg"?"image/jpeg":imageData[1],data:imageData[2]}});
+
+    let variantImage=null;
+    for(const model of models){
+      try{
+        const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":generateContent",{
+          method:"POST",
+          headers:{"content-type":"application/json","x-goog-api-key":apiKey},
+          body:JSON.stringify({
+            contents:[{parts}],
+            generationConfig:{
+              responseModalities:["IMAGE"],
+              responseFormat:{image:{aspectRatio:ratio}}
+            }
+          })
+        });
+        const raw=await r.text();let data=null;try{data=raw?JSON.parse(raw):null}catch{}
+        if(!r.ok){
+          const er=new Error(data?.error?.message||("Gemini Image API error "+r.status));
+          er.status=r.status;er.details=data;throw er;
+        }
+        const imagePart=data?.candidates?.[0]?.content?.parts?.find(x=>x?.inlineData?.data||x?.inline_data?.data);
+        const image=imagePart?.inlineData||imagePart?.inline_data;
+        if(!image?.data)throw Object.assign(new Error("Gemini no devolvió una imagen."),{status:502,details:data});
+        variantImage={variant,mimeType:image.mimeType||image.mime_type||"image/png",data:image.data,model};
+        break;
+      }catch(err){
+        lastError=err;
+        if(![429,500,502,503,504].includes(Number(err?.status)))break;
+      }
+    }
+    if(variantImage)images.push(variantImage);
+  }
+
+  if(!images.length)throw Object.assign(new Error("No se pudo generar el banner con IA: "+String(lastError?.message||"Gemini no disponible.").slice(0,500)),{status:lastError?.status||502,details:lastError?.details||null});
+  await incrementAiUsage(env,token,user.id,access);
+  return json({
+    images,
+    image:{mimeType:images[0].mimeType,data:images[0].data},
+    model:images[0].model
+  },200,corsHeaders(request));
+}
 function marketingAi(request,env){
   if(request.method!=="POST")return json({error:"Método no permitido"},405);
   const {token,user}=await authUser(request,env),access=await entitlement(env,token,user.id);

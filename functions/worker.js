@@ -1026,6 +1026,63 @@ async function telegramWebhook(request,env,ctx){
     return json({ok:true},200);
   }
 
+  // Caja: consultas simples se resuelven directamente, sin Gemini.
+  const normalizedIncoming=incoming.normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim();
+  const fastCashStatus=/^(?:como esta|como se encuentra|estado de|revisa|muestrame|muestra|dime|dame|ver)\s+(?:la\s+)?caja(?:\s+(?:ahora|actual))?$/i.test(normalizedIncoming)
+    || /^(?:caja|estado caja|resumen caja|ver caja)$/i.test(normalizedIncoming);
+  if(fastCashStatus){
+    try{
+      const rows=await cashRows("OPEN",1),r=rows?.[0];
+      if(!r){
+        await sendTelegram(env,chatId,"🎩 A sus órdenes, señor. En este momento no hay una caja abierta.");
+        return json({ok:true,fastPath:"cash_status",open:false},200);
+      }
+      const mv=await sb(env,adminToken,"marc_cash_movements?select=type,amount,concept,created_at&user_id=eq."+encodeURIComponent(userId)+"&cash_register_id=eq."+encodeURIComponent(r.id)+"&order=created_at.asc");
+      const movements=Array.isArray(mv)?mv:[];
+      const income=movements.filter(x=>String(x.type||"").toUpperCase()==="INCOME").reduce((s,x)=>s+Number(x.amount||0),0);
+      const expense=movements.filter(x=>String(x.type||"").toUpperCase()==="EXPENSE").reduce((s,x)=>s+Number(x.amount||0),0);
+      const opening=Number(r.opening_amount||0),expected=opening+income-expense;
+      const lines=[
+        "🎩 A sus órdenes, señor.",
+        "",
+        "▣ ESTADO DE CAJA",
+        "🟢 Caja abierta",
+        "💵 Apertura: "+moneyText(opening),
+        "📥 Ingresos: "+moneyText(income),
+        "📤 Egresos: "+moneyText(expense),
+        "💰 Efectivo esperado: "+moneyText(expected),
+        "🧾 Movimientos: "+movements.length
+      ];
+      if(movements.length)lines.push("","Últimos movimientos:",...movements.slice(-8).reverse().map(x=>(String(x.type||"").toUpperCase()==="INCOME"?"📥 ":"📤 ")+moneyText(x.amount)+" · "+String(x.concept||"Movimiento")));
+      await sendTelegram(env,chatId,lines.join("\n"));
+      return json({ok:true,fastPath:"cash_status",open:true,movements:movements.length},200);
+    }catch(err){
+      await sendTelegram(env,chatId,"🎩 Señor, estoy teniendo dificultades para consultar la caja en este momento. La conexión de su cuenta sigue activa; volveré a intentarlo cuando me lo indique.");
+      return json({ok:true,fastPath:"cash_status_error"},200);
+    }
+  }
+
+  // Último cierre: consulta determinística y nunca se envía al modelo.
+  const fastLastClose=/\b(?:ultimo|ultima|reciente|anterior)\b.*\b(?:cierre|caja)\b/i.test(normalizedIncoming)
+    && /\b(?:movimiento|movimientos|ingreso|ingresos|egreso|egresos|gasto|gastos|resumen|estado|como estuvo|como estuvieron|que paso|detalle|detalles)\b/i.test(normalizedIncoming);
+  if(fastLastClose){
+    try{
+      const closedRows=await cashRows("CLOSED",1),last=closedRows?.[0];
+      if(!last){
+        const openRows=await cashRows("OPEN",1),open=openRows?.[0];
+        if(open){
+          await sendTelegram(env,chatId,"🎩 Señor, revisé sus registros. Aún no existe un cierre de caja anterior; actualmente tiene una caja abierta con "+moneyText(open.opening_amount)+" de apertura.");
+        }else{
+          await sendTelegram(env,chatId,"🎩 Señor, revisé sus registros y todavía no encuentro un cierre de caja.");
+        }
+        return json({ok:true,fastPath:"cash_last_close",found:false},200);
+      }
+    }catch(err){
+      await sendTelegram(env,chatId,"🎩 Señor, no he podido consultar los registros del último cierre en este momento. Permítame intentarlo nuevamente.");
+      return json({ok:true,fastPath:"cash_last_close_error"},200);
+    }
+  }
+
   // Consultas frecuentes de inventario: responder sin Gemini ni historial para reducir latencia.
   const fastInventoryQuestion=/^(?:cuantos|cuantas|cuanto|total de|dime cuantos|dime cuantas|que cantidad de)\b.*\b(?:productos|articulos|items|inventario)\b/i.test(
     incoming.normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim()

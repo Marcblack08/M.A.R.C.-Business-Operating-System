@@ -513,7 +513,6 @@ async function plan(env,message,history,entityContext={},contextToken="",context
   if(quoteCommand){
     const rawMessage=String(message||"").trim();
     // Detecta el tratamiento fiscal solicitado en lenguaje natural.
-    const taxIncluded=/\b(?:precio|precios|total|monto|importe)\b[^.\n]*\b(?:incluye|incluido|incluyendo|con)\s+(?:el\s+)?igv\b|\bcon\s+igv\b|\bigv\s+incluido\b/i.test(rawMessage);
     const taxExcluded=/\b(?:sin\s+igv|no\s+incluye\s+igv|mas\s+igv|más\s+igv)\b/i.test(rawMessage);
     const taxIncluded=!taxExcluded && /\b(?:con\s+igv|igv\s+incluido|incluye\s+(?:el\s+)?igv)\b/i.test(rawMessage);
     const taxEnabled=!taxExcluded;
@@ -534,7 +533,7 @@ async function plan(env,message,history,entityContext={},contextToken="",context
     if(!client)return {action:"CHAT",execute:false,params:{clarification:"No pude identificar al cliente. Indícame el nombre exacto, por favor."}};
 
     let body=rawMessage
-      .replace(/^(?:crea|crear|haz|hacer|prepara|preparar|genera|generar|cotiza|cotizar|elabora|elaborar)\s+(?:una\s+)?(?:cotizacion|cotización|proforma|presupuesto)\s*/i,"")
+      .replace(/^(?:crea|crear|creemos|hagamos|haz|hacer|prepara|preparar|genera|generar|cotiza|cotizar|elabora|elaborar)\s+(?:una\s+)?(?:cotizacion|cotización|proforma|presupuesto)\s*/i,"")
       .replace(/\b(?:para|cliente)\s+(?:es\s+|:\s*)?.+?(?=\s+(?:por|a|precio|costo|total|de|con)\s+|\s*[:,-]\s*|$)/i,"")
       .replace(/\bcliente\s+es\s+.+?$/i,"")
       .replace(/\s+/g," ").trim();

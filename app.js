@@ -2157,6 +2157,9 @@ async function marketing(){
 
   let currentCampaign=saved?.campaign||null,currentProduct=list.find(p=>p.id===saved?.productId)||list[0]||null,currentImage=null,currentImageFile=null,currentAiImage=null,currentAiVariants=[],currentAiVariantIndex=0,company=companyData||{};
   const $p=id=>document.getElementById(id);
+  const companyLogo=$p("adCompanyLogo");if(companyLogo&&company.logo_data)companyLogo.style.backgroundImage='url("'+company.logo_data.replace(/"/g,'&quot;')+'")';
+  if($p("adCompanyName"))$p("adCompanyName").textContent=company.business_name||"Tu empresa";
+  if($p("adCompanyContact"))$p("adCompanyContact").textContent=company.phone||"Datos de contacto del perfil";
   const renderCanvas=async()=>{
     const canvas=$p("adCanvas");if(!canvas||!currentProduct)return;
     const [w,h]=($p("adFormat").value||"1080x1080").split("x").map(Number);canvas.width=w;canvas.height=h;
@@ -2177,7 +2180,7 @@ async function marketing(){
     let y=h*.66;banner.forEach(line=>{const words=line.split(" "),lines=[];let row="";const max=w*.84;for(const word of words){const test=row?row+" "+word:word;if(ctx.measureText(test).width>max&&row){lines.push(row);row=word}else row=test}if(row)lines.push(row);lines.slice(0,3).forEach(t=>{ctx.fillText(t,w*.08,y);y+=Math.round(Math.min(w,h)*.071)})});
     if($p("adOffer").value.trim()){ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*.034)+"px Inter";ctx.fillText($p("adOffer").value.trim().slice(0,42),w*.08,h*.86)}
     else if(currentProduct.price!=null&&currentProduct.price!==""){ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*.038)+"px Inter";ctx.fillText(money(currentProduct.price),w*.08,h*.86)}
-    ctx.fillStyle="#d9efff";ctx.font="700 "+Math.round(Math.min(w,h)*.021)+"px Inter";ctx.fillText(String(company.business_name||currentProduct.name).slice(0,55),w*.08,h*.93);
+    ctx.fillStyle="#d9efff";ctx.font="800 "+Math.round(Math.min(w,h)*.021)+"px Inter";ctx.fillText(String(company.business_name||currentProduct.name).slice(0,55),w*.08,h*.925);if(company.phone){ctx.fillStyle="#9fd8ff";ctx.font="700 "+Math.round(Math.min(w,h)*.017)+"px Inter";ctx.fillText(String(company.phone).slice(0,32),w*.08,h*.955)}
     ctx.fillStyle="#fff";ctx.beginPath();ctx.roundRect?.(w*.67,h*.88,w*.25,h*.065,18);if(!ctx.roundRect)ctx.fillRect(w*.67,h*.88,w*.25,h*.065);ctx.fillStyle=palette[1];ctx.font="900 "+Math.round(Math.min(w,h)*.019)+"px Inter";ctx.textAlign="center";ctx.fillText(String($p("adCta").value||"Escríbenos").slice(0,24),w*.795,h*.922);ctx.textAlign="left";
   };
   const renderVariants=async()=>{

@@ -1356,6 +1356,7 @@ async function telegramWebhook(request,env,ctx){
     else lines.push("🧾 IGV: No incluido");
     lines.push("💰 TOTAL: "+moneyText(q.total));
     if(q.notes)lines.push("","📝 Observaciones: "+String(q.notes));
+    await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{action:"VIEW_QUOTE",params:{quote_id:q.id,quote_number:q.number||query,client_id:client?.id||q.client_id||null,client_name:client?.name||null,title:q.title||"Cotización",items,tax_enabled:q.tax_enabled,tax_rate:q.tax_rate||18,tax_included:Boolean(q.tax_included),notes:q.notes||null,status:q.status||"BORRADOR"}}});
     await sendTelegram(env,chatId,lines.join("\\n"));
     return json({ok:true,fastPath:"quote_detail",found:1,items:items.length},200);
   }
@@ -1668,9 +1669,35 @@ async function telegramWebhook(request,env,ctx){
           else lines.push("🧾 IGV: No incluido");
           lines.push("💰 TOTAL: "+moneyText(q.total));
           if(q.notes)lines.push("","📝 Observaciones: "+String(q.notes));
-          await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:null});
+          await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{action:"VIEW_QUOTE",params:{quote_id:q.id,quote_number:q.number||selected.number,client_id:client?.id||q.client_id||null,client_name:client?.name||null,title:q.title||"Cotización",items,tax_enabled:q.tax_enabled,tax_rate:q.tax_rate||18,tax_included:Boolean(q.tax_included),notes:q.notes||null,status:q.status||"BORRADOR"}}});
           await sendTelegram(env,chatId,lines.join("\n"));
           return json({ok:true,fastPath:"quote_detail_choice"},200);
+        }
+      }
+
+      if(pending.action==="VIEW_QUOTE" && pending.params){
+        const vp=pending.params;
+        if(/^(cancelar|cancela|salir|cerrar|listo|no)$/i.test(text)){
+          await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:null});
+          await sendTelegram(env,chatId,"Listo, señor. Cerré la consulta sin realizar cambios.");
+          return json({ok:true,fastPath:"quote_view_close"},200);
+        }
+        if(/^(si|sí|ok|dale|confirmar)$/i.test(text)){
+          await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:null});
+          await sendTelegram(env,chatId,"La cotización solo fue consultada; no hay cambios pendientes para guardar.");
+          return json({ok:true,fastPath:"quote_view_no_changes"},200);
+        }
+        if(/\b(?:cambia|cambiar|modifica|modificar|edita|editar|actualiza|actualizar|agrega|agregar|añade|anade|quita|quitar|elimina|eliminar|borra|borrar|marca|marcar|pon|poner)\b/i.test(text)){
+          const nextParams={
+            quote_id:vp.quote_id,quote_number:vp.quote_number,client_id:vp.client_id||null,
+            client_query:vp.client_id||vp.client_name||"",client_name:vp.client_name||null,
+            title:vp.title||"Cotización",items:Array.isArray(vp.items)?vp.items:[],
+            tax_enabled:vp.tax_enabled===undefined?true:vp.tax_enabled,tax_rate:Number(vp.tax_rate||18),
+            tax_included:Boolean(vp.tax_included),prices_are_net:true,notes:vp.notes||null,status:vp.status||"BORRADOR"
+          };
+          await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{action:"UPDATE_QUOTE",params:nextParams}});
+          await sendTelegram(env,chatId,"✏️ He dejado "+String(vp.quote_number||"la cotización")+" lista para editar. Indíqueme el cambio que desea realizar.");
+          return json({ok:true,fastPath:"quote_view_to_edit"},200);
         }
       }
 

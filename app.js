@@ -2150,6 +2150,18 @@ async function marketing(){
         <select id="adFormat" class="marketing-hidden-control"><option value="1080x1080">Cuadrado · 1:1</option><option value="1080x1350">Post vertical · 4:5</option><option value="1080x1920">Historia · 9:16</option></select>
         <details class="marketing-advanced"><summary>⚙ Opciones avanzadas</summary><div class="form-grid" style="margin-top:10px"><label>Objetivo<select id="adObjective"><option>VENDER</option><option>GENERAR CONSULTAS</option><option>PROMOCIONAR PRODUCTO</option><option>REACTIVAR CLIENTES</option></select></label><label>Tono<select id="adTone"><option>PROFESIONAL</option><option>DIRECTO Y COMERCIAL</option><option>AMIGABLE</option><option>PREMIUM</option><option>URGENTE</option></select></label><label>Público objetivo<input id="adAudience" placeholder="Déjalo vacío y M.A.R.C. lo propone"></label><label>Oferta / precio especial<input id="adOffer" placeholder="Opcional; también puede salir del texto"></label><label>CTA<input id="adCta" value="Escríbenos para cotizar"></label><label>Diseño<select id="adTemplate"><option value="MODERN">Moderno</option><option value="OFFER">Oferta</option><option value="CORPORATE">Corporativo</option></select></label></div></details>
         <div class="modal-actions marketing-generate-actions"><button class="primary marketing-main-generate" id="generateAd">✦ Generar 3 propuestas con IA</button><button class="secondary" id="generateTextAd">Crear solo textos</button></div><div id="adStatus" class="msg"></div>
+        <section class="marketing-video-card" id="marketingVideoCard">
+          <div class="marketing-video-head"><div><span class="marketing-video-icon">🎬</span><div><b>Crear video publicitario con IA</b><small>Veo genera un video de 8 segundos con audio usando tu producto y, si quieres, su foto como referencia.</small></div></div><span class="marketing-video-badge">INCLUIDO EN SUSCRIPCIÓN</span></div>
+          <div class="marketing-video-grid">
+            <label>Modelo<select id="adVideoModel"><option value="veo-3.1-lite-generate-preview">Veo 3.1 Lite · eficiente</option><option value="veo-3.1-fast-generate-preview">Veo 3.1 Fast · rápido</option><option value="veo-3.1-generate-preview">Veo 3.1 · calidad</option></select></label>
+            <label>Formato<select id="adVideoFormat"><option value="1080x1920">Vertical · 9:16</option><option value="1920x1080">Horizontal · 16:9</option></select></label>
+          </div>
+          <div class="marketing-video-included"><b>✓ Sin pago adicional dentro de M.A.R.C.</b><small>La generación se gestiona con tu suscripción activa. No se muestra un cobro por video al usuario.</small></div>
+          <label>Instrucción para el video<textarea id="adVideoDetails" rows="3" placeholder="Ej.: mostrar el producto con movimiento de cámara suave, iluminación profesional y una escena moderna para venderlo por WhatsApp."></textarea></label>
+          <div id="adVideoStatus" class="msg"></div>
+          <div class="modal-actions"><button class="primary" id="generateVideoAd" type="button">🎬 Generar video de 8 s</button><button class="secondary hidden" id="downloadVideoAd" type="button">↓ Descargar video</button></div>
+          <div class="marketing-video-result" id="adVideoResult" hidden><video id="adVideoPlayer" controls playsinline></video></div>
+        </section>
       </section>
       <section class="card panel marketing-preview-card">
         <div class="marketing-step-title"><span>5</span><div><b>Vista previa del banner</b><small>M.A.R.C. aplica tu logo y datos de contacto automáticamente.</small></div></div>
@@ -2280,6 +2292,42 @@ async function marketing(){
   $p("adCta").oninput=renderCanvas;$p("adOffer").oninput=renderCanvas;
   const readFileData=()=>currentImageFile?new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>resolve(fr.result);fr.onerror=reject;fr.readAsDataURL(currentImageFile)}):Promise.resolve("");
   const campaignPayload=()=>({product:currentProduct,platform:$p("adPlatform").value,objective:$p("adObjective")?.value||"VENDER",tone:$p("adTone")?.value||"PROFESIONAL",audience:$p("adAudience")?.value||"",offer:$p("adOffer")?.value||"",details:$p("adDetails").value,cta:$p("adCta")?.value||"Escríbenos para cotizar"});
+  let videoOperationName="",videoPollTimer=null,videoObjectUrl="";
+  const clearVideoObject=()=>{if(videoObjectUrl){URL.revokeObjectURL(videoObjectUrl);videoObjectUrl=""}};
+  const setVideoStatus=(text,type="")=>{const el=$p("adVideoStatus");if(el){el.className="msg"+(type?" "+type:"");el.textContent=text}};
+  const loadVideoResult=async operationName=>{
+    const r=await fetch("/api/marketing-video-status?operationName="+encodeURIComponent(operationName),{headers:{Authorization:"Bearer "+st.session?.access_token}});
+    const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.message||j.error||"No se pudo consultar el video.");
+    if(j.status==="PROCESSING")return false;
+    if(j.status==="FAILED")throw new Error(j.error||"Veo no pudo generar el video.");
+    if(j.status!=="READY")throw new Error("Estado de video inesperado.");
+    const dl=await fetch(j.downloadUrl,{headers:{Authorization:"Bearer "+st.session?.access_token}});
+    if(!dl.ok){const e=await dl.json().catch(()=>({}));throw new Error(e.message||e.error||"No se pudo descargar el video generado.");}
+    clearVideoObject();const blob=await dl.blob();videoObjectUrl=URL.createObjectURL(blob);
+    const player=$p("adVideoPlayer");if(player){player.src=videoObjectUrl;$p("adVideoResult").hidden=false}
+    const btn=$p("downloadVideoAd");if(btn){btn.classList.remove("hidden");btn.onclick=()=>{const a=document.createElement("a");a.href=videoObjectUrl;a.download="MARC_Publicidad_Video.mp4";a.click()}};
+    setVideoStatus("Video listo. Puedes reproducirlo o descargarlo.","ok");return true;
+  };
+  const generateVideoAd=async()=>{
+    const btn=$p("generateVideoAd");if(!btn)return;
+    if(videoPollTimer)clearInterval(videoPollTimer);
+    btn.disabled=true;setVideoStatus("M.A.R.C. está iniciando la generación del video…");
+    try{
+      if(!currentCampaign){await generateText();if(!currentCampaign)throw new Error("Primero necesito crear la campaña.");}
+      const imageData=await readFileData();
+      const r=await fetch("/api/marketing-video-start",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({
+        model:$p("adVideoModel").value,format:$p("adVideoFormat").value,details:$p("adVideoDetails").value||$p("adDetails").value,
+        product:currentProduct,campaign:currentCampaign,platform:$p("adPlatform").value,objective:$p("adObjective")?.value||"VENDER",tone:$p("adTone")?.value||"PROFESIONAL",imageData
+      })});
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(j.message||j.error||"No se pudo iniciar el video.");
+      videoOperationName=j.operationName;setVideoStatus("Video en generación. Esto puede tardar unos segundos…");
+      let tries=0;
+      const poll=async()=>{try{tries++;const done=await loadVideoResult(videoOperationName);if(done){clearInterval(videoPollTimer);videoPollTimer=null;btn.disabled=false}}catch(e){clearInterval(videoPollTimer);videoPollTimer=null;btn.disabled=false;setVideoStatus(e.message||"No se pudo completar el video.","error")}};
+      await poll();
+      if(videoOperationName&&videoPollTimer===null&&tries<2){videoPollTimer=setInterval(poll,10000)}
+    }catch(e){btn.disabled=false;setVideoStatus(e.message||"No se pudo generar el video.","error")}
+  };
   const generateText=async()=>{
     const status=$p("adStatus"),btn=$p("generateTextAd");if(btn)btn.disabled=true;status.className="msg";status.textContent="M.A.R.C. está entendiendo tu idea y creando los textos…";
     try{
@@ -2305,6 +2353,7 @@ async function marketing(){
   };
   $p("generateAd").onclick=generateAiBanner;
   $p("generateTextAd").onclick=generateText;
+  $p("generateVideoAd").onclick=generateVideoAd;
   $p("downloadAd").onclick=()=>{if(!currentCampaign)return;const a=document.createElement("a");a.href=$p("adCanvas").toDataURL("image/png");a.download="MARC_Publicidad_"+String(currentProduct?.name||"producto").replace(/[^a-z0-9áéíóúñü]+/gi,"-").slice(0,50)+".png";a.click()};
   $p("copyBanner").onclick=async()=>{const text=currentCampaign?.banner_text||currentCampaign?.headline||"";if(!text)return toast("Primero genera una publicidad.","err");await navigator.clipboard?.writeText(text);toast("Texto del banner copiado","ok")};
   $p("shareAd").onclick=async()=>{if(!$p("adCanvas")||!currentCampaign)return toast("Primero genera una publicidad.","err");try{const blob=await new Promise(r=>$p("adCanvas").toBlob(r,"image/png"));const file=new File([blob],"MARC_Publicidad.png",{type:"image/png"});if(navigator.share&&navigator.canShare?.({files:[file]})){await navigator.share({title:currentCampaign.title||currentProduct.name,text:currentCampaign.short_text||"",files:[file]})}else{await navigator.clipboard?.writeText(currentCampaign.whatsapp_text||currentCampaign.primary_text||"");toast("Tu dispositivo no permite compartir la imagen directamente; el texto quedó copiado.","ok")}}catch(e){if(e?.name!=="AbortError")toast("No se pudo compartir.","err")}};

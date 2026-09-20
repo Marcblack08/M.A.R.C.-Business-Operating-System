@@ -1064,6 +1064,62 @@ async function telegramWebhook(request,env,ctx){
     await sendTelegram(env,chatId,"🤖 M.A.R.C. · MENÚ RÁPIDO\n\n▣ CAJA\n• /caja — estado de caja\n• abrir caja 100\n• ingreso 50 venta cliente\n• gasto 20 transporte\n• cerrar caja 450\n\n📦 INVENTARIO\n• /stock — productos con stock crítico\n• Envía un PDF de catálogo para analizarlo\n• IMPORTAR — confirma una importación pendiente\n\n🧾 COTIZACIONES\n• /cotizaciones — últimas cotizaciones\n\n📊 NEGOCIO\n• /resumen — resumen general\n\n🤖 COPILOTO\nTambién puedes escribir de forma natural: «revisa mi inventario», «crea una cotización para Juan», «busca al cliente Delgado» o «qué productos tengo agotados». M.A.R.C. usará tu misma cuenta y contexto de la web.");
     return json({ok:true},200);
   }
+  // Consultas deterministas de clientes e inventario: si la intención es inequívoca,
+  // respondemos desde Supabase sin pasar por el planificador ni consumir IA.
+  let quickMatch=simple.match(/^(?:busca|buscar|encuentra|localiza)\\s+(?:al|a|cliente)\\s+(.+)$/);
+  if(quickMatch){
+    const query=quickMatch[1].trim();
+    const rows=await searchClients(env,adminToken,userId,query);
+    if(!rows.length){
+      await sendTelegram(env,chatId,"👤 No encontré clientes que coincidan con «"+query+"».");
+      return json({ok:true,fastPath:"client_search",found:0},200);
+    }
+    const shown=rows.slice(0,8);
+    const lines=shown.map((x,i)=>"• "+(i+1)+". "+String(x.name||"Sin nombre")+(x.document_number?" · "+x.document_number:"")+(x.phone?" · 📞 "+x.phone:""));
+    await sendTelegram(env,chatId,"👤 CLIENTES ENCONTRADOS\\n\\n"+lines.join("\\n")+(rows.length>8?"\\n\\n… y "+(rows.length-8)+" más.":""));
+    return json({ok:true,fastPath:"client_search",found:rows.length},200);
+  }
+
+  quickMatch=simple.match(/^(?:stock|existencias?|inventario|precio|cuanto cuesta|cuánto cuesta)\\s+(?:de|del|del producto|producto)?\\s*(.+)$/);
+  if(quickMatch){
+    const query=quickMatch[1].trim();
+    const rows=await searchInventory(env,adminToken,userId,query,8);
+    if(!rows.length){
+      await sendTelegram(env,chatId,"📦 No encontré productos que coincidan con «"+query+"».");
+      return json({ok:true,fastPath:"inventory_search",found:0},200);
+    }
+    const shown=rows.slice(0,8);
+    const asksPrice=/^(?:precio|cuanto cuesta|cuánto cuesta)\\b/.test(simple);
+    const lines=shown.map((x,i)=>{
+      const price=Number(x.price||0),stock=Number(x.stock||0),min=Number(x.min_stock||0);
+      return "• "+(i+1)+". "+String(x.name||"Producto")+" · "+(asksPrice?"💰 "+moneyText(price)+" · ":"📦 "+stock+" "+String(x.unit||"UND")+" · ")+"stock mínimo "+min+(x.sku?" · "+x.sku:"");
+    });
+    await sendTelegram(env,chatId,(asksPrice?"💰 PRECIOS ENCONTRADOS":"📦 STOCK ENCONTRADO")+"\\n\\n"+lines.join("\\n")+(rows.length>8?"\\n\\n… y "+(rows.length-8)+" coincidencias más.":""));
+    return json({ok:true,fastPath:"inventory_search",found:rows.length},200);
+  }
+
+  if(/^(?:revisa|revisar|muestrame|muéstrame|muestra|ver|dime|dame)\\s+(?:mi\\s+)?inventario$/.test(simple)){
+    const [count,items]=await Promise.all([countInventory(env,adminToken,userId),searchInventory(env,adminToken,userId,"",8)]);
+    if(!count){
+      await sendTelegram(env,chatId,"📦 No tienes productos registrados en el inventario.");
+      return json({ok:true,fastPath:"inventory_summary",count:0},200);
+    }
+    const lines=(items||[]).map(x=>{
+      const stock=Number(x.stock||0),min=Number(x.min_stock||0);
+      const estado=stock<=0?"AGOTADO":stock<=min?"STOCK BAJO":"DISPONIBLE";
+      return "• "+String(x.name||"Producto")+" — "+stock+" "+String(x.unit||"UND")+" — "+estado;
+    });
+    await sendTelegram(env,chatId,"📦 INVENTARIO\\n\\nTienes "+count+" productos activos.\\n\\n"+lines.join("\\n")+(count>items.length?"\\n\\n… mostrando los primeros "+items.length+".":""));
+    return json({ok:true,fastPath:"inventory_summary",count},200);
+  }
+
+  if(/^(?:cuál es el|cual es el|dime el|dime cuál es el|dime cual es el)\\s+(?:producto )?(?:más caro|mas caro|más costoso|mas costoso)$/.test(simple)){
+    const result=await inventoryInsight(env,adminToken,userId,"MOST_EXPENSIVE");
+    const top=result.items?.[0];
+    await sendTelegram(env,chatId,top?"💰 El producto con mayor precio es «"+String(top.name||"Producto")+"» — "+moneyText(top.price)+".":"No encuentro productos con precio registrado.");
+    return json({ok:true,fastPath:"inventory_insight",kind:"MOST_EXPENSIVE"},200);
+  }
+
   if(/^(\/caja|resumen caja|caja|estado caja|ver caja)$/.test(simple)){
     const rows=await cashRows("OPEN",1); const r=rows?.[0];
     if(!r){await sendTelegram(env,chatId,"▣ No hay una caja abierta.");return json({ok:true},200);}

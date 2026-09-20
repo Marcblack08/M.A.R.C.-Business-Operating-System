@@ -224,6 +224,24 @@ async function resolveInventory(env,token,userId,query){
   return {status:"FOUND",item:rows[0]};
 }
 
+async function getQuoteForEdit(env,token,userId,query){
+  const q=String(query||"").trim();
+  if(!q)return {status:"NOT_FOUND"};
+  const hit=await searchQuotes(env,token,userId,q,5);
+  const rows=Array.isArray(hit)?hit:[];
+  if(!rows.length)return {status:"NOT_FOUND",query:q};
+  const exact=rows.filter(x=>String(x.number||"").toLowerCase()===q.toLowerCase());
+  if(rows.length>1&&!exact.length)return {status:"AMBIGUOUS",query:q,quotes:rows};
+  const quote=exact[0]||rows[0];
+  const url=new URL(env.SUPABASE_URL+"/rest/v1/marc_quote_items");
+  url.searchParams.set("select","id,inventory_id,item_type,name,description,quantity,unit,unit_price,cost");
+  url.searchParams.set("user_id","eq."+userId);
+  url.searchParams.set("quote_id","eq."+quote.id);
+  url.searchParams.set("order","created_at.asc");
+  const items=await sb(env,token,url.pathname.slice("/rest/v1/".length)+url.search);
+  return {status:"FOUND",quote,items:Array.isArray(items)?items:[]};
+}
+
 async function createQuote(env,token,userId,p,source="AI_AGENT"){
   const items=Array.isArray(p?.items)?p.items:[];
   if(!items.length)return {status:"NEEDS_INPUT",message:"Necesito al menos una partida para crear la cotización."};
@@ -258,7 +276,7 @@ async function createQuote(env,token,userId,p,source="AI_AGENT"){
     }
   }
   const payload={
-    p_quote_id:null,
+    p_quote_id:p.quote_id||null,
     p_client_id:client.status==="FOUND"?client.client.id:null,
     p_title:p.title||"Cotización",
     p_status:"BORRADOR",
@@ -454,6 +472,19 @@ async function plan(env,message,history,entityContext={},contextToken="",context
       return {action:"CREATE_QUOTE",execute:false,params:{client_query:item.id,title:"Cotización · "+String(item.name||"Cliente"),items}};
     }
     if(reference.type==="client")return {action:"SEARCH_CLIENTS",execute:false,params:{query:item.id}};
+  }
+  const editQuoteMatch=s.match(/\\b(?:modifica|modificar|edita|editar|abre|abrir|actualiza|actualizar)\\b[\\s\\S]{0,40}?(?:cotizacion|proforma|presupuesto)\\s+(COT-\\d{6}-\\d{4})/i);
+  if(editQuoteMatch){
+    const ref=editQuoteMatch[1];
+    const found=await getQuoteForEdit(env,contextToken,contextUserId,ref);
+    if(found.status==="NOT_FOUND")return {action:"CHAT",execute:false,params:{clarification:"No encontré la cotización "+ref+"."}};
+    if(found.status==="AMBIGUOUS")return {action:"CHAT",execute:false,params:{clarification:"Encontré varias cotizaciones. Indícame el número exacto."}};
+    const q=found.quote;
+    const items=found.items.map(x=>({type:String(x.item_type||"TRABAJO").toUpperCase(),inventory_id:x.inventory_id||null,name:x.name||"Partida",description:x.description||null,quantity:Number(x.quantity||1),unit:x.unit||"UND",unit_price:Number(x.unit_price||0),cost:Number(x.cost||0)}));
+    return {action:"UPDATE_QUOTE",execute:false,params:{quote_id:q.id,quote_number:q.number,client_query:q.client_id||"",client_name:"",title:q.title||"Cotización",items,tax_enabled:q.tax_enabled!==false,tax_rate:Number(q.tax_rate||18),tax_included:false,notes:q.notes||null}};
+  }
+  if(entityContext?.pending_action?.action==="UPDATE_QUOTE"){
+    return {action:"UPDATE_QUOTE",execute:false,params:entityContext.pending_action.params||{}};
   }
   if(entityContext?.pending_action?.action==="CREATE_QUOTE"){
     const pending=entityContext.pending_action.params||{};
@@ -697,7 +728,7 @@ async function executePlan(env,token,user,pl,source="AI_AGENT"){
   if(action==="INVENTORY_INSIGHT")return {action,result:await inventoryInsight(env,token,user.id,String(p.kind||"").toUpperCase())};
   if(action==="LIST_QUOTES")return {action,result:await listQuotes(env,token,user.id)};
   if(action==="CREATE_CLIENT")return {action,result:{status:"CONFIRMATION_REQUIRED",params:p}};
-  if(action==="CREATE_QUOTE")return {action,result:{status:"CONFIRMATION_REQUIRED",params:p}};
+  if(action==="CREATE_QUOTE"||action==="UPDATE_QUOTE")return {action,result:{status:"CONFIRMATION_REQUIRED",params:p}};
   if(action==="ADJUST_INVENTORY")return {action,result:{status:"CONFIRMATION_REQUIRED",params:p}};
   return {action:"CHAT",result:null};
 }
@@ -726,6 +757,13 @@ async function finalReply(env,message,planData,userName=""){
       return "⚠️ Voy a registrar este cliente:\n\n👤 "+String(p.name||"Sin nombre")+(p.document_number?"\n🪪 Documento: "+p.document_number:"")+(p.phone?"\n📞 "+p.phone:"")+(p.email?"\n✉️ "+p.email:"")+(p.address?"\n📍 "+p.address:"")+
         (chained?"\n\n🧾 Después prepararé automáticamente la cotización que me indicó.":"")+
         "\n\nResponde «sí» para confirmar o «cancelar» para detener la operación.";
+    }
+    if(execution.action==="UPDATE_QUOTE"){
+      const p=result.params||{};
+      const items=Array.isArray(p.items)?p.items:[];
+      const subtotal=items.reduce((s,x)=>s+Math.max(0,Number(x.quantity||1))*Math.max(0,Number(x.unit_price||0)),0);
+      const tax=p.tax_enabled===false?0:subtotal*Number(p.tax_rate||18)/100;
+      return "⚠️ PREPARÉ LA ACTUALIZACIÓN\n\n🧾 "+String(p.quote_number||"Cotización")+"\n"+String(p.title||"Cotización")+"\n\n"+items.map((x,i)=>"• "+(i+1)+". "+String(x.name||"Partida")+" · "+Number(x.quantity||1)+" × S/ "+Number(x.unit_price||0).toFixed(2)).join("\n")+"\n\nSubtotal: S/ "+subtotal.toFixed(2)+"\n"+(p.tax_enabled===false?"IGV: NO INCLUIDO":"IGV "+Number(p.tax_rate||18)+"%: S/ "+tax.toFixed(2))+"\n💰 TOTAL: S/ "+(subtotal+tax).toFixed(2)+"\n\nResponde «sí» para guardar los cambios o «cancelar» para descartarlos.";
     }
     if(execution.action==="CREATE_QUOTE"){
       const items=Array.isArray(p.items)?p.items:[];
@@ -1533,6 +1571,45 @@ async function telegramWebhook(request,env,ctx){
         await saveConversationContext(env,adminToken,userId,conversationId,next);
         await sendTelegram(env,chatId,"🧾 Actualicé el tratamiento del impuesto en la cotización encadenada: "+(fiscalNoTax?"sin IGV.":"IGV incluido.")+"\n\nResponde «sí» para continuar.");
         return json({ok:true,fastPath:"client_quote_tax"},200);
+      }
+      if(pending.action==="UPDATE_QUOTE" && pending.params){
+        if(/^(si|sí|confirmar|confirmo|guarda|guardar|ok|dale|hazlo)$/i.test(text)){
+          const p=pending.params;
+          const result=await createQuote(env,adminToken,userId,p,"TELEGRAM");
+          if(result.status==="CREATED"){
+            await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:null});
+            const q=result.quote;
+            await sendTelegram(env,chatId,"✅ Cotización "+String(q.number||p.quote_number||"")+" actualizada correctamente.\n💰 Total: S/ "+Number(q.total||0).toFixed(2));
+            return json({ok:true,fastPath:"quote_update_saved"},200);
+          }
+          await sendTelegram(env,chatId,"⚠️ No pude actualizar la cotización: "+String(result.message||"verifica los datos."));
+          return json({ok:true,fastPath:"quote_update_error"},200);
+        }
+        if(/^(cancelar|cancela|no|anular)$/i.test(text)){
+          await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:null});
+          await sendTelegram(env,chatId,"🛑 Actualización cancelada.");
+          return json({ok:true,fastPath:"quote_update_cancel"},200);
+        }
+        const p=pending.params,items=Array.isArray(p.items)?p.items:[];
+        const ord=text.toLowerCase().match(/\\b(primera|primer|segunda|segundo|tercera|tercer|cuarta|cuarto|quinta|quinto|ultima|última)\\b/);
+        const map={primera:0,primer:0,segunda:1,segundo:1,tercera:2,tercer:2,cuarta:3,cuarto:3,quinta:4,quinto:4,ultima:Math.max(0,items.length-1),"última":Math.max(0,items.length-1)};
+        const idx=ord?map[ord[1]]:(items.length?items.length-1:0);
+        const pm=text.match(/\\b(?:cambia|modifica|pon|ajusta)\\b[\\s\\S]{0,60}?(?:precio|valor|costo|coste)\\s*(?:a|en|de)?\\s*(?:s\\/\\.?\\s*)?(\\d+(?:[.,]\\d{1,2})?)/i);
+        if(pm&&idx<items.length){
+          const value=Number(pm[1].replace(",",".")); const nextItems=items.map((x,i)=>i===idx?{...x,unit_price:value}:x);
+          await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:{...p,items:nextItems}}});
+          await sendTelegram(env,chatId,"🧾 Actualicé el precio de la partida "+(idx+1)+" a S/ "+value.toFixed(2)+".\n\nPuedes seguir editando o responder «sí» para guardar.");
+          return json({ok:true,fastPath:"quote_update_edit"},200);
+        }
+        const qm=text.match(/\\b(?:cambia|modifica|pon|ajusta)\\b[\\s\\S]{0,60}?(?:cantidad|unidades)\\s*(?:a|en|de)?\\s*(\\d+(?:[.,]\\d+)?)/i);
+        if(qm&&idx<items.length){
+          const value=Number(qm[1].replace(",","."));
+          if(value>0){const nextItems=items.map((x,i)=>i===idx?{...x,quantity:value}:x);await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:{...p,items:nextItems}}});await sendTelegram(env,chatId,"🔢 Cantidad actualizada en la partida "+(idx+1)+".\n\nResponde «sí» para guardar.");return json({ok:true,fastPath:"quote_update_qty"},200);}
+        }
+        const rm=text.match(/\\b(?:quita|elimina|borra)\\b(?:\\s+(?:la|el|partida))?\\s*(primera|primer|segunda|segundo|tercera|tercer|cuarta|cuarto|quinta|quinto|ultima|última)\\b/i);
+        if(rm&&items.length){
+          const ri=map[rm[1]]; if(Number.isInteger(ri)&&ri<items.length){const nextItems=items.filter((_,i)=>i!==ri);await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:{...p,items:nextItems}}});await sendTelegram(env,chatId,"🗑️ Eliminé la partida "+(ri+1)+".\n\nResponde «sí» para guardar.");return json({ok:true,fastPath:"quote_update_remove"},200);}
+        }
       }
       if(pending.action==="CREATE_QUOTE" && pending.params){
         const p=pending.params, items=Array.isArray(p.items)?p.items:[];

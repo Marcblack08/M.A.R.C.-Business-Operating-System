@@ -509,11 +509,11 @@ async function plan(env,message,history,entityContext={},contextToken="",context
   }
   // Cotización estructurada: si la orden ya trae cliente y partidas, evitamos Gemini
   // y reutilizamos el flujo seguro de confirmación.
-  const quoteCommand=/^(?:crea|crear|haz|hacer|prepara|preparar|genera|generar|cotiza|cotizar|elabora|elaborar)\\s+(?:una\\s+)?(?:cotizacion|cotización|proforma|presupuesto)\\b/i.test(String(message||"").trim());
+  const quoteCommand=/^(?:crea|crear|haz|hacer|prepara|preparar|genera|generar|cotiza|cotizar|elabora|elaborar)\s+(?:una\s+)?(?:cotizacion|cotización|proforma|presupuesto)\b/i.test(String(message||"").trim());
   if(quoteCommand){
     const rawMessage=String(message||"").trim();
     let clientQuery="";
-    const clientMatch=rawMessage.match(/\\b(?:para|cliente)\\s+(.+?)(?=\\s+(?:por|a|precio|costo|total|de|con)\\s+|\\s*[:,-]\\s*|$)/i);
+    const clientMatch=rawMessage.match(/\b(?:para|cliente)\s+(.+?)(?=\s+(?:por|a|precio|costo|total|de|con)\s+|\s*[:,-]\s*|$)/i);
     if(clientMatch)clientQuery=clientMatch[1].trim();
     if(!clientQuery)return {action:"CHAT",execute:false,params:{clarification:"Con gusto. ¿Para qué cliente desea preparar la cotización?"}};
 
@@ -524,31 +524,31 @@ async function plan(env,message,history,entityContext={},contextToken="",context
     if(!client)return {action:"CHAT",execute:false,params:{clarification:"No pude identificar al cliente. Indícame el nombre exacto, por favor."}};
 
     let body=rawMessage
-      .replace(/^(?:crea|crear|haz|hacer|prepara|preparar|genera|generar|cotiza|cotizar|elabora|elaborar)\\s+(?:una\\s+)?(?:cotizacion|cotización|proforma|presupuesto)\\s*/i,"")
-      .replace(/\\b(?:para|cliente)\\s+.+?(?=\\s+(?:por|a|precio|costo|total|de|con)\\s+|\\s*[:,-]\\s*|$)/i,"")
-      .replace(/\\s+/g," ").trim();
+      .replace(/^(?:crea|crear|haz|hacer|prepara|preparar|genera|generar|cotiza|cotizar|elabora|elaborar)\s+(?:una\s+)?(?:cotizacion|cotización|proforma|presupuesto)\s*/i,"")
+      .replace(/\b(?:para|cliente)\s+.+?(?=\s+(?:por|a|precio|costo|total|de|con)\s+|\s*[:,-]\s*|$)/i,"")
+      .replace(/\s+/g," ").trim();
 
     // Separadores naturales de partidas: coma, punto y coma o "y".
     // "y" solo separa cuando viene después de una partida ya expresada.
-    const rawParts=body.split(/\\s*[,;]\\s*|\\s+\\by\\b\\s+/i).map(x=>x.trim()).filter(Boolean);
+    const rawParts=body.split(/\s*[,;]\s*|\s+\by\b\s+/i).map(x=>x.trim()).filter(Boolean);
     const parts=rawParts.length?rawParts:[body];
     const items=[];
     for(const part of parts){
       let textPart=part.trim();
       if(!textPart)continue;
 
-      const qtyMatch=textPart.match(/^(\\d+(?:[.,]\\d+)?)\\s+(?=\\S)/);
+      const qtyMatch=textPart.match(/^(\d+(?:[.,]\d+)?)\s+(?=\S)/);
       const quantity=qtyMatch?Number(qtyMatch[1].replace(",",".")):1;
       if(qtyMatch)textPart=textPart.slice(qtyMatch[0].length).trim();
 
       let price=null;
-      let priceMatch=textPart.match(/(?:\\b(?:a|por|precio|costo|total)\\s*[:=]?\\s*|\\bs\\/\\.?\\s*)(\\d+(?:[.,]\\d{1,2})?)(?:\\s*(?:soles?|pen))?\\s*$/i);
+      let priceMatch=textPart.match(/(?:\b(?:a|por|precio|costo|total)\s*[:=]?\s*|\bs\/\.?\s*)(\d+(?:[.,]\d{1,2})?)(?:\s*(?:soles?|pen))?\s*$/i);
       if(priceMatch){
         price=Number(priceMatch[1].replace(",","."));
         textPart=textPart.slice(0,priceMatch.index).trim();
       }else{
         // También acepta "mano de obra 300" o "instalación 850" al final.
-        const trailing=textPart.match(/(?:\\s|^)\\b(\\d+(?:[.,]\\d{1,2})?)\\s*(?:soles?|pen)?$/i);
+        const trailing=textPart.match(/(?:\s|^)\b(\d+(?:[.,]\d{1,2})?)\s*(?:soles?|pen)?$/i);
         if(trailing){
           price=Number(trailing[1].replace(",","."));
           textPart=textPart.slice(0,trailing.index).trim();

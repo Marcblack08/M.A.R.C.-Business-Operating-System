@@ -528,7 +528,25 @@ async function plan(env,message,history,entityContext={},contextToken="",context
 
     const hit=await resolveOneClient(env,contextToken,contextUserId,clientQuery).catch(()=>null);
     if(hit?.status==="AMBIGUOUS")return {action:"CHAT",execute:false,params:{clarification:"Encontré varios clientes para «"+clientQuery+"». Indícame cuál desea usar."}};
-    if(hit?.status==="NOT_FOUND")return {action:"CHAT",execute:false,params:{clarification:"No encontré al cliente «"+clientQuery+"». Indícame el nombre exacto o primero registra al cliente."}};
+    if(hit?.status==="NOT_FOUND"){
+      // Si la orden trae datos suficientes, proponemos registrar el cliente y,
+      // tras su confirmación, continuamos automáticamente con la cotización.
+      let clientName=clientQuery.replace(/\b(?:ubicacion|ubicación|direccion|dirección)\s+.+$/i,"").trim()||clientQuery;
+      const addressMatch=clientQuery.match(/\b(?:ubicacion|ubicación|direccion|dirección)\s+(.+)$/i);
+      const clientAddress=addressMatch?.[1]?.trim()||null;
+      return {action:"CREATE_CLIENT",execute:false,params:{
+        name:clientName.slice(0,180),
+        address:clientAddress?clientAddress.slice(0,300):null,
+        _next_quote:{
+          client_name:clientName.slice(0,180),
+          tax_enabled:taxEnabled,
+          tax_included:taxIncluded,
+          tax_rate:Number.isFinite(taxRate)&&taxRate>0?taxRate:18,
+          title:"Cotización · "+clientName.slice(0,120),
+          items
+        }
+      }};
+    }
     const client=hit?.client;
     if(!client)return {action:"CHAT",execute:false,params:{clarification:"No pude identificar al cliente. Indícame el nombre exacto, por favor."}};
 
@@ -1530,7 +1548,28 @@ if(/^(si|sí|confirmo|confirmar|dale|hazlo|ejecuta|ejecutar)$/i.test(incoming)){
           await sendTelegram(env,chatId,"✅ Movimiento de inventario realizado.\n\n📦 "+String(item.name||pending.params.inventory_query||"Producto")+"\n🔄 "+pending.params.type+" · "+pending.params.quantity);
         }else if(pending.action==="CREATE_CLIENT"){
           const client=done?.client||{};
-          await sendTelegram(env,chatId,"✅ Cliente registrado.\n\n👤 "+String(client.name||pending.params.name||"Cliente")+(client.phone?"\n📞 "+client.phone:""));
+          const nextQuote=pending.params?._next_quote;
+          if(nextQuote && client.id){
+            const quoteParams={...nextQuote,client_query:client.id,client_id:client.id,client_name:client.name||nextQuote.client_name};
+            const quoteDone=await createQuote(env,adminToken,userId,quoteParams,"TELEGRAM");
+            if(quoteDone?.status==="CREATED"){
+              await sendTelegram(env,chatId,"✅ Cliente registrado.\n\n👤 "+String(client.name||"Cliente")+(client.address?"\n📍 "+client.address:"")+"\n\n🧾 También preparé la cotización solicitada.");
+              const q=quoteDone.quote||{};
+              await sendTelegram(env,chatId,"📋 Cotización: "+String(q.numero||q.number||"Cotización")+"\n💰 "+moneyText(q.total||0));
+              try{
+                const company=await telegramCompanyProfile(env,adminToken,userId);
+                const bytes=buildQuotePdf({quote:q,client:quoteDone.client||client,company,items:quoteDone.items,tax_enabled:quoteParams.tax_enabled===undefined?true:quoteParams.tax_enabled,tax_rate:quoteParams.tax_rate||18,notes:quoteParams.notes||""});
+                const number=String(q.numero||q.number||q.id||"cotizacion").slice(0,40);
+                await sendTelegramDocument(env,chatId,bytes,"Cotizacion-"+number+".pdf","📄 PDF de la cotización "+number);
+              }catch(pdfErr){
+                await sendTelegram(env,chatId,"⚠️ El cliente fue registrado y la cotización creada, pero el PDF no pudo enviarse.");
+              }
+            }else{
+              await sendTelegram(env,chatId,"✅ Cliente registrado.\n\n👤 "+String(client.name||"Cliente")+"\n\n⚠️ No pude completar automáticamente la cotización: "+String(quoteDone?.message||"falta un dato")+"");
+            }
+          }else{
+            await sendTelegram(env,chatId,"✅ Cliente registrado.\n\n👤 "+String(client.name||pending.params.name||"Cliente")+(client.phone?"\n📞 "+client.phone:""));
+          }
         }else{
           const q=done?.quote||{};
           await sendTelegram(env,chatId,"✅ Cotización creada.\n\n🧾 "+String(q.numero||q.number||"Cotización")+"\n"+String(q.title||pending.params.title||"Cotización")+"\n💰 "+moneyText(q.total||0));

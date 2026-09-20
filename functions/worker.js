@@ -2934,7 +2934,7 @@ async function quoteAiDraft(request,env){
   await incrementAiUsage(env,token,user.id,access);
   return json({draft,entitlement:access},200,corsHeaders(request));
 }
-async async function marketingImage(request,env){
+async function marketingImage(request,env){
   if(request.method!=="POST")return json({error:"Método no permitido"},405);
   const {token,user}=await authUser(request,env),access=await entitlement(env,token,user.id);
   if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request));

@@ -379,7 +379,7 @@ function deterministicIntent(message){
   if(/\b(busca|buscar|muestra|mostrar|consulta|consultar|revisa|revisar)\b/.test(s) && /\b(cliente|clientes)\b/.test(s)){const q=s.replace(/.*\b(cliente|clientes)\b\s*/,"").trim();return {action:"SEARCH_CLIENTS",execute:false,params:{query:q}};}
   return null;
 }
-async function plan(env,message,history,entityContext={}){
+async function plan(env,message,history,entityContext={},contextToken="",contextUserId=""){
   const reference=resolveEntityReference(message,entityContext);
   const s=String(message||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim();
   if(reference?.status==="AMBIGUOUS")return {action:"CHAT",execute:false,params:{clarification:"¿A cuál resultado te refieres? Indícame el número o el nombre."}};
@@ -414,7 +414,7 @@ async function plan(env,message,history,entityContext={}){
       const m=text.match(/\b(?:para|cliente)\s+(.+?)(?:\s+(?:con|por|a|precio|costo)\b|$)/i);
       if(m?.[1]){
         const clientQuery=m[1].trim();
-        const hit=await resolveOneClient(env,entityContext?.token||"",entityContext?.user_id||"",clientQuery).catch(()=>null);
+        const hit=await resolveOneClient(env,contextToken,contextUserId,clientQuery).catch(()=>null);
         const nextClient=hit?.status==="FOUND"?hit.client.name:clientQuery;
         return {action:"CREATE_QUOTE",execute:false,params:{...pending,client_query:nextClient,client_id:hit?.status==="FOUND"?hit.client.id:undefined}};
       }
@@ -432,7 +432,7 @@ async function plan(env,message,history,entityContext={}){
       const items=Array.isArray(pending.items)?pending.items.slice():[];
       // Primero intentamos resolverlo contra el inventario real. Si hay una coincidencia única,
       // la partida queda como PRODUCTO y heredará su precio del inventario si no se indicó otro.
-      const hit=await resolveInventory(env,entityContext?.token||"",entityContext?.user_id||"",cleaned).catch(()=>null);
+      const hit=await resolveInventory(env,contextToken,contextUserId,cleaned).catch(()=>null);
       if(hit?.status==="AMBIGUOUS"){
         return {action:"CHAT",execute:false,params:{clarification:"Encontré varios productos para «"+cleaned+"». Indícame cuál quieres agregar."}};
       }
@@ -1039,7 +1039,7 @@ async function telegramWebhook(request,env,ctx){
   try{
     const history=await recentMessages(env,adminToken,userId,conversationId);
     const entityContext=await getConversationContext(env,adminToken,userId,conversationId);
-    pl=await plan(env,incoming,history,entityContext);
+    pl=await plan(env,incoming,history,entityContext,adminToken,userId);
     executed=await executePlan(env,adminToken,{id:userId},pl,"TELEGRAM");
     const nextContext=buildEntityContext(executed,entityContext);
     if(executed?.result?.status==="CONFIRMATION_REQUIRED")nextContext.pending_action={action:executed.action,params:executed.result.params,created_at:new Date().toISOString()};

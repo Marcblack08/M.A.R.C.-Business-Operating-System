@@ -2268,7 +2268,7 @@ async function marketing(){
   const generateText=async()=>{
     const status=$p("adStatus"),btn=$p("generateTextAd");if(btn)btn.disabled=true;status.className="msg";status.textContent="M.A.R.C. está entendiendo tu idea y creando los textos…";
     try{
-      currentProduct=list.find(p=>p.id===$p("adProduct").value)||list[0];
+      if(!currentImageFile)currentProduct=list.find(p=>p.id===$p("adProduct").value)||list[0]||currentProduct;
       const r=await fetch("/api/marketing-ai",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify(campaignPayload())});
       const j=await r.json();if(!r.ok)throw new Error(j.message||j.error||"No se pudo crear la publicidad.");
       await setCampaign(j.campaign);await saveMarketingCampaign(j.campaign,currentProduct,$p);

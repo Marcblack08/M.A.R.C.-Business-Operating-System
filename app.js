@@ -217,11 +217,10 @@ async function home(){
             <button id="heroQuote" class="hero-secondary">＋ Nueva cotización</button>
           </div>
         </div>
-        <div class="hero-orbit" aria-hidden="true">
-          <div class="hero-orbit-card orbit-main"><span>✦</span><b>Copiloto</b><small>Operación en tiempo real</small></div>
-          <div class="hero-orbit-card orbit-small orbit-a">Clientes</div>
-          <div class="hero-orbit-card orbit-small orbit-b">Inventario</div>
-          <div class="hero-orbit-card orbit-small orbit-c">Rentabilidad</div>
+        <div class="hero-visual" aria-hidden="true">
+          <div class="hero-visual-ring"></div>
+          <div class="hero-visual-logo" id="heroBrandLogo"><span>M</span></div>
+          <div class="hero-visual-caption">M.A.R.C. · TU MAYORDOMO DIGITAL</div>
         </div>
       </section>
 
@@ -320,6 +319,11 @@ async function home(){
     </div>
   `;
 
+  const heroLogo=$("#heroBrandLogo"),brandLogo=$("#brandLogo");
+  if(heroLogo&&brandLogo){
+    const img=brandLogo.querySelector("img");
+    if(img&&img.src)heroLogo.innerHTML='<img src="'+esc(img.src)+'" alt="M.A.R.C.">';
+  }
   $("#askHome").onclick=openChat;
   $("#heroQuote").onclick=quoteModal;
   $("#openInventory").onclick=inventory;

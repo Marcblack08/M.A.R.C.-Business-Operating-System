@@ -684,7 +684,10 @@ async function finalReply(env,message,planData,userName=""){
       return "⚠️ Confirma este movimiento de inventario:\n\n📦 Producto: "+String(p.inventory_query||"seleccionado")+"\n🔄 Tipo: "+type+"\n🔢 Cantidad: "+Number(p.quantity||0)+"\n\nResponde «sí» para ejecutarlo o «cancelar» para no realizar cambios.";
     }
     if(execution.action==="CREATE_CLIENT"){
-      return "⚠️ Voy a registrar este cliente:\n\n👤 "+String(p.name||"Sin nombre")+(p.document_number?"\n🪪 Documento: "+p.document_number:"")+(p.phone?"\n📞 "+p.phone:"")+(p.email?"\n✉️ "+p.email:"")+"\n\nResponde «sí» para registrarlo o «cancelar» para detener la operación.";
+      const chained=Boolean(p._next_quote);
+      return "⚠️ Voy a registrar este cliente:\n\n👤 "+String(p.name||"Sin nombre")+(p.document_number?"\n🪪 Documento: "+p.document_number:"")+(p.phone?"\n📞 "+p.phone:"")+(p.email?"\n✉️ "+p.email:"")+(p.address?"\n📍 "+p.address:"")+
+        (chained?"\n\n🧾 Después prepararé automáticamente la cotización que me indicó.":"")+
+        "\n\nResponde «sí» para confirmar o «cancelar» para detener la operación.";
     }
     if(execution.action==="CREATE_QUOTE"){
       const items=Array.isArray(p.items)?p.items:[];

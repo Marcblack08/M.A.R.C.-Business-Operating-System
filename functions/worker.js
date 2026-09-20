@@ -528,26 +528,13 @@ async function plan(env,message,history,entityContext={},contextToken="",context
 
     const hit=await resolveOneClient(env,contextToken,contextUserId,clientQuery).catch(()=>null);
     if(hit?.status==="AMBIGUOUS")return {action:"CHAT",execute:false,params:{clarification:"Encontré varios clientes para «"+clientQuery+"». Indícame cuál desea usar."}};
+    let newClientDraft=null;
     if(hit?.status==="NOT_FOUND"){
-      // Si la orden trae datos suficientes, proponemos registrar el cliente y,
-      // tras su confirmación, continuamos automáticamente con la cotización.
       let clientName=clientQuery.replace(/\b(?:ubicacion|ubicación|direccion|dirección)\s+.+$/i,"").trim()||clientQuery;
       const addressMatch=clientQuery.match(/\b(?:ubicacion|ubicación|direccion|dirección)\s+(.+)$/i);
-      const clientAddress=addressMatch?.[1]?.trim()||null;
-      return {action:"CREATE_CLIENT",execute:false,params:{
-        name:clientName.slice(0,180),
-        address:clientAddress?clientAddress.slice(0,300):null,
-        _next_quote:{
-          client_name:clientName.slice(0,180),
-          tax_enabled:taxEnabled,
-          tax_included:taxIncluded,
-          tax_rate:Number.isFinite(taxRate)&&taxRate>0?taxRate:18,
-          title:"Cotización · "+clientName.slice(0,120),
-          items
-        }
-      }};
+      newClientDraft={name:clientName.slice(0,180),address:addressMatch?.[1]?.trim()?.slice(0,300)||null};
     }
-    const client=hit?.client;
+    const client=hit?.client||null;
     if(!client)return {action:"CHAT",execute:false,params:{clarification:"No pude identificar al cliente. Indícame el nombre exacto, por favor."}};
 
     let body=rawMessage
@@ -602,6 +589,20 @@ async function plan(env,message,history,entityContext={},contextToken="",context
     }
 
     if(!items.length)return {action:"CHAT",execute:false,params:{clarification:"Indícame al menos un trabajo, producto o servicio para la cotización."}};
+    if(newClientDraft){
+      return {action:"CREATE_CLIENT",execute:false,params:{
+        name:newClientDraft.name,
+        address:newClientDraft.address,
+        _next_quote:{
+          client_name:newClientDraft.name,
+          tax_enabled:taxEnabled,
+          tax_included:taxIncluded,
+          tax_rate:Number.isFinite(taxRate)&&taxRate>0?taxRate:18,
+          title:"Cotización · "+newClientDraft.name.slice(0,120),
+          items
+        }
+      }};
+    }
     return {action:"CREATE_QUOTE",execute:false,params:{
       client_query:client.id,
       client_id:client.id,

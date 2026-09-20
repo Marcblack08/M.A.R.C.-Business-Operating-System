@@ -1591,22 +1591,41 @@ async function telegramWebhook(request,env,ctx){
           return json({ok:true,fastPath:"quote_update_cancel"},200);
         }
         const p=pending.params,items=Array.isArray(p.items)?p.items:[];
-        const ord=text.toLowerCase().match(/\\b(primera|primer|segunda|segundo|tercera|tercer|cuarta|cuarto|quinta|quinto|ultima|última)\\b/);
+        const fiscalNoTax=/\b(?:sin|no)\s+(?:igv|igb|impuesto)\b|\bno\s+incluyas?\s+(?:igv|igb|impuesto)\b/i.test(text);
+        const fiscalWithTax=/\b(?:con|incluye|incluido)\s+(?:el\s+)?(?:igv|igb|impuesto)\b/i.test(text);
+        if(fiscalNoTax||fiscalWithTax){
+          const next={...ctxMem,pending_action:{...pending,params:{...p,tax_enabled:!fiscalNoTax,tax_included:fiscalWithTax}}};
+          await saveConversationContext(env,adminToken,userId,conversationId,next);
+          await sendTelegram(env,chatId,"🧾 Actualicé el tratamiento del impuesto: "+(fiscalNoTax?"sin IGV.":"IGV incluido.")+"\n\nResponde «sí» para guardar.");
+          return json({ok:true,fastPath:"quote_update_tax"},200);
+        }
+        const addMatch=text.match(/\b(?:agrega|añade|anade|incluye|suma)\s+(?:una\s+)?(?:partida\s+de\s+)?(.+?)(?:\s+(?:a|por|en)\s+(?:s\/\.?\s*)?(\d+(?:[.,]\d{1,2})?)\s*(?:soles?)?)?$/i);
+        if(addMatch){
+          const name=String(addMatch[1]||"").trim();
+          const value=addMatch[2]?Number(addMatch[2].replace(",",".")):null;
+          if(name&&value&&value>0){
+            const nextItems=[...items,{type:"TRABAJO",name:name.slice(0,180),description:name.slice(0,2000),quantity:1,unit:"UND",unit_price:value}];
+            await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:{...p,items:nextItems}}});
+            await sendTelegram(env,chatId,"➕ Agregué la partida: "+name+" · S/ "+value.toFixed(2)+".\n\nResponde «sí» para guardar o continúa editando.");
+            return json({ok:true,fastPath:"quote_update_add"},200);
+          }
+        }
+        const ord=text.toLowerCase().match(/\b(primera|primer|segunda|segundo|tercera|tercer|cuarta|cuarto|quinta|quinto|ultima|última)\b/);
         const map={primera:0,primer:0,segunda:1,segundo:1,tercera:2,tercer:2,cuarta:3,cuarto:3,quinta:4,quinto:4,ultima:Math.max(0,items.length-1),"última":Math.max(0,items.length-1)};
         const idx=ord?map[ord[1]]:(items.length?items.length-1:0);
-        const pm=text.match(/\\b(?:cambia|modifica|pon|ajusta)\\b[\\s\\S]{0,60}?(?:precio|valor|costo|coste)\\s*(?:a|en|de)?\\s*(?:s\\/\\.?\\s*)?(\\d+(?:[.,]\\d{1,2})?)/i);
+        const pm=text.match(/\b(?:cambia|modifica|pon|ajusta)\b[\\s\\S]{0,60}?(?:precio|valor|costo|coste)\\s*(?:a|en|de)?\\s*(?:s\\/\\.?\\s*)?(\\d+(?:[.,]\\d{1,2})?)/i);
         if(pm&&idx<items.length){
           const value=Number(pm[1].replace(",",".")); const nextItems=items.map((x,i)=>i===idx?{...x,unit_price:value}:x);
           await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:{...p,items:nextItems}}});
           await sendTelegram(env,chatId,"🧾 Actualicé el precio de la partida "+(idx+1)+" a S/ "+value.toFixed(2)+".\n\nPuedes seguir editando o responder «sí» para guardar.");
           return json({ok:true,fastPath:"quote_update_edit"},200);
         }
-        const qm=text.match(/\\b(?:cambia|modifica|pon|ajusta)\\b[\\s\\S]{0,60}?(?:cantidad|unidades)\\s*(?:a|en|de)?\\s*(\\d+(?:[.,]\\d+)?)/i);
+        const qm=text.match(/\b(?:cambia|modifica|pon|ajusta)\b[\\s\\S]{0,60}?(?:cantidad|unidades)\\s*(?:a|en|de)?\\s*(\\d+(?:[.,]\\d+)?)/i);
         if(qm&&idx<items.length){
           const value=Number(qm[1].replace(",","."));
           if(value>0){const nextItems=items.map((x,i)=>i===idx?{...x,quantity:value}:x);await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:{...p,items:nextItems}}});await sendTelegram(env,chatId,"🔢 Cantidad actualizada en la partida "+(idx+1)+".\n\nResponde «sí» para guardar.");return json({ok:true,fastPath:"quote_update_qty"},200);}
         }
-        const rm=text.match(/\\b(?:quita|elimina|borra)\\b(?:\\s+(?:la|el|partida))?\\s*(primera|primer|segunda|segundo|tercera|tercer|cuarta|cuarto|quinta|quinto|ultima|última)\\b/i);
+        const rm=text.match(/\b(?:quita|elimina|borra)\b(?:\\s+(?:la|el|partida))?\\s*(primera|primer|segunda|segundo|tercera|tercer|cuarta|cuarto|quinta|quinto|ultima|última)\b/i);
         if(rm&&items.length){
           const ri=map[rm[1]]; if(Number.isInteger(ri)&&ri<items.length){const nextItems=items.filter((_,i)=>i!==ri);await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:{...p,items:nextItems}}});await sendTelegram(env,chatId,"🗑️ Eliminé la partida "+(ri+1)+".\n\nResponde «sí» para guardar.");return json({ok:true,fastPath:"quote_update_remove"},200);}
         }

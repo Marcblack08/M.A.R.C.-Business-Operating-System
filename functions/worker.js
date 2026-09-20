@@ -926,7 +926,7 @@ async function telegramWebhook(request,env,ctx){
     await sendTelegram(env,chatId,"✨ Entendido, "+requestedName+". Queda anotado. A partir de ahora me dirigiré a usted como "+requestedName+". ¿En qué puedo asistirle?");
     return json({ok:true,fastPath:"save_preferred_name",name:requestedName},200);
   }
-  if(!telegramProfile.preferredName && !telegramProfile.namePrompted && /^(hola|buenos? días?|buenas? tardes?|buenas? noches?|saludos|que puede hacer|que puedes hacer|capacidades|como puedes ayudar)/i.test(incoming)){
+  if(!telegramProfile.preferredName && !telegramProfile.namePrompted && /^(hola|buenos? días?|buenas? tardes?|buenas? noches?|saludos)/i.test(incoming)){
     const metaPatch={preferred_name:"",marc_name_prompted:true};
     const authUser=await fetch(env.SUPABASE_URL+"/auth/v1/admin/users/"+encodeURIComponent(userId),{headers:{apikey:adminToken,Authorization:"Bearer "+adminToken}}).then(x=>x.ok?x.json():null).catch(()=>null);
     await updateTelegramUserMetadata(env,adminToken,userId,{...(authUser?.user_metadata||{}),...metaPatch}).catch(()=>{});

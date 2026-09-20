@@ -2648,6 +2648,52 @@ async function geminiGenerateImage(env,imageBase64,prompt,options={}){
 }
 
 
+async function marketingProductAi(request,env){
+  if(request.method!=="POST")return json({error:"Método no permitido"},405);
+  const {token,user}=await authUser(request,env);
+  const access=await entitlement(env,token,user.id);
+  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request));
+  if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request));
+  const body=await request.json().catch(()=>({}));
+  let image=String(body?.imageBase64||"").trim();
+  const mime=String(body?.mimeType||"image/jpeg").trim().toLowerCase();
+  const brief=String(body?.brief||"").trim().slice(0,2500);
+  if(!image)return json({error:"No se recibió la foto del producto."},400,corsHeaders(request));
+  if(!["image/jpeg","image/png","image/webp"].includes(mime))return json({error:"Formato de imagen no permitido."},400,corsHeaders(request));
+  image=image.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/,"");
+  if(image.length>7000000)return json({error:"La imagen es demasiado grande para analizarla. Usa una foto menor de 6 MB."},413,corsHeaders(request));
+  const prompt=[
+    "Analiza esta foto de un producto para crear una publicidad profesional.",
+    "Extrae solamente datos que puedas leer o identificar con suficiente seguridad. NO inventes especificaciones, certificaciones, garantías, precios, descuentos, disponibilidad ni beneficios técnicos.",
+    "Si el usuario dio un brief, úsalo para orientar la descripción, pero no conviertas deseos en características reales del producto.",
+    "Devuelve SOLO JSON válido con exactamente estos campos:",
+    '{"name":"","sku":null,"brand":null,"model":null,"category":"","description":"","marketing_description":"","key_points":[],"confidence":0}',
+    "description: descripción objetiva breve del producto.",
+    "marketing_description: texto comercial atractivo, profesional y prudente, listo para usar como base de una publicación.",
+    "key_points: arreglo de hasta 6 puntos que sean visibles o estén sustentados por la imagen.",
+    "confidence: número entre 0 y 1.",
+    "BRIEF DEL USUARIO: "+brief
+  ].join("\n");
+  const out=await geminiGenerateImage(env,image,prompt,{maxTokens:1000,json:true});
+  const text=out?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("")||"";
+  if(!text)throw Object.assign(new Error("Gemini no devolvió datos del producto."),{status:502});
+  let parsed;try{parsed=extractJson(text)}catch{throw Object.assign(new Error("Gemini no devolvió un JSON válido para el producto."),{status:502})}
+  const product={
+    name:String(parsed?.name||"").trim().slice(0,180),
+    sku:parsed?.sku?String(parsed.sku).trim().slice(0,120):null,
+    brand:parsed?.brand?String(parsed.brand).trim().slice(0,120):null,
+    model:parsed?.model?String(parsed.model).trim().slice(0,120):null,
+    category:String(parsed?.category||"").trim().slice(0,120),
+    description:String(parsed?.description||"").trim().slice(0,1200),
+    marketing_description:String(parsed?.marketing_description||"").trim().slice(0,1800),
+    key_points:Array.isArray(parsed?.key_points)?parsed.key_points.map(x=>String(x).trim()).filter(Boolean).slice(0,6):[],
+    confidence:Math.min(1,Math.max(0,Number(parsed?.confidence||0)))
+  };
+  await incrementAiUsage(env,token,user.id,access);
+  await audit(env,token,user.id,"MARKETING",null,"ANALYZE_PRODUCT_PHOTO",{confidence:product.confidence,identified:Boolean(product.name)},"WEB");
+  return json({status:"ANALYZED",product},200,corsHeaders(request));
+}
+
 async function analyzeInventoryProductPhoto(request,env){
   if(request.method!=="POST")return json({error:"Método no permitido"},405);
   const {token,user}=await authUser(request,env);
@@ -3165,6 +3211,9 @@ export default{
       try{return await telegramWebhook(request,env,ctx)}catch(err){
         return json({error:err?.message||"Error del webhook",detail:err?.details||null},err?.status||500);
       }
+    }
+    if(url.pathname==="/api/marketing-product-ai"){
+      try{return await marketingProductAi(request,env)}catch(err){return json({error:err?.message||"No se pudo analizar el producto.",detail:err?.details||null},err?.status||500,headers)}
     }
     if(url.pathname==="/api/inventory/analyze-photo"){
       try{return await analyzeInventoryProductPhoto(request,env)}catch(err){return json({error:err?.message||"No se pudo analizar la foto del producto.",detail:err?.details||null},err?.status||500,headers)}

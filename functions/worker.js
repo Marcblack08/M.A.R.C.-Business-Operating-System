@@ -410,20 +410,48 @@ async function plan(env,message,history,entityContext={}){
   if(entityContext?.pending_action?.action==="CREATE_QUOTE"){
     const pending=entityContext.pending_action.params||{};
     const text=String(message||"").trim();
+    if(/\b(para|cliente)\b/i.test(text) && !/\b(agrega|añade|anade|incluye)\b/i.test(text)){
+      const m=text.match(/\b(?:para|cliente)\s+(.+?)(?:\s+(?:con|por|a|precio|costo)\b|$)/i);
+      if(m?.[1]){
+        const clientQuery=m[1].trim();
+        const hit=await resolveOneClient(env,entityContext?.token||"",entityContext?.user_id||"",clientQuery).catch(()=>null);
+        const nextClient=hit?.status==="FOUND"?hit.client.name:clientQuery;
+        return {action:"CREATE_QUOTE",execute:false,params:{...pending,client_query:nextClient,client_id:hit?.status==="FOUND"?hit.client.id:undefined}};
+      }
+    }
     if(/\b(agrega|añade|anade|tambien|también|otro|otra|incluye|incluyendo)\b/i.test(text)){
       const priceMatch=text.match(/(?:a|por|precio|costo|total)\s*(?:s\/?\.?\s*)?(\d+(?:[.,]\d{1,2})?)/i);
-      const qtyMatch=text.match(/\b(\d+(?:[.,]\d+)?)\b/);
+      const qtyMatch=text.match(/\b(\d+(?:[.,]\d+)?)\s+(?=\S)/);
       const price=priceMatch?Number(priceMatch[1].replace(",",".")):null;
       const quantity=qtyMatch?Number(qtyMatch[1].replace(",",".")):1;
-      const cleaned=text.replace(/\b(agrega|añade|anade|tambien|también|otro|otra|incluye|incluyendo)\b/gi,"").replace(/(?:a|por|precio|costo|total)\s*(?:s\/?\.?\s*)?\d+(?:[.,]\d{1,2})?/gi,"").replace(/\s+/g," ").trim();
+      const cleaned=text
+        .replace(/^.*?\b(agrega|añade|anade|tambien|también|otro|otra|incluye|incluyendo)\b/i,"")
+        .replace(/(?:a|por|precio|costo|total)\s*(?:s\/?\.?\s*)?\d+(?:[.,]\d{1,2})?/gi,"")
+        .replace(/^\s*\d+(?:[.,]\d+)?\s+/,"")
+        .replace(/\s+/g," ").trim();
       const items=Array.isArray(pending.items)?pending.items.slice():[];
-      items.push({type:"TRABAJO",name:cleaned.slice(0,180)||"Trabajo adicional",description:cleaned.slice(0,2000),quantity,unit_price:Number.isFinite(price)&&price>0?price:null});
+      // Primero intentamos resolverlo contra el inventario real. Si hay una coincidencia única,
+      // la partida queda como PRODUCTO y heredará su precio del inventario si no se indicó otro.
+      const hit=await resolveInventory(env,entityContext?.token||"",entityContext?.user_id||"",cleaned).catch(()=>null);
+      if(hit?.status==="AMBIGUOUS"){
+        return {action:"CHAT",execute:false,params:{clarification:"Encontré varios productos para «"+cleaned+"». Indícame cuál quieres agregar."}};
+      }
+      if(hit?.status==="FOUND"){
+        const it=hit.item;
+        items.push({type:"PRODUCTO",inventory_query:it.name,name:it.name,description:null,quantity,unit_price:Number.isFinite(price)&&price>0?price:null});
+      }else{
+        items.push({type:"TRABAJO",name:cleaned.slice(0,180)||"Trabajo adicional",description:cleaned.slice(0,2000),quantity,unit_price:Number.isFinite(price)&&price>0?price:null});
+      }
       return {action:"CREATE_QUOTE",execute:false,params:{...pending,items}};
     }
     if(/\b(pon|cambia|modifica|actualiza)\b.*\bprecio\b/i.test(text)){
       const priceMatch=text.match(/(?:a|por|precio)\s*(?:s\/?\.?\s*)?(\d+(?:[.,]\d{1,2})?)/i);
       if(priceMatch){
-        const items=Array.isArray(pending.items)?pending.items.map((x,i)=>i===0?{...x,unit_price:Number(priceMatch[1].replace(",","."))}:x):[];
+        const target=text.replace(/\b(pon|cambia|modifica|actualiza)\b/gi,"").replace(/\bprecio\b/gi,"").replace(/(?:a|por)\s*(?:s\/?\.?\s*)?\d+(?:[.,]\d{1,2})?/gi,"").trim();
+        const items=Array.isArray(pending.items)?pending.items.map((x,i)=>{
+          if(!target)return i===0?{...x,unit_price:Number(priceMatch[1].replace(",","."))}:x;
+          return String(x.name||"").toLowerCase().includes(target.toLowerCase())?{...x,unit_price:Number(priceMatch[1].replace(",","."))}:x;
+        }):[];
         return {action:"CREATE_QUOTE",execute:false,params:{...pending,items}};
       }
     }

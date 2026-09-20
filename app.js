@@ -52,6 +52,7 @@ async function enter(s){
     await chatLoad();
     if(epoch!==st.authEpoch)return;
     app.classList.remove("hidden");
+    await loadBrandLogo();
     await view("home");
   }catch(e){
     if(epoch!==st.authEpoch)return;
@@ -1797,6 +1798,17 @@ async function unlinkTelegram(){
     toast("Telegram desconectado","ok");
     await refreshTelegramSettings();
   }catch(e){toast(e.message||"No se pudo desconectar.","err")}
+}
+async function loadBrandLogo(){
+  const el=$("#brandLogo");
+  if(!el||!st.session?.access_token)return;
+  try{
+    const profile=await getCompanyProfile();
+    if(profile?.logo_data){
+      el.innerHTML='<img src="'+esc(profile.logo_data)+'" alt="Logo M.A.R.C.">';
+      el.classList.add("has-logo");
+    }
+  }catch(e){}
 }
 async function getCompanyProfile(){
   try{

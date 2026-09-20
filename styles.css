@@ -2289,3 +2289,11 @@ body,
   .hero-visual-logo{width:112px!important;height:112px!important}
   .hero-actions{left:14px!important;right:14px!important;bottom:15px!important}
 }
+
+/* Marketing AI brief */
+.marketing-brief-hints{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px}
+.marketing-brief-hints span{font-size:8px;color:#71879a;margin-right:2px}
+.marketing-brief-hints button{font-size:8px;padding:6px 9px;border-radius:9px}
+.marketing-advanced{border:1px solid #dce7f1;border-radius:12px;padding:8px 10px;background:#fbfdff}
+.marketing-advanced summary{cursor:pointer;font-size:9px;font-weight:800;color:#3d5870;user-select:none}
+.marketing-advanced[open] summary{margin-bottom:2px}

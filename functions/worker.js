@@ -934,6 +934,25 @@ async function telegramWebhook(request,env,ctx){
     return json({ok:true,fastPath:"ask_preferred_name"},200);
   }
 
+  // Respuestas instantáneas de identidad/capacidades: nunca pasan por Gemini.
+  // Esto evita la doble latencia (planificador IA + respuesta IA) para preguntas básicas.
+  const fastNormalized=incoming.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").trim();
+  const asksCapabilities=/^(?:que|qué)\\s+(?:puedes|puede|puedo)\\s+hacer(?:\\s+tu)?[?¿!¡.]*$|^(?:que|qué)\\s+haces[?¿!¡.]*$|^(?:para que|para qué)\\s+sirves[?¿!¡.]*$|^(?:como|cómo)\\s+puedes\\s+ayudar(?:me)?[?¿!¡.]*$/i.test(fastNormalized);
+  if(asksCapabilities){
+    const who=telegramProfile.displayName||"señor";
+    await sendTelegram(env,chatId,
+      "🎩 A sus órdenes, "+who+".\\n\\n"+
+      "Soy M.A.R.C., su mayordomo digital empresarial. Puedo atenderle directamente desde Telegram con su misma cuenta de M.A.R.C.\\n\\n"+
+      "🧾 COTIZACIONES\\n• Consultar y preparar cotizaciones/proformas.\\n• Añadir partidas, precios e IGV.\\n• Confirmar antes de crear cambios.\\n\\n"+
+      "📦 INVENTARIO\\n• Buscar productos, precios y stock.\\n• Detectar productos agotados o con stock crítico.\\n• Registrar entradas, salidas y ajustes con autorización.\\n\\n"+
+      "👤 CLIENTES\\n• Buscar clientes y consultar sus datos.\\n• Registrar nuevos clientes con confirmación.\\n\\n"+
+      "💰 CAJA\\n• Consultar caja, ingresos, egresos y efectivo esperado.\\n• Revisar el último cierre y sus movimientos.\\n• Abrir y cerrar caja.\\n\\n"+
+      "📊 NEGOCIO\\n• Consultar resúmenes y actividad reciente.\\n• También puede escribirme de forma natural, sin memorizar comandos.\\n\\n"+
+      "Dígame qué necesita y me encargo de ello."
+    );
+    return json({ok:true,fastPath:"capabilities"},200);
+  }
+
   // Comandos operativos rápidos de caja: no consumen IA y ejecutan acciones
   // deterministas sobre la caja del usuario vinculado.
   const norm=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").trim();

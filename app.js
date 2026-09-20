@@ -319,10 +319,11 @@ async function home(){
     </div>
   `;
 
-  const heroLogo=$("#heroBrandLogo"),brandLogo=$("#brandLogo");
-  if(heroLogo&&brandLogo){
-    const img=brandLogo.querySelector("img");
-    if(img&&img.src)heroLogo.innerHTML='<img src="'+esc(img.src)+'" alt="M.A.R.C.">';
+  const heroLogo=$("#heroBrandLogo");
+  if(heroLogo){
+    // Imagen oficial del mayordomo M.A.R.C.: identidad visual fija del dashboard.
+    heroLogo.innerHTML='<img src="./assets/marc-hero.jpg?v=20260920-01" alt="M.A.R.C., tu mayordomo digital">';
+    heroLogo.classList.add("is-mascot");
   }
   $("#askHome").onclick=openChat;
   $("#heroQuote").onclick=quoteModal;

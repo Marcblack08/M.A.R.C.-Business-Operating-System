@@ -512,11 +512,16 @@ async function plan(env,message,history,entityContext={},contextToken="",context
   const quoteCommand=/^(?:crea|crear|creemos|creemos|haz|hacer|hagamos|prepara|preparar|genera|generar|cotiza|cotizar|elabora|elaborar)\s+(?:una\s+)?(?:cotizacion|cotización|proforma|presupuesto)\b/i.test(String(message||"").trim());
   if(quoteCommand){
     const rawMessage=String(message||"").trim();
-    // Detecta el tratamiento fiscal solicitado en lenguaje natural.
-    const taxExcluded=/\b(?:sin\s+igv|no\s+incluye\s+igv|mas\s+igv|más\s+igv)\b/i.test(rawMessage);
-    const taxIncluded=!taxExcluded && /\b(?:con\s+igv|igv\s+incluido|incluye\s+(?:el\s+)?igv)\b/i.test(rawMessage);
+    // Normalizamos errores/variantes habituales para que el lenguaje del usuario
+    // no tenga que coincidir literalmente con "IGV".
+    const fiscalText=rawMessage
+      .replace(/\bigb\b/gi,"igv")
+      .replace(/\big\.v\.\b/gi,"igv")
+      .replace(/\bimpuesto\s+general\s+a\s+las\s+ventas\b/gi,"igv");
+    const taxExcluded=/\b(?:sin\s+igv|no\s+incluye\s+igv|sin\s+impuesto|no\s+incluye\s+impuesto|mas\s+igv|más\s+igv)\b/i.test(fiscalText);
+    const taxIncluded=!taxExcluded && /\b(?:con\s+igv|igv\s+incluido|incluye\s+(?:el\s+)?igv|con\s+impuesto|impuesto\s+incluido)\b/i.test(fiscalText);
     const taxEnabled=!taxExcluded;
-    const taxRateMatch=rawMessage.match(/\bigv\s*(?:de|al)?\s*(\d+(?:[.,]\d+)?)\s*%?/i);
+    const taxRateMatch=fiscalText.match(/\bigv\s*(?:de|al)?\s*(\d+(?:[.,]\d+)?)\s*%?/i);
     const taxRate=taxRateMatch?Number(taxRateMatch[1].replace(",",".")):18;
 
     let clientQuery="";
@@ -537,7 +542,9 @@ async function plan(env,message,history,entityContext={},contextToken="",context
     const client=hit?.client||null;
     if(!client && !newClientDraft)return {action:"CHAT",execute:false,params:{clarification:"No pude identificar al cliente. Indícame el nombre exacto, por favor."}};
 
-    let body=rawMessage
+    const allCost=/\b(?:a\s+todo\s+costo|todo\s+costo|a\s+coste\s+total|por\s+todo\s+incluido)\b/i.test(rawMessage);
+    let body=fiscalText
+      .replace(/\b(?:sin\s+igv|no\s+incluye\s+igv|sin\s+impuesto|no\s+incluye\s+impuesto)\b/gi,"")
       .replace(/^(?:crea|crear|creemos|hagamos|haz|hacer|prepara|preparar|genera|generar|cotiza|cotizar|elabora|elaborar)\s+(?:una\s+)?(?:cotizacion|cotización|proforma|presupuesto)\s*/i,"")
       .replace(/\b(?:para|cliente)\s+(?:es\s+|:\s*)?.+?(?=\s+(?:por|a|precio|costo|total|de|con)\s+|\s*[:,-]\s*|$)/i,"")
       .replace(/\bcliente\s+es\s+.+?$/i,"")
@@ -576,6 +583,12 @@ async function plan(env,message,history,entityContext={},contextToken="",context
       if(price!==null && priceIsTotal && quantity>0)price=price/quantity;
       const grossPrice=price;
       if(price!==null && taxIncluded)price=price/(1+(taxRate/100));
+      // "A todo costo" significa que el importe es por el servicio completo:
+      // no dependemos del catálogo ni exigimos que el material exista en inventario.
+      if(allCost){
+        items.push({type:"TRABAJO",name:textPart.slice(0,180),description:textPart.slice(0,2000),quantity,unit_price:Number.isFinite(price)&&price>0?price:null,gross_unit_price:Number.isFinite(grossPrice)&&grossPrice>0?grossPrice:null,price_includes_tax:taxIncluded,price_is_total:priceIsTotal,all_cost:true,material_supplied_by_client:true});
+        continue;
+      }
       const inv=await resolveInventory(env,contextToken,contextUserId,textPart).catch(()=>null);
       if(inv?.status==="AMBIGUOUS"){
         return {action:"CHAT",execute:false,params:{clarification:"Encontré varios productos para «"+textPart+"». Indícame cuál quieres usar."}};
@@ -1483,7 +1496,7 @@ async function telegramWebhook(request,env,ctx){
     const pending=ctxMem?.pending_action;
     if(pending?.action==="CREATE_QUOTE" && pending?.params){
       const text=String(incoming||"").trim();
-      if(/\b(sin|no)\s+igv\b|\bno\s+incluyas?\s+igv\b/i.test(text)){
+      if(/\b(?:sin|no)\s+igv\b|\bno\s+incluyas?\s+igv\b|\bsin\s+igb\b|\bno\s+incluyas?\s+igb\b|\bsin\s+impuesto\b|\bno\s+incluyas?\s+impuesto\b/i.test(text)){
         const next={...ctxMem,pending_action:{...pending,params:{...pending.params,tax_enabled:false}}};
         await saveConversationContext(env,adminToken,userId,conversationId,next);
         const p=next.pending_action.params,items=Array.isArray(p.items)?p.items:[],subtotal=items.reduce((s,x)=>s+Number(x.quantity||1)*Number(x.unit_price||0),0);

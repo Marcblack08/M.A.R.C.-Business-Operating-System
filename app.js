@@ -2132,30 +2132,43 @@ async function marketing(){
       <section class="card panel marketing-form-card">
         <div class="eyebrow2">1 · PRODUCTO Y CAMPAÑA</div>
         <div class="form-grid">
-          <label>Buscar producto<input id="adProductSearch" placeholder="Escribe para filtrar…"></label><label>Producto del inventario
-            <select id="adProduct">${list.length?list.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}${p.sku?" · "+esc(p.sku):""}</option>`).join(""):'<option value="">No hay productos activos</option>'}</select>
+          <label>Producto<input id="adProductSearch" placeholder="Busca por nombre, marca o modelo…"></label>
+          <label>Producto del inventario
+            <select id="adProduct">${list.length?list.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+(p.sku?" · "+esc(p.sku):"")+'</option>').join(""):'<option value="">No hay productos activos</option>'}</select>
           </label>
-          <label>Plataforma
-            <select id="adPlatform"><option value="WHATSAPP">WhatsApp</option><option value="INSTAGRAM">Instagram</option><option value="FACEBOOK">Facebook</option><option value="TIKTOK">TikTok</option><option value="MARKETPLACE">Marketplace</option></select>
+          <label>¿Dónde lo vas a publicar?
+            <select id="adPlatform"><option value="INSTAGRAM">Instagram</option><option value="FACEBOOK">Facebook</option><option value="WHATSAPP">WhatsApp</option><option value="TIKTOK">TikTok</option><option value="MARKETPLACE">Marketplace</option></select>
           </label>
-          <label>Objetivo
-            <select id="adObjective"><option>VENDER</option><option>GENERAR CONSULTAS</option><option>PROMOCIONAR PRODUCTO</option><option>REACTIVAR CLIENTES</option></select>
+          <label>Formato
+            <select id="adFormat"><option value="1080x1080">Cuadrado · 1:1</option><option value="1080x1350">Post vertical · 4:5</option><option value="1080x1920">Historia · 9:16</option></select>
           </label>
-          <label>Tono
-            <select id="adTone"><option>PROFESIONAL</option><option>DIRECTO Y COMERCIAL</option><option>AMIGABLE</option><option>PREMIUM</option><option>URGENTE</option></select>
-          </label>
-          <label>Público objetivo<input id="adAudience" placeholder="Ej.: clientes de CCTV, hogares, empresas, técnicos…"></label>
-          <label>Oferta / precio especial<input id="adOffer" placeholder="Ej.: S/ 149.90 · instalación incluida"></label>
-          <label>CTA<input id="adCta" value="Escríbenos para cotizar"></label>
-          <label>Formato del banner<select id="adFormat"><option value="1080x1080">Cuadrado · 1:1</option><option value="1080x1350">Vertical · 4:5</option><option value="1080x1920">Historia · 9:16</option></select></label><label>Diseño<select id="adTemplate"><option value="MODERN">Moderno</option><option value="OFFER">Oferta</option><option value="CORPORATE">Corporativo</option></select></label>
         </div>
-        <label style="margin-top:10px">Detalles que quieres comunicar<textarea id="adDetails" rows="5" placeholder="Características, uso, instalación, condiciones, zona de atención, etc. No inventaremos datos que no escribas."></textarea></label>
+        <label style="margin-top:12px"><b>Cuéntale a M.A.R.C. qué quieres publicar</b><textarea id="adDetails" rows="6" placeholder="Ejemplo: Quiero promocionar esta cámara para hogares y pequeños negocios. Que se vea moderna y confiable. Precio S/ 189 e instalación desde S/ 80. Quiero que me escriban por WhatsApp."></textarea></label>
+        <div class="marketing-brief-hints">
+          <span>💡 Puedes escribirlo como hablas normalmente.</span>
+          <button type="button" class="secondary" data-ad-hint="Quiero vender este producto destacando sus principales beneficios y que me contacten por WhatsApp.">Vender producto</button>
+          <button type="button" class="secondary" data-ad-hint="Quiero una publicidad profesional para empresas, resaltando el uso del producto y generando consultas.">Para empresas</button>
+          <button type="button" class="secondary" data-ad-hint="Quiero una publicidad llamativa con oferta, precio y llamada a la acción.">Con oferta</button>
+        </div>
+        <details class="marketing-advanced" style="margin-top:12px">
+          <summary>⚙ Opciones avanzadas</summary>
+          <div class="form-grid" style="margin-top:10px">
+            <label>Objetivo<select id="adObjective"><option>VENDER</option><option>GENERAR CONSULTAS</option><option>PROMOCIONAR PRODUCTO</option><option>REACTIVAR CLIENTES</option></select></label>
+            <label>Tono<select id="adTone"><option>PROFESIONAL</option><option>DIRECTO Y COMERCIAL</option><option>AMIGABLE</option><option>PREMIUM</option><option>URGENTE</option></select></label>
+            <label>Público objetivo<input id="adAudience" placeholder="Déjalo vacío y M.A.R.C. lo propone"></label>
+            <label>Oferta / precio especial<input id="adOffer" placeholder="Opcional; también puede salir del texto"></label>
+            <label>CTA<input id="adCta" value="Escríbenos para cotizar"></label>
+            <label>Diseño<select id="adTemplate"><option value="MODERN">Moderno</option><option value="OFFER">Oferta</option><option value="CORPORATE">Corporativo</option></select></label>
+          </div>
+        </details>
         <div class="marketing-photo-row">
-          <label class="file-btn secondary">📷 Foto para el banner<input id="adImage" type="file" accept="image/jpeg,image/png,image/webp" hidden></label>
-          <span id="adImageName">Se usará la foto del producto si existe.</span>
+          <label class="file-btn secondary">📷 Foto del producto<input id="adImage" type="file" accept="image/jpeg,image/png,image/webp" hidden></label>
+          <span id="adImageName">Opcional: la IA puede crear la escena visual desde cero.</span>
         </div>
-        <div class="modal-actions" style="margin-top:12px"><button class="primary" id="generateAd" ${list.length?"":"disabled"}>✦ Crear publicidad con IA</button></div>
-        <div id="adStatus" class="msg"></div>
+        <div class="modal-actions" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="primary" id="generateAd" ${list.length?"":"disabled"}>✦ Crear campaña + banner con IA</button>
+          <button class="secondary" id="generateTextAd" ${list.length?"":"disabled"}>Crear solo textos</button>
+        </div>        <div id="adStatus" class="msg"></div>
       </section>
       <section class="card panel marketing-preview-card">
         <div class="eyebrow2">2 · BANNER PUBLICITARIO</div>
@@ -2179,7 +2192,7 @@ async function marketing(){
     </section>
   `;
 
-  let currentCampaign=saved?.campaign||null,currentProduct=list.find(p=>p.id===saved?.productId)||list[0]||null,currentImage=null,company=companyData||{};
+  let currentCampaign=saved?.campaign||null,currentProduct=list.find(p=>p.id===saved?.productId)||list[0]||null,currentImage=null,currentImageFile=null,currentAiImage=saved?.aiImage||null,company=companyData||{};
   const $p=id=>document.getElementById(id);
   const renderCanvas=async()=>{
     const canvas=$p("adCanvas");if(!canvas||!currentProduct)return;
@@ -2189,7 +2202,7 @@ async function marketing(){
     const g=ctx.createLinearGradient(0,0,w,h);g.addColorStop(0,palette[0]);g.addColorStop(.58,palette[1]);g.addColorStop(1,palette[2]);ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
     ctx.fillStyle="rgba(255,255,255,.08)";ctx.beginPath();ctx.arc(w*.86,h*.12,Math.min(w,h)*.24,0,Math.PI*2);ctx.fill();
     if(company.logo_data){try{const logo=await new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=reject;im.src=company.logo_data});const lh=Math.min(h*.07,w*.22),lw=lh*(logo.width/logo.height);ctx.drawImage(logo,w*.08,h*.045,lw,lh)}catch{}}
-    let img=null;const src=currentImage||currentProduct.image_url;
+    let img=null;const src=currentAiImage||currentImage||currentProduct.image_url;
     if(src){try{img=await new Promise((resolve,reject)=>{const im=new Image();im.crossOrigin="anonymous";im.onload=()=>resolve(im);im.onerror=reject;im.src=src})}catch{}}
     if(img){
       const boxW=w*.82,boxH=h*.40,scale=Math.min(boxW/img.width,boxH/img.height),iw=img.width*scale,ih=img.height*scale,x=(w-iw)/2,y=h*.13+(boxH-ih)/2;
@@ -2210,27 +2223,42 @@ async function marketing(){
     await renderCanvas();$p("downloadAd").disabled=!campaign;
     if(campaign)localStorage.setItem("marc_marketing_last",JSON.stringify({campaign,productId:currentProduct?.id}));
   };
-  $p("adProduct").onchange=async()=>{currentProduct=list.find(p=>p.id===$p("adProduct").value)||list[0];currentImage=null;await renderCanvas()};
+  $p("adProduct").onchange=async()=>{currentProduct=list.find(p=>p.id===$p("adProduct").value)||list[0];currentImage=null;currentImageFile=null;currentAiImage=null;await renderCanvas()};
   $p("adProductSearch").oninput=()=>{const q=$p("adProductSearch").value.toLowerCase().trim();const sel=$p("adProduct"),matches=list.filter(p=>!q||[p.name,p.sku,p.brand,p.model].join(" ").toLowerCase().includes(q));sel.innerHTML=matches.length?matches.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+(p.sku?" · "+esc(p.sku):"")+'</option>').join(""):'<option value="">Sin coincidencias</option>';if(matches.length){currentProduct=matches[0];renderCanvas()}};
   $p("adTemplate").onchange=renderCanvas;
   $p("adFormat").onchange=renderCanvas;
-  $p("adImage").onchange=async e=>{const f=e.target.files?.[0];if(!f)return;currentImage=URL.createObjectURL(f);$p("adImageName").textContent=f.name;await renderCanvas()};
+  $p("adImage").onchange=async e=>{const f=e.target.files?.[0];if(!f)return;if(f.size>6*1024*1024)return toast("La foto debe pesar menos de 6 MB.","err");currentImageFile=f;currentImage=URL.createObjectURL(f);currentAiImage=null;$p("adImageName").textContent=f.name;await renderCanvas()}; $("[data-ad-hint]").forEach(b=>b.onclick=()=>{$p("adDetails").value=$p("adDetails").value?($p("adDetails").value+" "+b.dataset.adHint):b.dataset.adHint});
   $p("adCta").oninput=renderCanvas;$p("adOffer").oninput=renderCanvas;
-  $p("generateAd").onclick=async()=>{
-    const status=$p("adStatus"),btn=$p("generateAd");btn.disabled=true;status.className="msg";status.textContent="M.A.R.C. está creando la campaña…";
+  const readFileData=()=>currentImageFile?new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>resolve(fr.result);fr.onerror=reject;fr.readAsDataURL(currentImageFile)}):Promise.resolve("");
+  const campaignPayload=()=>({product:currentProduct,platform:$p("adPlatform").value,objective:$p("adObjective")?.value||"VENDER",tone:$p("adTone")?.value||"PROFESIONAL",audience:$p("adAudience")?.value||"",offer:$p("adOffer")?.value||"",details:$p("adDetails").value,cta:$p("adCta")?.value||"Escríbenos para cotizar"});
+  const generateText=async()=>{
+    const status=$p("adStatus"),btn=$p("generateTextAd");if(btn)btn.disabled=true;status.className="msg";status.textContent="M.A.R.C. está entendiendo tu idea y creando los textos…";
     try{
       currentProduct=list.find(p=>p.id===$p("adProduct").value)||list[0];
-      const r=await fetch("/api/marketing-ai",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({product:currentProduct,platform:$p("adPlatform").value,objective:$p("adObjective").value,tone:$p("adTone").value,audience:$p("adAudience").value,offer:$p("adOffer").value,details:$p("adDetails").value,cta:$p("adCta").value})});
+      const r=await fetch("/api/marketing-ai",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify(campaignPayload())});
       const j=await r.json();if(!r.ok)throw new Error(j.message||j.error||"No se pudo crear la publicidad.");
       await setCampaign(j.campaign);await saveMarketingCampaign(j.campaign,currentProduct,$p);
-      status.className="msg ok";status.textContent="Publicidad creada. El banner y los textos están listos.";
-    }catch(e){status.className="msg error";status.textContent=e.message||"No se pudo generar."}finally{btn.disabled=false}
+      status.className="msg ok";status.textContent="Textos creados. Puedes generar el banner con IA.";
+    }catch(e){status.className="msg error";status.textContent=e.message||"No se pudo generar."}finally{if(btn)btn.disabled=false}
   };
+  const generateAiBanner=async()=>{
+    const status=$p("adStatus"),btn=$p("generateAd");btn.disabled=true;status.className="msg";status.textContent="M.A.R.C. está creando la imagen del banner con IA…";
+    try{
+      if(!currentCampaign){await generateText();if(!currentCampaign)throw new Error("Primero necesito crear la campaña.");}
+      const r=await fetch("/api/marketing-image",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({product:currentProduct,campaign:currentCampaign,platform:$p("adPlatform").value,objective:$p("adObjective")?.value||"VENDER",details:$p("adDetails").value,format:$p("adFormat").value,template:$p("adTemplate")?.value||"MODERN",imageData:await readFileData()})});
+      const j=await r.json();if(!r.ok)throw new Error(j.message||j.error||"No se pudo generar el banner con IA.");
+      currentAiImage="data:"+(j.image?.mimeType||"image/png")+";base64,"+j.image.data;await renderCanvas();
+      localStorage.setItem("marc_marketing_last",JSON.stringify({campaign:currentCampaign,productId:currentProduct?.id,aiImage:currentAiImage}));
+      status.className="msg ok";status.textContent="Banner generado con IA. El texto exacto se agregó encima para conservar precios y ofertas.";
+    }catch(e){status.className="msg error";status.textContent=e.message||"No se pudo generar el banner."}finally{btn.disabled=false}
+  };
+  $p("generateAd").onclick=generateAiBanner;
+  $p("generateTextAd").onclick=generateText;
   $p("downloadAd").onclick=()=>{if(!currentCampaign)return;const a=document.createElement("a");a.href=$p("adCanvas").toDataURL("image/png");a.download="MARC_Publicidad_"+String(currentProduct?.name||"producto").replace(/[^a-z0-9áéíóúñü]+/gi,"-").slice(0,50)+".png";a.click()};
   $p("copyBanner").onclick=async()=>{const text=currentCampaign?.banner_text||currentCampaign?.headline||"";if(!text)return toast("Primero genera una publicidad.","err");await navigator.clipboard?.writeText(text);toast("Texto del banner copiado","ok")};
   $p("shareAd").onclick=async()=>{if(!$p("adCanvas")||!currentCampaign)return toast("Primero genera una publicidad.","err");try{const blob=await new Promise(r=>$p("adCanvas").toBlob(r,"image/png"));const file=new File([blob],"MARC_Publicidad.png",{type:"image/png"});if(navigator.share&&navigator.canShare?.({files:[file]})){await navigator.share({title:currentCampaign.title||currentProduct.name,text:currentCampaign.short_text||"",files:[file]})}else{await navigator.clipboard?.writeText(currentCampaign.whatsapp_text||currentCampaign.primary_text||"");toast("Tu dispositivo no permite compartir la imagen directamente; el texto quedó copiado.","ok")}}catch(e){if(e?.name!=="AbortError")toast("No se pudo compartir.","err")}};
   $("[data-copy]").forEach(b=>b.onclick=async()=>{const key=b.dataset.copy,val=key==="hashtags"?(currentCampaign?.hashtags||[]).join(" "):currentCampaign?.[key]||"";if(!val)return toast("No hay texto para copiar.","err");await navigator.clipboard?.writeText(val);toast("Texto copiado","ok")});
-  $p("marketingClear").onclick=()=>setCampaign(null);
+  $p("marketingClear").onclick=()=>{currentAiImage=null;currentImage=null;currentImageFile=null;localStorage.removeItem("marc_marketing_last");setCampaign(null)};
   await renderMarketingHistory();
   if(currentProduct){$p("adProduct").value=currentProduct.id;await renderCanvas()}
   if(saved?.campaign)setCampaign(saved.campaign);

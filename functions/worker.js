@@ -512,6 +512,13 @@ async function plan(env,message,history,entityContext={},contextToken="",context
   const quoteCommand=/^(?:crea|crear|haz|hacer|prepara|preparar|genera|generar|cotiza|cotizar|elabora|elaborar)\s+(?:una\s+)?(?:cotizacion|cotización|proforma|presupuesto)\b/i.test(String(message||"").trim());
   if(quoteCommand){
     const rawMessage=String(message||"").trim();
+    // Detecta el tratamiento fiscal solicitado en lenguaje natural.
+    const taxIncluded=/\b(?:precio|precios|total|monto|importe)\b[^.\n]*\b(?:incluye|incluido|incluyendo|con)\s+(?:el\s+)?igv\b|\bcon\s+igv\b|\bigv\s+incluido\b/i.test(rawMessage);
+    const taxExcluded=/\b(?:sin\s+igv|no\s+incluye\s+igv|mas\s+igv|más\s+igv|+\s*igv)\b/i.test(rawMessage);
+    const taxEnabled=!taxExcluded;
+    const taxRateMatch=rawMessage.match(/\bigv\s*(?:de|al)?\s*(\d+(?:[.,]\d+)?)\s*%?/i);
+    const taxRate=taxRateMatch?Number(taxRateMatch[1].replace(",",".")):18;
+
     let clientQuery="";
     const clientMatch=rawMessage.match(/\b(?:para|cliente)\s+(.+?)(?=\s+(?:por|a|precio|costo|total|de|con)\s+|\s*[:,-]\s*|$)/i);
     if(clientMatch)clientQuery=clientMatch[1].trim();
@@ -573,6 +580,9 @@ async function plan(env,message,history,entityContext={},contextToken="",context
       client_query:client.id,
       client_id:client.id,
       client_name:String(client.name||clientQuery),
+      tax_enabled:taxEnabled,
+      tax_included:taxIncluded,
+      tax_rate:Number.isFinite(taxRate)&&taxRate>0?taxRate:18,
       title:"Cotización · "+String(client.name||clientQuery),
       items
     }};

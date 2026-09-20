@@ -313,7 +313,11 @@ function recoverQuoteDraft(responseText,description,clientQuery,allCost){
 
 function deterministicIntent(message){
   const s=String(message||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim();
-  const readOnly=/\b(agrega|agregar|ingresa|ingresar|suma|sumar|resta|restar|ajusta|ajustar|crea|crear|registra|registrar|elimina|eliminar)\b/.test(s);
+  const readOnly=/\b(agrega|agregar|ingresa|ingresar|suma|sumar|resta|restar|ajusta|ajustar|crea|crear|registra|registrar|elimina|eliminar|abre|abrir|cierra|cerrar|paga|pagar)\b/.test(s);
+  if(!readOnly && /\b(caja|efectivo|dinero)\b/.test(s) && /\b(como esta|estado|saldo|cuanto tengo|cuanto hay|disponible)\b/.test(s))return {action:"CASH_STATUS",execute:false,params:{}};
+  if(!readOnly && /\b(ultimo|ultima|reciente)\b/.test(s) && /\b(cierre|caja)\b/.test(s) && /\b(movimiento|movimientos|ingreso|ingresos|egreso|egresos|gasto|gastos|venta|ventas|como estuvo|como esta|resumen)\b/.test(s))return {action:"CASH_LAST_CLOSE",execute:false,params:{}};
+  if(!readOnly && /\b(cierre|cierres)\b/.test(s) && /\b(ultimo|ultima|reciente|historial|anteriores)\b/.test(s))return {action:"CASH_LAST_CLOSE",execute:false,params:{}};
+
   if(!readOnly && /\b(mas caro|mayor precio|precio mas alto|producto mas caro|productos mas caros)\b/.test(s) && /\b(producto|productos|inventario|articulo|articulos|item|items)\b/.test(s))return {action:"INVENTORY_INSIGHT",execute:false,params:{kind:"MOST_EXPENSIVE"}};
   if(!readOnly && /\b(mas barato|menor precio|precio mas bajo|producto mas barato|productos mas baratos)\b/.test(s) && /\b(producto|productos|inventario|articulo|articulos|item|items)\b/.test(s))return {action:"INVENTORY_INSIGHT",execute:false,params:{kind:"CHEAPEST"}};
   if(!readOnly && /\b(mas stock|mayor stock|mas unidades|mayor cantidad)\b/.test(s) && /\b(producto|productos|inventario|articulo|articulos|item|items|stock)\b/.test(s))return {action:"INVENTORY_INSIGHT",execute:false,params:{kind:"HIGHEST_STOCK"}};
@@ -329,7 +333,7 @@ async function plan(env,message,history){
   if(deterministic)return deterministic;
   const context=history.map(x=>x.role+":"+x.content).join("\n").slice(-6000);
   const prompt={messages:[
-    {role:"system",content:'Eres el enrutador de M.A.R.C. Devuelve SOLO JSON válido, sin markdown ni explicación. Convierte lenguaje natural en una sola acción segura. Acciones: SEARCH_CLIENTS, SEARCH_INVENTORY, LIST_QUOTES, CREATE_CLIENT, CREATE_QUOTE, ADJUST_INVENTORY, CHAT. Para cualquier consulta, pregunta o solicitud de revisar, usa una acción de consulta. Solo usa execute=true para una operación que el usuario pidió explícitamente ejecutar. Nunca inventes IDs, precios, stock, clientes o productos. Para CREATE_QUOTE: items es un arreglo. Producto {type:"PRODUCTO",inventory_query:"texto",quantity:number,unit_price:number|null}; Trabajo {type:"TRABAJO",name:"texto",quantity:number,unit_price:number|null}. Para ADJUST_INVENTORY type es ENTRADA, SALIDA o AJUSTE. Formato: {"action":"CHAT","execute":false,"params":{}}'},
+    {role:"system",content:'Eres el enrutador de M.A.R.C. Devuelve SOLO JSON válido, sin markdown ni explicación. Convierte lenguaje natural en una sola acción segura. Acciones: SEARCH_CLIENTS, SEARCH_INVENTORY, LIST_QUOTES, CASH_STATUS, CASH_LAST_CLOSE, CREATE_CLIENT, CREATE_QUOTE, ADJUST_INVENTORY, CHAT. Para cualquier consulta, pregunta o solicitud de revisar, usa una acción de consulta. Solo usa execute=true para una operación que el usuario pidió explícitamente ejecutar. Nunca inventes IDs, precios, stock, clientes o productos. Para CREATE_QUOTE: items es un arreglo. Producto {type:"PRODUCTO",inventory_query:"texto",quantity:number,unit_price:number|null}; Trabajo {type:"TRABAJO",name:"texto",quantity:number,unit_price:number|null}. Para ADJUST_INVENTORY type es ENTRADA, SALIDA o AJUSTE. Formato: {"action":"CHAT","execute":false,"params":{}}'},
     ...(context?[{role:"user",content:"Historial reciente:\n"+context}]:[]),
     {role:"user",content:message}
   ]};
@@ -341,6 +345,29 @@ async function plan(env,message,history){
 async function executePlan(env,token,user,pl,source="AI_AGENT"){
   const action=String(pl?.action||"CHAT").toUpperCase(),p=pl?.params||{};
   if(action==="SEARCH_CLIENTS")return {action,result:await searchClients(env,token,user.id,p.query||"")};
+  if(action==="CASH_STATUS"){
+    const rows=await sb(env,token,"marc_cash_registers?select=*&user_id=eq."+encodeURIComponent(user.id)+"&status=eq.OPEN&order=opened_at.desc&limit=1");
+    const r=rows?.[0];
+    if(!r)return {action,result:{status:"CLOSED"}};
+    const mv=await sb(env,token,"marc_cash_movements?select=type,amount&user_id=eq."+encodeURIComponent(user.id)+"&cash_register_id=eq."+encodeURIComponent(r.id)+"&order=created_at.asc");
+    const movements=Array.isArray(mv)?mv:[];
+    const income=movements.filter(x=>String(x.type||"").toUpperCase()==="INCOME").reduce((s,x)=>s+Number(x.amount||0),0);
+    const expense=movements.filter(x=>String(x.type||"").toUpperCase()==="EXPENSE").reduce((s,x)=>s+Number(x.amount||0),0);
+    return {action,result:{status:"OPEN",opening:Number(r.opening_amount||0),income,expense,expected:Number(r.opening_amount||0)+income-expense,movements:movements.length}};
+  }
+  if(action==="CASH_LAST_CLOSE"){
+    const rows=await sb(env,token,"marc_cash_registers?select=*&user_id=eq."+encodeURIComponent(user.id)+"&status=eq.CLOSED&order=closed_at.desc,updated_at.desc&limit=1");
+    const r=rows?.[0];
+    if(!r)return {action,result:{status:"NOT_FOUND"}};
+    const mv=await sb(env,token,"marc_cash_movements?select=*&user_id=eq."+encodeURIComponent(user.id)+"&cash_register_id=eq."+encodeURIComponent(r.id)+"&order=created_at.asc");
+    const movements=Array.isArray(mv)?mv:[];
+    const income=movements.filter(x=>String(x.type||"").toUpperCase()==="INCOME").reduce((s,x)=>s+Number(x.amount||0),0);
+    const expense=movements.filter(x=>String(x.type||"").toUpperCase()==="EXPENSE").reduce((s,x)=>s+Number(x.amount||0),0);
+    const expected=Number(r.expected_amount??(Number(r.opening_amount||0)+income-expense));
+    const counted=Number(r.closing_amount??r.counted_amount??0);
+    const difference=Number(r.difference??(counted-expected));
+    return {action,result:{status:"FOUND",closed_at:r.closed_at||r.updated_at||r.opened_at,opening:Number(r.opening_amount||0),income,expense,expected,counted,difference,movements}};
+  }
   if(action==="SEARCH_INVENTORY"){if(p.summary){const [count,items]=await Promise.all([countInventory(env,token,user.id),searchInventory(env,token,user.id,"",8)]);return {action,result:{count,items}};}return {action,result:await searchInventory(env,token,user.id,p.query||"")};}
   if(action==="INVENTORY_INSIGHT")return {action,result:await inventoryInsight(env,token,user.id,String(p.kind||"").toUpperCase())};
   if(action==="LIST_QUOTES")return {action,result:await listQuotes(env,token,user.id)};
@@ -357,6 +384,21 @@ function normalizeData(x){
 async function finalReply(env,message,planData){
   const execution=planData?.execution||{};
   const result=execution?.result;
+  if(execution?.action==="CASH_STATUS" && result){
+    if(result.status==="CLOSED")return "▣ CAJA\n\nNo hay una caja abierta en este momento.";
+    return "▣ CAJA ABIERTA\n\n💵 Apertura: "+moneyText(result.opening)+"\n📥 Ingresos: "+moneyText(result.income)+"\n📤 Egresos: "+moneyText(result.expense)+"\n💰 Efectivo esperado: "+moneyText(result.expected)+"\n\nMovimientos registrados: "+Number(result.movements||0)+".";
+  }
+  if(execution?.action==="CASH_LAST_CLOSE" && result){
+    if(result.status==="NOT_FOUND")return "▣ ÚLTIMO CIERRE\n\nNo encuentro ningún cierre de caja registrado todavía.";
+    const movements=Array.isArray(result.movements)?result.movements:[];
+    const date=result.closed_at?new Date(result.closed_at).toLocaleString("es-PE"):"Fecha no disponible";
+    const lines=["▣ ÚLTIMO CIERRE DE CAJA","", "📅 "+date,"💵 Apertura: "+moneyText(result.opening),"📥 Ingresos: "+moneyText(result.income),"📤 Egresos: "+moneyText(result.expense),"💰 Esperado: "+moneyText(result.expected),"🧾 Contado: "+moneyText(result.counted),"↕ Diferencia: "+moneyText(result.difference),"","Movimientos: "+movements.length];
+    if(movements.length){
+      lines.push(...movements.slice(0,25).map(x=>(String(x.type||"").toUpperCase()==="INCOME"?"📥":"📤")+" "+moneyText(x.amount)+" · "+String(x.concept||x.description||x.notes||"Movimiento de caja").trim()));
+      if(movements.length>25)lines.push("… y "+(movements.length-25)+" movimientos más.");
+    }else lines.push("Sin movimientos registrados en ese cierre.");
+    return lines.join("\n");
+  }
   if(execution?.action==="SEARCH_INVENTORY" && result && !Array.isArray(result) && Number.isFinite(Number(result.count))){
     const count=Number(result.count);
     if(count===0)return "No tienes productos registrados en el inventario.";

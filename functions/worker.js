@@ -1632,6 +1632,25 @@ async function telegramWebhook(request,env,ctx){
           await sendTelegram(env,chatId,"🛑 Actualización cancelada.");
           return json({ok:true,fastPath:"quote_update_cancel"},200);
         }
+        const quoteEditPreview=(previewItems)=>{
+          const taxEnabled=pending.params.tax_enabled===undefined?true:Boolean(pending.params.tax_enabled);
+          const taxIncluded=Boolean(pending.params.tax_included)&&taxEnabled;
+          const rate=Number(pending.params.tax_rate||18);
+          let subtotal=0;
+          for(const it of (Array.isArray(previewItems)?previewItems:[])){
+            const qty=Math.max(0,Number(it.quantity||0));
+            const raw=Number(it.unit_price||0);
+            const gross=Number(it.gross_unit_price);
+            const unit=taxIncluded&&Number.isFinite(gross)&&gross>0?gross/(1+rate/100):raw;
+            subtotal+=qty*(Number.isFinite(unit)?unit:0);
+          }
+          const tax=taxEnabled?subtotal*(rate/100):0;
+          return {subtotal,tax,total:subtotal+tax,count:Array.isArray(previewItems)?previewItems.length:0,taxEnabled};
+        };
+        const quotePreviewText=(previewItems)=>{
+          const v=quoteEditPreview(previewItems);
+          return "\n\n📊 Resumen actual: "+v.count+" partida"+(v.count===1?"":"s")+" · Subtotal S/ "+v.subtotal.toFixed(2)+(v.taxEnabled===false?"":" · IGV S/ "+v.tax.toFixed(2))+" · Total S/ "+v.total.toFixed(2);
+        };
         const p=pending.params,items=Array.isArray(p.items)?p.items:[];
 
         // Si la búsqueda de inventario anterior fue ambigua, permite elegir
@@ -1735,7 +1754,7 @@ async function telegramWebhook(request,env,ctx){
             delete nextParams._selected_quote_item_index; delete nextParams._pending_quote_item_target; delete nextParams._multi_ops;
             await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:nextParams}});
             await sendTelegram(env,chatId,"🧾 Apliqué los cambios en la cotización:\n\n"+multiLabels.join("\n")+
-              "\n\nPuede seguir editando o responder «sí» para guardar todos los cambios.");
+              quotePreviewText(multiItems)+"\n\nPuede seguir editando o responder «sí» para guardar todos los cambios.");
             return json({ok:true,fastPath:"quote_multi_ops"},200);
           }
         }
@@ -1783,7 +1802,7 @@ async function telegramWebhook(request,env,ctx){
               const nextParams={...p,items:nextItems};
               delete nextParams._selected_quote_item_index; delete nextParams._pending_quote_item_target;
               await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:nextParams}});
-              await sendTelegram(env,chatId,"🧾 Apliqué los dos cambios:\n\n• "+String(items[hitA.index].name||"Partida")+" → S/ "+va.toFixed(2)+"\n• "+String(items[hitB.index].name||"Partida")+" → S/ "+vb.toFixed(2)+"\n\nResponde «sí» para guardar o continúa editando.");
+              await sendTelegram(env,chatId,"🧾 Apliqué los dos cambios:\n\n• "+String(items[hitA.index].name||"Partida")+" → S/ "+va.toFixed(2)+"\n• "+String(items[hitB.index].name||"Partida")+" → S/ "+vb.toFixed(2)+quotePreviewText(nextItems)+"\n\nResponde «sí» para guardar o continúa editando.");
               return json({ok:true,fastPath:"quote_multi_edit_two_items"},200);
             }
           }

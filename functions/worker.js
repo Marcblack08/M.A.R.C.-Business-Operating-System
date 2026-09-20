@@ -1580,6 +1580,12 @@ async function telegramWebhook(request,env,ctx){
             await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:null});
             const q=result.quote;
             await sendTelegram(env,chatId,"✅ Cotización "+String(q.number||p.quote_number||"")+" actualizada correctamente.\n💰 Total: S/ "+Number(q.total||0).toFixed(2));
+            try{
+              const company=await telegramCompanyProfile(env,adminToken,userId);
+              const bytes=buildQuotePdf({quote:q,client:result.client,company,items:result.items,tax_enabled:p.tax_enabled===undefined?true:p.tax_enabled,tax_included:Boolean(p.tax_included),tax_rate:p.tax_rate||18,notes:p.notes||""});
+              const number=String(q.number||p.quote_number||q.id||"cotizacion").slice(0,40);
+              await sendTelegramDocument(env,chatId,bytes,"Cotizacion-"+number+".pdf","📄 PDF actualizado de la cotización "+number);
+            }catch(e){}
             return json({ok:true,fastPath:"quote_update_saved"},200);
           }
           await sendTelegram(env,chatId,"⚠️ No pude actualizar la cotización: "+String(result.message||"verifica los datos."));

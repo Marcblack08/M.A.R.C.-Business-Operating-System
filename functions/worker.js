@@ -1692,7 +1692,25 @@ async function telegramWebhook(request,env,ctx){
             return json({ok:true,fastPath:"quote_update_notes"},200);
           }
         }
-        const fiscalNoTax=/\b(?:sin|no)\s+(?:igv|igb|impuesto)\b|\bno\s+incluyas?\s+(?:igv|igb|impuesto)\b/i.test(text);
+        // Cambios de estado de una cotización: se preparan y siempre requieren confirmación.
+        const statusEdit=text.match(/\b(?:marca|marcar|cambia|cambiar|pon|poner|actualiza|actualizar)\b[\s\S]{0,80}?\b(?:estado|status)?\s*(?:a|como|en)\s+(borrador|enviada|aceptada|rechazada|anulada|cobrada)\b/i)
+          ||text.match(/\b(?:marca|marcar|cambia|cambiar|pon|poner)\s+(?:la\s+)?cotizaci[oó]n\s+(?:como|en)\s+(borrador|enviada|aceptada|rechazada|anulada|cobrada)\b/i);
+        if(statusEdit){
+          const rawStatus=String(statusEdit[1]||"").toUpperCase();
+          const statusMap={BORRADOR:"BORRADOR",ENVIADA:"ENVIADA",ACEPTADA:"ACEPTADA",RECHAZADA:"RECHAZADA",ANULADA:"ANULADA",COBRADA:"COBRADA"};
+          const newStatus=statusMap[rawStatus];
+          if(newStatus){
+            if(["ANULADA","COBRADA"].includes(newStatus)){
+              await sendTelegram(env,chatId,"⚠️ El cambio de estado a «"+newStatus+"» es una operación sensible. La prepararé, pero deberá confirmarla respondiendo «sí».");
+            }else{
+              await sendTelegram(env,chatId,"🧾 Estado preparado: «"+newStatus+"». Responde «sí» para guardar o «cancelar» para descartarlo.");
+            }
+            const next={...ctxMem,pending_action:{...pending,params:{...p,status:newStatus}}};
+            await saveConversationContext(env,adminToken,userId,conversationId,next);
+            return json({ok:true,fastPath:"quote_update_status"},200);
+          }
+        }
+                const fiscalNoTax=/\b(?:sin|no)\s+(?:igv|igb|impuesto)\b|\bno\s+incluyas?\s+(?:igv|igb|impuesto)\b/i.test(text);
         const fiscalWithTax=/\b(?:con|incluye|incluido)\s+(?:el\s+)?(?:igv|igb|impuesto)\b/i.test(text);
         if(fiscalNoTax||fiscalWithTax){
           const next={...ctxMem,pending_action:{...pending,params:{...p,tax_enabled:!fiscalNoTax,tax_included:fiscalWithTax,prices_are_net:true}}};

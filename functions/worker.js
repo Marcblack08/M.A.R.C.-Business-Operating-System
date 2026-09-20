@@ -473,7 +473,7 @@ async function plan(env,message,history,entityContext={},contextToken="",context
     }
     if(reference.type==="client")return {action:"SEARCH_CLIENTS",execute:false,params:{query:item.id}};
   }
-  const editQuoteMatch=s.match(/\\b(?:modifica|modificar|edita|editar|abre|abrir|actualiza|actualizar)\\b[\\s\\S]{0,40}?(?:cotizacion|proforma|presupuesto)\\s+(COT-\\d{6}-\\d{4})/i);
+  const editQuoteMatch=s.match(/\b(?:modifica|modificar|edita|editar|abre|abrir|actualiza|actualizar)\b[\\s\\S]{0,40}?(?:cotizacion|proforma|presupuesto)\\s+(COT-\\d{6}-\\d{4})/i);
   if(editQuoteMatch){
     const ref=editQuoteMatch[1];
     const found=await getQuoteForEdit(env,contextToken,contextUserId,ref);

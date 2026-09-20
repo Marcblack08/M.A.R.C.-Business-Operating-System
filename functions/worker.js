@@ -3125,7 +3125,7 @@ async function marketingVideoStart(request,env){
   const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":predictLongRunning",{
     method:"POST",
     headers:{"content-type":"application/json","x-goog-api-key":apiKey},
-    body:JSON.stringify({instances,parameters:{aspectRatio,resolution:"720p"}})
+    body:JSON.stringify({instances,parameters:{aspectRatio,resolution:"720p",durationSeconds:"8"}})
   });
   const data=await r.json().catch(()=>null);
   if(!r.ok||!data?.name){

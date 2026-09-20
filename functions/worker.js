@@ -934,6 +934,9 @@ async function telegramWebhook(request,env,ctx){
     return json({ok:true,fastPath:"ask_preferred_name"},200);
   }
 
+  // Normalización común para las respuestas rápidas de conversación y capacidades.
+  const fastNormalized=incoming.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").trim();
+
   // Conversación social básica: responder localmente evita una llamada a Gemini
   // cuando el usuario solo saluda, agradece o pregunta cómo está M.A.R.C.
   const fastSocial=/^(hola|holaa+|buenos? dias?|buenas? tardes?|buenas? noches?|saludos|hey|gracias|muchas gracias|perfecto|listo|ok|okay|como estas?|cómo estás?|que tal|qué tal)[.!?¿¡ ]*$/i.test(fastNormalized);
@@ -951,7 +954,6 @@ async function telegramWebhook(request,env,ctx){
 
   // Respuestas instantáneas de identidad/capacidades: nunca pasan por Gemini.
   // Esto evita la doble latencia (planificador IA + respuesta IA) para preguntas básicas.
-  const fastNormalized=incoming.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").trim();
   const asksCapabilities=/^(?:que|qué)\\s+(?:puedes|puede|puedo)\\s+hacer(?:\\s+tu)?[?¿!¡.]*$|^(?:que|qué)\\s+haces[?¿!¡.]*$|^(?:para que|para qué)\\s+sirves[?¿!¡.]*$|^(?:como|cómo)\\s+puedes\\s+ayudar(?:me)?[?¿!¡.]*$/i.test(fastNormalized);
   if(asksCapabilities){
     const who=telegramProfile.displayName||"señor";

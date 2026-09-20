@@ -645,12 +645,40 @@ async function sendTelegram(env,chatId,text){
 function pdfText(value){return String(value??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^\x20-\x7E]/g,"?");}
 function pdfEscape(value){return pdfText(value).replace(/\\/g,"\\\\").replace(/\(/g,"\\(").replace(/\)/g,"\\)");}
 function buildQuotePdf(data){
-  const q=data?.quote||{},client=data?.client||{},items=Array.isArray(data?.items)?data.items:[];
+  const q=data?.quote||{},client=data?.client||{},company=data?.company||{},items=Array.isArray(data?.items)?data.items:[];
   const taxEnabled=data?.tax_enabled!==false,taxRate=Number(data?.tax_rate||18);
   const subtotal=items.reduce((s,x)=>s+Number(x.quantity||1)*Number(x.unit_price||0),0),igv=taxEnabled?subtotal*taxRate/100:0,total=subtotal+igv;
-  const lines=["M.A.R.C. - COTIZACION","Numero: "+(q.numero||q.number||q.id||"SIN NUMERO"),"Fecha: "+new Date().toLocaleDateString("es-PE"),"","CLIENTE",String(client.name||client.nombre_razon_social||data?.client_name||"Cliente"),client.phone?"Telefono: "+client.phone:"",client.email?"Email: "+client.email:"","","DETALLE",...items.map((x,i)=>(i+1)+". "+String(x.name||x.description||"Partida")+" | "+Number(x.quantity||1)+" x S/ "+Number(x.unit_price||0).toFixed(2)+" | S/ "+(Number(x.quantity||1)*Number(x.unit_price||0)).toFixed(2)),"","Subtotal: S/ "+subtotal.toFixed(2),taxEnabled?"IGV "+taxRate+"%: S/ "+igv.toFixed(2):"IGV: NO INCLUIDO","TOTAL: S/ "+total.toFixed(2),data?.notes?"Observaciones: "+data.notes:""].filter(Boolean).slice(0,42);
+  const lines=[
+    String(company.business_name||"M.A.R.C.").toUpperCase(),
+    company.legal_name?"Razon social: "+company.legal_name:"",
+    company.ruc?"RUC: "+company.ruc:"",
+    company.address?"Direccion: "+company.address:"",
+    company.phone?"Telefono: "+company.phone:"",
+    company.email?"Email: "+company.email:"",
+    "",
+    "COTIZACION",
+    "Numero: "+(q.numero||q.number||q.id||"SIN NUMERO"),
+    "Fecha: "+new Date().toLocaleDateString("es-PE"),
+    "",
+    "CLIENTE",
+    String(client.name||client.nombre_razon_social||data?.client_name||"Cliente"),
+    client.phone?"Telefono: "+client.phone:"",
+    client.email?"Email: "+client.email:"",
+    client.address?"Direccion: "+client.address:"",
+    "",
+    "DETALLE",
+    ...items.map((x,i)=>(i+1)+". "+String(x.name||x.description||"Partida")+" | "+Number(x.quantity||1)+" x S/ "+Number(x.unit_price||0).toFixed(2)+" | S/ "+(Number(x.quantity||1)*Number(x.unit_price||0)).toFixed(2)),
+    "",
+    "Subtotal: S/ "+subtotal.toFixed(2),
+    taxEnabled?"IGV "+taxRate+"%: S/ "+igv.toFixed(2):"IGV: NO INCLUIDO",
+    "TOTAL: S/ "+total.toFixed(2),
+    data?.notes?"Observaciones: "+data.notes:""
+  ].filter(Boolean).slice(0,48);
   const stream=["BT","/F1 18 Tf","50 790 Td","("+pdfEscape(lines[0])+") Tj","/F1 10 Tf"];
-  for(let i=1;i<lines.length;i++)stream.push("0 -18 Td","("+pdfEscape(lines[i])+") Tj");
+  for(let i=1;i<lines.length;i++){
+    const heading=/^(COTIZACION|CLIENTE|DETALLE|TOTAL:)/.test(lines[i]);
+    stream.push("0 -18 Td",heading?"/F1 12 Tf":"", "("+pdfEscape(lines[i])+") Tj",heading?"/F1 10 Tf":"");
+  }
   stream.push("ET"); const content=stream.join("\n");
   const objects={1:"<< /Type /Catalog /Pages 2 0 R >>",2:"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",3:"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>",4:"<< /Length "+content.length+" >>\nstream\n"+content+"\nendstream",5:"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"};
   let pdf="%PDF-1.4\n",offs=[];for(let i=1;i<=5;i++){offs[i]=pdf.length;pdf+=i+" 0 obj\n"+objects[i]+"\nendobj\n";}
@@ -1012,7 +1040,12 @@ async function telegramWebhook(request,env,ctx){
     }
   }
 
-  if(/^(si|sí|confirmo|confirmar|dale|hazlo|ejecuta|ejecutar)$/i.test(incoming)){
+  async function telegramCompanyProfile(env,adminToken,userId){
+  const rows=await sb(env,adminToken,"marc_company_profiles?select=business_name,legal_name,ruc,address,phone,email,logo_data&user_id=eq."+encodeURIComponent(userId)+"&limit=1").catch(()=>[]);
+  return rows?.[0]||{};
+}
+
+if(/^(si|sí|confirmo|confirmar|dale|hazlo|ejecuta|ejecutar)$/i.test(incoming)){
     const conversationId=await ensureTelegramConversation(env,adminToken,userId);
     const ctxMem=await getConversationContext(env,adminToken,userId,conversationId);
     const pending=ctxMem?.pending_action;
@@ -1034,7 +1067,8 @@ async function telegramWebhook(request,env,ctx){
           const q=done?.quote||{};
           await sendTelegram(env,chatId,"✅ Cotización creada.\n\n🧾 "+String(q.numero||q.number||"Cotización")+"\n"+String(q.title||pending.params.title||"Cotización")+"\n💰 "+moneyText(q.total||0));
           try{
-            const bytes=buildQuotePdf({quote:q,client:done?.client,items:done?.items,tax_enabled:pending.params?.tax_enabled!==false,tax_rate:pending.params?.tax_rate||18,notes:pending.params?.notes||""});
+            const company=await telegramCompanyProfile(env,adminToken,userId);
+            const bytes=buildQuotePdf({quote:q,client:done?.client,company,items:done?.items,tax_enabled:pending.params?.tax_enabled!==false,tax_rate:pending.params?.tax_rate||18,notes:pending.params?.notes||""});
             const number=String(q.numero||q.number||q.id||"cotizacion").slice(0,40);
             await sendTelegramDocument(env,chatId,bytes,"Cotizacion-"+number+".pdf","📄 PDF de la cotización "+number);
           }catch(pdfErr){

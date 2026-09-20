@@ -250,8 +250,14 @@ async function getQuoteForEdit(env,token,userId,query){
 async function createQuote(env,token,userId,p,source="AI_AGENT"){
   const items=Array.isArray(p?.items)?p.items:[];
   if(!items.length)return {status:"NEEDS_INPUT",message:"Necesito al menos una partida para crear la cotización."};
-  const client=await resolveOneClient(env,token,userId,p.client_query||"");
-  if(client.status==="AMBIGUOUS"||client.status==="NOT_FOUND")return {status:"NEEDS_INPUT",field:"client_query",detail:client};
+  let client={status:"NONE"};
+  if(p.client_id){
+    const rows=await sb(env,token,"marc_clients?select=id,name,phone,email,address&id=eq."+encodeURIComponent(p.client_id)+"&user_id=eq."+encodeURIComponent(userId)+"&limit=1").catch(()=>[]);
+    if(Array.isArray(rows)&&rows[0])client={status:"FOUND",client:rows[0]}; else return {status:"NEEDS_INPUT",field:"client_id",message:"No encontré el cliente asociado a la cotización."};
+  }else{
+    client=await resolveOneClient(env,token,userId,p.client_query||"");
+    if(client.status==="AMBIGUOUS"||client.status==="NOT_FOUND")return {status:"NEEDS_INPUT",field:"client_query",detail:client};
+  }
   const resolved=[];
   const taxEnabled=p.tax_enabled===undefined?true:Boolean(p.tax_enabled);
   const taxIncluded=Boolean(p.tax_included)&&taxEnabled;
@@ -263,7 +269,7 @@ async function createQuote(env,token,userId,p,source="AI_AGENT"){
     const priceIsTotal=Boolean(raw.price_is_total);
     const grossPrice=Number(raw.gross_unit_price);
     const suppliedPrice=Number.isFinite(grossPrice)&&grossPrice>0?grossPrice:rawPrice;
-    const normalizedUnit=taxIncluded&&Number.isFinite(suppliedPrice)&&suppliedPrice>0?suppliedPrice/(1+taxRate/100):suppliedPrice;
+    const normalizedUnit=taxIncluded&&!p.prices_are_net&&Number.isFinite(suppliedPrice)&&suppliedPrice>0?suppliedPrice/(1+taxRate/100):suppliedPrice;
     const unitPrice=priceIsTotal?normalizedUnit/qty:normalizedUnit;
     if(!Number.isFinite(unitPrice)||unitPrice<=0){
       return {status:"NEEDS_INPUT",field:"price",item:raw,message:"Indícame un precio válido para «"+String(raw.name||raw.description||"la partida")+"»."};
@@ -490,7 +496,7 @@ async function plan(env,message,history,entityContext={},contextToken="",context
     if(!name||!Number.isFinite(value)||value<=0)return {action:"CHAT",execute:false,params:{clarification:"Necesito un nombre de partida y un precio válido."}};
     const items=found.items.map(x=>({type:String(x.item_type||"TRABAJO").toUpperCase(),inventory_id:x.inventory_id||null,name:x.name||"Partida",description:x.description||null,quantity:Number(x.quantity||1),unit:x.unit||"UND",unit_price:Number(x.unit_price||0),cost:Number(x.cost||0)}));
     items.push({type:"TRABAJO",name:name.slice(0,180),description:name.slice(0,2000),quantity:1,unit:"UND",unit_price:value});
-    return {action:"UPDATE_QUOTE",execute:false,params:{quote_id:found.quote.id,quote_number:found.quote.number,client_query:found.quote.client_id||"",client_name:found.client?.name||"",title:found.quote.title||"Cotización",items,tax_enabled:found.quote.tax_enabled!==false,tax_rate:Number(found.quote.tax_rate||18),tax_included:false,notes:found.quote.notes||null}};
+    return {action:"UPDATE_QUOTE",execute:false,params:{quote_id:found.quote.id,quote_number:found.quote.number,client_query:found.quote.client_id||"",client_name:found.client?.name||"",title:found.quote.title||"Cotización",items,tax_enabled:found.quote.tax_enabled!==false,tax_rate:Number(found.quote.tax_rate||18),tax_included:false,prices_are_net:true,notes:found.quote.notes||null}};
   }
 const editQuoteMatch=s.match(/\b(?:modifica|modificar|edita|editar|abre|abrir|actualiza|actualizar)\b[\s\\S]{0,40}?(?:cotizacion|proforma|presupuesto)\s+(COT-\\d{6}-\\d{4})/i);
   if(editQuoteMatch){
@@ -1619,7 +1625,7 @@ async function telegramWebhook(request,env,ctx){
         const fiscalNoTax=/\b(?:sin|no)\s+(?:igv|igb|impuesto)\b|\bno\s+incluyas?\s+(?:igv|igb|impuesto)\b/i.test(text);
         const fiscalWithTax=/\b(?:con|incluye|incluido)\s+(?:el\s+)?(?:igv|igb|impuesto)\b/i.test(text);
         if(fiscalNoTax||fiscalWithTax){
-          const next={...ctxMem,pending_action:{...pending,params:{...p,tax_enabled:!fiscalNoTax,tax_included:fiscalWithTax}}};
+          const next={...ctxMem,pending_action:{...pending,params:{...p,tax_enabled:!fiscalNoTax,tax_included:fiscalWithTax,prices_are_net:true}}};
           await saveConversationContext(env,adminToken,userId,conversationId,next);
           await sendTelegram(env,chatId,"🧾 Actualicé el tratamiento del impuesto: "+(fiscalNoTax?"sin IGV.":"IGV incluido.")+"\n\nResponde «sí» para guardar.");
           return json({ok:true,fastPath:"quote_update_tax"},200);

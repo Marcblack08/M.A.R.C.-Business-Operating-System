@@ -1327,6 +1327,38 @@ async function telegramWebhook(request,env,ctx){
     await sendTelegram(env,chatId,"🤖 M.A.R.C. · MENÚ RÁPIDO\n\n▣ CAJA\n• /caja — estado de caja\n• abrir caja 100\n• ingreso 50 venta cliente\n• gasto 20 transporte\n• cerrar caja 450\n\n📦 INVENTARIO\n• /stock — productos con stock crítico\n• Envía un PDF de catálogo para analizarlo\n• IMPORTAR — confirma una importación pendiente\n\n🧾 COTIZACIONES\n• /cotizaciones — últimas cotizaciones\n\n📊 NEGOCIO\n• /resumen — resumen general\n\n🤖 COPILOTO\nTambién puedes escribir de forma natural: «revisa mi inventario», «crea una cotización para Juan», «busca al cliente Delgado» o «qué productos tengo agotados». M.A.R.C. usará tu misma cuenta y contexto de la web.");
     return json({ok:true},200);
   }
+  // Consulta detallada de una cotización: lectura directa, sin modificarla.
+  let quoteDetailMatch=simple.match(/^(?:ver|muestra|mostrar|mu[eé]strame|revisa|consulta|dime|ens[eé]ñame)\\s+(?:la\\s+)?cotizaci(?:on|ón)\\s+(.+)$/i);
+  if(quoteDetailMatch){
+    const query=quoteDetailMatch[1].trim();
+    const detail=await getQuoteForEdit(env,adminToken,userId,query);
+    if(detail.status==="NOT_FOUND"){
+      await sendTelegram(env,chatId,"🧾 No encontré la cotización «"+query+"».");
+      return json({ok:true,fastPath:"quote_detail",found:0},200);
+    }
+    if(detail.status==="AMBIGUOUS"){
+      const qs=(detail.quotes||[]).slice(0,5);
+      await sendTelegram(env,chatId,"🧾 Encontré varias cotizaciones:\\n\\n"+qs.map((x,i)=>"• "+(i+1)+". "+String(x.number||"Sin número")+" · "+String(x.title||"Cotización")+" · "+moneyText(x.total)).join("\\n")+"\\n\\nIndícame cuál deseas consultar.");
+      return json({ok:true,fastPath:"quote_detail_ambiguous"},200);
+    }
+    const q=detail.quote||{},items=Array.isArray(detail.items)?detail.items:[],client=detail.client||null;
+    const lines=["🧾 COTIZACIÓN "+String(q.number||query),"","👤 Cliente: "+String(client?.name||"Sin cliente"),"📋 "+String(q.title||"Cotización")];
+    if(q.status)lines.push("📌 Estado: "+String(q.status));
+    lines.push("");
+    items.forEach((it,i)=>{
+      const qty=Number(it.quantity||0),unit=Number(it.unit_price||0);
+      lines.push((i+1)+". "+String(it.name||it.description||"Partida")+" · "+qty+" × S/ "+unit.toFixed(2)+" = S/ "+(qty*unit).toFixed(2));
+    });
+    lines.push("","📦 Partidas: "+items.length,"💵 Subtotal: "+moneyText(q.subtotal));
+    const taxEnabled=q.tax_enabled===undefined?true:Boolean(q.tax_enabled);
+    if(taxEnabled)lines.push("🧾 IGV ("+Number(q.tax_rate||18).toFixed(2)+"%): "+moneyText(q.tax_amount));
+    else lines.push("🧾 IGV: No incluido");
+    lines.push("💰 TOTAL: "+moneyText(q.total));
+    if(q.notes)lines.push("","📝 Observaciones: "+String(q.notes));
+    await sendTelegram(env,chatId,lines.join("\\n"));
+    return json({ok:true,fastPath:"quote_detail",found:1,items:items.length},200);
+  }
+
   // Consultas rápidas de cotizaciones: lectura directa desde Supabase, sin Gemini.
   let quoteMatch=simple.match(/^(?:busca|buscar|encuentra|localiza|ver|muestra|revisa|consulta)\\s+(?:la\\s+)?cotizaci(?:on|ón)\\s+(.+)$/);
   if(quoteMatch){

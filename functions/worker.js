@@ -730,29 +730,73 @@ async function telegramIdentity(env,adminToken,externalUserId){
   return rows?.[0]||null;
 }
 
-/* Identidad del usuario vinculado: M.A.R.C. usa primero el nombre de la cuenta
-   y solo recurre al nombre de Telegram como respaldo. */
-async function telegramUserDisplayName(env,adminToken,userId,telegramFrom={},identity={}){
+/* Identidad personalizada de M.A.R.C.
+   El nombre preferido se guarda en Supabase Auth para reutilizarlo
+   en futuras conversaciones de Telegram y en la web. */
+async function telegramUserProfile(env,adminToken,userId,telegramFrom={},identity={}){
   try{
     const r=await fetch(env.SUPABASE_URL+"/auth/v1/admin/users/"+encodeURIComponent(userId),{
-      headers:{
-        apikey:adminToken,
-        Authorization:"Bearer "+adminToken
-      }
+      headers:{apikey:adminToken,Authorization:"Bearer "+adminToken}
     });
     if(r.ok){
       const u=await r.json();
       const meta=u?.user_metadata||{};
-      const full=String(meta.full_name||meta.name||"").trim();
-      if(full)return full;
-      const first=String(meta.first_name||"").trim();
-      if(first)return first;
-      const email=String(u?.email||"").trim();
-      if(email)return email.split("@")[0];
+      const preferredName=String(meta.preferred_name||"").trim();
+      const accountName=String(meta.full_name||meta.name||meta.first_name||"").trim()
+        ||String(u?.email||"").trim().split("@")[0];
+      const telegramName=[telegramFrom?.first_name,telegramFrom?.last_name].filter(Boolean).join(" ").trim()
+        ||String(identity?.username||"").replace(/^@/,"").trim();
+      return {
+        preferredName,
+        accountName,
+        telegramName,
+        displayName:preferredName||accountName||telegramName||"",
+        namePrompted:Boolean(meta.marc_name_prompted)
+      };
     }
   }catch{}
-  const telegramName=[telegramFrom?.first_name,telegramFrom?.last_name].filter(Boolean).join(" ").trim();
-  return telegramName||String(identity?.username||"").replace(/^@/,"").trim()||"";
+  const telegramName=[telegramFrom?.first_name,telegramFrom?.last_name].filter(Boolean).join(" ").trim()
+    ||String(identity?.username||"").replace(/^@/,"").trim();
+  return {preferredName:"",accountName:"",telegramName,displayName:telegramName||"",namePrompted:false};
+}
+async function telegramUserDisplayName(env,adminToken,userId,telegramFrom={},identity={}){
+  const p=await telegramUserProfile(env,adminToken,userId,telegramFrom,identity);
+  return p.displayName;
+}
+async function updateTelegramUserMetadata(env,adminToken,userId,patch){
+  const r=await fetch(env.SUPABASE_URL+"/auth/v1/admin/users/"+encodeURIComponent(userId),{
+    method:"PUT",
+    headers:{apikey:adminToken,Authorization:"Bearer "+adminToken,"Content-Type":"application/json"},
+    body:JSON.stringify({user_metadata:patch})
+  });
+  if(!r.ok)throw new Error("No pude guardar la personalización del usuario.");
+  return true;
+}
+async function saveTelegramPreferredName(env,adminToken,userId,name){
+  const clean=String(name||"").trim().replace(/\\s+/g," ").slice(0,80);
+  if(!clean)return false;
+  const r=await fetch(env.SUPABASE_URL+"/auth/v1/admin/users/"+encodeURIComponent(userId),{
+    headers:{apikey:adminToken,Authorization:"Bearer "+adminToken}
+  });
+  if(!r.ok)throw new Error("No pude consultar el perfil del usuario.");
+  const u=await r.json();
+  const meta={...(u?.user_metadata||{}),preferred_name:clean,marc_name_prompted:true};
+  return updateTelegramUserMetadata(env,adminToken,userId,meta);
+}
+function extractPreferredName(text){
+  const s=String(text||"").trim();
+  const patterns=[
+    /^(?:llámame|llamame|puedes llamarme|quiero que me llames|dime|me puedes llamar)\\s+(.{1,60})$/i,
+    /^(?:mi nombre es|me llamo|soy)\\s+(.{1,60})$/i
+  ];
+  for(const re of patterns){
+    const m=s.match(re);
+    if(m){
+      const name=String(m[1]||"").replace(/[.!?]+$/g,"").trim();
+      if(name && !/[0-9@]/.test(name))return name;
+    }
+  }
+  return "";
 }
 async function ensureTelegramConversation(env,adminToken,userId){
   const rows=await sb(env,adminToken,"marc_conversations?select=id&user_id=eq."+encodeURIComponent(userId)+"&channel=eq.TELEGRAM&order=updated_at.desc&limit=1");
@@ -871,6 +915,23 @@ async function telegramWebhook(request,env,ctx){
     const origin=new URL(request.url).origin;
     await sendTelegram(env,chatId,"Llegaste al límite de 30 acciones de IA de la prueba. Activa un plan desde "+origin+" para continuar.");
     return json({ok:true},200);
+  }
+
+  // Personalización de trato: el usuario puede elegir cómo quiere que M.A.R.C. lo llame.
+  // Se guarda en Auth, por lo que no depende de una conversación concreta.
+  const telegramProfile=await telegramUserProfile(env,adminToken,userId,msg.from,identity);
+  const requestedName=extractPreferredName(incoming);
+  if(requestedName){
+    await saveTelegramPreferredName(env,adminToken,userId,requestedName);
+    await sendTelegram(env,chatId,"✨ Entendido, "+requestedName+". Queda anotado. A partir de ahora me dirigiré a usted como "+requestedName+". ¿En qué puedo asistirle?");
+    return json({ok:true,fastPath:"save_preferred_name",name:requestedName},200);
+  }
+  if(!telegramProfile.preferredName && !telegramProfile.namePrompted && /^(hola|buenos? días?|buenas? tardes?|buenas? noches?|saludos|que puede hacer|que puedes hacer|capacidades|como puedes ayudar)/i.test(incoming)){
+    const metaPatch={preferred_name:"",marc_name_prompted:true};
+    const authUser=await fetch(env.SUPABASE_URL+"/auth/v1/admin/users/"+encodeURIComponent(userId),{headers:{apikey:adminToken,Authorization:"Bearer "+adminToken}}).then(x=>x.ok?x.json():null).catch(()=>null);
+    await updateTelegramUserMetadata(env,adminToken,userId,{...(authUser?.user_metadata||{}),...metaPatch}).catch(()=>{});
+    await sendTelegram(env,chatId,"🎩 A sus órdenes, señor. Antes de continuar, ¿cómo desea que lo llame? Puede decirme, por ejemplo: «Llámame Marc».");
+    return json({ok:true,fastPath:"ask_preferred_name"},200);
   }
 
   // Comandos operativos rápidos de caja: no consumen IA y ejecutan acciones
@@ -1261,8 +1322,14 @@ if(/^(si|sí|confirmo|confirmar|dale|hazlo|ejecuta|ejecutar)$/i.test(incoming)){
     if(executed?.result?.status==="CONFIRMATION_REQUIRED")nextContext.pending_action={action:executed.action,params:executed.result.params,created_at:new Date().toISOString()};
     await saveConversationContext(env,adminToken,userId,conversationId,nextContext);
     await incrementAiUsage(env,adminToken,userId,access);
-    const telegramDisplayName=await telegramUserDisplayName(env,adminToken,userId,msg.from,identity);
+    const telegramDisplayName=(await telegramUserProfile(env,adminToken,userId,msg.from,identity)).displayName;
     answer=String(await finalReply(env,incoming,{plan:pl,execution:executed,entitlement:access},telegramDisplayName)||"").trim();
+    const refreshedProfile=await telegramUserProfile(env,adminToken,userId,msg.from,identity);
+    if(!refreshedProfile.preferredName && !refreshedProfile.namePrompted){
+      answer+="\n\n🎩 Por cierto, ¿cómo desea que lo llame? Puede responder «Llámame + su nombre» y lo recordaré para futuras conversaciones.";
+      const authUser=await fetch(env.SUPABASE_URL+"/auth/v1/admin/users/"+encodeURIComponent(userId),{headers:{apikey:adminToken,Authorization:"Bearer "+adminToken}}).then(x=>x.ok?x.json():null).catch(()=>null);
+      await updateTelegramUserMetadata(env,adminToken,userId,{...(authUser?.user_metadata||{}),marc_name_prompted:true}).catch(()=>{});
+    }
   }catch(err){
     const detail=String(err?.message||"").toLowerCase();
     if(/gemini|modelo|api|temporar|timeout|fetch/.test(detail)){

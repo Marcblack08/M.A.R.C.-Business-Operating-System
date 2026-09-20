@@ -547,7 +547,7 @@ async function plan(env,message,history,entityContext={},contextToken="",context
     const serviceOnly=allCost||clientSupplies;
     let body=fiscalText
       .replace(/\b(?:sin\s+igv|no\s+incluye\s+igv|sin\s+impuesto|no\s+incluye\s+impuesto)\b/gi,"")
-      .replace(/^(?:crea|crear|creemos|hagamos|haz|hacer|prepara|preparar|genera|generar|cotiza|cotizar|elabora|elaborar)\s+(?:una\s+)?(?:cotizacion|cotización|proforma|presupuesto)\s*/i,"")
+      .replace(/^(?:crea|crear|creemos|hagamos|haz|hacer|prepara|preparar|genera|generar|cotiza|cotizar|elabora|elaborar|necesito|quiero|armemos|vamos\s+a\s+hacer)\s+(?:una\s+)?(?:cotizacion|cotización|proforma|presupuesto)\s*/i,"")
       .replace(/\b(?:para|cliente)\s+(?:es\s+|:\s*)?.+?(?=\s+(?:por|a|precio|costo|total|de|con)\s+|\s*[:,-]\s*|$)/i,"")
       .replace(/\bcliente\s+es\s+.+?$/i,"")
       .replace(/\s+/g," ").trim();

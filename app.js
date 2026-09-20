@@ -2992,15 +2992,13 @@ function wire(){
     }
 
     const session=await new Promise(resolve=>{
-      let done=false;
-      const finish=value=>{
-        if(done)return;
-        done=true;
-        clearTimeout(timer);
-        resolve(value||null);
+      const started=Date.now();
+      const poll=()=>{
+        if(authListenerSession?.user)return resolve(authListenerSession);
+        if(Date.now()-started>=10000)return resolve(null);
+        setTimeout(poll,200);
       };
-      const timer=setTimeout(()=>finish(null),10000);
-      if(authListenerSession?.user)finish(authListenerSession);
+      poll();
     });
 
     if(session?.user){

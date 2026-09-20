@@ -490,7 +490,7 @@ async function plan(env,message,history,entityContext={},contextToken="",context
     const found=await getQuoteForEdit(env,contextToken,contextUserId,ref);
     if(found.status==="NOT_FOUND")return {action:"CHAT",execute:false,params:{clarification:"No encontré la cotización "+ref+"."}};
     const rawAdd=String(message||"").replace(new RegExp("\\b"+ref+"\\b","i"),"").replace(/\b(?:agrega|añade|anade|incluye|suma)\b/i,"").replace(/\b(?:a|en)\s+(?:la\s+)?(?:cotizacion|proforma|presupuesto)\s*$/i,"").trim();
-    const pm=rawAdd.match(/^(?:(\d+(?:[.,]\d+)?)\s+(?:unidades?|uds?|und|piezas?|metros?|horas?)\s+)?(.+?)\s+(?:por|a)\s+(?:s\/\.?\s*)?(\d+(?:[.,]\d{1,2})?)\s*(?:soles?)?$/i);
+    const pm=rawAdd.match(/^(?:(\d+(?:[.,]\d+)?)\s+)?(.+?)\s+(?:por|a)\s+(?:s\/\.?\s*)?(\d+(?:[.,]\d{1,2})?)\s*(?:soles?)?$/i);
     if(!pm)return {action:"CHAT",execute:false,params:{clarification:"Indícame la partida y el precio, por ejemplo: «agrega 3 cámaras Hikvision por 280 a la cotización "+ref+"»."}};
     const quantity=Math.max(1,Number(String(pm[1]||"1").replace(",",".")));
     const name=String(pm[2]||"").trim();
@@ -1633,6 +1633,26 @@ async function telegramWebhook(request,env,ctx){
           return json({ok:true,fastPath:"quote_update_cancel"},200);
         }
         const p=pending.params,items=Array.isArray(p.items)?p.items:[];
+
+        // Si la búsqueda de inventario anterior fue ambigua, permite elegir
+        // el producto por número sin volver a consultar Gemini.
+        if(p._pending_inventory_add){
+          const choice=text.match(/^(?:producto\s+)?([1-5])$/i);
+          if(choice){
+            const n=Number(choice[1]),pendingAdd=p._pending_inventory_add,option=(pendingAdd.options||[])[n-1];
+            if(!option){
+              await sendTelegram(env,adminToken,"La opción "+n+" ya no está disponible. Indícame un número entre 1 y "+Math.min(5,(pendingAdd.options||[]).length)+".");
+              return json({ok:true,fastPath:"quote_update_add_choice_invalid"},200);
+            }
+            const item={type:"PRODUCTO",inventory_id:option.id,name:option.name,description:null,quantity:Number(pendingAdd.quantity||1),unit:option.unit||"UND",unit_price:Number(pendingAdd.value),cost:Number(option.cost||0)};
+            const nextItems=[...items,item],nextParams={...p,items:nextItems};
+            delete nextParams._pending_inventory_add;
+            await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:nextParams}});
+            await sendTelegram(env,chatId,"➕ Agregué "+Number(pendingAdd.quantity||1)+" × "+String(option.name||"Producto")+" · S/ "+Number(pendingAdd.value).toFixed(2)+" por unidad.\n📦 Vinculado al inventario.\n\nResponde «sí» para guardar o continúa editando.");
+            return json({ok:true,fastPath:"quote_update_add_choice"},200);
+          }
+        }
+
         const clientEdit=text.match(/\b(?:cambia|cambiar|modifica|modificar)\s+(?:el\s+)?cliente\s+(?:a|por|de)\s+(.+)$/i);
         if(clientEdit){
           const query=String(clientEdit[1]||"").trim().replace(/[.]+$/,"");
@@ -1680,14 +1700,29 @@ async function telegramWebhook(request,env,ctx){
           await sendTelegram(env,chatId,"🧾 Actualicé el tratamiento del impuesto: "+(fiscalNoTax?"sin IGV.":"IGV incluido.")+"\n\nResponde «sí» para guardar.");
           return json({ok:true,fastPath:"quote_update_tax"},200);
         }
-        const addMatch=text.match(/\b(?:agrega|añade|anade|incluye|suma)\s+(?:una\s+)?(?:partida\s+de\s+)?(.+?)(?:\s+(?:a|por|en)\s+(?:s\/\.?\s*)?(\d+(?:[.,]\d{1,2})?)\s*(?:soles?)?)?$/i);
+        const addMatch=text.match(/\b(?:agrega|añade|anade|incluye|suma)\s+(?:(\d+(?:[.,]\d+)?)\s+)?(?:una\s+)?(?:partida\s+de\s+)?(.+?)(?:\s+(?:a|por|en)\s+(?:s\/\.?\s*)?(\d+(?:[.,]\d{1,2})?)\s*(?:soles?)?)?$/i);
         if(addMatch){
-          const name=String(addMatch[1]||"").trim();
-          const value=addMatch[2]?Number(addMatch[2].replace(",",".")):null;
+          const quantity=Math.max(0.01,Number(String(addMatch[1]||"1").replace(",",".")||1));
+          const name=String(addMatch[2]||"").trim();
+          const value=addMatch[3]?Number(addMatch[3].replace(",",".")):null;
           if(name&&value&&value>0){
-            const nextItems=[...items,{type:"TRABAJO",name:name.slice(0,180),description:name.slice(0,2000),quantity:1,unit:"UND",unit_price:value}];
-            await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:{...p,items:nextItems}}});
-            await sendTelegram(env,chatId,"➕ Agregué la partida: "+name+" · S/ "+value.toFixed(2)+".\n\nResponde «sí» para guardar o continúa editando.");
+            const hit=await resolveInventory(env,adminToken,userId,name);
+            if(hit.status==="AMBIGUOUS"){
+              const opts=(hit.options||[]).slice(0,5);
+              const pendingParams={...p,_pending_inventory_add:{name,quantity,value,options:opts}};
+              await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:pendingParams}});
+              await sendTelegram(env,chatId,"📦 Encontré varios productos para «"+name+"»:\n\n"+opts.map((x,i)=>(i+1)+". "+String(x.name||"Producto")+" · S/ "+Number(x.price||0).toFixed(2)+(x.stock!=null?" · stock "+Number(x.stock):"")).join("\n")+"\n\nIndícame el número del producto que deseas agregar.");
+              return json({ok:true,fastPath:"quote_update_add_ambiguous"},200);
+            }
+            const product=hit.status==="FOUND"?hit.item:null;
+            const item=product
+              ?{type:"PRODUCTO",inventory_id:product.id,name:product.name,description:null,quantity,unit:product.unit||"UND",unit_price:value,cost:Number(product.cost||0)}
+              :{type:"TRABAJO",name:name.slice(0,180),description:name.slice(0,2000),quantity,unit:"UND",unit_price:value};
+            const nextItems=[...items,item];
+            const nextParams={...p,items:nextItems};
+            delete nextParams._pending_inventory_add;
+            await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:nextParams}});
+            await sendTelegram(env,chatId,"➕ Agregué "+quantity+" × "+String(item.name||name)+" · S/ "+value.toFixed(2)+" por unidad."+(product?"\n📦 Vinculado al inventario.":"\n🛠️ Lo trataré como trabajo/servicio.")+"\n\nResponde «sí» para guardar o continúa editando.");
             return json({ok:true,fastPath:"quote_update_add"},200);
           }
         }

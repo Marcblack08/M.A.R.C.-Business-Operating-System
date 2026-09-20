@@ -713,7 +713,7 @@ async function getLatestQuoteForTelegram(env,adminToken,userId){
   const [items,clients,company]=await Promise.all([
     sb(env,adminToken,"marc_quote_items?select=*&user_id=eq."+encodeURIComponent(userId)+"&quote_id=eq."+encodeURIComponent(quote.id)+"&order=created_at.asc"),
     quote.client_id?sb(env,adminToken,"marc_clients?select=*&user_id=eq."+encodeURIComponent(userId)+"&id=eq."+encodeURIComponent(quote.client_id)+"&limit=1"):Promise.resolve([]),
-    telegramCompanyProfile(env,adminToken,userId)
+    sb(env,adminToken,"marc_company_profiles?select=business_name,legal_name,ruc,address,phone,email,logo_data&user_id=eq."+encodeURIComponent(userId)+"&limit=1").then(rows=>rows?.[0]||{}).catch(()=>({}))
   ]);
   return {status:"FOUND",quote,items:Array.isArray(items)?items:[],client:Array.isArray(clients)&&clients[0]?clients[0]:null,company:company||{}};
 }

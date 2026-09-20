@@ -2934,7 +2934,81 @@ async function quoteAiDraft(request,env){
   await incrementAiUsage(env,token,user.id,access);
   return json({draft,entitlement:access},200,corsHeaders(request));
 }
-async function marketingAi(request,env){
+async async function marketingImage(request,env){
+  if(request.method!=="POST")return json({error:"Método no permitido"},405);
+  const {token,user}=await authUser(request,env),access=await entitlement(env,token,user.id);
+  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request));
+  if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request));
+
+  const body=await request.json();
+  const p=body?.product||{};
+  const campaign=body?.campaign||{};
+  const apiKey=env.GEMINI_API_KEY||env.GEMINI_API_KEY2;
+  if(!apiKey)throw Object.assign(new Error("GEMINI_API_KEY no está configurada en el Worker."),{status:503});
+
+  const format=String(body?.format||"1080x1080");
+  const ratio=format==="1080x1350"?"4:5":format==="1080x1920"?"9:16":"1:1";
+  const platform=String(body?.platform||"INSTAGRAM").toUpperCase();
+  const visualPrompt=[
+    "Crea el fondo visual profesional de un banner publicitario para un negocio real.",
+    "NO escribas texto, letras, números, precios, marcas, logotipos, botones, hashtags ni interfaces dentro de la imagen.",
+    "La composición debe dejar una zona limpia y legible para que la aplicación agregue posteriormente el texto exacto.",
+    "Si recibes una foto del producto, conserva fielmente el producto, su forma, color, detalles y proporciones; mejora iluminación, fondo y presentación sin alterar sus características.",
+    "Si no recibes foto, crea una representación visual coherente y comercial basada únicamente en los datos del producto.",
+    "Estética: fotografía comercial de alta calidad, iluminación profesional, profundidad, composición moderna, aspecto premium y realista.",
+    "Plataforma: "+platform+". Relación de aspecto: "+ratio+".",
+    "Producto: "+JSON.stringify({
+      name:String(p.name||"Producto"),
+      brand:String(p.brand||""),
+      model:String(p.model||""),
+      category:String(p.category||""),
+      details:String(body?.details||""),
+      headline:String(campaign.headline||""),
+      objective:String(body?.objective||"VENDER")
+    }),
+    "Diseño solicitado: "+String(body?.template||"MODERN")
+  ].join("\n");
+
+  const parts=[{text:visualPrompt}];
+  const rawImage=String(body?.imageData||"");
+  if(rawImage){
+    const m=rawImage.match(/^data:(image\/(?:png|jpeg|jpg|webp));base64,(.+)$/);
+    if(!m)throw Object.assign(new Error("La imagen enviada no tiene un formato válido."),{status:400});
+    if(m[2].length>8_500_000)throw Object.assign(new Error("La foto es demasiado grande. Usa una imagen menor de 6 MB."),{status:413});
+    parts.push({inlineData:{mimeType:m[1]==="image/jpg"?"image/jpeg":m[1],data:m[2]}});
+  }
+
+  const models=[env.GEMINI_IMAGE_MODEL||"gemini-2.5-flash-image", "gemini-3.1-flash-image"].filter((x,i,a)=>x&&a.indexOf(x)===i);
+  let lastError=null;
+  for(const model of models){
+    try{
+      const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":generateContent",{
+        method:"POST",
+        headers:{"content-type":"application/json","x-goog-api-key":apiKey},
+        body:JSON.stringify({
+          contents:[{parts}],
+          generationConfig:{
+            responseModalities:["IMAGE"],
+            responseFormat:{image:{aspectRatio:ratio}}
+          }
+        })
+      });
+      const raw=await r.text();let data=null;try{data=raw?JSON.parse(raw):null}catch{}
+      if(!r.ok){const e=new Error(data?.error?.message||("Gemini Image API error "+r.status));e.status=r.status;e.details=data;throw e}
+      const imagePart=data?.candidates?.[0]?.content?.parts?.find(x=>x?.inlineData?.data||x?.inline_data?.data);
+      const image=imagePart?.inlineData||imagePart?.inline_data;
+      if(!image?.data)throw Object.assign(new Error("Gemini no devolvió una imagen."),{status:502,details:data});
+      await incrementAiUsage(env,token,user.id,access);
+      return json({image:{mimeType:image.mimeType||image.mime_type||"image/png",data:image.data},model},200,corsHeaders(request));
+    }catch(err){
+      lastError=err;
+      if(![429,500,502,503,504].includes(Number(err?.status)))break;
+    }
+  }
+  throw Object.assign(new Error("No se pudo generar el banner con IA: "+String(lastError?.message||"Gemini no disponible.").slice(0,500)),{status:lastError?.status||502,details:lastError?.details||null});
+}
+
+function marketingAi(request,env){
   if(request.method!=="POST")return json({error:"Método no permitido"},405);
   const {token,user}=await authUser(request,env),access=await entitlement(env,token,user.id);
   if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request));
@@ -3101,6 +3175,7 @@ export default{
       }
     }
     if(url.pathname==="/api/marketing-ai"){try{return await marketingAi(request,env)}catch(err){return json({error:err?.message||"No se pudo generar la publicidad.",detail:err?.details||null},err?.status||500,headers)}}
+    if(url.pathname==="/api/marketing-image"){try{return await marketingImage(request,env)}catch(err){return json({error:err?.message||"No se pudo generar el banner con IA.",detail:err?.details||null},err?.status||500,headers)}}
     if(url.pathname==="/api/telegram/diagnostics"){return telegramDiagnostics(request,env)}
     if(url.pathname==="/api/telegram/setup"){
       if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);

@@ -266,6 +266,7 @@ async function recentMessages(env,token,userId,conversationId){
   const url=new URL(env.SUPABASE_URL+"/rest/v1/marc_messages");
   url.searchParams.set("select","role,content,created_at,conversation_id");
   url.searchParams.set("user_id","eq."+userId);
+  if(conversationId)url.searchParams.set("conversation_id","eq."+conversationId);
   url.searchParams.set("order","created_at.desc");
   url.searchParams.set("limit","20");
   const rows=await sb(env,token,url.pathname.slice("/rest/v1/".length)+url.search);
@@ -331,9 +332,9 @@ function deterministicIntent(message){
 async function plan(env,message,history){
   const deterministic=deterministicIntent(message);
   if(deterministic)return deterministic;
-  const context=history.map(x=>x.role+":"+x.content).join("\n").slice(-6000);
+  const context=history.map((x,i)=>"["+i+"] "+x.role+":"+x.content).join("\n").slice(-8000);
   const prompt={messages:[
-    {role:"system",content:'Eres el enrutador de M.A.R.C. Devuelve SOLO JSON válido, sin markdown ni explicación. Convierte lenguaje natural en una sola acción segura. Acciones: SEARCH_CLIENTS, SEARCH_INVENTORY, LIST_QUOTES, CASH_STATUS, CASH_LAST_CLOSE, CREATE_CLIENT, CREATE_QUOTE, ADJUST_INVENTORY, CHAT. Para cualquier consulta, pregunta o solicitud de revisar, usa una acción de consulta. Solo usa execute=true para una operación que el usuario pidió explícitamente ejecutar. Nunca inventes IDs, precios, stock, clientes o productos. Para CREATE_QUOTE: items es un arreglo. Producto {type:"PRODUCTO",inventory_query:"texto",quantity:number,unit_price:number|null}; Trabajo {type:"TRABAJO",name:"texto",quantity:number,unit_price:number|null}. Para ADJUST_INVENTORY type es ENTRADA, SALIDA o AJUSTE. Formato: {"action":"CHAT","execute":false,"params":{}}'},
+    {role:"system",content:'Eres el enrutador de M.A.R.C. Devuelve SOLO JSON válido, sin markdown ni explicación. Convierte lenguaje natural en una sola acción segura. Usa el historial reciente como contexto conversacional real: si el usuario dice "el primero", "el segundo", "ese", "esa", "ahí", "lo anterior", "el mismo", "también", "ahora", "cuánto es", etc., resuelve el referente usando el último resultado relevante del historial. No inventes referentes: si hay más de una interpretación posible, usa CHAT y pide una aclaración breve. Acciones: SEARCH_CLIENTS, SEARCH_INVENTORY, LIST_QUOTES, CASH_STATUS, CASH_LAST_CLOSE, CREATE_CLIENT, CREATE_QUOTE, ADJUST_INVENTORY, CHAT. Para cualquier consulta, pregunta o solicitud de revisar, usa una acción de consulta. Solo usa execute=true para una operación que el usuario pidió explícitamente ejecutar. Nunca inventes IDs, precios, stock, clientes o productos. Para CREATE_QUOTE: items es un arreglo. Producto {type:"PRODUCTO",inventory_query:"texto",quantity:number,unit_price:number|null}; Trabajo {type:"TRABAJO",name:"texto",quantity:number,unit_price:number|null}. Para ADJUST_INVENTORY type es ENTRADA, SALIDA o AJUSTE. Formato: {"action":"CHAT","execute":false,"params":{}}'},
     ...(context?[{role:"user",content:"Historial reciente:\n"+context}]:[]),
     {role:"user",content:message}
   ]};
@@ -432,7 +433,7 @@ async function finalReply(env,message,planData){
     return "Cotizaciones recientes:\n\n"+result.slice(0,8).map(x=>"• "+String(x.number||"Sin número")+" — "+String(x.title||"Cotización")+" — S/ "+Number(x.total||0).toFixed(2)+" — "+String(x.status||"BORRADOR")).join("\n");
   }
   const prompt={messages:[
-    {role:"system",content:'Eres M.A.R.C., copiloto operativo. Responde en español claro, profesional y breve. Usa exclusivamente los datos de RESULTADO. No inventes nada. Si status=NEEDS_INPUT, pregunta exactamente por el dato faltante. Si status=AMBIGUOUS, presenta las opciones y pide elegir. Si status=CREATED o UPDATED, confirma la operación con los datos entregados. Si es una consulta, muestra los resultados útiles. No hables del plan, rol, suscripción o estado de ejecución salvo que la solicitud trate sobre ello. No describas herramientas internas ni digas que eres un modelo.'},
+    {role:"system",content:'Eres M.A.R.C., copiloto operativo. Responde en español claro, profesional y breve. Usa exclusivamente los datos de RESULTADO y la SOLICITUD. Si la solicitud es una continuación de la conversación ("el segundo", "ese", "ahora cuánto", "y el otro", etc.), responde directamente a esa continuación usando el resultado actual y no repitas explicaciones innecesarias. No inventes nada. Si status=NEEDS_INPUT, pregunta exactamente por el dato faltante. Si status=AMBIGUOUS, presenta las opciones y pide elegir. Si status=CREATED o UPDATED, confirma la operación con los datos entregados. Si es una consulta, muestra los resultados útiles. No hables del plan, rol, suscripción o estado de ejecución salvo que la solicitud trate sobre ello. No describas herramientas internas ni digas que eres un modelo.'},
     {role:"user",content:"SOLICITUD:\n"+message+"\n\nRESULTADO:\n"+normalizeData(planData)}
   ]};
   const out=await geminiGenerate(env,prompt,{maxTokens:700});
@@ -843,7 +844,7 @@ async function telegramWebhook(request,env,ctx){
   if(!answer)answer="Listo. ¿Qué necesitas revisar?";
   await sb(env,adminToken,"marc_messages",{method:"POST",body:{
     conversation_id:conversationId,user_id:userId,role:"ASSISTANT",content:answer,action_type:executed?.action||"CHAT",
-    action_payload:{channel:"TELEGRAM",result:executed?.result||null}
+    action_payload:{channel:"TELEGRAM",action:executed?.action||"CHAT",plan:pl||null,result:executed?.result||null}
   }}).catch(()=>{});
   await sb(env,adminToken,"marc_conversations?id="+encodeURIComponent(conversationId)+"&user_id="+encodeURIComponent(userId),{
     method:"PATCH",body:{updated_at:new Date().toISOString()}

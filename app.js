@@ -2123,74 +2123,37 @@ async function marketing(){
   if(error){toast(error.message,"err");return}
   const list=products||[];
   const saved=JSON.parse(localStorage.getItem("marc_marketing_last")||"null");
-  $("#content").innerHTML=`
-    <div class="head">
-      <div><div class="eyebrow2">CENTRO DE PUBLICIDAD</div><h1>Publicidad que sale de tu inventario.</h1><p>Selecciona un producto, define el objetivo y M.A.R.C. crea el texto comercial y un banner listo para descargar.</p></div>
-      <button class="secondary" id="marketingClear">Limpiar</button>
-    </div>
-    <div class="marketing-layout">
+  $("#content").innerHTML=\`
+    <div class="head marketing-hero"><div><div class="eyebrow2">CENTRO DE PUBLICIDAD</div><h1>Convierte tus productos en clientes</h1><p>Sube una foto, cuéntale a M.A.R.C. qué quieres publicar y la IA mejorará la información, creará los textos y preparará banners listos para usar.</p></div><button class="secondary" id="marketingClear">Limpiar</button></div>
+    <div class="marketing-benefits"><div><b>✦ IA que mejora tu contenido</b><small>Descripción profesional y comercial</small></div><div><b>✓ Tu información automática</b><small>Logo, teléfono y datos de tu empresa</small></div><div><b>◈ Múltiples diseños</b><small>3 propuestas visuales para elegir</small></div><div><b>▣ Listo para publicar</b><small>WhatsApp, Instagram, Facebook y más</small></div></div>
+    <div class="marketing-layout marketing-layout-v2">
       <section class="card panel marketing-form-card">
-        <div class="eyebrow2">1 · PRODUCTO Y CAMPAÑA</div>
-        <div class="form-grid">
-          <label>Producto<input id="adProductSearch" placeholder="Busca por nombre, marca o modelo…"></label>
-          <label>Producto del inventario
-            <select id="adProduct">${list.length?list.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+(p.sku?" · "+esc(p.sku):"")+'</option>').join(""):'<option value="">No hay productos activos</option>'}</select>
-          </label>
-          <label>¿Dónde lo vas a publicar?
-            <select id="adPlatform"><option value="INSTAGRAM">Instagram</option><option value="FACEBOOK">Facebook</option><option value="WHATSAPP">WhatsApp</option><option value="TIKTOK">TikTok</option><option value="MARKETPLACE">Marketplace</option></select>
-          </label>
-          <label>Formato
-            <select id="adFormat"><option value="1080x1080">Cuadrado · 1:1</option><option value="1080x1350">Post vertical · 4:5</option><option value="1080x1920">Historia · 9:16</option></select>
-          </label>
-        </div>
-        <label style="margin-top:12px"><b>Cuéntale a M.A.R.C. qué quieres publicar</b><textarea id="adDetails" rows="6" placeholder="Ejemplo: Quiero promocionar esta cámara para hogares y pequeños negocios. Que se vea moderna y confiable. Precio S/ 189 e instalación desde S/ 80. Quiero que me escriban por WhatsApp."></textarea></label>
-        <div class="marketing-brief-hints">
-          <span>💡 Puedes escribirlo como hablas normalmente.</span>
-          <button type="button" class="secondary" data-ad-hint="Quiero vender este producto destacando sus principales beneficios y que me contacten por WhatsApp.">Vender producto</button>
-          <button type="button" class="secondary" data-ad-hint="Quiero una publicidad profesional para empresas, resaltando el uso del producto y generando consultas.">Para empresas</button>
-          <button type="button" class="secondary" data-ad-hint="Quiero una publicidad llamativa con oferta, precio y llamada a la acción.">Con oferta</button>
-        </div>
-        <details class="marketing-advanced" style="margin-top:12px">
-          <summary>⚙ Opciones avanzadas</summary>
-          <div class="form-grid" style="margin-top:10px">
-            <label>Objetivo<select id="adObjective"><option>VENDER</option><option>GENERAR CONSULTAS</option><option>PROMOCIONAR PRODUCTO</option><option>REACTIVAR CLIENTES</option></select></label>
-            <label>Tono<select id="adTone"><option>PROFESIONAL</option><option>DIRECTO Y COMERCIAL</option><option>AMIGABLE</option><option>PREMIUM</option><option>URGENTE</option></select></label>
-            <label>Público objetivo<input id="adAudience" placeholder="Déjalo vacío y M.A.R.C. lo propone"></label>
-            <label>Oferta / precio especial<input id="adOffer" placeholder="Opcional; también puede salir del texto"></label>
-            <label>CTA<input id="adCta" value="Escríbenos para cotizar"></label>
-            <label>Diseño<select id="adTemplate"><option value="MODERN">Moderno</option><option value="OFFER">Oferta</option><option value="CORPORATE">Corporativo</option></select></label>
-          </div>
-        </details>
-        <div class="marketing-photo-row">
-          <label class="file-btn secondary">📷 Foto del producto<input id="adImage" type="file" accept="image/jpeg,image/png,image/webp" hidden></label>
-          <span id="adImageName">Opcional: la IA puede crear la escena visual desde cero.</span>
-        </div>
-        <div class="modal-actions" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
-          <button class="primary" id="generateAd" ${list.length?"":"disabled"}>✦ Crear campaña + banner con IA</button>
-          <button class="secondary" id="generateTextAd" ${list.length?"":"disabled"}>Crear solo textos</button>
-        </div>        <div id="adStatus" class="msg"></div>
+        <div class="marketing-step-title"><span>1</span><div><b>Sube la foto de tu producto</b><small>Usa la cámara del teléfono o elige una imagen.</small></div><button class="secondary" id="marketingPhotoClear" type="button">Limpiar</button></div>
+        <div class="marketing-photo-picker"><div class="marketing-photo-preview" id="adPhotoPreview"><span>📦</span><b>Sin foto</b><small>La IA puede crear la escena desde cero.</small></div><div class="marketing-photo-actions"><label class="marketing-camera-btn"><span>📷</span><b>Tomar foto</b><small>Abre la cámara del teléfono</small><input id="adImageCamera" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden></label><label class="marketing-camera-btn secondary"><span>🖼️</span><b>Subir de galería</b><small>JPG, PNG o WEBP · máx. 6 MB</small><input id="adImage" type="file" accept="image/jpeg,image/png,image/webp" hidden></label></div></div>
+        <div class="marketing-photo-analysis" id="adPhotoAnalysis" hidden><div><b>La foto está lista para analizar</b><small>M.A.R.C. puede identificar el producto y mejorar la descripción.</small></div><button class="primary" id="analyzeAdPhoto" type="button">✦ Analizar y mejorar con IA</button></div>
+        <div class="marketing-inventory-row"><label><b>Producto del inventario</b><select id="adProduct">\${list.length?list.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+(p.sku?" · "+esc(p.sku):"")+'</option>').join(""):'<option value="">Puedes trabajar solo con la foto</option>'}</select></label><label><b>Buscar</b><input id="adProductSearch" placeholder="Nombre, marca o modelo…"></label></div>
+        <div class="marketing-step-title"><span>2</span><div><b>Cuéntale a M.A.R.C. qué quieres publicar</b><small>Escríbelo como hablas normalmente; la IA completará y mejorará lo necesario.</small></div></div>
+        <label><textarea id="adDetails" rows="6" placeholder="Ejemplo: Quiero promocionar esta cámara para casas y pequeños negocios. Que se vea moderna y confiable. Quiero que me contacten por WhatsApp."></textarea></label>
+        <div class="marketing-brief-hints"><span>Ejemplos rápidos:</span><button type="button" class="secondary" data-ad-hint="Quiero vender este producto destacando sus principales beneficios y que me contacten por WhatsApp.">Vender producto</button><button type="button" class="secondary" data-ad-hint="Quiero una publicidad profesional para empresas y generar consultas.">Para empresas</button><button type="button" class="secondary" data-ad-hint="Quiero una publicidad llamativa con oferta, precio y llamada a la acción.">Con oferta</button><button type="button" class="secondary" data-ad-hint="Quiero promocionar este producto como un nuevo servicio.">Nuevo servicio</button></div>
+        <div class="marketing-step-title"><span>3</span><div><b>Selecciona dónde publicar</b><small>El diseño se adapta al canal elegido.</small></div></div>
+        <div class="marketing-platforms"><button type="button" class="marketing-platform" data-platform="WHATSAPP">🟢<span>WhatsApp</span></button><button type="button" class="marketing-platform active" data-platform="INSTAGRAM">◎<span>Instagram</span></button><button type="button" class="marketing-platform" data-platform="FACEBOOK">f<span>Facebook</span></button><button type="button" class="marketing-platform" data-platform="TIKTOK">♪<span>TikTok</span></button><button type="button" class="marketing-platform" data-platform="MARKETPLACE">•••<span>Más</span></button></div>
+        <select id="adPlatform" class="marketing-hidden-control"><option value="WHATSAPP">WhatsApp</option><option value="INSTAGRAM" selected>Instagram</option><option value="FACEBOOK">Facebook</option><option value="TIKTOK">TikTok</option><option value="MARKETPLACE">Marketplace</option></select>
+        <div class="marketing-step-title"><span>4</span><div><b>Formato del banner</b><small>Elige la proporción que necesitas.</small></div></div>
+        <div class="marketing-formats"><button type="button" class="marketing-format active" data-format="1080x1080"><b>□</b><span>Cuadrado</span><small>1:1</small></button><button type="button" class="marketing-format" data-format="1080x1350"><b>▯</b><span>Vertical</span><small>4:5</small></button><button type="button" class="marketing-format" data-format="1080x1920"><b>▯</b><span>Historia</span><small>9:16</small></button></div>
+        <select id="adFormat" class="marketing-hidden-control"><option value="1080x1080">Cuadrado · 1:1</option><option value="1080x1350">Post vertical · 4:5</option><option value="1080x1920">Historia · 9:16</option></select>
+        <details class="marketing-advanced"><summary>⚙ Opciones avanzadas</summary><div class="form-grid" style="margin-top:10px"><label>Objetivo<select id="adObjective"><option>VENDER</option><option>GENERAR CONSULTAS</option><option>PROMOCIONAR PRODUCTO</option><option>REACTIVAR CLIENTES</option></select></label><label>Tono<select id="adTone"><option>PROFESIONAL</option><option>DIRECTO Y COMERCIAL</option><option>AMIGABLE</option><option>PREMIUM</option><option>URGENTE</option></select></label><label>Público objetivo<input id="adAudience" placeholder="Déjalo vacío y M.A.R.C. lo propone"></label><label>Oferta / precio especial<input id="adOffer" placeholder="Opcional; también puede salir del texto"></label><label>CTA<input id="adCta" value="Escríbenos para cotizar"></label><label>Diseño<select id="adTemplate"><option value="MODERN">Moderno</option><option value="OFFER">Oferta</option><option value="CORPORATE">Corporativo</option></select></label></div></details>
+        <div class="modal-actions marketing-generate-actions"><button class="primary marketing-main-generate" id="generateAd">✦ Generar 3 propuestas con IA</button><button class="secondary" id="generateTextAd">Crear solo textos</button></div><div id="adStatus" class="msg"></div>
       </section>
       <section class="card panel marketing-preview-card">
-        <div class="eyebrow2">2 · BANNER PUBLICITARIO</div>
-        <div class="marketing-canvas-wrap"><canvas id="adCanvas" width="1080" height="1080"></canvas></div><div id="adVariants" class="marketing-variants" aria-live="polite"></div>
-        <div class="marketing-banner-actions"><button class="primary" id="downloadAd" disabled>↓ Descargar PNG</button><button class="secondary" id="copyBanner">Copiar texto</button><button class="secondary" id="shareAd">Compartir</button></div>
-        <small id="bannerHint" class="muted-small">Genera una campaña para preparar el banner.</small>
+        <div class="marketing-step-title"><span>5</span><div><b>Vista previa del banner</b><small>M.A.R.C. aplica tu logo y datos de contacto automáticamente.</small></div></div>
+        <div class="marketing-company-strip"><span class="marketing-company-logo" id="adCompanyLogo"></span><div><b id="adCompanyName">\${esc(companyData?.business_name||"Tu empresa")}</b><small id="adCompanyContact">\${esc(companyData?.phone||"Datos de contacto del perfil")}</small></div><span>✓ Datos automáticos</span></div>
+        <div class="marketing-canvas-wrap"><canvas id="adCanvas" width="1080" height="1080"></canvas></div><div id="adVariants" class="marketing-variants" aria-live="polite"></div><div class="marketing-banner-actions"><button class="primary" id="downloadAd" disabled>↓ Descargar PNG</button><button class="secondary" id="copyBanner">Copiar texto</button><button class="secondary" id="shareAd">Compartir</button></div><small id="bannerHint" class="muted-small">Sube una foto y cuéntale a M.A.R.C. qué quieres publicar.</small>
       </section>
     </div>
-    <section class="card panel marketing-copy-card">
-      <div class="eyebrow2">3 · MENSAJES PUBLICITARIOS</div>
-      <div class="marketing-copy-grid">
-        <article><div class="marketing-copy-head"><b>Texto principal</b><button class="secondary" data-copy="primary_text">Copiar</button></div><p id="adPrimary">—</p></article>
-        <article><div class="marketing-copy-head"><b>WhatsApp</b><button class="secondary" data-copy="whatsapp_text">Copiar</button></div><p id="adWhatsapp">—</p></article>
-        <article><div class="marketing-copy-head"><b>Texto corto</b><button class="secondary" data-copy="short_text">Copiar</button></div><p id="adShort">—</p></article>
-        <article><div class="marketing-copy-head"><b>Hashtags</b><button class="secondary" data-copy="hashtags">Copiar</button></div><p id="adHashtags">—</p></article>
-      </div>
-    </section>
-    <section class="card panel marketing-history">
-      <div class="panel-title-row"><div><div class="eyebrow2">HISTORIAL</div><h3>Últimas campañas creadas</h3></div></div>
-      <div id="marketingHistory" class="marketing-history-list"><span class="muted-small">Cargando…</span></div>
-    </section>
-  `;
+    <section class="card panel marketing-copy-card"><div class="eyebrow2">6 · PROPUESTAS DE TEXTO</div><div class="marketing-copy-grid"><article><div class="marketing-copy-head"><b>Texto principal</b><button class="secondary" data-copy="primary_text">Copiar</button></div><p id="adPrimary">—</p></article><article><div class="marketing-copy-head"><b>WhatsApp</b><button class="secondary" data-copy="whatsapp_text">Copiar</button></div><p id="adWhatsapp">—</p></article><article><div class="marketing-copy-head"><b>Texto corto</b><button class="secondary" data-copy="short_text">Copiar</button></div><p id="adShort">—</p></article><article><div class="marketing-copy-head"><b>Hashtags</b><button class="secondary" data-copy="hashtags">Copiar</button></div><p id="adHashtags">—</p></article></div></section>
+    <section class="card panel marketing-company-footer"><div><b>✓ Datos de tu empresa aplicados automáticamente</b><small>Logo, nombre, teléfono y datos disponibles en tu perfil empresarial.</small></div><button class="secondary" type="button" id="marketingCompanyInfo">Ver datos de contacto</button></section>
+    <section class="card panel marketing-history"><div class="panel-title-row"><div><div class="eyebrow2">HISTORIAL</div><h3>Últimas campañas creadas</h3></div></div><div id="marketingHistory" class="marketing-history-list"><span class="muted-small">Cargando…</span></div></section>
+  \`;
 
   let currentCampaign=saved?.campaign||null,currentProduct=list.find(p=>p.id===saved?.productId)||list[0]||null,currentImage=null,currentImageFile=null,currentAiImage=null,currentAiVariants=[],currentAiVariantIndex=0,company=companyData||{};
   const $p=id=>document.getElementById(id);

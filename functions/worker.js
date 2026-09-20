@@ -393,6 +393,11 @@ async function plan(env,message,history,entityContext={}){
     }
     if(reference.type==="product" && /\b(stock|cuanto|cuánta|cuanto tiene|precio|cuesta)\b/.test(s))
       return {action:"SEARCH_INVENTORY",execute:false,params:{query:item.id}};
+    if(reference.type==="client" && /\b(cotiz|proforma|presupuesto)\b/.test(s)){
+      const hasWork=/\b(instal|manten|repar|configur|servicio|trabajo|venta|suministr|cambi|pod|limpi|cable|camar|red|mano de obra)\w*/.test(s);
+      if(!hasWork)return {action:"CHAT",execute:false,params:{clarification:"Claro. ¿Qué trabajo o servicio quieres cotizarle a "+String(item.name||"ese cliente")+"?"}};
+      return {action:"CREATE_QUOTE",execute:false,params:{client_query:item.id,items:[]}};
+    }
     if(reference.type==="client")return {action:"SEARCH_CLIENTS",execute:false,params:{query:item.id}};
   }
   const deterministic=deterministicIntent(message);
@@ -439,8 +444,8 @@ async function executePlan(env,token,user,pl,source="AI_AGENT"){
   if(action==="SEARCH_INVENTORY"){if(p.summary){const [count,items]=await Promise.all([countInventory(env,token,user.id),searchInventory(env,token,user.id,"",8)]);return {action,result:{count,items}};}return {action,result:await searchInventory(env,token,user.id,p.query||"")};}
   if(action==="INVENTORY_INSIGHT")return {action,result:await inventoryInsight(env,token,user.id,String(p.kind||"").toUpperCase())};
   if(action==="LIST_QUOTES")return {action,result:await listQuotes(env,token,user.id)};
-  if(action==="CREATE_CLIENT")return {action,result:pl.execute?await createClient(env,token,user.id,p,source):{status:"PREVIEW",params:p}};
-  if(action==="CREATE_QUOTE")return {action,result:pl.execute?await createQuote(env,token,user.id,p,source):{status:"PREVIEW",params:p}};
+  if(action==="CREATE_CLIENT")return {action,result:{status:"CONFIRMATION_REQUIRED",params:p}};
+  if(action==="CREATE_QUOTE")return {action,result:{status:"CONFIRMATION_REQUIRED",params:p}};
   if(action==="ADJUST_INVENTORY")return {action,result:{status:"CONFIRMATION_REQUIRED",params:p}};
   return {action:"CHAT",result:null};
 }
@@ -890,14 +895,38 @@ async function telegramWebhook(request,env,ctx){
     const conversationId=await ensureTelegramConversation(env,adminToken,userId);
     const ctxMem=await getConversationContext(env,adminToken,userId,conversationId);
     const pending=ctxMem?.pending_action;
-    if(pending?.action==="ADJUST_INVENTORY" && pending?.params){
+    if(pending?.action && pending?.params){
       try{
-        const done=await adjustInventory(env,adminToken,userId,pending.params,"TELEGRAM");
+        let done;
+        if(pending.action==="ADJUST_INVENTORY")done=await adjustInventory(env,adminToken,userId,pending.params,"TELEGRAM");
+        else if(pending.action==="CREATE_CLIENT")done=await createClient(env,adminToken,userId,pending.params,"TELEGRAM");
+        else if(pending.action==="CREATE_QUOTE")done=await createQuote(env,adminToken,userId,pending.params,"TELEGRAM");
+        else throw new Error("Operación pendiente no reconocida.");
         await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:null});
-        const item=done?.item||{};
-        await sendTelegram(env,chatId,"✅ Movimiento de inventario realizado.\n\n📦 "+String(item.name||pending.params.inventory_query||"Producto")+"\n🔄 "+pending.params.type+" · "+pending.params.quantity);
-      }catch(e){await sendTelegram(env,chatId,"⚠️ No pude realizar el movimiento de inventario. Inténtalo nuevamente.");}
-      return json({ok:true,fastPath:"confirm_inventory"},200);
+        if(pending.action==="ADJUST_INVENTORY"){
+          const item=done?.item||{};
+          await sendTelegram(env,chatId,"✅ Movimiento de inventario realizado.\n\n📦 "+String(item.name||pending.params.inventory_query||"Producto")+"\n🔄 "+pending.params.type+" · "+pending.params.quantity);
+        }else if(pending.action==="CREATE_CLIENT"){
+          const client=done?.client||{};
+          await sendTelegram(env,chatId,"✅ Cliente registrado.\n\n👤 "+String(client.name||pending.params.name||"Cliente")+(client.phone?"\n📞 "+client.phone:""));
+        }else{
+          const q=done?.quote||{};
+          await sendTelegram(env,chatId,"✅ Cotización creada.\n\n🧾 "+String(q.number||"Cotización")+"\n"+String(q.title||pending.params.title||"Cotización")+"\n💰 "+moneyText(q.total||0));
+        }
+      }catch(e){
+        await sendTelegram(env,chatId,"⚠️ No pude ejecutar la operación pendiente: "+String(e?.message||"error").slice(0,500));
+      }
+      return json({ok:true,fastPath:"confirm_pending_action"},200);
+    }
+  }
+
+  if(/^(no|nop|cancelar|cancela|cancel)$/i.test(incoming)){
+    const conversationId=await ensureTelegramConversation(env,adminToken,userId);
+    const ctxMem=await getConversationContext(env,adminToken,userId,conversationId);
+    if(ctxMem?.pending_action){
+      await saveConversationContext(env,adminToken,userId,{...ctxMem,pending_action:null});
+      await sendTelegram(env,chatId,"Operación cancelada. No se realizó ningún cambio.");
+      return json({ok:true,fastPath:"cancel_pending_action"},200);
     }
   }
 
@@ -913,7 +942,7 @@ async function telegramWebhook(request,env,ctx){
     pl=await plan(env,incoming,history,entityContext);
     executed=await executePlan(env,adminToken,{id:userId},pl,"TELEGRAM");
     const nextContext=buildEntityContext(executed,entityContext);
-    if(executed?.action==="ADJUST_INVENTORY" && executed?.result?.status==="CONFIRMATION_REQUIRED")nextContext.pending_action={action:"ADJUST_INVENTORY",params:executed.result.params,created_at:new Date().toISOString()};
+    if(executed?.result?.status==="CONFIRMATION_REQUIRED")nextContext.pending_action={action:executed.action,params:executed.result.params,created_at:new Date().toISOString()};
     await saveConversationContext(env,adminToken,userId,conversationId,nextContext);
     await incrementAiUsage(env,adminToken,userId,access);
     answer=String(await finalReply(env,incoming,{plan:pl,execution:executed,entitlement:access})||"").trim();

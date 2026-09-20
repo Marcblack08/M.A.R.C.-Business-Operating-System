@@ -1768,6 +1768,20 @@ body,
 .marketing-canvas-wrap{margin-top:12px;border:1px solid #dfe8f1;border-radius:16px;background:#eef3f8;display:grid;place-items:center;padding:10px;overflow:hidden}
 #adCanvas{width:100%;height:auto;max-height:58vh;display:block;border-radius:11px;box-shadow:0 14px 34px #193b5a18}
 .marketing-banner-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.marketing-variants{margin-top:12px;padding:11px;border:1px solid #dce7f1;border-radius:14px;background:#fbfdff}
+.marketing-variants-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px}
+.marketing-variants-head b{display:block;font-size:10px;color:#173653}
+.marketing-variants-head small{display:block;margin-top:3px;font-size:8px;color:#7d8ea1}
+.marketing-variants-head>span{font-size:8px;font-weight:800;color:#35627f;white-space:nowrap}
+.marketing-variants-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.marketing-variant{appearance:none;border:1px solid #dbe5ee;border-radius:11px;background:#fff;padding:5px;cursor:pointer;text-align:left;transition:transform .16s,border-color .16s,box-shadow .16s}
+.marketing-variant:hover{transform:translateY(-1px);border-color:#7fbbe3}
+.marketing-variant.active{border-color:#0879e8;box-shadow:0 0 0 2px #0879e81a}
+.marketing-variant img{width:100%;aspect-ratio:1/1;object-fit:cover;display:block;border-radius:8px;background:#eef3f8}
+.marketing-variant strong{display:block;margin:6px 3px 0;font-size:8px;color:#173653}
+.marketing-variant small{display:block;margin:2px 3px 3px;font-size:7px;color:#8191a2}
+@media(max-width:520px){.marketing-variants-grid{grid-template-columns:1fr 1fr}.marketing-variant:last-child{grid-column:1/-1}.marketing-variant:last-child img{aspect-ratio:16/9;object-fit:cover}}
+
 .marketing-copy-card{margin-top:16px}
 .marketing-copy-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
 .marketing-copy-grid article{border:1px solid #e2e9f1;border-radius:13px;padding:12px;background:#fbfdff;min-width:0}

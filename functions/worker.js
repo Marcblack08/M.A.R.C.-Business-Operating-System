@@ -1900,7 +1900,7 @@ async function telegramWebhook(request,env,ctx){
                 continue;
               }
             }
-            const add=op.match(/^(?:agrega|agregar|añade|anade|incluye|incluir|suma)\\s+(?:(\\d+(?:[.,]\\d+)?)\\s+)?(?:una\\s+)?(?:partida\\s+de\\s+)?(.+?)\\s+(?:a|por|en)\\s*(?:s\\/\\.?\\s*)?(\\d+(?:[.,]\\d{1,2})?)\\s*(?:soles?)?$/i);
+            const add=op.match(/^(?:agrega|agregar|añade|anade|incluye|incluir|suma)\s+(?:(\d+(?:[.,]\d+)?)\s+)?(?:una\s+)?(?:partida\s+de\s+)?(.+?)\s+(?:a|por|en)\s*(?:s\/\.?\s*)?(\d+(?:[.,]\d{1,2})?)\s*(?:soles?)?$/i);
             if(add){
               const quantity=Math.max(0.01,Number(String(add[1]||"1").replace(",","."))),name=String(add[2]||"").trim(),value=Number(String(add[3]||"").replace(",","."));
               if(name&&Number.isFinite(value)&&value>0){

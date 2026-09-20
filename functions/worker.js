@@ -489,7 +489,7 @@ async function plan(env,message,history,entityContext={},contextToken="",context
       }
       if(hit?.status==="FOUND"){
         const it=hit.item;
-        items.push({type:"PRODUCTO",inventory_query:it.name,name:it.name,description:null,quantity,unit_price:Number.isFinite(price)&&price>0?price:null});
+        items.push({type:"PRODUCTO",inventory_query:it.name,name:it.name,description:null,quantity,unit_price:Number.isFinite(price)&&price>0?price:null,gross_unit_price:Number.isFinite(grossPrice)&&grossPrice>0?grossPrice:null,price_includes_tax:taxIncluded,price_is_total:priceIsTotal});
       }else{
         items.push({type:"TRABAJO",name:cleaned.slice(0,180)||"Trabajo adicional",description:cleaned.slice(0,2000),quantity,unit_price:Number.isFinite(price)&&price>0?price:null});
       }
@@ -515,6 +515,7 @@ async function plan(env,message,history,entityContext={},contextToken="",context
     // Detecta el tratamiento fiscal solicitado en lenguaje natural.
     const taxIncluded=/\b(?:precio|precios|total|monto|importe)\b[^.\n]*\b(?:incluye|incluido|incluyendo|con)\s+(?:el\s+)?igv\b|\bcon\s+igv\b|\bigv\s+incluido\b/i.test(rawMessage);
     const taxExcluded=/\b(?:sin\s+igv|no\s+incluye\s+igv|mas\s+igv|más\s+igv)\b/i.test(rawMessage);
+    const taxIncluded=!taxExcluded && /\b(?:con\s+igv|igv\s+incluido|incluye\s+(?:el\s+)?igv)\b/i.test(rawMessage);
     const taxEnabled=!taxExcluded;
     const taxRateMatch=rawMessage.match(/\bigv\s*(?:de|al)?\s*(\d+(?:[.,]\d+)?)\s*%?/i);
     const taxRate=taxRateMatch?Number(taxRateMatch[1].replace(",",".")):18;
@@ -550,8 +551,10 @@ async function plan(env,message,history,entityContext={},contextToken="",context
 
       let price=null;
       let priceMatch=textPart.match(/(?:\b(?:a|por|precio|costo|total)\s*[:=]?\s*|\bs\/\.?\s*)(\d+(?:[.,]\d{1,2})?)(?:\s*(?:soles?|pen))?\s*$/i);
+      let priceIsTotal=false;
       if(priceMatch){
         price=Number(priceMatch[1].replace(",","."));
+        priceIsTotal=/\btotal\b/i.test(priceMatch[0]+" "+textPart);
         textPart=textPart.slice(0,priceMatch.index).trim();
       }else{
         // También acepta "mano de obra 300" o "instalación 850" al final.
@@ -563,6 +566,9 @@ async function plan(env,message,history,entityContext={},contextToken="",context
       }
 
       if(!textPart)continue;
+      if(price!==null && priceIsTotal && quantity>0)price=price/quantity;
+      const grossPrice=price;
+      if(price!==null && taxIncluded)price=price/(1+(taxRate/100));
       const inv=await resolveInventory(env,contextToken,contextUserId,textPart).catch(()=>null);
       if(inv?.status==="AMBIGUOUS"){
         return {action:"CHAT",execute:false,params:{clarification:"Encontré varios productos para «"+textPart+"». Indícame cuál quieres usar."}};
@@ -571,7 +577,7 @@ async function plan(env,message,history,entityContext={},contextToken="",context
         const it=inv.item;
         items.push({type:"PRODUCTO",inventory_query:it.name,name:it.name,description:null,quantity,unit_price:Number.isFinite(price)&&price>0?price:null});
       }else{
-        items.push({type:"TRABAJO",name:textPart.slice(0,180),description:textPart.slice(0,2000),quantity,unit_price:Number.isFinite(price)&&price>0?price:null});
+        items.push({type:"TRABAJO",name:textPart.slice(0,180),description:textPart.slice(0,2000),quantity,unit_price:Number.isFinite(price)&&price>0?price:null,gross_unit_price:Number.isFinite(grossPrice)&&grossPrice>0?grossPrice:null,price_includes_tax:taxIncluded,price_is_total:priceIsTotal});
       }
     }
 
@@ -663,14 +669,28 @@ async function finalReply(env,message,planData,userName=""){
       const items=Array.isArray(p.items)?p.items:[];
       const missingPrice=items.find(x=>String(x.type||"").toUpperCase()!=="PRODUCTO"&&(!Number.isFinite(Number(x.unit_price))||Number(x.unit_price)<=0));
       if(missingPrice)return "⚠️ Me falta el precio de: "+String(missingPrice.name||missingPrice.description||"Trabajo")+" .\n\nIndícame el precio, por ejemplo: «a 350 soles».";
-      const subtotal=items.reduce((s,x)=>s+Math.max(0,Number(x.quantity||1))*Math.max(0,Number(x.unit_price||0)),0);
       const taxEnabled=p.tax_enabled!==false;
       const taxRate=Number(p.tax_rate||18);
+      const taxIncluded=Boolean(p.tax_included);
+      const subtotal=items.reduce((s,x)=>{
+        const qty=Math.max(0,Number(x.quantity||1)),unit=Math.max(0,Number(x.unit_price||0));
+        return s+qty*unit;
+      },0);
       const igv=taxEnabled?subtotal*taxRate/100:0;
       const total=subtotal+igv;
-      const rows=items.map((x,i)=>"• "+(i+1)+". "+String(x.name||x.description||"Partida")+" · "+Number(x.quantity||1)+" × S/ "+Number(x.unit_price||0).toFixed(2)+" = S/ "+(Number(x.quantity||1)*Number(x.unit_price||0)).toFixed(2));
+      const grossSubtotal=items.reduce((s,x)=>{
+        const qty=Math.max(0,Number(x.quantity||1));
+        const unit=Number.isFinite(Number(x.gross_unit_price))&&Number(x.gross_unit_price)>0?Number(x.gross_unit_price):Number(x.unit_price||0);
+        return s+qty*unit;
+      },0);
+      const rows=items.map((x,i)=>{
+        const qty=Number(x.quantity||1);
+        const shownUnit=taxIncluded&&Number(x.gross_unit_price)>0?Number(x.gross_unit_price):Number(x.unit_price||0);
+        const line=taxIncluded&&Number(x.gross_unit_price)>0?shownUnit*qty:Number(x.unit_price||0)*qty;
+        return "• "+(i+1)+". "+String(x.name||x.description||"Partida")+" · "+qty+" × S/ "+shownUnit.toFixed(2)+" = S/ "+line.toFixed(2);
+      });
       return "⚠️ PREPARÉ ESTA COTIZACIÓN\n\n👤 Cliente: "+String(p.client_name||p.client_query||"seleccionado")+"\n🧾 "+String(p.title||"Cotización")+"\n\n"+(rows.length?rows.join("\n"):"• Falta agregar una partida")+
-        "\n\nSubtotal: S/ "+subtotal.toFixed(2)+"\n"+(taxEnabled?"IGV "+taxRate+"%: S/ "+igv.toFixed(2)+"\n":"IGV: No incluido\n")+"💰 TOTAL: S/ "+total.toFixed(2)+
+        "\n\n"+(taxIncluded?"Base imponible: S/ "+subtotal.toFixed(2)+"\nIGV "+taxRate+"% incluido: S/ "+(total-subtotal).toFixed(2)+"\n💰 TOTAL CON IGV: S/ "+total.toFixed(2):"Subtotal: S/ "+subtotal.toFixed(2)+"\n"+(taxEnabled?"IGV "+taxRate+"%: S/ "+igv.toFixed(2)+"\n":"IGV: No incluido\n")+"💰 TOTAL: S/ "+total.toFixed(2))+
         "\n\nResponde «sí» para crearla, «agrega ...» para añadir otra partida, o «cancelar» para no realizar cambios.";
     }
   }

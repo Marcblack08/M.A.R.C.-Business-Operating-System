@@ -1683,6 +1683,63 @@ async function telegramWebhook(request,env,ctx){
             return json({ok:true,fastPath:"quote_item_choice"},200);
           }
         }
+        // Operaciones múltiples sobre partidas: agregar y/o eliminar varias en un solo mensaje.
+        // Se ejecutan sobre el borrador en memoria y se solicita una única confirmación.
+        const multiOps=text.split(/\\s+(?:y|ademas|además|tambien|también)\\s+/i).map(s=>s.trim()).filter(Boolean);
+        if(multiOps.length>=2){
+          let multiItems=[...items],multiChanged=false,multiLabels=[];
+          for(const op of multiOps){
+            const rm=op.match(/^(?:quita|quitar|elimina|eliminar|borra|borrar)\\s+(?:la|el|partida|servicio|producto)?\\s*(.+?)\\s*$/i);
+            if(rm){
+              const hit=findQuoteItem(rm[1].trim());
+              if(hit.status==="AMBIGUOUS"){
+                const opts=(hit.options||[]).slice(0,5);
+                const pendingParams={...p,_pending_quote_item_target:{query:rm[1].trim(),options:opts.map(a=>({i:a.i,x:a.x})),multi_ops:multiOps}};
+                await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:pendingParams}});
+                await sendTelegram(env,chatId,"🧾 Hay varias partidas que coinciden con «"+rm[1].trim()+"». Elige una opción (1–"+opts.length+").");
+                return json({ok:true,fastPath:"quote_multi_ops_ambiguous"},200);
+              }
+              if(hit.status==="FOUND"){
+                const target=multiItems[hit.index];
+                multiItems=multiItems.filter((_,i)=>i!==hit.index);
+                multiChanged=true;multiLabels.push("🗑️ "+String(target.name||target.description||"Partida"));
+                continue;
+              }
+            }
+            const add=op.match(/^(?:agrega|agregar|añade|anade|incluye|incluir|suma)\\s+(?:(\\d+(?:[.,]\\d+)?)\\s+)?(?:una\\s+)?(?:partida\\s+de\\s+)?(.+?)\\s+(?:a|por|en)\\s*(?:s\\/\\.?\\s*)?(\\d+(?:[.,]\\d{1,2})?)\\s*(?:soles?)?$/i);
+            if(add){
+              const quantity=Math.max(0.01,Number(String(add[1]||"1").replace(",","."))),name=String(add[2]||"").trim(),value=Number(String(add[3]||"").replace(",","."));
+              if(name&&Number.isFinite(value)&&value>0){
+                const hit=await resolveInventory(env,adminToken,userId,name);
+                if(hit.status==="AMBIGUOUS"){
+                  const opts=(hit.options||[]).slice(0,5);
+                  const pendingParams={...p,_pending_inventory_add:{name,quantity,value,options:opts},_multi_ops:multiOps};
+                  await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:pendingParams}});
+                  await sendTelegram(env,chatId,"📦 Hay varios productos para «"+name+"». Elige uno (1–"+opts.length+").");
+                  return json({ok:true,fastPath:"quote_multi_ops_inventory_ambiguous"},200);
+                }
+                const product=hit.status==="FOUND"?hit.item:null;
+                const item=product
+                  ?{type:"PRODUCTO",inventory_id:product.id,name:product.name,description:null,quantity,unit:product.unit||"UND",unit_price:value,cost:Number(product.cost||0)}
+                  :{type:"TRABAJO",name:name.slice(0,180),description:name.slice(0,2000),quantity,unit:"UND",unit_price:value};
+                multiItems.push(item);multiChanged=true;
+                multiLabels.push("➕ "+quantity+" × "+String(item.name||name)+" · S/ "+value.toFixed(2));
+                continue;
+              }
+            }
+            // Si una cláusula no es una operación soportada, dejamos que los manejadores normales la procesen.
+            multiChanged=false;break;
+          }
+          if(multiChanged){
+            const nextParams={...p,items:multiItems};
+            delete nextParams._selected_quote_item_index; delete nextParams._pending_quote_item_target; delete nextParams._multi_ops;
+            await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:nextParams}});
+            await sendTelegram(env,chatId,"🧾 Apliqué los cambios en la cotización:\n\n"+multiLabels.join("\n")+
+              "\n\nPuede seguir editando o responder «sí» para guardar todos los cambios.");
+            return json({ok:true,fastPath:"quote_multi_ops"},200);
+          }
+        }
+
         const selectedIndex=Number.isInteger(p._selected_quote_item_index)?p._selected_quote_item_index:null;
 
         // Varias modificaciones en una sola instrucción.

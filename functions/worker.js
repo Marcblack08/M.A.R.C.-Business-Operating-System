@@ -1743,6 +1743,26 @@ async function telegramWebhook(request,env,ctx){
         return json({ok:true,fastPath:"quote_update_undo"},200);
       }
 
+        if(/^(?:pdf|pásame el pdf|pasame el pdf|envíame el pdf|enviame el pdf|mándame el pdf|mandame el pdf|genera el pdf|generame el pdf|descarga el pdf|descargar pdf)$/i.test(text)){
+          const p=pending.params,items=Array.isArray(p.items)?p.items:[];
+          try{
+            const taxEnabled=p.tax_enabled===undefined?true:Boolean(p.tax_enabled),rate=Number(p.tax_rate||18);
+            let subtotal=0;
+            for(const it of items)subtotal+=Math.max(0,Number(it.quantity||0))*Math.max(0,Number(it.unit_price||0));
+            const tax=taxEnabled?subtotal*rate/100:0;
+            const quote={id:p.quote_id||null,number:p.quote_number||"BORRADOR",title:p.title||"Cotización",status:p.status||"BORRADOR",subtotal,tax_amount:tax,total:subtotal+tax,tax_enabled:taxEnabled,tax_rate:rate,tax_included:Boolean(p.tax_included),notes:p.notes||null};
+            const client={id:p.client_id||null,name:p.client_name||p.client_query||"Cliente"};
+            const company=await telegramCompanyProfile(env,adminToken,userId);
+            const bytes=buildQuotePdf({quote,client,company,items,tax_enabled:taxEnabled,tax_included:Boolean(p.tax_included),tax_rate:rate,notes:p.notes||""});
+            const number=String(p.quote_number||p.quote_id||"borrador").slice(0,40);
+            await sendTelegramDocument(env,chatId,bytes,"Cotizacion-"+number+"-PREVIA.pdf","📄 PDF de vista previa. La cotización todavía no se ha guardado.");
+            return json({ok:true,fastPath:"quote_update_pdf_preview"},200);
+          }catch(e){
+            await sendTelegram(env,chatId,"⚠️ No pude generar la vista previa PDF de esta cotización.");
+            return json({ok:true,fastPath:"quote_update_pdf_preview_error"},200);
+          }
+        }
+
       if(pending.action==="UPDATE_QUOTE" && pending.params){
         if(/^(si|sí|confirmar|confirmo|guarda|guardar|ok|dale|hazlo)$/i.test(text)){
           const p=pending.params;

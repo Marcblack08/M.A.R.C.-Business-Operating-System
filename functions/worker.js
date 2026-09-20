@@ -897,8 +897,7 @@ async function entitlement(env,token,userId){
   if(t?.status==="ACTIVE"&&new Date(t.ends_at).getTime()>Date.now()){
     const u=await sb(env,token,"marc_usage_counters?select=id,period_start,period_end,ai_actions&user_id=eq."+encodeURIComponent(userId)+"&order=period_start.desc&limit=50");
     const start=new Date(t.started_at).getTime();
-    const used=(u||[]).filter(x=>new Date(x.period_start+"T00:00:00Z").getTime()>=new Date(start).setUTCHours(0,0,0,0)).reduce((n,x)=>n+Number(x.ai_actions||0),0);
-    if(used>=30)return {kind:"trial_limited",remaining:0};
+    const used=(u||[]).filter(x=>new Date(x.period_start+"T00:00:00Z").getTime()>=new Date(start).setUTCHours(0,0,0,0)).reduce((n,x)=>n+Number(x.ai_actions||0),0);    if(used>=30)return {kind:"trial_limited",remaining:0};
     return {kind:"trial",remaining:30-used};
   }
   return {kind:"expired"};
@@ -1797,8 +1796,7 @@ async function telegramWebhook(request,env,ctx){
             const raw=Number(it.unit_price||0);
             const gross=Number(it.gross_unit_price);
             const unit=taxIncluded&&Number.isFinite(gross)&&gross>0?gross/(1+rate/100):raw;
-            subtotal+=qty*(Number.isFinite(unit)?unit:0);
-          }
+            subtotal+=qty*(Number.isFinite(unit)?unit:0);          }
           const tax=taxEnabled?subtotal*(rate/100):0;
           return {subtotal,tax,total:subtotal+tax,count:Array.isArray(previewItems)?previewItems.length:0,taxEnabled};
         };
@@ -2697,8 +2695,7 @@ async function marketingProductAi(request,env){
 async function analyzeInventoryProductPhoto(request,env){
   if(request.method!=="POST")return json({error:"Método no permitido"},405);
   const {token,user}=await authUser(request,env);
-  const access=await entitlement(env,token,user.id);
-  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request));
+  const access=await entitlement(env,token,user.id);  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request));
   if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request));
   const body=await request.json().catch(()=>({}));
   let image=String(body?.imageBase64||"").trim();
@@ -3076,6 +3073,124 @@ async function marketingImage(request,env){
     model:images[0].model
   },200,corsHeaders(request));
 }
+
+async function marketingVideoStart(request,env){
+  if(request.method!=="POST")return json({error:"Método no permitido"},405);
+  const {token,user}=await authUser(request,env),access=await entitlement(env,token,user.id);
+  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request));
+  if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request));
+
+  const body=await request.json(),product=body?.product||{},campaign=body?.campaign||{};
+  const apiKey=env.GEMINI_API_KEY||env.GEMINI_API_KEY2;
+  if(!apiKey)throw Object.assign(new Error("GEMINI_API_KEY no está configurada en el Worker."),{status:503});
+
+  const requestedModel=String(body?.model||env.GEMINI_VIDEO_MODEL||"veo-3.1-lite-generate-preview");
+  const allowedModels=new Set(["veo-3.1-lite-generate-preview","veo-3.1-fast-generate-preview","veo-3.1-generate-preview"]);
+  const model=allowedModels.has(requestedModel)?requestedModel:"veo-3.1-lite-generate-preview";
+  const format=String(body?.format||"1080x1920");
+  const aspectRatio=format==="1080x1920"||format==="1080x1350"?"9:16":"16:9";
+  const rawImage=String(body?.imageData||"");
+  const imageMatch=rawImage?rawImage.match(/^data:(image\/(?:png|jpeg|jpg|webp));base64,(.+)$/):null;
+  if(rawImage&&!imageMatch)throw Object.assign(new Error("La imagen enviada no tiene un formato válido."),{status:400});
+  if(imageMatch&&imageMatch[2].length>8_500_000)throw Object.assign(new Error("La foto es demasiado grande. Usa una imagen menor de 6 MB."),{status:413});
+
+  const prompt=[
+    "Crea un video publicitario vertical u horizontal de 8 segundos para un negocio real.",
+    "La prioridad es mostrar el producto de forma atractiva, realista y comercial.",
+    "No inventes características técnicas ni afirmaciones que no estén en los datos recibidos.",
+    "No dependas de texto escrito dentro del video para comunicar precio, teléfono, logo o CTA; esos datos pueden añadirse después por la aplicación.",
+    "Usa movimientos de cámara suaves y una presentación profesional del producto.",
+    "Producto: "+JSON.stringify({
+      name:String(product.name||"Producto"),
+      brand:String(product.brand||""),
+      model:String(product.model||""),
+      category:String(product.category||""),
+      description:String(product.description||product.marketing_description||"")
+    }),
+    "Idea del usuario: "+String(body?.details||""),
+    "Texto publicitario disponible: "+String(campaign.headline||campaign.banner_text||""),
+    "Objetivo: "+String(body?.objective||"VENDER"),
+    "Tono: "+String(body?.tone||"PROFESIONAL"),
+    "Plataforma: "+String(body?.platform||"INSTAGRAM"),
+    "Relación de aspecto: "+aspectRatio
+  ].join("\n");
+
+  const instances=[{prompt}];
+  if(imageMatch)instances[0].image={inlineData:{mimeType:imageMatch[1]==="image/jpg"?"image/jpeg":imageMatch[1],data:imageMatch[2]}};
+
+  const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":predictLongRunning",{
+    method:"POST",
+    headers:{"content-type":"application/json","x-goog-api-key":apiKey},
+    body:JSON.stringify({instances,parameters:{aspectRatio,resolution:"720p",numberOfVideos:1}})
+  });
+  const data=await r.json().catch(()=>null);
+  if(!r.ok||!data?.name){
+    throw Object.assign(new Error(data?.error?.message||("Veo rechazó la solicitud ("+r.status+").")),{
+      status:r.status||502,details:data
+    });
+  }
+  return json({
+    status:"PROCESSING",
+    operationName:data.name,
+    model,
+    aspectRatio,
+    durationSeconds:8,
+    message:"Video iniciado. La generación es asíncrona; M.A.R.C. consultará el estado."
+  },202,corsHeaders(request));
+}
+
+async function marketingVideoStatus(request,env){
+  const method=request.method;
+  if(method!=="GET"&&method!=="POST")return json({error:"Método no permitido"},405);
+  const {token,user}=await authUser(request,env),access=await entitlement(env,token,user.id);
+  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request));
+
+  let operationName="";
+  let download=false;
+  if(method==="GET"){
+    const url=new URL(request.url);
+    operationName=String(url.searchParams.get("operationName")||"").trim();
+    download=url.searchParams.get("download")==="1";
+  }else{
+    const body=await request.json();
+    operationName=String(body?.operationName||"").trim();
+    download=Boolean(body?.download);
+  }
+  if(!operationName||!/^operations\/[A-Za-z0-9._-]+$/.test(operationName)){
+    return json({error:"operationName inválido."},400,corsHeaders(request));
+  }
+
+  const apiKey=env.GEMINI_API_KEY||env.GEMINI_API_KEY2;
+  if(!apiKey)throw Object.assign(new Error("GEMINI_API_KEY no está configurada en el Worker."),{status:503});
+  const r=await fetch("https://generativelanguage.googleapis.com/v1beta/"+operationName,{headers:{"x-goog-api-key":apiKey}});
+  const data=await r.json().catch(()=>null);
+  if(!r.ok)throw Object.assign(new Error(data?.error?.message||("No se pudo consultar Veo ("+r.status+").")),{status:r.status||502,details:data});
+
+  if(!data?.done){
+    return json({status:"PROCESSING",operationName},200,corsHeaders(request));
+  }
+  if(data?.error){
+    return json({status:"FAILED",operationName,error:data.error.message||"Veo no pudo generar el video.",detail:data.error},200,corsHeaders(request));
+  }
+
+  const sample=data?.response?.generateVideoResponse?.generatedSamples?.[0]||data?.response?.generatedVideos?.[0]||null;
+  const videoUri=sample?.video?.uri||null;
+  if(!videoUri)return json({status:"FAILED",operationName,error:"Veo terminó, pero no devolvió un archivo de video."},200,corsHeaders(request));
+
+  if(!download){
+    await incrementAiUsage(env,token,user.id,access);
+    return json({status:"READY",operationName,downloadUrl:"/api/marketing-video-status?operationName="+encodeURIComponent(operationName)+"&download=1",mimeType:"video/mp4",durationSeconds:8},200,corsHeaders(request));
+  }
+
+  const video=await fetch(videoUri,{headers:{"x-goog-api-key":apiKey}});
+  if(!video.ok)throw Object.assign(new Error("Veo generó el video, pero no se pudo descargar el archivo."),{status:502});
+  const headers=new Headers(corsHeaders(request));
+  headers.set("content-type",video.headers.get("content-type")||"video/mp4");
+  headers.set("content-disposition",'attachment; filename="MARC_Publicidad_Video.mp4"');
+  headers.set("cache-control","private, no-store");
+  return new Response(video.body,{status:200,headers});
+}
+
 async function marketingAi(request,env){
   if(request.method!=="POST")return json({error:"Método no permitido"},405);
   const {token,user}=await authUser(request,env),access=await entitlement(env,token,user.id);
@@ -3246,6 +3361,8 @@ export default{
       }
     }
     if(url.pathname==="/api/marketing-ai"){try{return await marketingAi(request,env)}catch(err){return json({error:err?.message||"No se pudo generar la publicidad.",detail:err?.details||null},err?.status||500,headers)}}
+    if(url.pathname==="/api/marketing-video-start"){try{return await marketingVideoStart(request,env)}catch(err){return json({error:err?.message||"No se pudo iniciar el video.",detail:err?.details||null},err?.status||500,headers)}}
+    if(url.pathname==="/api/marketing-video-status"){try{return await marketingVideoStatus(request,env)}catch(err){return json({error:err?.message||"No se pudo consultar el video.",detail:err?.details||null},err?.status||500,headers)}}
     if(url.pathname==="/api/marketing-image"){try{return await marketingImage(request,env)}catch(err){return json({error:err?.message||"No se pudo generar el banner con IA.",detail:err?.details||null},err?.status||500,headers)}}
     if(url.pathname==="/api/telegram/diagnostics"){return telegramDiagnostics(request,env)}
     if(url.pathname==="/api/telegram/setup"){

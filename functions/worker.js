@@ -1516,6 +1516,46 @@ async function telegramWebhook(request,env,ctx){
         return json({ok:true,fastPath:"client_quote_tax"},200);
       }
       if(pending.action==="CREATE_QUOTE" && pending.params){
+        const p=pending.params, items=Array.isArray(p.items)?p.items:[];
+        // Ediciones cortas de la cotización pendiente: se resuelven localmente.
+        const ordinalMap={primera:0,primer:0,segunda:1,segundo:1,tercera:2,tercer:2,cuarta:3,cuarto:3,quinta:4,quinto:4,ultima:Math.max(0,items.length-1),última:Math.max(0,items.length-1)};
+        const ord=text.toLowerCase().match(/\b(primera|primer|segunda|segundo|tercera|tercer|cuarta|cuarto|quinta|quinto|ultima|última)\b/);
+        const targetIndex=ord?ordinalMap[ord[1]]:(items.length?items.length-1:0);
+        const priceEdit=text.match(/\b(?:cambia|cambiar|modifica|modificar|pon|poner|ajusta|ajustar)\b[^\d]{0,80}(?:precio|valor|costo|coste)\s*(?:a|en|de)?\s*(?:s\/\.?\s*)?(\d+(?:[.,]\d{1,2})?)/i)
+          ||text.match(/\b(?:precio|costo|coste)\s*(?:a|en|de)?\s*(?:s\/\.?\s*)?(\d+(?:[.,]\d{1,2})?)\b/i);
+        if(priceEdit&&items.length){
+          const value=Number(priceEdit[1].replace(",","."));
+          if(Number.isFinite(value)&&value>0&&targetIndex<items.length){
+            const nextItems=items.map((x,i)=>i===targetIndex?{...x,unit_price:value,gross_unit_price:p.tax_included?value:x.gross_unit_price}:x);
+            const next={...ctxMem,pending_action:{...pending,params:{...p,items:nextItems}}};
+            await saveConversationContext(env,adminToken,userId,conversationId,next);
+            await sendTelegram(env,chatId,"🧾 Precio actualizado en "+(targetIndex===items.length-1?"la última partida":"la partida "+(targetIndex+1))+".\n\nS/ "+value.toFixed(2)+" por unidad.\n\nResponde «sí» para crearla o continúa indicándome cambios.");
+            return json({ok:true,fastPath:"quote_edit_price"},200);
+          }
+        }
+        const qtyEdit=text.match(/\b(?:cambia|cambiar|modifica|modificar|pon|poner|ajusta|ajustar)\b[^\d]{0,80}(?:cantidad|unidades)\s*(?:a|en|de)?\s*(\d+(?:[.,]\d+)?)\b/i);
+        if(qtyEdit&&items.length){
+          const value=Number(qtyEdit[1].replace(",",".")); 
+          if(Number.isFinite(value)&&value>0&&targetIndex<items.length){
+            const nextItems=items.map((x,i)=>i===targetIndex?{...x,quantity:value}:x);
+            const next={...ctxMem,pending_action:{...pending,params:{...p,items:nextItems}}};
+            await saveConversationContext(env,adminToken,userId,conversationId,next);
+            await sendTelegram(env,chatId,"🔢 Cantidad actualizada en la partida "+(targetIndex+1)+": "+value+".\n\nResponde «sí» para crearla o continúa indicándome cambios.");
+            return json({ok:true,fastPath:"quote_edit_quantity"},200);
+          }
+        }
+        const removeMatch=text.match(/\b(?:quita|quitar|elimina|eliminar|borra|borrar)\b(?:\s+(?:la|el|partida))?\s*(primera|primer|segunda|segundo|tercera|tercer|cuarta|cuarto|quinta|quinto|ultima|última)\b/i);
+        if(removeMatch&&items.length){
+          const idx=ordinalMap[String(removeMatch[1]).toLowerCase()];
+          if(Number.isInteger(idx)&&idx>=0&&idx<items.length){
+            const removed=items[idx];
+            const nextItems=items.filter((_,i)=>i!==idx);
+            const next={...ctxMem,pending_action:{...pending,params:{...p,items:nextItems}}};
+            await saveConversationContext(env,adminToken,userId,conversationId,next);
+            await sendTelegram(env,chatId,"🗑️ Eliminé la partida "+(idx+1)+": "+String(removed.name||removed.description||"Partida")+".\n\n"+(nextItems.length?"Responde «sí» para crearla o continúa editándola.":"La cotización quedó sin partidas; puedes agregar una nueva."));
+            return json({ok:true,fastPath:"quote_remove_item"},200);
+          }
+        }
       if(/\b(?:sin|no)\s+igv\b|\bno\s+incluyas?\s+igv\b|\bsin\s+igb\b|\bno\s+incluyas?\s+igb\b|\bsin\s+impuesto\b|\bno\s+incluyas?\s+impuesto\b/i.test(text)){
         const next={...ctxMem,pending_action:{...pending,params:{...pending.params,tax_enabled:false}}};
         await saveConversationContext(env,adminToken,userId,conversationId,next);

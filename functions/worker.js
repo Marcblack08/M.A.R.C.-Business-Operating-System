@@ -545,7 +545,7 @@ async function finalReply(env,message,planData,userName=""){
   const displayName=String(userName||"").trim();
   if(/\\b(que puede hacer|que puedes hacer|que haces|capacidades|como puedes ayudar|para que sirves)\\b/.test(requestText)){
     const who=displayName?displayName:"señor";
-    return "A sus órdenes, "+who+". Soy M.A.R.C., su mayordomo digital. Estoy pendiente de la operación de su negocio y puedo encargarme de:\n\n🧾 COTIZACIONES\n• Consultar cotizaciones y proformas.\n• Preparar nuevas cotizaciones de productos o servicios.\n• Añadir partidas, precios e IGV y dejar todo listo para su confirmación.\n\n📦 INVENTARIO\n• Buscar productos y revisar precios y stock.\n• Consultar productos agotados o con stock bajo.\n• Registrar entradas, salidas y ajustes, siempre con su confirmación.\n\n👤 CLIENTES\n• Buscar clientes y sus datos.\n• Registrar nuevos clientes con su autorización.\n\n💰 CAJA\n• Revisar la caja abierta.\n• Consultar ingresos, egresos y efectivo esperado.\n• Revisar el último cierre y sus movimientos.\n\nTambién puedo mantener el hilo de la conversación para que no tenga que repetir los datos que ya me indicó.\n\nDígame qué necesita, "+who+". Yo me encargo de ponerlo en orden.";
+    return "🫡 A sus órdenes, señor "+who+".\n\nSoy M.A.R.C., su mayordomo digital. Ya estoy atento a la operación y puedo ocuparme de los asuntos de su negocio con discreción y orden.\n\n🧾 COTIZACIONES Y PROFORMAS\n• Consultar sus cotizaciones y proformas.\n• Preparar nuevas cotizaciones de productos o servicios.\n• Añadir partidas, precios e IGV y dejar la propuesta lista para su aprobación.\n\n📦 INVENTARIO\n• Buscar productos, precios y existencias.\n• Detectar stock bajo o productos agotados.\n• Registrar entradas, salidas y ajustes, solicitando su autorización antes de modificar existencias.\n\n👤 CLIENTES\n• Localizar clientes y consultar sus datos.\n• Registrar nuevos clientes cuando usted lo autorice.\n\n💰 CAJA\n• Revisar el estado de la caja.\n• Consultar ingresos, egresos y efectivo esperado.\n• Revisar cierres y movimientos.\n\n🧠 Y, por supuesto, conservo el contexto de nuestra conversación para que no tenga que repetir lo que ya me indicó.\n\nDígame, señor "+who+"… ¿qué asunto desea que atienda primero?";
   }
   if(result?.status==="CONFIRMATION_REQUIRED"){
     const p=result.params||{};
@@ -728,6 +728,31 @@ async function telegramIdentity(env,adminToken,externalUserId){
   const path="marc_channel_identities?select=id,user_id,external_user_id,chat_id,username,status&channel=eq.TELEGRAM&external_user_id=eq."+encodeURIComponent(externalUserId)+"&status=eq.LINKED&limit=1";
   const rows=await sb(env,adminToken,path);
   return rows?.[0]||null;
+}
+
+/* Identidad del usuario vinculado: M.A.R.C. usa primero el nombre de la cuenta
+   y solo recurre al nombre de Telegram como respaldo. */
+async function telegramUserDisplayName(env,adminToken,userId,telegramFrom={},identity={}){
+  try{
+    const r=await fetch(env.SUPABASE_URL+"/auth/v1/admin/users/"+encodeURIComponent(userId),{
+      headers:{
+        apikey:adminToken,
+        Authorization:"Bearer "+adminToken
+      }
+    });
+    if(r.ok){
+      const u=await r.json();
+      const meta=u?.user_metadata||{};
+      const full=String(meta.full_name||meta.name||"").trim();
+      if(full)return full;
+      const first=String(meta.first_name||"").trim();
+      if(first)return first;
+      const email=String(u?.email||"").trim();
+      if(email)return email.split("@")[0];
+    }
+  }catch{}
+  const telegramName=[telegramFrom?.first_name,telegramFrom?.last_name].filter(Boolean).join(" ").trim();
+  return telegramName||String(identity?.username||"").replace(/^@/,"").trim()||"";
 }
 async function ensureTelegramConversation(env,adminToken,userId){
   const rows=await sb(env,adminToken,"marc_conversations?select=id&user_id=eq."+encodeURIComponent(userId)+"&channel=eq.TELEGRAM&order=updated_at.desc&limit=1");
@@ -1236,7 +1261,7 @@ if(/^(si|sí|confirmo|confirmar|dale|hazlo|ejecuta|ejecutar)$/i.test(incoming)){
     if(executed?.result?.status==="CONFIRMATION_REQUIRED")nextContext.pending_action={action:executed.action,params:executed.result.params,created_at:new Date().toISOString()};
     await saveConversationContext(env,adminToken,userId,conversationId,nextContext);
     await incrementAiUsage(env,adminToken,userId,access);
-    const telegramDisplayName=[msg.from?.first_name,msg.from?.last_name].filter(Boolean).join(" ").trim()||String(identity.username||"").replace(/^@/,"").trim();
+    const telegramDisplayName=await telegramUserDisplayName(env,adminToken,userId,msg.from,identity);
     answer=String(await finalReply(env,incoming,{plan:pl,execution:executed,entitlement:access},telegramDisplayName)||"").trim();
   }catch(err){
     const detail=String(err?.message||"").toLowerCase();

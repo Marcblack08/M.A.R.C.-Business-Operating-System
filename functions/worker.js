@@ -778,7 +778,7 @@ async function finalReply(env,message,planData,userName=""){
   const result=execution?.result;
   const requestText=String(message||"").toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").trim();
   const displayName=String(userName||"").trim();
-  if(/\\b(que puede hacer|que puedes hacer|que haces|capacidades|como puedes ayudar|para que sirves)\\b/.test(requestText)){
+  if(/\b(que puede hacer|que puedes hacer|que haces|capacidades|como puedes ayudar|para que sirves)\b/.test(requestText)){
     const who=displayName?displayName:"señor";
     return "🫡 A sus órdenes, señor "+who+".\n\nSoy M.A.R.C., su mayordomo digital. Ya estoy atento a la operación y puedo ocuparme de los asuntos de su negocio con discreción y orden.\n\n🧾 COTIZACIONES Y PROFORMAS\n• Consultar sus cotizaciones y proformas.\n• Preparar nuevas cotizaciones de productos o servicios.\n• Añadir partidas, precios e IGV y dejar la propuesta lista para su aprobación.\n\n📦 INVENTARIO\n• Buscar productos, precios y existencias.\n• Detectar stock bajo o productos agotados.\n• Registrar entradas, salidas y ajustes, solicitando su autorización antes de modificar existencias.\n\n👤 CLIENTES\n• Localizar clientes y consultar sus datos.\n• Registrar nuevos clientes cuando usted lo autorice.\n\n💰 CAJA\n• Revisar el estado de la caja.\n• Consultar ingresos, egresos y efectivo esperado.\n• Revisar cierres y movimientos.\n\n🧠 Y, por supuesto, conservo el contexto de nuestra conversación para que no tenga que repetir lo que ya me indicó.\n\nDígame, señor "+who+"… ¿qué asunto desea que atienda primero?";
   }
@@ -1217,7 +1217,7 @@ async function telegramWebhook(request,env,ctx){
 
   // Respuestas instantáneas de identidad/capacidades: nunca pasan por Gemini.
   // Esto evita la doble latencia (planificador IA + respuesta IA) para preguntas básicas.
-  const asksCapabilities=/^(?:que|qué)\\s+(?:puedes|puede|puedo)\\s+hacer(?:\\s+tu)?[?¿!¡.]*$|^(?:que|qué)\\s+haces[?¿!¡.]*$|^(?:para que|para qué)\\s+sirves[?¿!¡.]*$|^(?:como|cómo)\\s+puedes\\s+ayudar(?:me)?[?¿!¡.]*$/i.test(fastNormalized);
+  const asksCapabilities=/^(?:que|qué)\s+(?:puedes|puede|puedo)\s+hacer(?:\s+tu)?[?¿!¡.]*$|^(?:que|qué)\s+haces[?¿!¡.]*$|^(?:para que|para qué)\s+sirves[?¿!¡.]*$|^(?:como|cómo)\s+puedes\s+ayudar(?:me)?[?¿!¡.]*$/i.test(fastNormalized);
   if(asksCapabilities){
     const who=telegramProfile.displayName||"señor";
     await sendTelegram(env,chatId,
@@ -1328,7 +1328,7 @@ async function telegramWebhook(request,env,ctx){
     return json({ok:true},200);
   }
   // Consulta detallada de una cotización: lectura directa, sin modificarla.
-  let quoteDetailMatch=simple.match(/^(?:ver|muestra|mostrar|mu[eé]strame|revisa|consulta|dime|ens[eé]ñame)\\s+(?:la\\s+)?cotizaci(?:on|ón)\\s+(.+)$/i);
+  let quoteDetailMatch=simple.match(/^(?:ver|muestra|mostrar|mu[eé]strame|revisa|consulta|dime|ens[eé]ñame)\s+(?:la\s+)?cotizaci(?:on|ón)\s+(.+)$/i);
   if(quoteDetailMatch){
     const query=quoteDetailMatch[1].trim();
     const detail=await getQuoteForEdit(env,adminToken,userId,query);
@@ -1362,7 +1362,7 @@ async function telegramWebhook(request,env,ctx){
   }
 
   // Consultas rápidas de cotizaciones: lectura directa desde Supabase, sin Gemini.
-  let quoteMatch=simple.match(/^(?:busca|buscar|encuentra|localiza|ver|muestra|revisa|consulta)\\s+(?:la\\s+)?cotizaci(?:on|ón)\\s+(.+)$/);
+  let quoteMatch=simple.match(/^(?:busca|buscar|encuentra|localiza|ver|muestra|revisa|consulta)\s+(?:la\s+)?cotizaci(?:on|ón)\s+(.+)$/);
   if(quoteMatch){
     const query=quoteMatch[1].trim();
     const rows=await searchQuotes(env,adminToken,userId,query,10);
@@ -1375,7 +1375,7 @@ async function telegramWebhook(request,env,ctx){
     return json({ok:true,fastPath:"quote_search",found:rows.length},200);
   }
 
-  let clientQuotesMatch=simple.match(/^(?:cotizaciones?|proformas?)\\s+(?:de|del|para)\\s+(.+)$/);
+  let clientQuotesMatch=simple.match(/^(?:cotizaciones?|proformas?)\s+(?:de|del|para)\s+(.+)$/);
   if(clientQuotesMatch){
     const query=clientQuotesMatch[1].trim();
     const clients=await searchClients(env,adminToken,userId,query);
@@ -1399,7 +1399,7 @@ async function telegramWebhook(request,env,ctx){
 
   // Consultas deterministas de clientes e inventario: si la intención es inequívoca,
   // respondemos desde Supabase sin pasar por el planificador ni consumir IA.
-  let quickMatch=simple.match(/^(?:busca|buscar|encuentra|localiza)\\s+(?:(?:al|a|cliente)\\s+)?(.+)$/);
+  let quickMatch=simple.match(/^(?:busca|buscar|encuentra|localiza)\s+(?:(?:al|a|cliente)\s+)?(.+)$/);
   if(quickMatch){
     const query=quickMatch[1].trim();
     const rows=await searchClients(env,adminToken,userId,query);
@@ -1413,7 +1413,7 @@ async function telegramWebhook(request,env,ctx){
     return json({ok:true,fastPath:"client_search",found:rows.length},200);
   }
 
-  quickMatch=simple.match(/^(?:stock|existencias?|inventario|precio|cuanto cuesta|cuánto cuesta|revisa)\\s+(?:(?:de|del|del producto|producto)\\s+)?(.+)$/);
+  quickMatch=simple.match(/^(?:stock|existencias?|inventario|precio|cuanto cuesta|cuánto cuesta|revisa)\s+(?:(?:de|del|del producto|producto)\s+)?(.+)$/);
   if(quickMatch){
     const query=quickMatch[1].trim();
     const rows=await searchInventory(env,adminToken,userId,query,8);
@@ -1422,7 +1422,7 @@ async function telegramWebhook(request,env,ctx){
       return json({ok:true,fastPath:"inventory_search",found:0},200);
     }
     const shown=rows.slice(0,8);
-    const asksPrice=/^(?:precio|cuanto cuesta|cuánto cuesta)\\b/.test(simple);
+    const asksPrice=/^(?:precio|cuanto cuesta|cuánto cuesta)\b/.test(simple);
     const lines=shown.map((x,i)=>{
       const price=Number(x.price||0),stock=Number(x.stock||0),min=Number(x.min_stock||0);
       return "• "+(i+1)+". "+String(x.name||"Producto")+" · "+(asksPrice?"💰 "+moneyText(price)+" · ":"📦 "+stock+" "+String(x.unit||"UND")+" · ")+"stock mínimo "+min+(x.sku?" · "+x.sku:"");
@@ -1431,7 +1431,7 @@ async function telegramWebhook(request,env,ctx){
     return json({ok:true,fastPath:"inventory_search",found:rows.length},200);
   }
 
-  if(/^(?:revisa|revisar|muestrame|muéstrame|muestra|ver|dime|dame)\\s+(?:mi\\s+)?inventario$/.test(simple)){
+  if(/^(?:revisa|revisar|muestrame|muéstrame|muestra|ver|dime|dame)\s+(?:mi\s+)?inventario$/.test(simple)){
     const [count,items]=await Promise.all([countInventory(env,adminToken,userId),searchInventory(env,adminToken,userId,"",8)]);
     if(!count){
       await sendTelegram(env,chatId,"📦 No tienes productos registrados en el inventario.");
@@ -1446,7 +1446,7 @@ async function telegramWebhook(request,env,ctx){
     return json({ok:true,fastPath:"inventory_summary",count},200);
   }
 
-  if(/^(?:cuál es el|cual es el|dime el|dime cuál es el|dime cual es el)\\s+(?:producto )?(?:más caro|mas caro|más costoso|mas costoso)$/.test(simple)){
+  if(/^(?:cuál es el|cual es el|dime el|dime cuál es el|dime cual es el)\s+(?:producto )?(?:más caro|mas caro|más costoso|mas costoso)$/.test(simple)){
     const result=await inventoryInsight(env,adminToken,userId,"MOST_EXPENSIVE");
     const top=result.items?.[0];
     await sendTelegram(env,chatId,top?"💰 El producto con mayor precio es «"+String(top.name||"Producto")+"» — "+moneyText(top.price)+".":"No encuentro productos con precio registrado.");
@@ -1463,7 +1463,7 @@ async function telegramWebhook(request,env,ctx){
     await sendTelegram(env,chatId,"▣ CAJA ABIERTA\n\nApertura: "+moneyText(r.opening_amount)+"\nIngresos: "+moneyText(income)+"\nEgresos: "+moneyText(expense)+"\n💰 Esperado: "+moneyText(expected));
     return json({ok:true},200);
   }
-  let m=simple.match(/^abrir caja\\s+(\\d+(?:[.,]\\d{1,2})?)(?:\\s+(.+))?$/);
+  let m=simple.match(/^abrir caja\s+(\d+(?:[.,]\d{1,2})?)(?:\s+(.+))?$/);
   if(m){
     const amount=Number(m[1].replace(",",".")),notes=m[2]||null;
     try{
@@ -1472,7 +1472,7 @@ async function telegramWebhook(request,env,ctx){
     }catch(e){await sendTelegram(env,chatId,"⚠️ No pude abrir la caja: "+String(e?.message||e).slice(0,500));}
     return json({ok:true},200);
   }
-  m=simple.match(/^(ingreso|entrada)\\s+(\\d+(?:[.,]\\d{1,2})?)(?:\\s+(.+))?$/);
+  m=simple.match(/^(ingreso|entrada)\s+(\d+(?:[.,]\d{1,2})?)(?:\s+(.+))?$/);
   if(m){
     const rows=await cashRows("OPEN",1),r=rows?.[0];
     if(!r){await sendTelegram(env,chatId,"Primero abre la caja: «abrir caja 100».");return json({ok:true},200);}
@@ -1481,7 +1481,7 @@ async function telegramWebhook(request,env,ctx){
     await sendTelegram(env,chatId,"✅ Ingreso registrado: "+moneyText(amount)+" · "+concept);
     return json({ok:true},200);
   }
-  m=simple.match(/^(gasto|egreso|salida)\\s+(\\d+(?:[.,]\\d{1,2})?)(?:\\s+(.+))?$/);
+  m=simple.match(/^(gasto|egreso|salida)\s+(\d+(?:[.,]\d{1,2})?)(?:\s+(.+))?$/);
   if(m){
     const rows=await cashRows("OPEN",1),r=rows?.[0];
     if(!r){await sendTelegram(env,chatId,"Primero abre la caja: «abrir caja 100».");return json({ok:true},200);}
@@ -1490,7 +1490,7 @@ async function telegramWebhook(request,env,ctx){
     await sendTelegram(env,chatId,"✅ Egreso registrado: "+moneyText(amount)+" · "+concept);
     return json({ok:true},200);
   }
-  m=simple.match(/^cerrar caja\\s+(\\d+(?:[.,]\\d{1,2})?)(?:\\s+(.+))?$/);
+  m=simple.match(/^cerrar caja\s+(\d+(?:[.,]\d{1,2})?)(?:\s+(.+))?$/);
   if(m){
     const amount=Number(m[1].replace(",",".")),notes=m[2]||null;
     try{
@@ -1645,7 +1645,7 @@ async function telegramWebhook(request,env,ctx){
       // Selección pendiente al consultar una cotización ambigua.
       if(pending.action==="QUERY_QUOTE" && pending.params){
         const qp=pending.params;
-        const choice=text.match(/^(?:cotizacion|cotización|opcion|opción)?\\s*([1-5])$/i);
+        const choice=text.match(/^(?:cotizacion|cotización|opcion|opción)?\s*([1-5])$/i);
         if(choice&&Array.isArray(qp.options)){
           const n=Number(choice[1]),selected=qp.options[n-1];
           if(!selected){
@@ -1863,7 +1863,7 @@ async function telegramWebhook(request,env,ctx){
           return {status:"NOT_FOUND"};
         };
         if(p._pending_quote_item_target){
-          const choice=text.match(/^(?:partida|producto|servicio)?\\s*([1-5])$/i);
+          const choice=text.match(/^(?:partida|producto|servicio)?\s*([1-5])$/i);
           if(choice){
             const n=Number(choice[1]),target=(p._pending_quote_item_target.options||[])[n-1];
             if(!target){
@@ -1883,7 +1883,7 @@ async function telegramWebhook(request,env,ctx){
         if(multiOps.length>=2){
           let multiItems=[...items],multiChanged=false,multiLabels=[];
           for(const op of multiOps){
-            const rm=op.match(/^(?:quita|quitar|elimina|eliminar|borra|borrar)\\s+(?:la|el|partida|servicio|producto)?\\s*(.+?)\\s*$/i);
+            const rm=op.match(/^(?:quita|quitar|elimina|eliminar|borra|borrar)\s+(?:la|el|partida|servicio|producto)?\s*(.+?)\s*$/i);
             if(rm){
               const hit=findQuoteItem(rm[1].trim());
               if(hit.status==="AMBIGUOUS"){
@@ -1982,9 +1982,9 @@ async function telegramWebhook(request,env,ctx){
             }
           }
         }
-        const namePrice=text.match(/\\b(?:cambia|cambiar|modifica|modificar|pon|poner|ajusta|ajustar)\\b[\\s\\S]{0,80}?\\b(?:precio|valor|costo|coste)\\s+(?:de|del|de la|para)\\s+(.+?)\\s+(?:a|en)\\s*(?:s\\/\\.?\\s*)?(\\d+(?:[.,]\\d{1,2})?)(?:\\s*soles?)?$/i);
-        const nameQty=text.match(/\\b(?:cambia|cambiar|modifica|modificar|pon|poner|ajusta|ajustar)\\b[\\s\\S]{0,80}?\\b(?:cantidad|unidades)\\s+(?:de|del|de la|para)\\s+(.+?)\\s+(?:a|en)\\s*(\\d+(?:[.,]\\d+)?)/i);
-        const nameRemove=text.match(/\\b(?:quita|quitar|elimina|eliminar|borra|borrar)\\b(?:\\s+(?:la|el|partida|servicio|producto))?\\s+(.+?)$/i);
+        const namePrice=text.match(/\b(?:cambia|cambiar|modifica|modificar|pon|poner|ajusta|ajustar)\b[\s\S]{0,80}?\b(?:precio|valor|costo|coste)\s+(?:de|del|de la|para)\s+(.+?)\s+(?:a|en)\s*(?:s\/\\.?\s*)?(\d+(?:[.,]\d{1,2})?)(?:\s*soles?)?$/i);
+        const nameQty=text.match(/\b(?:cambia|cambiar|modifica|modificar|pon|poner|ajusta|ajustar)\b[\s\S]{0,80}?\b(?:cantidad|unidades)\s+(?:de|del|de la|para)\s+(.+?)\s+(?:a|en)\s*(\d+(?:[.,]\d+)?)/i);
+        const nameRemove=text.match(/\b(?:quita|quitar|elimina|eliminar|borra|borrar)\b(?:\s+(?:la|el|partida|servicio|producto))?\s+(.+?)$/i);
         const namedEdit=namePrice||nameQty||nameRemove;
         if(namedEdit){
           const query=String(namedEdit[1]||"").trim().replace(/[.]+$/,"");
@@ -2122,14 +2122,14 @@ async function telegramWebhook(request,env,ctx){
         const ord=text.toLowerCase().match(/\b(primera|primer|segunda|segundo|tercera|tercer|cuarta|cuarto|quinta|quinto|ultima|última)\b/);
         const map={primera:0,primer:0,segunda:1,segundo:1,tercera:2,tercer:2,cuarta:3,cuarto:3,quinta:4,quinto:4,ultima:Math.max(0,items.length-1),"última":Math.max(0,items.length-1)};
         const idx=ord?map[ord[1]]:(items.length?items.length-1:0);
-        const pm=text.match(/\b(?:cambia|modifica|pon|ajusta)\b[\s\S]{0,60}?(?:precio|valor|costo|coste)\s*(?:a|en|de)?\s*(?:s\\/\\.?\s*)?(\\d+(?:[.,]\\d{1,2})?)/i);
+        const pm=text.match(/\b(?:cambia|modifica|pon|ajusta)\b[\s\S]{0,60}?(?:precio|valor|costo|coste)\s*(?:a|en|de)?\s*(?:s\/\\.?\s*)?(\d+(?:[.,]\d{1,2})?)/i);
         if(pm&&idx<items.length){
           const value=Number(pm[1].replace(",",".")); const nextItems=items.map((x,i)=>i===idx?{...x,unit_price:value}:x);
           await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:{...p,items:nextItems}}});
           await sendTelegram(env,chatId,"🧾 Actualicé el precio de la partida "+(idx+1)+" a S/ "+value.toFixed(2)+".\n\nPuedes seguir editando o responder «sí» para guardar.");
           return json({ok:true,fastPath:"quote_update_edit"},200);
         }
-        const qm=text.match(/\b(?:cambia|modifica|pon|ajusta)\b[\s\S]{0,60}?(?:cantidad|unidades)\s*(?:a|en|de)?\s*(\\d+(?:[.,]\\d+)?)/i);
+        const qm=text.match(/\b(?:cambia|modifica|pon|ajusta)\b[\s\S]{0,60}?(?:cantidad|unidades)\s*(?:a|en|de)?\s*(\d+(?:[.,]\d+)?)/i);
         if(qm&&idx<items.length){
           const value=Number(qm[1].replace(",","."));
           if(value>0){const nextItems=items.map((x,i)=>i===idx?{...x,quantity:value}:x);await saveConversationContext(env,adminToken,userId,conversationId,{...ctxMem,pending_action:{...pending,params:{...p,items:nextItems}}});await sendTelegram(env,chatId,"🔢 Cantidad actualizada en la partida "+(idx+1)+".\n\nResponde «sí» para guardar.");return json({ok:true,fastPath:"quote_update_qty"},200);}

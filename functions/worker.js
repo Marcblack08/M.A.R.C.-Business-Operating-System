@@ -230,19 +230,31 @@ async function createQuote(env,token,userId,p,source="AI_AGENT"){
   const client=await resolveOneClient(env,token,userId,p.client_query||"");
   if(client.status==="AMBIGUOUS"||client.status==="NOT_FOUND")return {status:"NEEDS_INPUT",field:"client_query",detail:client};
   const resolved=[];
+  const taxEnabled=p.tax_enabled===undefined?true:Boolean(p.tax_enabled);
+  const taxIncluded=Boolean(p.tax_included)&&taxEnabled;
+  const taxRate=Number(p.tax_rate||18);
+  if(!Number.isFinite(taxRate)||taxRate<0||taxRate>100)return {status:"NEEDS_INPUT",field:"tax_rate",message:"La tasa de impuesto debe estar entre 0% y 100%."};
   for(const raw of items){
     const qty=Math.max(0.01,Number(raw.quantity||1));
+    const rawPrice=Number(raw.unit_price);
+    const priceIsTotal=Boolean(raw.price_is_total);
+    const grossPrice=Number(raw.gross_unit_price);
+    const suppliedPrice=Number.isFinite(grossPrice)&&grossPrice>0?grossPrice:rawPrice;
+    const normalizedUnit=taxIncluded&&Number.isFinite(suppliedPrice)&&suppliedPrice>0?suppliedPrice/(1+taxRate/100):suppliedPrice;
+    const unitPrice=priceIsTotal?normalizedUnit/qty:normalizedUnit;
+    if(!Number.isFinite(unitPrice)||unitPrice<=0){
+      return {status:"NEEDS_INPUT",field:"price",item:raw,message:"Indícame un precio válido para «"+String(raw.name||raw.description||"la partida")+"»."};
+    }
     if(String(raw.type||"").toUpperCase()==="PRODUCTO"){
       const hit=await resolveInventory(env,token,userId,raw.inventory_query||raw.name||"");
       if(hit.status!=="FOUND")return {status:"NEEDS_INPUT",field:"inventory",item:raw,detail:hit};
       const it=hit.item;
-      const price=raw.unit_price===null||raw.unit_price===undefined?Number(it.price||0):Number(raw.unit_price);
+      const price=(raw.unit_price===null||raw.unit_price===undefined)?Number(it.price||0):unitPrice;
       if(!Number.isFinite(price)||price<=0)return {status:"NEEDS_INPUT",field:"product_price",item:raw,message:"El producto «"+String(it.name||raw.name||"Producto")+"» no tiene un precio válido. Indícame el precio para esta cotización."};
-      resolved.push({inventory_id:it.id,item_type:"PRODUCTO",name:it.name,description:raw.description||null,quantity:qty,unit:it.unit||"UND",unit_price:Math.max(0,price),cost:Number(it.cost||0)});
+      resolved.push({inventory_id:it.id,item_type:"PRODUCTO",name:it.name,description:raw.description||null,quantity:qty,unit:it.unit||"UND",unit_price:Math.max(0,price),gross_unit_price:taxIncluded?suppliedPrice:null,cost:Number(it.cost||0)});
     }else{
-      const price=Number(raw.unit_price);
-      if(!Number.isFinite(price)||price<=0)return {status:"NEEDS_INPUT",field:"work_price",item:raw,message:"Falta un precio válido para el trabajo: "+(raw.name||"Trabajo")};
-      resolved.push({inventory_id:null,item_type:"TRABAJO",name:String(raw.name||"Trabajo"),description:raw.description||null,quantity:qty,unit:raw.unit||"UND",unit_price:price,cost:Number(raw.cost||0)});
+      const price=unitPrice;
+      resolved.push({inventory_id:null,item_type:"TRABAJO",name:String(raw.name||"Trabajo"),description:raw.description||null,quantity:qty,unit:raw.unit||"UND",unit_price:price,gross_unit_price:taxIncluded?suppliedPrice:null,cost:Number(raw.cost||0)});
     }
   }
   const payload={
@@ -250,8 +262,8 @@ async function createQuote(env,token,userId,p,source="AI_AGENT"){
     p_client_id:client.status==="FOUND"?client.client.id:null,
     p_title:p.title||"Cotización",
     p_status:"BORRADOR",
-    p_tax_enabled:p.tax_enabled===undefined?true:Boolean(p.tax_enabled),
-    p_tax_rate:Number(p.tax_rate||18),
+    p_tax_enabled:taxEnabled,
+    p_tax_rate:taxRate,
     p_notes:p.notes||null,
     p_items:resolved,p_source:source
   };

@@ -475,15 +475,18 @@ async function plan(env,message,history,entityContext={},contextToken="",context
       const qtyMatch=text.match(/\b(\d+(?:[.,]\d+)?)\s+(?=\S)/);
       const price=priceMatch?Number(priceMatch[1].replace(",",".")):null;
       const quantity=qtyMatch?Number(qtyMatch[1].replace(",",".")):1;
+      const addAllCost=/\b(?:a\s+todo\s+costo|todo\s+costo|a\s+todo\s+coste|por\s+todo\s+incluido)\b/i.test(text);
+      const addClientSupplies=/\b(?:el\s+cliente|cliente)\s+(?:pone|pondrá|pondra|suministra|suministrará|suministrara|ya\s+tiene|trae)\s+(?:el\s+)?(?:material|equipo|producto)s?\b|\bmaterial(?:es)?\s+(?:por\s+cuenta|a\s+cargo)\s+del\s+cliente\b/i.test(text);
+      const addServiceOnly=addAllCost||addClientSupplies;
       const cleaned=text
         .replace(/^.*?\b(agrega|añade|anade|tambien|también|otro|otra|incluye|incluyendo)\b/i,"")
         .replace(/(?:a|por|precio|costo|total)\s*(?:s\/?\.?\s*)?\d+(?:[.,]\d{1,2})?/gi,"")
         .replace(/^\s*\d+(?:[.,]\d+)?\s+/,"")
         .replace(/\s+/g," ").trim();
       const items=Array.isArray(pending.items)?pending.items.slice():[];
-      // Primero intentamos resolverlo contra el inventario real. Si hay una coincidencia única,
-      // la partida queda como PRODUCTO y heredará su precio del inventario si no se indicó otro.
-      const hit=await resolveInventory(env,contextToken,contextUserId,cleaned).catch(()=>null);
+      // "A todo costo" o material aportado por el cliente convierte la partida en servicio:
+      // no dependemos del catálogo ni exigimos stock.
+      const hit=addServiceOnly?null:await resolveInventory(env,contextToken,contextUserId,cleaned).catch(()=>null);
       if(hit?.status==="AMBIGUOUS"){
         return {action:"CHAT",execute:false,params:{clarification:"Encontré varios productos para «"+cleaned+"». Indícame cuál quieres agregar."}};
       }
@@ -491,7 +494,7 @@ async function plan(env,message,history,entityContext={},contextToken="",context
         const it=hit.item;
         items.push({type:"PRODUCTO",inventory_query:it.name,name:it.name,description:null,quantity,unit_price:Number.isFinite(price)&&price>0?price:null,gross_unit_price:Number.isFinite(grossPrice)&&grossPrice>0?grossPrice:null,price_includes_tax:taxIncluded,price_is_total:priceIsTotal});
       }else{
-        items.push({type:"TRABAJO",name:cleaned.slice(0,180)||"Trabajo adicional",description:cleaned.slice(0,2000),quantity,unit_price:Number.isFinite(price)&&price>0?price:null});
+        items.push({type:"TRABAJO",name:cleaned.slice(0,180)||"Trabajo adicional",description:cleaned.slice(0,2000),quantity,unit_price:Number.isFinite(price)&&price>0?price:null,all_cost:addAllCost,material_supplied_by_client:addClientSupplies||addAllCost});
       }
       return {action:"CREATE_QUOTE",execute:false,params:{...pending,items}};
     }

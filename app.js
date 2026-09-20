@@ -1,4 +1,4 @@
-(()=>{const C=window.MARC_CONFIG,S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"pkce"}});const st={u:null,session:null,view:"home",cid:null,authEpoch:0};let authListenerSession=null,authTimer=null,authEnteredSessionId=null;S.auth.onAuthStateChange((ev,s)=>{authListenerSession=s||null;console.info("[M.A.R.C. auth]",ev,!!s,s?.user?.id||"");if(s?.user){clearTimeout(authTimer);authTimer=setTimeout(()=>handleAuthSession(s),0)}else if(ev==="SIGNED_OUT"){clearTimeout(authTimer);authTimer=setTimeout(()=>resetUiToLogin(),0)}});const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)],esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])),money=v=>new Intl.NumberFormat("es-PE",{style:"currency",currency:"PEN"}).format(Number(v||0)),toast=(t,c="")=>{const e=document.createElement("div");e.className="toast "+c;e.textContent=t;$("#toast").appendChild(e);setTimeout(()=>e.remove(),2600)},initials=n=>String(n||"M").split(/\s+/).slice(0,2).map(x=>x[0]?.toUpperCase()).join("");let authMode="login",recoveryMode=new URLSearchParams(location.search).get("recovery")==="1"||/type=recovery/i.test(location.hash);
+(()=>{const C=window.MARC_CONFIG,S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"implicit"}});const st={u:null,session:null,view:"home",cid:null,authEpoch:0};let authListenerSession=null,authTimer=null,authEnteredSessionId=null;S.auth.onAuthStateChange((ev,s)=>{authListenerSession=s||null;console.info("[M.A.R.C. auth]",ev,!!s,s?.user?.id||"");if(s?.user){clearTimeout(authTimer);authTimer=setTimeout(()=>handleAuthSession(s),0)}else if(ev==="SIGNED_OUT"){clearTimeout(authTimer);authTimer=setTimeout(()=>resetUiToLogin(),0)}});const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)],esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])),money=v=>new Intl.NumberFormat("es-PE",{style:"currency",currency:"PEN"}).format(Number(v||0)),toast=(t,c="")=>{const e=document.createElement("div");e.className="toast "+c;e.textContent=t;$("#toast").appendChild(e);setTimeout(()=>e.remove(),2600)},initials=n=>String(n||"M").split(/\s+/).slice(0,2).map(x=>x[0]?.toUpperCase()).join("");let authMode="login",recoveryMode=new URLSearchParams(location.search).get("recovery")==="1"||/type=recovery/i.test(location.hash);
 function msg(t,c=""){const e=$("#authMsg");e.textContent=t;e.className="msg "+c}
 const THEME_KEY="marc_theme";
 function applyTheme(theme,save=true){
@@ -24,12 +24,17 @@ async function signInGoogle(){
   try{
     if(b)b.disabled=true;
     msg("Conectando con Google…");
+    sessionStorage.setItem("marc_google_oauth_pending","1");
+    const redirectUrl=new URL(location.origin+location.pathname);
+    redirectUrl.search="";
+    redirectUrl.hash="";
     const {error}=await S.auth.signInWithOAuth({
       provider:"google",
-      options:{redirectTo:location.origin+location.pathname}
+      options:{redirectTo:redirectUrl.toString()}
     });
     if(error)throw error;
   }catch(e){
+    sessionStorage.removeItem("marc_google_oauth_pending");
     msg(e?.message||"No se pudo iniciar sesión con Google.","error");
     if(b)b.disabled=false;
   }
@@ -2906,9 +2911,29 @@ const authBootSnapshot={
   searchKeys:[...new URLSearchParams(location.search).keys()],
   hashKeys:[...new URLSearchParams(String(location.hash||"").replace(/^#/,"")).keys()]
 };
-function authDiag(prefix){
+function authDiag(prefix,extra=""){
   const s=authBootSnapshot;
-  return prefix+" · URL search: "+(s.searchKeys.length?s.searchKeys.join(", "):"vacío")+" · URL hash: "+(s.hashKeys.length?s.hashKeys.join(", "):"vacío");
+  return prefix+" · URL search: "+(s.searchKeys.length?s.searchKeys.join(", "):"vacío")+" · URL hash: "+(s.hashKeys.length?s.hashKeys.join(", "):"vacío")+(extra?" · "+extra:"");
+}
+function cleanAuthUrl(){
+  try{
+    const clean=new URL(location.href);
+    clean.search="";
+    clean.hash="";
+    history.replaceState({},document.title,clean.pathname);
+  }catch{}
+}
+function authCallbackParams(){
+  const search=new URLSearchParams(location.search);
+  const hash=new URLSearchParams(String(location.hash||"").replace(/^#/,""));
+  return {search,hash};
+}
+function describeAuthFailure(search,hash){
+  const error=hash.get("error_description")||search.get("error_description")||hash.get("error")||search.get("error");
+  if(error)return decodeURIComponent(String(error).replace(/\+/g," "));
+  if(search.get("code"))return "Supabase devolvió un código OAuth, pero no se pudo crear la sesión.";
+  if(hash.get("access_token"))return "Google devolvió un token, pero Supabase no pudo completar la sesión.";
+  return "Google regresó a M.A.R.C. sin código, token ni sesión.";
 }
 function wire(){
   initTheme();
@@ -2928,22 +2953,23 @@ function wire(){
   $("#chatInput").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("#chatForm").requestSubmit()}};
   $$(".chips button").forEach(b=>b.onclick=()=>{$("#chatInput").value=b.dataset.q;$("#chatInput").focus()});
 
-  // OAuth callback robusto para Google/Supabase.
-  // Usamos PKCE y, cuando Google devuelve ?code=..., intercambiamos
-  // explícitamente el código por la sesión antes de continuar.
   const bootAuth=async()=>{
-    const search=new URLSearchParams(location.search);
+    const {search,hash}=authCallbackParams();
     const code=search.get("code");
-    const authError=search.get("error_description")||search.get("error");
-    if(authError){
-      throw new Error(decodeURIComponent(String(authError).replace(/\+/g," ")));
+    const error=hash.get("error_description")||search.get("error_description")||hash.get("error")||search.get("error");
+    const oauthPending=sessionStorage.getItem("marc_google_oauth_pending")==="1";
+
+    if(error){
+      sessionStorage.removeItem("marc_google_oauth_pending");
+      throw new Error(decodeURIComponent(String(error).replace(/\+/g," ")));
     }
 
     if(code){
       const exchanged=await S.auth.exchangeCodeForSession(code);
       if(exchanged.error)throw exchanged.error;
       if(exchanged.data?.session){
-        history.replaceState({},document.title,location.pathname);
+        sessionStorage.removeItem("marc_google_oauth_pending");
+        cleanAuthUrl();
         await handleAuthSession(exchanged.data.session);
         return;
       }
@@ -2952,26 +2978,30 @@ function wire(){
     const current=await S.auth.getSession();
     if(current.error)throw current.error;
     if(current.data?.session){
+      sessionStorage.removeItem("marc_google_oauth_pending");
+      cleanAuthUrl();
       await handleAuthSession(current.data.session);
       return;
     }
 
-    // Dar tiempo al listener/detección automática de Supabase.
-    await new Promise(r=>setTimeout(r,1200));
+    await new Promise(r=>setTimeout(r,900));
     const retry=await S.auth.getSession();
     if(retry.error)throw retry.error;
     if(retry.data?.session){
+      sessionStorage.removeItem("marc_google_oauth_pending");
+      cleanAuthUrl();
       await handleAuthSession(retry.data.session);
       return;
     }
 
-    const ev=authListenerSession?"evento con sesión":"sin sesión detectada";
-    msg(authDiag("Google regresó, pero M.A.R.C. no pudo recuperar la sesión")+" · "+ev,"error");
+    const fresh=authCallbackParams();
+    const failure=describeAuthFailure(fresh.search,fresh.hash);
+    msg(authDiag(oauthPending?"Google volvió a M.A.R.C. pero la sesión no quedó disponible":"No hay una sesión activa",oauthPending?failure:"Inicia sesión con Google para continuar"),"error");
   };
 
   bootAuth().catch(e=>{
     console.error("[M.A.R.C. auth error]",e);
-    msg(authDiag("Error de autenticación")+" · "+(e?.message||"Error desconocido"),"error");
+    msg(authDiag("Error de autenticación",e?.message||"Error desconocido"),"error");
   });
 }
 wire()})();

@@ -3078,7 +3078,11 @@ async function marketingVideoStart(request,env){
   if(request.method!=="POST")return json({error:"Método no permitido"},405);
   const {token,user}=await authUser(request,env),access=await entitlement(env,token,user.id);
   if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request));
-  if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request));
+  if(access.kind==="trial"||access.kind==="trial_limited")return json({
+    error:"VIDEO_SUBSCRIPTION_REQUIRED",
+    message:"La generación de videos con IA está incluida en las suscripciones activas. Activa un plan para usar esta función.",
+    includedInSubscription:true
+  },402,corsHeaders(request));
 
   const body=await request.json(),product=body?.product||{},campaign=body?.campaign||{};
   const apiKey=env.GEMINI_API_KEY||env.GEMINI_API_KEY2;
@@ -3121,7 +3125,7 @@ async function marketingVideoStart(request,env){
   const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/"+encodeURIComponent(model)+":predictLongRunning",{
     method:"POST",
     headers:{"content-type":"application/json","x-goog-api-key":apiKey},
-    body:JSON.stringify({instances,parameters:{aspectRatio,resolution:"720p",numberOfVideos:1}})
+    body:JSON.stringify({instances,parameters:{aspectRatio,resolution:"720p"}})
   });
   const data=await r.json().catch(()=>null);
   if(!r.ok||!data?.name){

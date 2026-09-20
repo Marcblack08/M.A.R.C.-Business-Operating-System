@@ -464,6 +464,20 @@ function normalizeData(x){
 async function finalReply(env,message,planData){
   const execution=planData?.execution||{};
   const result=execution?.result;
+  if(result?.status==="CONFIRMATION_REQUIRED"){
+    const p=result.params||{};
+    if(execution.action==="ADJUST_INVENTORY"){
+      const type=String(p.type||"ENTRADA").toUpperCase();
+      return "⚠️ Confirma este movimiento de inventario:\n\n📦 Producto: "+String(p.inventory_query||"seleccionado")+"\n🔄 Tipo: "+type+"\n🔢 Cantidad: "+Number(p.quantity||0)+"\n\nResponde «sí» para ejecutarlo o «cancelar» para no realizar cambios.";
+    }
+    if(execution.action==="CREATE_CLIENT"){
+      return "⚠️ Voy a registrar este cliente:\n\n👤 "+String(p.name||"Sin nombre")+(p.document_number?"\n🪪 Documento: "+p.document_number:"")+(p.phone?"\n📞 "+p.phone:"")+(p.email?"\n✉️ "+p.email:"")+"\n\nResponde «sí» para registrarlo o «cancelar» para detener la operación.";
+    }
+    if(execution.action==="CREATE_QUOTE"){
+      const item=Array.isArray(p.items)?p.items[0]||{}:{};
+      return "⚠️ Preparé esta cotización:\n\n👤 Cliente: "+String(p.client_query||"seleccionado")+"\n🧾 "+String(p.title||"Cotización")+"\n🔧 "+String(item.name||item.description||"Trabajo solicitado")+"\n🔢 Cantidad: "+Number(item.quantity||1)+"\n💰 Precio: S/ "+Number(item.unit_price||0).toFixed(2)+"\n\nResponde «sí» para crearla o «cancelar» para no realizar cambios.";
+    }
+  }
   if(execution?.action==="CASH_STATUS" && result){
     if(result.status==="CLOSED")return "▣ CAJA\n\nNo hay una caja abierta en este momento.";
     return "▣ CAJA ABIERTA\n\n💵 Apertura: "+moneyText(result.opening)+"\n📥 Ingresos: "+moneyText(result.income)+"\n📤 Egresos: "+moneyText(result.expense)+"\n💰 Efectivo esperado: "+moneyText(result.expected)+"\n\nMovimientos registrados: "+Number(result.movements||0)+".";

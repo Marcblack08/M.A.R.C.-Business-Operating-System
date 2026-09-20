@@ -396,7 +396,14 @@ async function plan(env,message,history,entityContext={}){
     if(reference.type==="client" && /\b(cotiz|proforma|presupuesto)\b/.test(s)){
       const hasWork=/\b(instal|manten|repar|configur|servicio|trabajo|venta|suministr|cambi|pod|limpi|cable|camar|red|mano de obra)\w*/.test(s);
       if(!hasWork)return {action:"CHAT",execute:false,params:{clarification:"Claro. ¿Qué trabajo o servicio quieres cotizarle a "+String(item.name||"ese cliente")+"?"}};
-      return {action:"CREATE_QUOTE",execute:false,params:{client_query:item.id,items:[]}};
+      const priceMatches=[...s.matchAll(/(?:a|por|precio|costo|total)\s*(?:s\/?\.?\s*)?(\d+(?:[.,]\d{1,2})?)/g)];
+      const price=priceMatches.length?Number(priceMatches[priceMatches.length-1][1].replace(",",".")):null;
+      if(!Number.isFinite(price)||price<=0)return {action:"CHAT",execute:false,params:{clarification:"¿Qué precio debo colocar en la cotización para "+String(item.name||"ese cliente")+"?"}};
+      const qtyMatch=s.match(/\b(\d+(?:[.,]\d+)?)\s+(?:camar|cable|unidad|unidades|pieza|piezas|hora|horas|servicio|servicios|trabajo|trabajos)\w*/);
+      const quantity=qtyMatch?Number(qtyMatch[1].replace(",",".")):1;
+      const original=String(message||"").replace(/^(?:el|la|los|las)\s+(?:primero|primera|segundo|segunda|tercero|tercera|cuarto|cuarta|quinto|quinta|uno|una|dos|tres|cuatro|cinco)\s*/i,"").trim();
+      const description=original.replace(/\b(?:cotiz|cotiza|cotizar|proforma|presupuesto)\w*\b/gi,"").replace(/\b(?:a|por|precio|costo|total)\s*(?:s\/?\.?\s*)?\d+(?:[.,]\d{1,2})?/gi,"").replace(/\s+/g," ").trim();
+      return {action:"CREATE_QUOTE",execute:false,params:{client_query:item.id,title:"Cotización · "+String(item.name||"Cliente"),items:[{type:"TRABAJO",name:description.slice(0,180)||"Trabajo solicitado",description:description.slice(0,2000)||original.slice(0,2000),quantity,unit_price:price}]}};
     }
     if(reference.type==="client")return {action:"SEARCH_CLIENTS",execute:false,params:{query:item.id}};
   }

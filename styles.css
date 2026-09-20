@@ -2420,3 +2420,25 @@ body,
  .marketing-ai-product-grid{grid-template-columns:1fr}
  .marketing-ai-product-actions{display:grid;grid-template-columns:1fr 1fr}
 }
+
+.marketing-video-card{margin-top:16px;padding:18px;border:1px solid rgba(24,165,238,.38);border-radius:20px;background:linear-gradient(145deg,rgba(7,31,52,.98),rgba(7,24,40,.98));box-shadow:0 10px 28px rgba(0,0,0,.12)}
+.marketing-video-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
+.marketing-video-head>div{display:flex;gap:12px;align-items:flex-start}
+.marketing-video-icon{font-size:30px;line-height:1}
+.marketing-video-head b{display:block;font-size:17px}
+.marketing-video-head small{display:block;color:#a9bdce;line-height:1.45;margin-top:4px}
+.marketing-video-badge{display:inline-flex;align-items:center;border:1px solid rgba(245,190,50,.65);color:#ffd86a;border-radius:999px;padding:7px 10px;font-size:11px;font-weight:800;white-space:nowrap}
+.marketing-video-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
+.marketing-video-grid label,.marketing-video-card>label{display:flex;flex-direction:column;gap:6px;font-weight:700;color:#b8c9d7;font-size:13px}
+.marketing-video-grid select,.marketing-video-card textarea{width:100%;box-sizing:border-box}
+.marketing-video-included{margin:14px 0;padding:12px 14px;border:1px solid rgba(24,165,238,.3);border-radius:16px;background:rgba(24,165,238,.06)}
+.marketing-video-included b{display:block;color:#e8f6ff}
+.marketing-video-included small{display:block;color:#93adbf;margin-top:3px;line-height:1.4}
+.marketing-video-result{margin-top:14px;border-radius:16px;overflow:hidden;background:#000}
+.marketing-video-result video{display:block;width:100%;max-height:520px;background:#000}
+@media(max-width:620px){
+  .marketing-video-head{flex-direction:column}
+  .marketing-video-badge{align-self:flex-start}
+  .marketing-video-grid{grid-template-columns:1fr}
+  .marketing-video-card{padding:15px}
+}

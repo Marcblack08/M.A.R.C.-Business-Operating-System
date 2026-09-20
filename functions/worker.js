@@ -219,7 +219,7 @@ async function resolveInventory(env,token,userId,query){
   if(rows.length>1){
     const exact=rows.filter(x=>String(x.name).toLowerCase()===String(query||"").toLowerCase());
     if(exact.length===1)return {status:"FOUND",item:exact[0]};
-    return {status:"AMBIGUOUS",query,options:rows.slice(0,5).map(x=>({id:x.id,name:x.name,brand:x.brand,model:x.model,price:x.price,stock:x.stock}))};
+    return {status:"AMBIGUOUS",query,options:rows.slice(0,5).map(x=>({id:x.id,name:x.name,brand:x.brand,model:x.model,unit:x.unit,cost:x.cost,price:x.price,stock:x.stock}))};
   }
   return {status:"FOUND",item:rows[0]};
 }

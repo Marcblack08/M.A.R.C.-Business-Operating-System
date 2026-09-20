@@ -855,8 +855,12 @@ async function telegramWebhook(request,env,ctx){
   const moneyText=n=>new Intl.NumberFormat("es-PE",{style:"currency",currency:"PEN"}).format(Number(n||0));
   // Consultas sobre el último cierre: responden directamente desde los movimientos reales, sin pasar por Gemini.
   if(
-    (/(?:\b(ultimo|ultima|reciente)\b.*\b(cierre|caja)\b)/.test(simple) || /\b(cierre|caja)\b.*\b(ultimo|ultima|reciente)\b/.test(simple))
-    && /\b(movimiento|movimientos|ingreso|ingresos|egreso|egresos|gasto|gastos|venta|ventas|como estuvo|como estuvieron|como esta|como estan|resumen|mostrar|muestra|ver|dime|dame|pasame|detalle|detalles|que paso)\b/.test(simple)
+    (
+      /\b(ultimo|ultima|reciente|anterior)\b.*\b(cierre|caja)\b/.test(simple)
+      || /\b(cierre|caja)\b.*\b(ultimo|ultima|reciente|anterior)\b/.test(simple)
+      || /\b(ultimo|ultima|reciente)\b.*\b(cierre|caja)\b/.test(simple)
+    )
+    && /\b(movimiento|movimientos|ingreso|ingresos|egreso|egresos|gasto|gastos|venta|ventas|como estuvo|como estuvieron|como esta|como estan|resumen|mostrar|muestra|ver|dime|dame|pasame|detalle|detalles|que paso|estado)\b/.test(simple)
   ){
     try{
       const closedRows=await cashRows("CLOSED",1);
@@ -2402,10 +2406,13 @@ async function telegramWebhook(request,env,ctx){
   if(
     (
       /\b(pdf|archivo|documento)\b/.test(simple)
-      || /\b(pasame|pasame|envia|enviame|dame|mandame|manda)\b/.test(simple)
+      || /\b(pasame|envia|enviame|dame|mandame|manda)\b/.test(simple)
     )
-    && /\b(ultimo|ultima|reciente|anterior)\b/.test(simple)
-    && /\b(proforma|cotizacion|cotización|presupuesto)\b/.test(simple)
+    && (
+      /\b(ultimo|ultima|reciente|anterior)\b/.test(simple)
+      || /\b(proforma|cotizacion|cotización|presupuesto)\b/.test(simple)
+      || /\b(pdf|archivo|documento)\b/.test(simple)
+    )
   ){
     try{
       const latest=await getLatestQuoteForTelegram(env,adminToken,userId);

@@ -460,36 +460,18 @@
     return rows.map(r=>({y:r.y,text:r.texts.join(" ").replace(/\s+/g," ").trim()})).filter(r=>r.text);
   }
   function cleanCatalogProductText(text){
-    let s=String(text||"").replace(/[\\t\\r\\n]+/g," ").replace(/\\s+/g," ").trim();
-    s=s.replace(/(?:S\\/\\.?|S\\.?|PEN|USD|US\\$)\\s*\\d+(?:[.,]\\d{1,2})?/gi," ");
-    s=s.replace(/\\b(?:PVP|PRECIO|OFERTA|PROMO(?:CION)?|DESDE)\\b/gi," ");
-    s=s.replace(/(^|\\s)\\d+(?:[.,]\\d{1,2})?(?=\\s*$)/g," ");
-    return s.replace(/[|•·]+/g," ").replace(/\\s+/g," ").trim();
+    let s=String(text||"").replace(/[\t\r\n]+/g," ").replace(/\s+/g," ").trim();
+    s=s.replace(/(?:S\/\.?|S\.?|PEN|USD|US\$)\s*\d+(?:[.,]\d{1,2})?/gi," ");
+    s=s.replace(/\b(?:PVP|PRECIO|OFERTA|PROMO(?:CION)?|DESDE)\b/gi," ");
+    s=s.replace(/(^|\s)\d+(?:[.,]\d{1,2})?(?=\s*$)/g," ");
+    return s.replace(/[|•·]+/g," ").replace(/\s+/g," ").trim();
   }
   function pdfRowPrice(text){
     const s=String(text||"");
-    const m=s.match(/(?:S\\/\\.?|S\\.?|PEN|USD|US\\$)?\\s*\\d+(?:[.,]\\d{1,2})?(?=\\s*$)/i);
+    const m=s.match(/(?:S\/\.?|S\.?|PEN|USD|US\$)?\s*\d+(?:[.,]\d{1,2})?(?=\s*$)/i);
     if(m)return num(m[0]);
-    const all=s.match(/(?:S\\/\\.?|S\\.?|PEN|USD|US\\$)\\s*\\d+(?:[.,]\\d{1,2})?/gi);
+    const all=s.match(/(?:S\/\.?|S\.?|PEN|USD|US\$)\s*\d+(?:[.,]\d{1,2})?/gi);
     return all?.length?num(all[all.length-1]):null;
-  }
-  function isLikelyPdfProductText(text){
-    const raw=String(text||"").trim(), clean=cleanCatalogProductText(raw);
-    if(clean.length<4||isNoiseCatalogText(clean))return false;
-    if(/^(?:codigo|sku|modelo|marca|descripcion|producto|unidad|cantidad|precio|importe|total|catalogo)$/i.test(clean))return false;
-    const letters=(clean.match(/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g)||[]).length;
-    return letters>=3;
-  }
-  function catalogProductKey(text){
-    return String(text||"").toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim();
-  }
-  function isNoiseCatalogText(text){
-    const k=catalogProductKey(text);
-    if(k.length<3)return true;
-    const noise=["precio","pvp","oferta","promocion","catalogo","www","telefono","celular","contacto","pagina","page","subtotal","total","igv","incluye","consulta","cotiza"];
-    if(noise.includes(k))return true;
-    if(/^(?:s|usd|us|precio|pvp)?\\s*\\d+(?:[.,]\\d+)?$/i.test(String(text||"").trim()))return true;
-    return false;
   }
   function mergeCatalogCandidates(candidates){
     const groups=[];

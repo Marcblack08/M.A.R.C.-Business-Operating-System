@@ -3019,7 +3019,9 @@ async function marketingImage(request,env){
       "La composición debe dejar una zona limpia y legible para que la aplicación agregue posteriormente el texto exacto.",
       "Si recibes una foto del producto, conserva fielmente el producto, su forma, color, detalles y proporciones; mejora iluminación, fondo y presentación sin alterar sus características.",
       "Si no recibes foto, crea una representación visual coherente y comercial basada únicamente en los datos del producto.",
-      "Estética: fotografía comercial de alta calidad, iluminación profesional, profundidad, composición moderna, aspecto realista.",
+      "Estética: pieza publicitaria profesional para redes sociales, inspirada en anuncios comerciales de tecnología y seguridad: composición dinámica, producto grande y protagonista, fondo azul/cian de alto contraste, zonas visuales claras para título, beneficios, precio y llamada a la acción.",
+      "El producto debe verse grande, nítido y atractivo. Prioriza una presentación comercial realista sobre un simple fondo vacío.",
+      "Puedes incorporar formas geométricas, brillos, ondas, líneas, iconos visuales genéricos y elementos gráficos tecnológicos, pero NO escribas texto ni números dentro de la imagen.",
       "Plataforma: "+platform+". Relación de aspecto: "+ratio+".",
       "PROPUESTA VISUAL: "+variant+". "+(styleMap[variant]||"Composición moderna y comercial equilibrada."),
       "Producto: "+JSON.stringify({

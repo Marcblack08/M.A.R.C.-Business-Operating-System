@@ -598,10 +598,88 @@
     if(!window.pdfjsLib)throw new Error("No está disponible el lector PDF.");
     const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise,raw=[];
     const sharedReader=window.MARC_PDF_CATALOG_READER;
+
+    // El análisis de proveedores debe aprovechar el mismo analizador avanzado
+    // que Inventario. Primero intentamos el endpoint PDF por página (texto +
+    // render de la página para Gemini). El lector local queda como respaldo.
+    const {data:{session}}=await sb().auth.getSession();
+    let advancedPendingId=null;
+    let advancedPendingPromise=null;
+    const ensureAdvancedPending=async()=>{
+      if(advancedPendingId)return advancedPendingId;
+      if(advancedPendingPromise)return advancedPendingPromise;
+      advancedPendingPromise=fetch("/api/inventory/pdf-start",{
+        method:"POST",
+        headers:{"Content-Type":"application/json",Authorization:"Bearer "+(session?.access_token||"")},
+        body:JSON.stringify({filename:file.name,totalPages:pdf.numPages})
+      }).then(async r=>{
+        const j=await r.json();
+        if(!r.ok)throw new Error(j.message||j.error||"No se pudo iniciar el análisis avanzado.");
+        if(!j.pendingId)throw new Error("No se recibió la sesión de análisis avanzado.");
+        advancedPendingId=j.pendingId;
+        return advancedPendingId;
+      }).finally(()=>{advancedPendingPromise=null});
+      return advancedPendingPromise;
+    };
+
+    const analyzeAdvancedPage=async(page,pageNumber)=>{
+      const pendingId=await ensureAdvancedPending();
+      const text=sharedReader?.extractPageText?await sharedReader.extractPageText(page):"";
+      let viewport=page.getViewport({scale:1.25});
+      if(viewport.width>1600)viewport=page.getViewport({scale:1.25*(1600/viewport.width)});
+      const canvas=document.createElement("canvas");
+      const ctx=canvas.getContext("2d",{alpha:false});
+      if(!ctx)throw new Error("No se pudo crear el visor de página.");
+      canvas.width=Math.ceil(viewport.width);
+      canvas.height=Math.ceil(viewport.height);
+      await page.render({canvasContext:ctx,viewport}).promise;
+      const image=canvas.toDataURL("image/jpeg",0.72);
+      const r=await fetch("/api/inventory/pdf-page",{
+        method:"POST",
+        headers:{"Content-Type":"application/json",Authorization:"Bearer "+(session?.access_token||"")},
+        body:JSON.stringify({pendingId,pageNumber,totalPages:pdf.numPages,text,image})
+      });
+      const j=await r.json();
+      if(!r.ok)throw new Error(j.message||j.error||("No se pudo analizar la página "+pageNumber));
+      return Array.isArray(j.items)?j.items:[];
+    };
     for(let p=1;p<=pdf.numPages;p++){
       const page=await pdf.getPage(p);
       const images=await extractPdfImagesWithBoxes(page);
 
+      try{
+        const advancedItems=await analyzeAdvancedPage(page,p);
+        if(advancedItems.length){
+          advancedItems.forEach((row,i)=>{
+            let best=-1,bestDist=Infinity;
+            images.forEach((im,idx)=>{
+              const d=Math.abs(Number(im.y||0)-Number(row.pdf_y||row.y||0));
+              if(d<bestDist){bestDist=d;best=idx}
+            });
+            const matched=best>=0&&bestDist<160?images[best]:null;
+            raw.push({
+              page:p,imageIndex:matched?best:null,sku:row.sku||null,
+              name:cleanCatalogProductText(row.name||row.product||row.description||"").slice(0,180),
+              description:String(row.description||row.name||row.product||"").slice(0,500),
+              brand:row.brand||null,model:row.model||row.sku||null,
+              category:row.category||null,unit:row.unit||"UND",
+              supplier_cost:row.supplier_cost??row.cost??null,
+              supplier_price:row.supplier_price??row.price??null,
+              currency:row.currency||"PEN",stock_text:row.stock_text||null,
+              image_data_url:matched?.dataUrl||null,
+              ai_confidence:Number(row.ai_confidence??0.94),
+              source_metadata:{page:p,image_detected:!!matched,
+                image_match_distance:matched?Math.round(bestDist):null,
+                source_row:i,reader:"INVENTARIO_AVANZADO"}
+            });
+          });
+          continue;
+        }
+      }catch(e){
+        console.warn("Analizador avanzado de Inventario no disponible en página "+p+", usando lector local:",e);
+      }
+
+      // Respaldo local si el analizador avanzado no devuelve productos.
       // Proveedores usa exactamente el mismo lector que Inventario cuando el
       // PDF contiene una tabla de texto. Así ambos módulos deben detectar las
       // mismas fichas y no mantenemos dos algoritmos distintos.

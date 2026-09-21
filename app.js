@@ -3249,7 +3249,18 @@ function wire(){
   $("#exitConversation").onclick=closeChat;
   $("#menu").onclick=()=>$("#sidebar").classList.toggle("open");
   $("#mobileScrim").onclick=()=>$("#sidebar").classList.remove("open");
-  $$(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.onclick=()=>view(b.dataset.view));
+  // Navegación robusta para escritorio y móvil: delegación de eventos para que
+  // los botones sigan funcionando aunque el contenido se redibuje dinámicamente.
+  $(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>{
+    b.type="button";
+    b.onclick=(e)=>{e.preventDefault();e.stopPropagation();view(b.dataset.view)};
+  });
+  document.addEventListener("click",e=>{
+    const b=e.target.closest?.(".sidebar nav button[data-view],#mobileNav button[data-view]");
+    if(!b)return;
+    e.preventDefault();
+    view(b.dataset.view);
+  },true);
   $("#chatForm").onsubmit=e=>{e.preventDefault();const v=$("#chatInput").value.trim();if(v){$("#chatInput").value="";chatSend(v)}};
   $("#chatInput").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("#chatForm").requestSubmit()}};
   $$(".chips button").forEach(b=>b.onclick=()=>{$("#chatInput").value=b.dataset.q;$("#chatInput").focus()});

@@ -597,13 +597,63 @@
   async function parsePdfCatalog(file){
     if(!window.pdfjsLib)throw new Error("No está disponible el lector PDF.");
     const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise,raw=[];
+    const sharedReader=window.MARC_PDF_CATALOG_READER;
     for(let p=1;p<=pdf.numPages;p++){
       const page=await pdf.getPage(p);
-      const tc=await page.getTextContent();
       const images=await extractPdfImagesWithBoxes(page);
-      const rows=pdfProductRows(tc);
-      const parsed=rows.map((r,i)=>({...r,index:i,price:pdfRowPrice(r.text),name:cleanCatalogProductText(r.text)}));
 
+      // Proveedores usa exactamente el mismo lector que Inventario cuando el
+      // PDF contiene una tabla de texto. Así ambos módulos deben detectar las
+      // mismas fichas y no mantenemos dos algoritmos distintos.
+      let shared=null;
+      if(sharedReader?.extractRows){
+        try{ shared=await sharedReader.extractRows(page); }catch(e){ console.warn("Lector PDF compartido:",e); }
+      }
+
+      if(shared?.usedLocal&&Array.isArray(shared.rows)&&shared.rows.length){
+        for(let i=0;i<shared.rows.length;i++){
+          const row=shared.rows[i];
+          let best=-1,bestDist=Infinity;
+          images.forEach((im,idx)=>{
+            const d=Math.abs(Number(im.y||0)-Number(row.pdf_y||row.y||0));
+            if(d<bestDist){bestDist=d;best=idx}
+          });
+          const matched=best>=0&&bestDist<140?images[best]:null;
+          const name=cleanCatalogProductText(row.name);
+          if(!name||isNoiseCatalogText(name))continue;
+          raw.push({
+            page:p,
+            imageIndex:matched?best:null,
+            sku:row.sku||null,
+            name:name.slice(0,180),
+            description:String(row.description||row.name||"").slice(0,500),
+            brand:row.brand||null,
+            model:row.model||null,
+            category:row.category||null,
+            unit:row.unit||"UND",
+            supplier_cost:null,
+            supplier_price:row.price!=null?Number(row.price):null,
+            currency:row.currency||"PEN",
+            stock_text:null,
+            image_data_url:matched?.dataUrl||null,
+            ai_confidence:matched?0.97:0.94,
+            source_metadata:{
+              page:p,
+              image_detected:!!matched,
+              image_match_distance:matched?Math.round(bestDist):null,
+              source_row:i,
+              reader:"INVENTARIO_COMPARTIDO"
+            }
+          });
+        }
+        continue;
+      }
+
+      // Fallback: mantenemos el analizador específico de proveedores para
+      // PDFs que no tienen una tabla de texto reconocible.
+      const tc=await page.getTextContent();
+      const rows=pdfProductRows(tc);
+      const parsed=rows.map((r,i)=>({...r,index:i,price:pdfRowPrice(r.text),name:cleanCatalogProductText(r.text)});
       // Analizamos TODAS las líneas con apariencia de producto. Antes solo se
       // analizaban las filas con precio, lo que hacía perder productos cuando
       // el precio estaba en otra columna o no tenía símbolo de moneda.
@@ -703,7 +753,7 @@
         });
       }
     }
-
+    }
     const result=mergeCatalogCandidates(raw).slice(0,2000);
     if(!result.length){
       throw new Error("El PDF no contiene texto de productos reconocible. Si es un PDF escaneado como imágenes, necesitamos activar OCR para ese catálogo.");

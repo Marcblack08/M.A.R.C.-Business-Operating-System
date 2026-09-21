@@ -41,7 +41,13 @@
     const title=String(payload.title||"Publicidad de M.A.R.C.");
     const text=String(payload.text||"");
     const url=String(payload.url||location.href);
-    const files=Array.isArray(payload.files)?payload.files:[];
+    let files=Array.isArray(payload.files)?payload.files:[];
+    if(payload.imageDataUrl && !files.length){
+      try{
+        const m=String(payload.imageDataUrl).match(/^data:([^;]+);base64,(.+)$/);
+        if(m){const bin=atob(m[2]),bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);files=[new File([bytes],payload.fileName||"publicidad-marc.png",{type:m[1]})]}
+      }catch(e){console.warn("[M.A.R.C. share] image conversion failed",e)}
+    }
     if(navigator.share){
       try{
         if(files.length&&navigator.canShare?.({files}))return await navigator.share({title,text,url,files});

@@ -2260,26 +2260,22 @@ async function marketing(){
     <section class="card panel marketing-copy-card"><div class="eyebrow2">6 · PROPUESTAS DE TEXTO</div><div class="marketing-copy-grid"><article><div class="marketing-copy-head"><b>Texto principal</b><button class="secondary" data-copy="primary_text">Copiar</button></div><p id="adPrimary">—</p></article><article><div class="marketing-copy-head"><b>WhatsApp</b><button class="secondary" data-copy="whatsapp_text">Copiar</button></div><p id="adWhatsapp">—</p></article><article><div class="marketing-copy-head"><b>Texto corto</b><button class="secondary" data-copy="short_text">Copiar</button></div><p id="adShort">—</p></article><article><div class="marketing-copy-head"><b>Hashtags</b><button class="secondary" data-copy="hashtags">Copiar</button></div><p id="adHashtags">—</p></article></div></section>
     <section class="card panel marketing-company-footer"><div><b>✓ Datos de tu empresa aplicados automáticamente</b><small>Logo, nombre, teléfono y datos disponibles en tu perfil empresarial.</small></div><button class="secondary" type="button" id="marketingCompanyInfo">Ver datos de contacto</button></section>
     <section class="card panel marketing-share-center" id="marketingPublishCenter" style="margin-top:14px">
-      <div class="eyebrow2">7 · COMPARTIR Y PUBLICAR</div>
+      <div class="eyebrow2">7 · COMPARTIR</div>
       <div class="panel-title-row">
-        <div><h3 style="margin:0">Lleva tu publicidad a tus redes</h3><small>M.A.R.C. prepara el contenido y tu teléfono se encarga de compartirlo.</small></div>
-        <span class="badge ok">📱 TELÉFONO</span>
-      </div>
-      <div class="marketing-share-explainer">
-        <div class="marketing-share-icon">📤</div>
-        <div><b>No necesitas conectar Facebook, Instagram, TikTok ni WhatsApp.</b><small>Cuando pulses compartir, Android/iPhone abrirá el menú de aplicaciones de tu propio teléfono. Tú eliges dónde enviarlo.</small></div>
+        <div><h3 style="margin:0">¿Dónde quieres compartirla?</h3><small>Elige una aplicación y M.A.R.C. preparará el contenido para tu teléfono.</small></div>
+        <span class="badge ok">📱 LISTO</span>
       </div>
       <div class="marketing-share-grid">
-        <button class="marketing-share-option" id="marketingShareWhatsApp" type="button"><span>🟢</span><b>WhatsApp</b><small>Enviar a un contacto o grupo</small></button>
-        <button class="marketing-share-option" id="marketingShareInstagram" type="button"><span>📸</span><b>Instagram</b><small>Compartir desde tu teléfono</small></button>
-        <button class="marketing-share-option" id="marketingShareFacebook" type="button"><span>f</span><b>Facebook</b><small>Compartir desde tu teléfono</small></button>
-        <button class="marketing-share-option" id="marketingShareTikTok" type="button"><span>♪</span><b>TikTok</b><small>Compartir desde tu teléfono</small></button>
-        <button class="marketing-share-option marketing-share-more" id="marketingShareMore" type="button"><span>＋</span><b>Más aplicaciones</b><small>Abrir el menú completo</small></button>
+        <button class="marketing-share-option" id="marketingShareWhatsApp" type="button"><span>🟢</span><b>WhatsApp</b><small>Enviar</small></button>
+        <button class="marketing-share-option" id="marketingShareInstagram" type="button"><span>📸</span><b>Instagram</b><small>Publicar</small></button>
+        <button class="marketing-share-option" id="marketingShareFacebook" type="button"><span>f</span><b>Facebook</b><small>Publicar</small></button>
+        <button class="marketing-share-option" id="marketingShareTikTok" type="button"><span>♪</span><b>TikTok</b><small>Publicar</small></button>
+        <button class="marketing-share-option marketing-share-more" id="marketingShareMore" type="button"><span>＋</span><b>Más</b><small>Otras aplicaciones</small></button>
       </div>
       <div class="marketing-share-actions">
-        <button class="primary" id="marketingPreparePublication" type="button">💾 Guardar publicidad</button>
-        <button class="secondary" id="marketingShareNow" type="button">📤 Compartir ahora</button>
-        <button class="secondary" id="marketingReminder" type="button">🔔 Recordarme después</button>
+        <button class="primary" id="marketingShareNow" type="button">📤 Compartir</button>
+        <button class="secondary" id="marketingPreparePublication" type="button">💾 Guardar</button>
+        <button class="secondary" id="marketingReminder" type="button">🔔 Recordarme</button>
       </div>
       <div id="marketingPublishStatus" class="msg" style="margin-top:10px"></div>
     </section>

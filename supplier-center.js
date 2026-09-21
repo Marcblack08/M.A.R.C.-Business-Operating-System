@@ -647,6 +647,34 @@
       const page=await pdf.getPage(p);
       const images=await extractPdfImagesWithBoxes(page);
 
+      // Primero usamos el mismo lector local de Inventario. Es inmediato y evita
+      // enviar a IA páginas que ya contienen una tabla de productos perfectamente
+      // legible. El análisis avanzado solo entra en las páginas que el lector local
+      // no puede resolver.
+      if(shared?.usedLocal&&Array.isArray(shared.rows)&&shared.rows.length){
+        for(let i=0;i<shared.rows.length;i++){
+          const row=shared.rows[i];
+          let best=-1,bestDist=Infinity;
+          images.forEach((im,idx)=>{
+            const d=Math.abs(Number(im.y||0)-Number(row.pdf_y||row.y||0));
+            if(d<bestDist){bestDist=d;best=idx}
+          });
+          const matched=best>=0&&bestDist<140?images[best]:null;
+          const name=cleanCatalogProductText(row.name);
+          if(!name||isNoiseCatalogText(name))continue;
+          raw.push({
+            page:p,imageIndex:matched?best:null,sku:row.sku||null,
+            name:name.slice(0,180),description:String(row.description||row.name||"").slice(0,500),
+            brand:row.brand||null,model:row.model||null,category:row.category||null,
+            unit:row.unit||"UND",supplier_cost:null,supplier_price:row.price!=null?Number(row.price):null,
+            currency:row.currency||"PEN",stock_text:null,image_data_url:matched?.dataUrl||null,
+            ai_confidence:matched?0.97:0.94,
+            source_metadata:{page:p,image_detected:!!matched,image_match_distance:matched?Math.round(bestDist):null,source_row:i,reader:"INVENTARIO_COMPARTIDO"}
+          });
+        }
+        continue;
+      }
+
       try{
         const advancedItems=await analyzeAdvancedPage(page,p);
         if(advancedItems.length){
@@ -657,9 +685,11 @@
               if(d<bestDist){bestDist=d;best=idx}
             });
             const matched=best>=0&&bestDist<160?images[best]:null;
+            const name=cleanCatalogProductText(row.name||row.product||row.description||"");
+            if(!name||isNoiseCatalogText(name))return;
             raw.push({
               page:p,imageIndex:matched?best:null,sku:row.sku||null,
-              name:cleanCatalogProductText(row.name||row.product||row.description||"").slice(0,180),
+              name:name.slice(0,180),
               description:String(row.description||row.name||row.product||"").slice(0,500),
               brand:row.brand||null,model:row.model||row.sku||null,
               category:row.category||null,unit:row.unit||"UND",
@@ -668,9 +698,7 @@
               currency:row.currency||"PEN",stock_text:row.stock_text||null,
               image_data_url:matched?.dataUrl||null,
               ai_confidence:Number(row.ai_confidence??0.94),
-              source_metadata:{page:p,image_detected:!!matched,
-                image_match_distance:matched?Math.round(bestDist):null,
-                source_row:i,reader:"INVENTARIO_AVANZADO"}
+              source_metadata:{page:p,image_detected:!!matched,image_match_distance:matched?Math.round(bestDist):null,source_row:i,reader:"INVENTARIO_AVANZADO"}
             });
           });
           continue;
@@ -678,7 +706,6 @@
       }catch(e){
         console.warn("Analizador avanzado de Inventario no disponible en página "+p+", usando lector local:",e);
       }
-
       // Respaldo local si el analizador avanzado no devuelve productos.
       // Proveedores usa exactamente el mismo lector que Inventario cuando el
       // PDF contiene una tabla de texto. Así ambos módulos deben detectar las

@@ -2417,6 +2417,20 @@ async function marketing(){
     const publishBtn=$p("marketingPublishNow");if(publishBtn)publishBtn.disabled=false;
     toast("Publicación preparada y guardada como borrador. Ya puedes publicarla ahora.","ok");
   };
+  const sharePublication=async()=>{
+    if(!currentCampaign)return toast("Primero genera la publicidad con IA.","err");
+    const title=currentCampaign.title||currentProduct?.name||"Publicidad de M.A.R.C.";
+    const text=[currentCampaign.headline,currentCampaign.primary_text,currentCampaign.short_text,(currentCampaign.hashtags||[]).join(" ")].filter(Boolean).join("\n\n");
+    try{
+      if(window.MARCNotifications?.share){
+        await window.MARCNotifications.share({title,text,url:location.href});
+      }else if(navigator.share){
+        await navigator.share({title,text,url:location.href});
+      }else{
+        await navigator.clipboard?.writeText(text);toast("Texto copiado para compartir.","ok");
+      }
+    }catch(e){if(e?.name!=="AbortError")toast("No se pudo abrir el menú de compartir.","err")}
+  };
   const publishNow=async()=>{
     if(!currentPublicationId)return toast("Primero prepara una publicación.","err");
     const btn=$p("marketingPublishNow");if(btn)btn.disabled=true;

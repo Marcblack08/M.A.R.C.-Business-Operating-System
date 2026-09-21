@@ -163,10 +163,14 @@
 
   async function createPublicationDraft(item){
     const S=sb(); const {data:{session}}=await S.auth.getSession();
-    const body="Producto: "+item.name+"\n"+[item.brand,item.model,item.sku].filter(Boolean).join(" · ")+"\nPrecio proveedor: "+money(item.supplier_price);
-    const r=await S.from("marc_publications").insert({user_id:session.user.id,platform:"WHATSAPP",status:"DRAFT",title:item.name,headline:item.name,body,short_text:"Consulta disponibilidad y precio.",hashtags:[],media_url:item.image_url||null,media_type:"IMAGE"}).select().single();
-    if(r.error)return alert(r.error.message);
-    alert("Borrador de publicación creado. Ahora puedes completarlo desde Publicidad.");
+    const options="1. FACEBOOK\\n2. INSTAGRAM\\n3. TIKTOK\\n4. WHATSAPP\\n5. LINKEDIN";
+    const n=Number(prompt("¿Dónde quieres preparar la publicación?\\n"+options,"2")||0);
+    const platform=["FACEBOOK","INSTAGRAM","TIKTOK","WHATSAPP","LINKEDIN"][n-1];
+    if(!platform)return;
+    const body="Producto: "+item.name+"\\n"+[item.brand,item.model,item.sku].filter(Boolean).join(" · ")+"\\nPrecio proveedor: "+money(item.supplier_price||item.supplier_cost);
+    const r=await S.from("marc_publications").insert({user_id:session.user.id,inventory_id:item.inventory_id||null,platform,status:"DRAFT",title:item.name,headline:item.name,body,short_text:"Consulta disponibilidad y precio.",hashtags:[],media_url:item.image_url||null,media_type:"IMAGE"}).select().single();
+    if(r.error)return alert("No se pudo crear el borrador: "+r.error.message);
+    alert("Borrador creado para "+platform+". La publicación real quedará disponible cuando conectemos la cuenta social y el plan correspondiente.");
     if(window.view)window.view("marketing");
   }
 

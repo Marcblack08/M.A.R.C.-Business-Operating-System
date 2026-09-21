@@ -2,15 +2,18 @@
 function msg(t,c=""){const e=$("#authMsg");e.textContent=t;e.className="msg "+c}
 const THEME_KEY="marc_theme";
 function applyTheme(theme,save=true){
-  const t=theme==="dark"?"dark":"light";
-  document.documentElement.dataset.theme=t;
+  const t=String(theme)==="dark"?"dark":"light";
+  document.documentElement.setAttribute("data-theme",t);
+  document.body?.setAttribute("data-theme",t);
   if(save)localStorage.setItem(THEME_KEY,t);
   const b=$("#themeToggle"),ab=$("#authThemeToggle"),i=$("#themeIcon"),l=$("#themeLabel");
   if(i)i.textContent=t==="dark"?"☀":"☾";
-  if(ab)ab.querySelector("span").textContent=t==="dark"?"☀":"☾";
+  const ai=ab?.querySelector("span"); if(ai)ai.textContent=t==="dark"?"☀":"☾";
   if(l)l.textContent=t==="dark"?"Claro":"Oscuro";
-  if(b)b.setAttribute("aria-label",t==="dark"?"Cambiar a modo claro":"Cambiar a modo oscuro");
-  if(ab)ab.setAttribute("aria-label",t==="dark"?"Cambiar a modo claro":"Cambiar a modo oscuro");
+  const label=t==="dark"?"Cambiar a modo claro":"Cambiar a modo oscuro";
+  if(b)b.setAttribute("aria-label",label);
+  if(ab)ab.setAttribute("aria-label",label);
+  return t;
 }
 function initTheme(){
   const saved=localStorage.getItem(THEME_KEY);
@@ -3316,9 +3319,9 @@ function wire(){
     renderClientPortal(portalToken);
     return;
   }
-  const toggleTheme=()=>applyTheme(document.documentElement.dataset.theme==="dark"?"light":"dark");
-  $("#themeToggle").onclick=toggleTheme;
-  $("#authThemeToggle").onclick=toggleTheme;
+  const toggleTheme=(e)=>{e?.preventDefault();applyTheme(document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark");};
+  $("#themeToggle")?.addEventListener("click",toggleTheme);
+  $("#authThemeToggle")?.addEventListener("click",toggleTheme);
   mode("login");
   $("#googleLogin").onclick=signInGoogle;
   $("#logout").onclick=async()=>{resetUiToLogin();await S.auth.signOut();};

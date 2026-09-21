@@ -467,6 +467,19 @@
     s=s.replace(/(^|\s)\d+(?:[.,]\d{1,2})?(?=\s*$)/g," ");
     return s.replace(/[|•·]+/g," ").replace(/\s+/g," ").trim();
   }
+  function isNoiseCatalogText(text){
+    const s=String(text||"").trim();
+    if(!s)return true;
+    if(/^(?:p[aá]gina|page|www\\.|http|tel[eé]fono|fax|correo|email|precio|pvp|total|subtotal|iva|igv|catalogo|cat[aá]logo|descripci[oó]n|producto|c[oó]digo|sku|modelo|marca)$/i.test(s))return true;
+    return false;
+  }
+  function isLikelyPdfProductText(text){
+    const raw=String(text||"").trim();
+    const clean=cleanCatalogProductText(raw);
+    if(clean.length<4||isNoiseCatalogText(clean))return false;
+    const letters=(clean.match(/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g)||[]).length;
+    return letters>=3;
+  }
   function pdfRowPrice(text){
     const s=String(text||"");
     const m=s.match(/(?:S\/\.?|S\.?|PEN|USD|US\$)?\s*\d+(?:[.,]\d{1,2})?(?=\s*$)/i);

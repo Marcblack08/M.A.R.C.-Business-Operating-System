@@ -329,8 +329,15 @@
       await S.from("marc_supplier_catalogs").update({status:"ANALYZING",ai_provider:catalog.source_type==="EXCEL"?"XLSX-PARSER-V2":"PDF-JS-V2"}).eq("id",catalog.id);
       const dl=await S.storage.from("catalog-pdfs").download(catalog.storage_path);
       if(dl.error)throw dl.error;
+      if(!dl.data)throw new Error("El archivo original no pudo recuperarse del almacenamiento.");
+      // Supabase Storage devuelve un Blob sin nombre. El analizador necesita el nombre
+      // para identificar PDF/XLSX, por eso lo convertimos nuevamente en File.
+      const fileType=catalog.source_type==="EXCEL"
+        ?"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        :"application/pdf";
+      const originalFile=new File([dl.data],catalog.file_name||("catalogo-"+catalog.id+(catalog.source_type==="EXCEL"?".xlsx":".pdf")),{type:dl.data.type||fileType});
       document.querySelector("#scReanalyzeStatus").textContent="Archivo recuperado. Aplicando el nuevo detector…";
-      await analyzeCatalog(catalog,dl.data,true);
+      await analyzeCatalog(catalog,originalFile,true);
       document.querySelector("#modal").innerHTML="";
       await loadCenter();
       toast("Catálogo reanalizado correctamente.");

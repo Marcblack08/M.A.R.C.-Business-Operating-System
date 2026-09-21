@@ -194,7 +194,7 @@
     const OPS=pdfjsLib.OPS||{};
     for(let i=0;i<op.fnArray.length;i++){
       const fn=op.fnArray[i],args=op.argsArray[i];
-      if(fn!==OPS.paintImageXObject&&!fn!==OPS.paintImageMaskXObject)continue;
+      if(fn!==OPS.paintImageXObject&&fn!==OPS.paintImageMaskXObject)continue;
       const key=args?.[0];if(!key||!page.objs?.has?.(key))continue;
       try{
         const image=page.objs.get(key),dataUrl=await pdfImageDataUrl(image);

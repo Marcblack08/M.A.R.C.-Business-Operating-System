@@ -2601,17 +2601,22 @@ async function analyzeProductBoxPhoto(file,statusEl){
 }
 function inventoryModal(x=null){
   const close=modal(
-    '<div class="modal-head"><div><h2>'+(x?"Editar":"Nuevo")+' producto</h2><p>Productos + inventario, ahora también con foto.</p></div><button class="close" id="x">×</button></div>'+
+    '<div class="modal-head"><div><h2>'+(x?"Editar":"Nuevo")+' producto</h2><p>Completa el producto en 3 pasos. M.A.R.C. te guía.</p></div><button class="close" id="x">×</button></div>'+
     '<form id="f">'+
+      '<div class="inventory-ai-guide">'+
+        '<div class="inventory-ai-step active" data-step="1"><b>1</b><span>Foto</span></div><i></i><div class="inventory-ai-step" data-step="2"><b>2</b><span>Analiza</span></div><i></i><div class="inventory-ai-step" data-step="3"><b>3</b><span>Revisa</span></div>'+
+      '</div>'+
       '<div class="inventory-photo-box">'+
         '<div class="inventory-photo-preview" id="productPhotoPreview">'+(x?.image_url?'<img src="'+esc(x.image_url)+'" alt="Foto del producto">':'<span>📷</span>')+'</div>'+
         '<div style="display:flex;flex-direction:column;gap:7px;min-width:0;flex:1">'+
-          '<label>Foto del producto<input id="productPhoto" name="image" type="file" accept="image/jpeg,image/png,image/webp" capture="environment"></label>'+
-          '<button type="button" class="secondary" id="analyzeProductPhoto">✦ Analizar caja con IA</button>'+
-          '<small>Fotografía la caja. Gemini leerá nombre, SKU, marca y modelo. El precio lo colocas tú.</small>'+
+          '<label>1. Toma o selecciona una foto<input id="productPhoto" name="image" type="file" accept="image/jpeg,image/png,image/webp" capture="environment"></label>'+
+          '<button type="button" class="secondary" id="analyzeProductPhoto" disabled>✦ Analizar con IA</button>'+
+          '<small id="photoGuide">Fotografía la caja o etiqueta de frente, con buena luz y donde se lean marca y modelo.</small>'+
+          '<div class="inventory-photo-tips"><b>Para obtener mejores datos:</b><span>• No cortes la etiqueta.</span><span>• Evita reflejos y movimiento.</span><span>• Acerca la cámara hasta que el texto sea legible.</span></div>'+
         '</div>'+
       '</div>'+
-      '<div class="form-grid">'+
+      '<div id="photoMsg" class="msg"></div>'+
+      '<div class="form-grid">
         '<label>Nombre<input name="name" required value="'+esc(x?.name||"")+'"></label>'+
         '<label>Código / SKU<input name="sku" value="'+esc(x?.sku||"")+'"></label>'+
         '<label>Marca<input name="brand" value="'+esc(x?.brand||"")+'"></label>'+
@@ -2623,7 +2628,6 @@ function inventoryModal(x=null){
         '<label>Stock<input name="stock" type="number" min="0" step="0.01" value="'+(x?.stock??0)+'"></label>'+
         '<label>Mínimo<input name="min_stock" type="number" min="0" step="0.01" value="'+(x?.min_stock??0)+'"></label>'+
       '</div>'+
-      '<div id="photoMsg" class="msg"></div>'+
       '<div class="modal-actions">'+
         (x?'<button type="button" class="danger" id="deleteProduct">Eliminar producto</button>':'')+
         '<button type="button" class="secondary" id="cancel">Cancelar</button>'+
@@ -2635,9 +2639,13 @@ function inventoryModal(x=null){
   $("#cancel").onclick=close;
 
   const photo=$("#productPhoto"), preview=$("#productPhotoPreview"), msg=$("#photoMsg"), analyzePhoto=$("#analyzeProductPhoto");
+  const setGuideStep=step=>{
+    $(".inventory-ai-step").forEach(el=>el.classList.toggle("active",Number(el.dataset.step)<=step));
+  };
   if(analyzePhoto)analyzePhoto.onclick=async()=>{
     const f=photo.files?.[0];
     if(!f)return toast("Primero toma o selecciona una foto de la caja.","err");
+    setGuideStep(2);
     analyzePhoto.disabled=true;
     const previousLabel=analyzePhoto.textContent;
     analyzePhoto.textContent="✦ Analizando foto…";
@@ -2672,10 +2680,14 @@ function inventoryModal(x=null){
   photo.onchange=()=>{
     const f=photo.files?.[0];
     if(!f)return;
+    setGuideStep(1);
     if(!["image/jpeg","image/png","image/webp"].includes(f.type))return toast("Usa JPG, PNG o WEBP.","err");
     if(f.size>5*1024*1024)return toast("La foto supera 5 MB.","err");
     const url=URL.createObjectURL(f);
     preview.innerHTML='<img src="'+url+'" alt="Vista previa">';
+    if(analyzePhoto)analyzePhoto.disabled=false;
+    if(msg){msg.className="msg";msg.textContent="Foto lista. Ahora pulsa «Analizar con IA» para completar los datos automáticamente.";}
+    const guide=$("#photoGuide");if(guide)guide.textContent="Foto lista. Pulsa «Analizar con IA» y M.A.R.C. intentará leer los datos visibles.";
   };
 
   if(x){

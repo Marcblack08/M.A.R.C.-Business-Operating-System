@@ -3336,6 +3336,77 @@ async function decryptSecret(env,value){
   const data=await crypto.subtle.decrypt({name:"AES-GCM",iv:unb64u(parts[1])},key,unb64u(parts[2]));
   return new TextDecoder().decode(data);
 }
+async function uploadMarketingDataUrl(env,adminToken,userId,dataUrl){
+  const m=String(dataUrl||"").match(/^data:([^;,]+)(?:;base64)?,(.*)$/s);
+  if(!m) return String(dataUrl||"");
+  const mime=m[1]||"image/png", raw=m[2]||"";
+  if(!/;base64$/.test(String(dataUrl).split(",")[0])) throw Object.assign(new Error("La imagen de publicidad debe estar en formato base64."),{status:400});
+  const bin=Uint8Array.from(atob(raw),c=>c.charCodeAt(0));
+  if(bin.byteLength>8*1024*1024)throw Object.assign(new Error("La imagen de publicidad supera 8 MB."),{status:413});
+  const ext=mime.includes("jpeg")||mime.includes("jpg")?"jpg":mime.includes("webp")?"webp":"png";
+  const path="marketing/"+userId+"/"+crypto.randomUUID()+"."+ext;
+  const r=await fetch(env.SUPABASE_URL+"/storage/v1/object/inventory-images/"+path,{method:"POST",headers:{apikey:adminToken,Authorization:"Bearer "+adminToken,"content-type":mime,"x-upsert":"false"},body:bin});
+  if(!r.ok){const rawErr=await r.text();throw Object.assign(new Error("No se pudo guardar la imagen de publicidad."),{status:502,details:rawErr});}
+  return env.SUPABASE_URL+"/storage/v1/object/public/inventory-images/"+path;
+}
+async function metaPublish(request,env){
+  const {token,user}=await authUser(request,env);
+  const access=await entitlement(env,token,user.id);
+  if(access.kind!=="master")throw Object.assign(new Error("Publicar en redes sociales requiere el plan MASTER."),{status:403});
+  if(request.method!=="POST")return json({error:"Método no permitido"},405,corsHeaders(request));
+  const body=await request.json().catch(()=>({}));
+  const publicationId=String(body?.publicationId||"").trim();
+  if(!publicationId)throw Object.assign(new Error("Falta publicationId."),{status:400});
+  const rows=await sb(env,token,"marc_publications?select=id,user_id,platform,status,title,headline,body,short_text,hashtags,media_url,media_type&user_id=eq."+encodeURIComponent(user.id)+"&id=eq."+encodeURIComponent(publicationId)+"&limit=1");
+  const publication=rows?.[0];
+  if(!publication)throw Object.assign(new Error("No encontré la publicación."),{status:404});
+  if(["PUBLISHED","PUBLISHING"].includes(publication.status))return json({ok:true,status:publication.status,publication},200,corsHeaders(request));
+  const platform=String(publication.platform||"").toUpperCase();
+  if(!["FACEBOOK","INSTAGRAM"].includes(platform))throw Object.assign(new Error("La publicación real está habilitada por ahora para Facebook e Instagram."),{status:422});
+  const conRows=await sb(env,token,"marc_social_connections?select=id,platform,account_name,external_account_id,token_ref,status&user_id=eq."+encodeURIComponent(user.id)+"&platform=eq."+platform+"&status=eq.CONNECTED&limit=1");
+  const connection=conRows?.[0];
+  if(!connection?.token_ref)throw Object.assign(new Error("Conecta primero la cuenta de "+platform+"."),{status:409});
+  const secret=await decryptSecret(env,connection.token_ref);
+  let meta=secret;try{meta=JSON.parse(secret)}catch{}
+  const tokenValue=meta?.page_access_token||secret;
+  const version=String(env.META_GRAPH_VERSION||"v23.0");
+  const message=[publication.headline,publication.body,publication.short_text,Array.isArray(publication.hashtags)?publication.hashtags.join(" "):""].filter(Boolean).join("\\n\\n").slice(0,10000);
+  const mediaUrl=await uploadMarketingDataUrl(env,env.SUPABASE_SERVICE_ROLE_KEY||env.SUPABASE_SECRET_KEY,user.id,publication.media_url);
+  await sb(env,token,"marc_publications?id=eq."+encodeURIComponent(publication.id)+"&user_id=eq."+encodeURIComponent(user.id),{method:"PATCH",body:{status:"PUBLISHING",last_error:null,updated_at:new Date().toISOString()}});
+  try{
+    let externalId="",externalUrl=null;
+    if(platform==="FACEBOOK"){
+      const pageId=meta?.page_id||connection.external_account_id;
+      const endpoint="https://graph.facebook.com/"+version+"/"+encodeURIComponent(pageId)+"/"+(mediaUrl?"photos":"feed");
+      const form=new URLSearchParams({access_token:tokenValue});
+      if(mediaUrl){form.set("url",mediaUrl);form.set("caption",message)}else form.set("message",message);
+      const r=await fetch(endpoint,{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},body:form});
+      const d=await r.json().catch(()=>null);
+      if(!r.ok||d?.error)throw Object.assign(new Error(d?.error?.message||"Meta rechazó la publicación en Facebook."),{status:502,details:d});
+      externalId=String(d?.post_id||d?.id||"");
+      if(externalId)externalUrl="https://www.facebook.com/"+externalId.replace("_","/posts/");
+    }else{
+      if(!mediaUrl)throw Object.assign(new Error("Instagram requiere una imagen pública para publicar."),{status:422});
+      const createUrl="https://graph.facebook.com/"+version+"/"+encodeURIComponent(connection.external_account_id)+"/media";
+      const form=new URLSearchParams({image_url:mediaUrl,caption:message,access_token:tokenValue});
+      const cr=await fetch(createUrl,{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},body:form});
+      const cd=await cr.json().catch(()=>null);
+      if(!cr.ok||cd?.error||!cd?.id)throw Object.assign(new Error(cd?.error?.message||"Meta rechazó la creación del contenido de Instagram."),{status:502,details:cd});
+      const pubUrl="https://graph.facebook.com/"+version+"/"+encodeURIComponent(connection.external_account_id)+"/media_publish";
+      const pf=new URLSearchParams({creation_id:cd.id,access_token:tokenValue});
+      const pr=await fetch(pubUrl,{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},body:pf});
+      const pd=await pr.json().catch(()=>null);
+      if(!pr.ok||pd?.error||!pd?.id)throw Object.assign(new Error(pd?.error?.message||"Meta rechazó la publicación de Instagram."),{status:502,details:pd});
+      externalId=String(pd.id);
+    }
+    await sb(env,token,"marc_publications?id=eq."+encodeURIComponent(publication.id)+"&user_id=eq."+encodeURIComponent(user.id),{method:"PATCH",body:{status:"PUBLISHED",published_at:new Date().toISOString(),external_post_id:externalId||null,external_url:externalUrl,last_error:null,updated_at:new Date().toISOString()}});
+    return json({ok:true,status:"PUBLISHED",platform,externalPostId:externalId,externalUrl,mediaUrl},200,corsHeaders(request));
+  }catch(err){
+    await sb(env,token,"marc_publications?id=eq."+encodeURIComponent(publication.id)+"&user_id=eq."+encodeURIComponent(user.id),{method:"PATCH",body:{status:"FAILED",last_error:String(err?.message||"Error de publicación"),updated_at:new Date().toISOString()}}).catch(()=>{});
+    throw err;
+  }
+}
+
 async function metaConnect(request,env){
   const {token,user}=await authUser(request,env);
   const access=await entitlement(env,token,user.id);
@@ -3558,6 +3629,9 @@ export default{
     if(url.pathname==="/api/marketing-video-start"){try{return await marketingVideoStart(request,env)}catch(err){return json({error:err?.message||"No se pudo iniciar el video.",detail:err?.details||null},err?.status||500,headers)}}
     if(url.pathname==="/api/marketing-video-status"){try{return await marketingVideoStatus(request,env)}catch(err){return json({error:err?.message||"No se pudo consultar el video.",detail:err?.details||null},err?.status||500,headers)}}
     if(url.pathname==="/api/marketing-image"){try{return await marketingImage(request,env)}catch(err){return json({error:err?.message||"No se pudo generar el banner con IA.",detail:err?.details||null},err?.status||500,headers)}}
+    if(url.pathname==="/api/social/meta/publish"){
+      try{return await metaPublish(request,env)}catch(err){return json({error:err?.message||"No se pudo publicar en Meta.",detail:err?.details||null},err?.status||500,headers)}
+    }
     if(url.pathname==="/api/social/meta/connect"){
       if(request.method!=="GET")return json({error:"Método no permitido"},405,headers);
       try{return await metaConnect(request,env)}catch(err){return json({error:err?.message||"No se pudo iniciar la conexión con Meta."},err?.status||500,headers)}

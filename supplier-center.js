@@ -656,7 +656,13 @@
       // enviar a IA páginas que ya contienen una tabla de productos perfectamente
       // legible. El análisis avanzado solo entra en las páginas que el lector local
       // no puede resolver.
-      if(shared?.usedLocal&&Array.isArray(shared.rows)&&shared.rows.length){
+      // No damos por buena una lectura local incompleta. Si la página
+      // contiene más imágenes/fichas que filas detectadas, dejamos que el
+      // analizador visual complete esa página.
+      const localCount=shared?.usedLocal&&Array.isArray(shared.rows)?shared.rows.length:0;
+      const imageCount=Array.isArray(images)?images.length:0;
+      const localLooksComplete=localCount>0 && (imageCount===0 || localCount>=Math.max(1,Math.ceil(imageCount*0.9)));
+      if(localLooksComplete){
         for(let i=0;i<shared.rows.length;i++){
           const row=shared.rows[i];
           let best=-1,bestDist=Infinity;

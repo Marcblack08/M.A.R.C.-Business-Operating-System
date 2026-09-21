@@ -15,7 +15,6 @@ GEMINI_MODEL_FALLBACK2="gemini-3.6-flash"
 [assets]
 directory="."
 binding="ASSETS"
-run_worker_first=["/api/*","/","/index.html","/app.js","/styles.css","/config.js"]
 
 [triggers]
 # Procesa publicaciones programadas cada minuto.

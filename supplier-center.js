@@ -448,10 +448,13 @@
         let price=row.price;
 
         // Muchos catálogos colocan el nombre y el precio en líneas consecutivas.
-        if(!isLikelyPdfProductText(row.name)){
-          const prev=pricedRows[i-1],next=pricedRows[i+1];
-          if(prev&&isLikelyPdfProductText(prev.name)&&row.price!=null){source={...prev, text:prev.text+" "+row.text, name:cleanCatalogProductText(prev.text+" "+row.text)};price=row.price;used.add(i-1);}
-          else if(next&&isLikelyPdfProductText(next.name)&&row.price!=null){source={...next, text:next.text+" "+row.text, name:cleanCatalogProductText(next.text+" "+row.text)};price=row.price;used.add(i+1);}
+        const prev=pricedRows[i-1],next=pricedRows[i+1];
+        if(isLikelyPdfProductText(row.name)&&next&&next.price!=null&&!isLikelyPdfProductText(next.name)){
+          source={...row,text:row.text+" "+next.text,name:cleanCatalogProductText(row.text+" "+next.text)};
+          price=next.price;used.add(i+1);
+        }else if(!isLikelyPdfProductText(row.name)){
+          if(prev&&isLikelyPdfProductText(prev.name)&&row.price!=null){source={...prev,text:prev.text+" "+row.text,name:cleanCatalogProductText(prev.text+" "+row.text)};price=row.price;used.add(i-1);}
+          else if(next&&isLikelyPdfProductText(next.name)&&row.price!=null){source={...next,text:next.text+" "+row.text,name:cleanCatalogProductText(next.text+" "+row.text)};price=row.price;used.add(i+1);}
         }
 
         if(!isLikelyPdfProductText(source.name))continue;

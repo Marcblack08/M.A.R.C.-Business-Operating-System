@@ -218,42 +218,84 @@
     if(src.length!==image.width*image.height*4)return null;
     try{ctx.putImageData(new ImageData(src,image.width,image.height),0,0);return canvas.toDataURL("image/png",0.9)}catch(e){console.warn("No se pudo convertir imagen PDF",e);return null}
   }
-  async function extractPdfImages(page){
-    const op=await page.getOperatorList(),images=[];
-    const OPS=pdfjsLib.OPS||{};
+  function pdfMatrixMultiply(m,n){
+    return [
+      m[0]*n[0]+m[2]*n[1],
+      m[1]*n[0]+m[3]*n[1],
+      m[0]*n[2]+m[2]*n[3],
+      m[1]*n[2]+m[3]*n[3],
+      m[0]*n[4]+m[2]*n[5]+m[4],
+      m[1]*n[4]+m[3]*n[5]+m[5]
+    ];
+  }
+  function pdfMatrixPoint(m,x,y){return [m[0]*x+m[2]*y+m[4],m[1]*x+m[3]*y+m[5]]}
+  async function extractPdfImagesWithBoxes(page){
+    const op=await page.getOperatorList(),images=[],OPS=pdfjsLib.OPS||{},stack=[],identity=[1,0,0,1,0,0];
+    let matrix=identity.slice();
     for(let i=0;i<op.fnArray.length;i++){
       const fn=op.fnArray[i],args=op.argsArray[i];
+      if(fn===OPS.save){stack.push(matrix.slice());continue}
+      if(fn===OPS.restore){matrix=stack.pop()||identity.slice();continue}
+      if(fn===OPS.transform&&args?.length>=6){matrix=pdfMatrixMultiply(matrix,args);continue}
       if(fn!==OPS.paintImageXObject&&fn!==OPS.paintImageMaskXObject)continue;
       const key=args?.[0];if(!key||!page.objs?.has?.(key))continue;
       try{
         const image=page.objs.get(key),dataUrl=await pdfImageDataUrl(image);
-        if(dataUrl)images.push(dataUrl);
+        if(!dataUrl)continue;
+        const w=Number(image.width||0),h=Number(image.height||0);if(!w||!h)continue;
+        const pts=[[0,0],[w,0],[0,h],[w,h]].map(p=>pdfMatrixPoint(matrix,p[0],p[1]));
+        const vp=page.getViewport({scale:1});
+        const vpts=pts.map(p=>vp.convertToViewportPoint(p[0],p[1]));
+        const xs=vpts.map(p=>p[0]),ys=vpts.map(p=>p[1]);
+        images.push({dataUrl,x:(Math.min(...xs)+Math.max(...xs))/2,y:(Math.min(...ys)+Math.max(...ys))/2,width:Math.abs(Math.max(...xs)-Math.min(...xs)),height:Math.abs(Math.max(...ys)-Math.min(...ys))});
       }catch(e){console.warn("Imagen PDF no disponible",e)}
     }
     return images;
+  }
+  function pdfProductRows(tc){
+    const rows=[];
+    (tc.items||[]).forEach(item=>{
+      const text=String(item.str||"").trim();if(!text)return;
+      const t=item.transform||[1,0,0,1,0,0],y=Number(t[5]||0);
+      let row=rows.find(r=>Math.abs(r.y-y)<5);
+      if(!row){row={y,texts:[],items:[]};rows.push(row)}
+      row.texts.push(text);row.items.push(item);
+    });
+    return rows.map(r=>({y:r.y,text:r.texts.join(" ").replace(/\s+/g," ").trim()})).filter(r=>r.text);
   }
   async function parsePdfCatalog(file){
     if(!window.pdfjsLib)throw new Error("No está disponible el lector PDF.");
     const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise,out=[];
     for(let p=1;p<=pdf.numPages;p++){
-      const page=await pdf.getPage(p);
-      const tc=await page.getTextContent();
-      const images=await extractPdfImages(page);
-      const line=tc.items.map(x=>x.str).join(" ");
-      const parts=line.split(/\s{2,}|\|/);
-      let imageIndex=0;
-      parts.forEach(x=>{
-        const prices=x.match(/(?:S\.?\s*)?\d+(?:[.,]\d{1,2})?/g);if(!prices)return;
-        const price=num(prices[prices.length-1]),name=x.replace(/(?:S\.?\s*)?\d+(?:[.,]\d{1,2})?/g," ").replace(/\s+/g," ").trim();
-        if(name.length>=3){
-          const image_data_url=images[imageIndex]||null;
-          if(image_data_url)imageIndex++;
-          out.push({sku:null,name:name.slice(0,180),description:x,brand:null,model:null,category:null,unit:"UND",supplier_cost:null,supplier_price:price,currency:"PEN",stock_text:null,image_data_url,ai_confidence:image_data_url?0.78:0.55,source_metadata:{page:p,image_detected:!!image_data_url}});
-        }
+      const page=await pdf.getPage(p),tc=await page.getTextContent();
+      const images=await extractPdfImagesWithBoxes(page);
+      const rows=pdfProductRows(tc);
+      const candidates=rows.filter(r=>/(?:S\.?\s*)?\d+(?:[.,]\d{1,2})?/.test(r.text));
+      const used=new Set();
+      candidates.forEach(row=>{
+        const prices=row.text.match(/(?:S\.?\s*)?\d+(?:[.,]\d{1,2})?/g);if(!prices)return;
+        const price=num(prices[prices.length-1]);
+        const name=row.text.replace(/(?:S\.?\s*)?\d+(?:[.,]\d{1,2})?/g," ").replace(/\s+/g," ").trim();
+        if(name.length<3)return;
+        let best=-1,bestDist=Infinity;
+        images.forEach((im,i)=>{if(used.has(i))return;const d=Math.abs(im.y-row.y);if(d<bestDist){bestDist=d;best=i}});
+        const matched=best>=0&&bestDist<120?images[best]:null;
+        if(matched)used.add(best);
+        out.push({
+          sku:null,name:name.slice(0,180),description:row.text,brand:null,model:null,category:null,unit:"UND",
+          supplier_cost:null,supplier_price:price,currency:"PEN",stock_text:null,
+          image_data_url:matched?.dataUrl||null,
+          ai_confidence:matched?0.88:0.55,
+          source_metadata:{page:p,image_detected:!!matched,image_match_distance:matched?Math.round(bestDist):null}
+        });
       });
+      if(!candidates.length&&images.length){
+        images.forEach(im=>out.push({sku:null,name:"Producto con imagen detectada",description:"Imagen extraída del catálogo PDF",brand:null,model:null,category:null,unit:"UND",supplier_cost:null,supplier_price:null,currency:"PEN",stock_text:null,image_data_url:im.dataUrl,ai_confidence:0.45,source_metadata:{page:p,image_detected:true,unmatched_image:true}}));
+      }
     }
     return out.slice(0,2000);
   }
+
   async function importCatalogItem(item){
     const S=sb(); const {data:{session}}=await S.auth.getSession(); let existing=null;
     if(item.sku){const r=await S.from("marc_inventory").select("*").eq("user_id",session.user.id).eq("sku",item.sku).maybeSingle();existing=r.data;}

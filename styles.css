@@ -3007,3 +3007,49 @@ html[data-theme="dark"] #scModalOverlay [style*="background:rgba(127,127,127,.08
   .marketing-share-actions{grid-template-columns:1fr 1fr}
   .marketing-share-actions .primary{grid-column:1/-1}
 }
+
+
+/* Publicidad · refinamiento visual e interacción */
+.marketing-hero{margin-bottom:12px}
+.marketing-hero h1{letter-spacing:-.025em}
+.marketing-recipient-card{position:relative;overflow:hidden;border:1px solid rgba(19,115,230,.22);background:linear-gradient(135deg,rgba(19,115,230,.09),rgba(15,29,49,.5))}
+.marketing-recipient-card:before{content:"";position:absolute;inset:0 auto 0 0;width:4px;background:#1373e6}
+.marketing-recipient-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.marketing-recipient-head h3{margin:3px 0 2px;font-size:18px}
+.marketing-recipient-head small{opacity:.68}
+.marketing-recipient-head>span{width:42px;height:42px;display:grid;place-items:center;border-radius:13px;background:rgba(19,115,230,.14);font-size:20px}
+.marketing-recipient-row{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(220px,.85fr);gap:12px;margin-top:13px}
+.marketing-recipient-select{display:block}
+.marketing-recipient-select>span{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:800;opacity:.62;margin-bottom:6px}
+.marketing-recipient-select select{width:100%;min-height:48px;border-radius:13px;border:1px solid rgba(127,127,127,.25);background:rgba(0,0,0,.12);color:inherit;padding:0 12px;font-weight:700}
+.marketing-recipient-info{min-height:48px;border-radius:13px;padding:10px 13px;border:1px solid rgba(127,127,127,.18);background:rgba(127,127,127,.045)}
+.marketing-recipient-info b{display:block;font-size:13px}
+.marketing-recipient-info small{display:block;margin-top:3px;opacity:.65;line-height:1.35}
+.marketing-company-footer{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.marketing-company-footer small{display:block;margin-top:4px;opacity:.66;line-height:1.4}
+.marketing-company-strip>span:last-child{white-space:nowrap}
+.marketing-step-title{scroll-margin-top:90px}
+.marketing-form-card{box-shadow:0 14px 36px rgba(0,0,0,.08)}
+.marketing-preview-card{position:sticky;top:12px;align-self:start}
+.marketing-banner-actions{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:8px}
+.marketing-banner-actions button{min-height:44px}
+.marketing-copy-card{margin-top:12px}
+.marketing-copy-grid article{transition:transform .16s ease,border-color .16s ease}
+.marketing-copy-grid article:hover{transform:translateY(-1px)}
+.marketing-share-center{border:1px solid rgba(19,115,230,.22)}
+.marketing-share-option{min-height:112px;justify-content:center}
+.marketing-share-option span{font-size:26px}
+.marketing-share-option b{font-size:15px}
+.marketing-share-option small{font-size:11px}
+@media(max-width:900px){
+  .marketing-recipient-row{grid-template-columns:1fr}
+  .marketing-preview-card{position:relative;top:auto}
+}
+@media(max-width:780px){
+  .marketing-company-footer{display:block}
+  .marketing-company-footer button{width:100%;margin-top:10px}
+  .marketing-banner-actions{grid-template-columns:1fr 1fr}
+  .marketing-banner-actions #downloadAd{grid-column:1/-1}
+  .marketing-share-grid{gap:8px}
+  .marketing-share-option{min-height:96px}
+}

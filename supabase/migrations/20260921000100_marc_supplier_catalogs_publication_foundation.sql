@@ -1,9 +1,6 @@
 -- M.A.R.C. supplier catalog + publication foundation
--- Prepares the data model for:
--- 1) supplier catalogs/documents and catalog products
--- 2) transforming catalog entries into inventory products
--- 3) publication drafts, scheduled posts and social-channel connections
--- No social API is called by this migration.
+-- Data foundation for supplier catalogs and publication scheduling.
+-- Social access tokens are referenced indirectly; secrets must remain server-side.
 
 create table if not exists public.marc_suppliers (
   id uuid primary key default gen_random_uuid(),
@@ -114,8 +111,7 @@ create table if not exists public.marc_social_connections (
   platform text not null,
   account_name text,
   external_account_id text,
-  access_token_encrypted text,
-  refresh_token_encrypted text,
+  token_ref text,
   token_expires_at timestamptz,
   scopes jsonb not null default '[]'::jsonb,
   status text not null default 'DISCONNECTED',
@@ -200,7 +196,6 @@ for all to authenticated
 using (user_id = auth.uid())
 with check (user_id = auth.uid());
 
--- Common helper for future plan/feature gates.
 create or replace function public.marc_has_active_subscription()
 returns boolean
 language sql
@@ -209,10 +204,8 @@ security invoker
 set search_path = public, pg_catalog
 as $$
   select exists(
-    select 1
-    from public.marc_subscriptions
-    where user_id = auth.uid()
-      and status = 'active'
+    select 1 from public.marc_subscriptions
+    where user_id = auth.uid() and status = 'active'
   );
 $$;
 

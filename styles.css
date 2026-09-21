@@ -2889,3 +2889,21 @@ html[data-theme="dark"] #scModalOverlay [style*="background:rgba(127,127,127,.08
   .marketing-generate-box .modal-actions{display:grid;grid-template-columns:1fr;margin-top:10px}
   .marketing-generate-box .modal-actions button{width:100%}
 }
+
+
+/* Publicidad · destinatario y contexto del cliente */
+.marketing-recipient-card{margin:14px 0}
+.marketing-recipient-head{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.marketing-recipient-head h3{margin:2px 0 3px;font-size:18px}
+.marketing-recipient-head small{opacity:.68}
+.marketing-recipient-head>span{width:44px;height:44px;display:grid;place-items:center;border-radius:14px;background:rgba(19,115,230,.12);font-size:22px}
+.marketing-recipient-row{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(220px,.8fr);gap:12px;margin-top:13px;align-items:end}
+.marketing-recipient-select{display:block}
+.marketing-recipient-select>span{display:block;font-size:12px;font-weight:800;opacity:.7;margin-bottom:6px}
+.marketing-recipient-select select{width:100%;min-height:46px}
+.marketing-recipient-info{min-height:46px;padding:10px 13px;border:1px solid rgba(19,115,230,.18);border-radius:13px;background:rgba(19,115,230,.05)}
+.marketing-recipient-info b{display:block;font-size:13px}
+.marketing-recipient-info small{display:block;margin-top:3px;opacity:.65;line-height:1.35}
+@media(max-width:780px){
+  .marketing-recipient-row{grid-template-columns:1fr}
+}

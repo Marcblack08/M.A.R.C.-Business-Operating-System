@@ -2483,3 +2483,64 @@ body,
   .client-portal-header{align-items:flex-start;flex-direction:column}.client-portal-stats{grid-template-columns:1fr 1fr}.client-portal-page{padding:12px}
 }
 @media(max-width:460px){.client-history-stats{grid-template-columns:1fr 1fr}.client-portal-stats{grid-template-columns:1fr 1fr}.client-card-actions button{flex:1}}
+
+/* ===== MODALES MOBILE: navegación y cotizaciones ===== */
+body.modal-open{overflow:hidden!important}
+@media(max-width:780px){
+  /* El modal debe quedar por encima de la navegación inferior y del encabezado. */
+  .modal-root{z-index:20000!important;place-items:stretch!important;padding:0!important;overflow:hidden!important}
+  .modal-root>.modal{
+    width:100%!important;
+    max-width:none!important;
+    height:100svh!important;
+    max-height:none!important;
+    min-height:0!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+    -webkit-overflow-scrolling:touch!important;
+    overscroll-behavior:contain!important;
+    border-radius:0!important;
+    padding:calc(14px + env(safe-area-inset-top)) 14px calc(22px + env(safe-area-inset-bottom))!important;
+  }
+  .modal-root>.modal .modal-head{
+    position:sticky!important;
+    top:0!important;
+    z-index:5!important;
+    margin:calc(-14px - env(safe-area-inset-top)) -14px 14px!important;
+    padding:calc(12px + env(safe-area-inset-top)) 14px 12px!important;
+    background:rgba(255,255,255,.97)!important;
+    border-bottom:1px solid #e5edf4!important;
+    backdrop-filter:blur(12px)!important;
+  }
+  .modal-root>.modal .modal-head h2{font-size:17px!important;line-height:1.2!important}
+  .modal-root>.modal .modal-head p{font-size:9px!important;line-height:1.35!important}
+  .modal-root>.modal .close{width:38px!important;height:38px!important;min-width:38px!important;font-size:22px!important}
+  .modal-root>.modal form{padding-bottom:8px!important}
+  .modal-root>.modal .modal-actions{
+    position:sticky!important;
+    bottom:0!important;
+    z-index:6!important;
+    margin:12px -14px calc(-22px - env(safe-area-inset-bottom))!important;
+    padding:10px 14px calc(12px + env(safe-area-inset-bottom))!important;
+    background:rgba(255,255,255,.98)!important;
+    border-top:1px solid #e2eaf2!important;
+    box-shadow:0 -8px 22px rgba(13,39,66,.08)!important;
+    display:grid!important;
+    grid-template-columns:1fr 1.35fr!important;
+    gap:8px!important;
+  }
+  .modal-root>.modal .modal-actions button{min-height:46px!important;width:100%!important}
+  .modal-root>.modal .form-grid{grid-template-columns:1fr!important}
+  .modal-root>.modal .quote-line-top{grid-template-columns:92px minmax(0,1fr) 36px!important;gap:6px!important}
+  .modal-root>.modal .quote-line-fields{grid-template-columns:72px 105px minmax(0,1fr)!important;gap:6px!important}
+  .modal-root>.modal input,.modal-root>.modal select,.modal-root>.modal textarea{font-size:16px!important;min-height:44px!important}
+  .modal-root>.modal textarea{line-height:1.4!important}
+  .modal-root>.modal label{font-size:10px!important}
+}
+@media(max-width:420px){
+  .modal-root>.modal{padding-left:12px!important;padding-right:12px!important}
+  .modal-root>.modal .modal-head{margin-left:-12px!important;margin-right:-12px!important;padding-left:12px!important;padding-right:12px!important}
+  .modal-root>.modal .modal-actions{margin-left:-12px!important;margin-right:-12px!important;padding-left:12px!important;padding-right:12px!important}
+  .modal-root>.modal .quote-line-top{grid-template-columns:78px minmax(0,1fr) 34px!important}
+  .modal-root>.modal .quote-line-fields{grid-template-columns:62px 92px minmax(0,1fr)!important}
+}

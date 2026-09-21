@@ -653,7 +653,7 @@
       // PDFs que no tienen una tabla de texto reconocible.
       const tc=await page.getTextContent();
       const rows=pdfProductRows(tc);
-      const parsed=rows.map((r,i)=>({...r,index:i,price:pdfRowPrice(r.text),name:cleanCatalogProductText(r.text)});
+      const parsed=rows.map((r,i)=>({...r,index:i,price:pdfRowPrice(r.text),name:cleanCatalogProductText(r.text)}));
       // Analizamos TODAS las líneas con apariencia de producto. Antes solo se
       // analizaban las filas con precio, lo que hacía perder productos cuando
       // el precio estaba en otra columna o no tenía símbolo de moneda.
@@ -752,7 +752,6 @@
           source_metadata:{page:p,image_detected:!!matched,image_match_distance:matched?Math.round(bestDist):null,source_row:i,recovered:true}
         });
       }
-    }
     }
     const result=mergeCatalogCandidates(raw).slice(0,2000);
     if(!result.length){

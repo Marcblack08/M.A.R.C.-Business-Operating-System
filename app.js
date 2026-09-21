@@ -2640,7 +2640,7 @@ function inventoryModal(x=null){
 
   const photo=$("#productPhoto"), preview=$("#productPhotoPreview"), msg=$("#photoMsg"), analyzePhoto=$("#analyzeProductPhoto");
   const setGuideStep=step=>{
-    $(".inventory-ai-step").forEach(el=>el.classList.toggle("active",Number(el.dataset.step)<=step));
+    $$(".inventory-ai-step").forEach(el=>el.classList.toggle("active",Number(el.dataset.step)<=step));
   };
   if(analyzePhoto)analyzePhoto.onclick=async()=>{
     const f=photo.files?.[0];

@@ -2210,9 +2210,9 @@ function downloadCashExcel(report){
 }
 
 async function marketing(){
-  const [{data:products,error},{data:companyData}]=await Promise.all([S.from("marc_inventory").select("id,name,sku,brand,model,category,price,stock,image_url").eq("user_id",st.u.id).eq("active",true).order("name").limit(1000),S.from("marc_accounts").select("business_name,logo_data,phone").eq("id",st.u.id).maybeSingle()]);
+  const [{data:products,error},{data:companyData},{data:clientsData}]=await Promise.all([S.from("marc_inventory").select("id,name,sku,brand,model,category,price,stock,image_url").eq("user_id",st.u.id).eq("active",true).order("name").limit(1000),S.from("marc_accounts").select("business_name,logo_data,phone").eq("id",st.u.id).maybeSingle(),S.from("marc_clients").select("id,name,contact_name,phone,email").eq("user_id",st.u.id).order("name").limit(1000)]);
   if(error){toast(error.message,"err");return}
-  const list=products||[];
+  const list=products||[],clientsList=clientsData||[];
   const saved=JSON.parse(localStorage.getItem("marc_marketing_last")||"null");
   $("#content").innerHTML=`
     <div class="head marketing-hero"><div><div class="eyebrow2">CENTRO DE PUBLICIDAD</div><h1>Crea una publicidad en pocos pasos</h1><p>Elige un producto o toma una foto, dime qué quieres lograr y M.A.R.C. preparará la imagen, el texto y el formato para compartir desde tu teléfono.</p></div><button class="secondary" id="marketingClear">Nueva publicidad</button></div>
@@ -2226,6 +2226,7 @@ async function marketing(){
       </div>
     </div>
     <div class="marketing-benefits"><div><b>✦ Imagen con IA</b><small>3 propuestas visuales para elegir</small></div><div><b>✓ Texto automático</b><small>Descripción, CTA y hashtags</small></div><div><b>◉ Datos de tu empresa</b><small>Logo, nombre y teléfono</small></div><div><b>📱 Compartir desde tu teléfono</b><small>WhatsApp, Instagram y más</small></div></div>
+    <section class="card panel marketing-recipient-card"><div class="marketing-recipient-head"><div><div class="eyebrow2">DESTINATARIO</div><h3>¿Es para un cliente?</h3><small>Si eliges uno, M.A.R.C. guardará el envío en su historia.</small></div><span>👤</span></div><div class="marketing-recipient-row"><label class="marketing-recipient-select"><span>Cliente</span><select id="adClient"><option value="">Sin cliente específico · Publicidad general</option>${clientsList.map(x=>"<option value=\""+esc(x.id)+"\">"+esc(x.name)+(x.phone?" · "+esc(x.phone):"")+"</option>").join("")}</select></label><div id="adClientInfo" class="marketing-recipient-info"><b>Publicidad general</b><small>No se añadirá a la historia de un cliente.</small></div></div></section>
     <div class="marketing-layout marketing-layout-v2">
       <section class="card panel marketing-form-card">
         <div class="marketing-step-title"><span>1</span><div><b>Producto o foto</b><small>Elige un producto del inventario o toma una foto. M.A.R.C. hará el resto.</small></div><button class="secondary" id="marketingPhotoClear" type="button">Limpiar foto</button></div>
@@ -2282,7 +2283,7 @@ async function marketing(){
     <section class="card panel marketing-history"><div class="panel-title-row"><div><div class="eyebrow2">HISTORIAL</div><h3>Últimas campañas creadas</h3></div></div><div id="marketingHistory" class="marketing-history-list"><span class="muted-small">Cargando…</span></div></section>
   `;
 
-  let currentPublicationId=null,currentCampaign=saved?.campaign||null,currentProduct=list.find(p=>p.id===saved?.productId)||list[0]||null,currentImage=null,currentImageFile=null,currentAiImage=null,currentAiVariants=[],currentAiVariantIndex=0,company=companyData||{};
+  let currentPublicationId=null,currentCampaign=saved?.campaign||null,currentProduct=list.find(p=>p.id===saved?.productId)||list[0]||null,currentClient=clientsList.find(x=>x.id===saved?.clientId)||null,currentImage=null,currentImageFile=null,currentAiImage=null,currentAiVariants=[],currentAiVariantIndex=0,company=companyData||{};
   const $p=id=>document.getElementById(id);
   const companyLogo=$p("adCompanyLogo");if(companyLogo&&company.logo_data)companyLogo.style.backgroundImage='url("'+company.logo_data.replace(/"/g,'&quot;')+'")';
   if($p("adCompanyName"))$p("adCompanyName").textContent=company.business_name||"Tu empresa";
@@ -2307,7 +2308,7 @@ async function marketing(){
     let y=h*.66;banner.forEach(line=>{const words=line.split(" "),lines=[];let row="";const max=w*.84;for(const word of words){const test=row?row+" "+word:word;if(ctx.measureText(test).width>max&&row){lines.push(row);row=word}else row=test}if(row)lines.push(row);lines.slice(0,3).forEach(t=>{ctx.fillText(t,w*.08,y);y+=Math.round(Math.min(w,h)*.071)})});
     if($p("adOffer").value.trim()){ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*.034)+"px Inter";ctx.fillText($p("adOffer").value.trim().slice(0,42),w*.08,h*.86)}
     else if(currentProduct.price!=null&&currentProduct.price!==""){ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*.038)+"px Inter";ctx.fillText(money(currentProduct.price),w*.08,h*.86)}
-    ctx.fillStyle="#d9efff";ctx.font="800 "+Math.round(Math.min(w,h)*.021)+"px Inter";ctx.fillText(String(company.business_name||currentProduct.name).slice(0,55),w*.08,h*.925);if(company.phone){ctx.fillStyle="#9fd8ff";ctx.font="700 "+Math.round(Math.min(w,h)*.017)+"px Inter";ctx.fillText(String(company.phone).slice(0,32),w*.08,h*.955)}
+    ctx.fillStyle="#d9efff";ctx.font="800 "+Math.round(Math.min(w,h)*.021)+"px Inter";ctx.fillText(String(company.business_name||currentProduct.name).slice(0,55),w*.08,h*.925);if(company.phone){ctx.fillStyle="#9fd8ff";ctx.font="700 "+Math.round(Math.min(w,h)*.017)+"px Inter";ctx.fillText("WhatsApp · "+String(company.phone).slice(0,28),w*.08,h*.955)}
     ctx.fillStyle="#fff";ctx.beginPath();ctx.roundRect?.(w*.67,h*.88,w*.25,h*.065,18);if(!ctx.roundRect)ctx.fillRect(w*.67,h*.88,w*.25,h*.065);ctx.fillStyle=palette[1];ctx.font="900 "+Math.round(Math.min(w,h)*.019)+"px Inter";ctx.textAlign="center";ctx.fillText(String($p("adCta").value||"Escríbenos").slice(0,24),w*.795,h*.922);ctx.textAlign="left";
   };
   const renderVariants=async()=>{
@@ -2385,6 +2386,9 @@ async function marketing(){
     }catch(e){status.className="msg error";status.textContent=e.message||"No se pudo analizar la foto."}
     finally{if(btn)btn.disabled=false}
   };
+  const syncClientSelection=()=>{const id=$p("adClient")?.value||"";currentClient=clientsList.find(x=>x.id===id)||null;const info=$p("adClientInfo");if(info)info.innerHTML=currentClient?"<b>"+esc(currentClient.name)+"</b><small>"+esc([currentClient.contact_name,currentClient.phone,currentClient.email].filter(Boolean).join(" · ")||"Sin datos de contacto")+" · Se guardará en su historia</small>":"<b>Publicidad general</b><small>No se añadirá a la historia de un cliente.</small>"};
+  $p("adClient").onchange=syncClientSelection;
+  syncClientSelection();
   $p("adProduct").onchange=async()=>{currentProduct=list.find(p=>p.id===$p("adProduct").value)||list[0]||currentProduct;currentImage=null;currentImageFile=null;currentAiImage=null;currentAiVariants=[];currentAiVariantIndex=0;syncPhotoPreview();await renderVariants();await renderCanvas()};
   $p("adProductSearch").oninput=()=>{const q=$p("adProductSearch").value.toLowerCase().trim();const sel=$p("adProduct"),matches=list.filter(p=>!q||[p.name,p.sku,p.brand,p.model].join(" ").toLowerCase().includes(q));sel.innerHTML=matches.length?matches.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+(p.sku?" · "+esc(p.sku):"")+'</option>').join(""):'<option value="">Sin coincidencias</option>';if(matches.length){currentProduct=matches[0];renderCanvas()}};
   $p("adTemplate").onchange=renderCanvas;
@@ -2396,29 +2400,15 @@ async function marketing(){
   $p("analyzeAdPhoto").onclick=analyzeAdPhoto;
   $p("marketingPhotoClear").onclick=clearAdPhoto;
   $p("marketingCompanyInfo").onclick=()=>toast("Datos usados: "+String(company.business_name||"Tu empresa")+(company.phone?" · "+company.phone:""),"ok");
-  const publicationText=()=>[currentCampaign?.headline,currentCampaign?.primary_text,currentCampaign?.short_text,(currentCampaign?.hashtags||[]).join(" ")].filter(Boolean).join("\n\n");
-  const sharePublication=async(target="SHARE")=>{
-    if(!currentCampaign)return toast("Primero genera la publicidad con IA.","err");
-    const title=currentCampaign.title||currentProduct?.name||"Publicidad de M.A.R.C.";
-    const text=publicationText();
-    try{
-      const imageDataUrl=currentAiImage||currentImage||currentProduct?.image_url||"";
-      if(window.MARCNotifications?.share){
-        await window.MARCNotifications.share({title,text,url:location.href,imageDataUrl,fileName:"publicidad-marc-"+Date.now()+".png"});
-      }else if(navigator.share){
-        await navigator.share({title,text,url:location.href});
-      }else{
-        await navigator.clipboard?.writeText(text);
-        toast("Texto copiado para compartir.","ok");
-      }
-      if(target!=="SHARE")toast("Publicidad preparada para compartir en "+target+".","ok");
-    }catch(e){if(e?.name!=="AbortError")toast("No se pudo abrir el menú de compartir.","err")}
-  };
+  const publicationText=()=>{const body=[currentCampaign?.headline,currentCampaign?.primary_text,currentCampaign?.short_text,(currentCampaign?.hashtags||[]).join(" ")].filter(Boolean).join("\n\n");return currentClient?"Hola "+(currentClient.contact_name||currentClient.name)+",\n\n"+body:body};
+  const recordClientShare=async(publicationId,target)=>{if(!currentClient)return;const h=await S.from("marc_client_history").insert({user_id:st.u.id,client_id:currentClient.id,event_type:"PUBLICIDAD",title:"Publicidad compartida",description:"Se compartió una publicidad de "+(currentProduct?.name||"un producto")+" con "+currentClient.name+".",metadata:{publication_id:publicationId||null,platform:target||"SHARE",product_id:currentProduct?.id||null,product_name:currentProduct?.name||null},visible_to_client:true});if(h.error)console.warn("No se pudo registrar el historial del cliente",h.error)};
+  const ensurePublicationRecord=async(target)=>{if(currentPublicationId)return currentPublicationId;if(!currentCampaign)return null;const platform=target==="SHARE"?"WHATSAPP":target||"WHATSAPP";const r=await S.from("marc_publications").insert({user_id:st.u.id,inventory_id:currentProduct?.id||null,client_id:currentClient?.id||null,platform,status:"DRAFT",title:currentCampaign.title||currentProduct?.name,headline:currentCampaign.headline,body:currentCampaign.primary_text,short_text:currentCampaign.short_text,hashtags:currentCampaign.hashtags||[],media_url:currentAiImage||currentImage||currentProduct?.image_url||null,media_type:"IMAGE"}).select("id").single();if(r.error)throw r.error;currentPublicationId=r.data.id;return r.data.id};
+  const sharePublication=async(target="SHARE")=>{if(!currentCampaign)return toast("Primero genera la publicidad con IA.","err");const title=currentCampaign.title||currentProduct?.name||"Publicidad de M.A.R.C.",text=publicationText();try{const publicationId=await ensurePublicationRecord(target),imageDataUrl=currentAiImage||currentImage||currentProduct?.image_url||"";if(window.MARCNotifications?.share)await window.MARCNotifications.share({title,text,url:location.href,imageDataUrl,fileName:"publicidad-marc-"+Date.now()+".png"});else if(navigator.share)await navigator.share({title,text,url:location.href});else{await navigator.clipboard?.writeText(text);toast("Texto copiado para compartir.","ok")}await recordClientShare(publicationId,target);setShareStatus(currentClient?"Compartida con "+currentClient.name+". Quedó registrada en su historia.":"Publicidad lista para compartir.");}catch(e){if(e?.name!=="AbortError")toast(e.message||"No se pudo abrir el menú de compartir.","err")}};
   const savePublicationDraft=async()=>{
     if(!currentCampaign)return toast("Primero genera la publicidad con IA.","err");
     const platform=$p("adPlatform").value||"WHATSAPP";
     const r=await S.from("marc_publications").insert({
-      user_id:st.u.id,inventory_id:currentProduct?.id||null,platform,status:"DRAFT",
+      user_id:st.u.id,inventory_id:currentProduct?.id||null,client_id:currentClient?.id||null,platform,status:"DRAFT",
       title:currentCampaign.title||currentProduct?.name,headline:currentCampaign.headline,
       body:currentCampaign.primary_text,short_text:currentCampaign.short_text,
       hashtags:currentCampaign.hashtags||[],media_url:currentAiImage||currentImage||currentProduct?.image_url||null,media_type:"IMAGE"
@@ -2470,7 +2460,7 @@ async function marketing(){
   });
 
   const readFileData=()=>currentImageFile?new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>resolve(fr.result);fr.onerror=reject;fr.readAsDataURL(currentImageFile)}):Promise.resolve("");
-  const campaignPayload=()=>({product:currentProduct,platform:$p("adPlatform").value,objective:$p("adObjective")?.value||"VENDER",tone:$p("adTone")?.value||"PROFESIONAL",audience:$p("adAudience")?.value||"",offer:$p("adOffer")?.value||"",details:$p("adDetails").value,cta:$p("adCta")?.value||"Escríbenos para cotizar"});
+  const campaignPayload=()=>({client:currentClient?{name:currentClient.name,contact_name:currentClient.contact_name,phone:currentClient.phone,email:currentClient.email}:null,product:currentProduct,platform:$p("adPlatform").value,objective:$p("adObjective")?.value||"VENDER",tone:$p("adTone")?.value||"PROFESIONAL",audience:$p("adAudience")?.value||"",offer:$p("adOffer")?.value||"",details:$p("adDetails").value,cta:$p("adCta")?.value||"Escríbenos para cotizar"});
   const generateText=async()=>{
     const status=$p("adStatus"),btn=$p("generateTextAd");if(btn)btn.disabled=true;status.className="msg";status.textContent="M.A.R.C. está entendiendo tu idea y creando los textos…";
     try{
@@ -2490,7 +2480,7 @@ async function marketing(){
       currentAiVariants=Array.isArray(j.images)&&j.images.length?j.images:(j.image?.data?[{variant:"MODERN",mimeType:j.image.mimeType||"image/png",data:j.image.data}]:[]);
       if(!currentAiVariants.length)throw new Error("La IA no devolvió propuestas visuales.");
       currentAiVariantIndex=0;currentAiImage="data:"+(currentAiVariants[0].mimeType||"image/png")+";base64,"+currentAiVariants[0].data;await renderVariants();await renderCanvas();
-      localStorage.setItem("marc_marketing_last",JSON.stringify({campaign:currentCampaign,productId:currentProduct?.id}));
+      localStorage.setItem("marc_marketing_last",JSON.stringify({campaign:currentCampaign,productId:currentProduct?.id,clientId:currentClient?.id||null}));
       status.className="msg ok";status.textContent="M.A.R.C. creó 2 propuestas visuales. Elige una y luego compártela desde tu teléfono.";const hint=$p("bannerHint");if(hint)hint.textContent="Elige una propuesta visual. Los datos, precio y CTA se colocan de forma consistente sobre la imagen.";
     }catch(e){status.className="msg error";status.textContent=e.message||"No se pudo generar el banner."}finally{btn.disabled=false}
   };
@@ -2500,7 +2490,7 @@ async function marketing(){
   $p("copyBanner").onclick=async()=>{const text=currentCampaign?.banner_text||currentCampaign?.headline||"";if(!text)return toast("Primero genera una publicidad.","err");await navigator.clipboard?.writeText(text);toast("Texto del banner copiado","ok")};
   $p("shareAd").onclick=async()=>{if(!$p("adCanvas")||!currentCampaign)return toast("Primero genera una publicidad.","err");try{const blob=await new Promise(r=>$p("adCanvas").toBlob(r,"image/png"));const file=new File([blob],"MARC_Publicidad.png",{type:"image/png"});if(navigator.share&&navigator.canShare?.({files:[file]})){await navigator.share({title:currentCampaign.title||currentProduct.name,text:currentCampaign.short_text||"",files:[file]})}else{await navigator.clipboard?.writeText(currentCampaign.whatsapp_text||currentCampaign.primary_text||"");toast("Tu dispositivo no permite compartir la imagen directamente; el texto quedó copiado.","ok")}}catch(e){if(e?.name!=="AbortError")toast("No se pudo compartir.","err")}};
   $("[data-copy]").forEach(b=>b.onclick=async()=>{const key=b.dataset.copy,val=key==="hashtags"?(currentCampaign?.hashtags||[]).join(" "):currentCampaign?.[key]||"";if(!val)return toast("No hay texto para copiar.","err");await navigator.clipboard?.writeText(val);toast("Texto copiado","ok")});
-  $p("marketingClear").onclick=()=>{currentAiImage=null;currentAiVariants=[];currentAiVariantIndex=0;currentImage=null;currentImageFile=null;localStorage.removeItem("marc_marketing_last");renderVariants();setCampaign(null)};
+  $p("marketingClear").onclick=()=>{currentClient=null;if($p("adClient"))$p("adClient").value="";syncClientSelection();currentAiImage=null;currentAiVariants=[];currentAiVariantIndex=0;currentImage=null;currentImageFile=null;localStorage.removeItem("marc_marketing_last");renderVariants();setCampaign(null)};
   await renderMarketingHistory();
   if(currentProduct){$p("adProduct").value=currentProduct.id;await renderCanvas()}
   if(saved?.campaign)setCampaign(saved.campaign);

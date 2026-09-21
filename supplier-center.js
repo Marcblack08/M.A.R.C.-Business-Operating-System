@@ -111,7 +111,7 @@
     if(error)return alert(error.message);
     const items=data||[];
     if(!items.length){alert("Este catálogo todavía no tiene productos detectados.");return;}
-    const rows=items.map((x,i)=>'<tr><td><input type="checkbox" class="scItemCheck" value="'+x.id+'"></td><td><b>'+esc(x.name)+'</b><br><small>'+esc([x.brand,x.model,x.sku].filter(Boolean).join(" · "))+'</small></td><td>'+money(x.supplier_price||x.supplier_cost)+'</td><td><span class="badge '+(x.status==="IMPORTED"?"ok":"low")+'">'+esc(x.status)+'</span></td><td><button class="secondary scPublishOne" data-id="'+x.id+'">Publicidad</button></td></tr>').join("");
+    const rows=items.map((x,i)=>'<tr><td><input type="checkbox" class="scItemCheck" value="'+x.id+'"></td><td>'+(x.image_url?'<img src="'+esc(x.image_url)+'" alt="" style="width:52px;height:52px;object-fit:contain;border-radius:10px;border:1px solid rgba(127,127,127,.18);vertical-align:middle;margin-right:8px">': '<span style="display:inline-flex;width:52px;height:52px;align-items:center;justify-content:center;border-radius:10px;background:rgba(127,127,127,.08);margin-right:8px">📦</span>')+'<b>'+esc(x.name)+'</b><br><small>'+esc([x.brand,x.model,x.sku].filter(Boolean).join(" · "))+'</small></td><td>'+money(x.supplier_price||x.supplier_cost)+'</td><td><span class="badge '+(x.status==="IMPORTED"?"ok":"low")+'">'+esc(x.status)+'</span></td><td><button class="secondary scPublishOne" data-id="'+x.id+'">Publicidad</button></td></tr>').join("");
     scModal("Productos detectados",'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"><button id="scSelectAll" class="secondary">Seleccionar todo</button><button id="scImportSelected" class="primary">Importar seleccionados</button><button id="scPublishSelected" class="secondary">Crear publicaciones</button></div><div style="overflow:auto"><table style="width:100%;border-collapse:collapse"><thead><tr><th></th><th>Producto</th><th>Precio</th><th>Estado</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>','<button id="scDone" class="primary">Listo</button>');
     document.querySelector("#scDone").onclick=()=>document.querySelector("#modal").innerHTML="";
     document.querySelector("#scSelectAll").onclick=()=>document.querySelectorAll(".scItemCheck").forEach(x=>x.checked=true);
@@ -131,6 +131,21 @@
       else throw new Error("El análisis automático funciona con Excel y PDF.");
       if(!items.length)throw new Error("No se detectaron productos.");
       const {data:{session}}=await S.auth.getSession();
+      for(const item of items){
+        if(item.image_data_url){
+          try{
+            const blob=await (await fetch(item.image_data_url)).blob();
+            const ext=blob.type==="image/jpeg"?"jpg":"png";
+            const path=session.user.id+"/catalog-images/"+catalog.id+"/"+Date.now()+"-"+Math.random().toString(36).slice(2,8)+"."+ext;
+            const up=await S.storage.from("inventory-images").upload(path,blob,{upsert:false,contentType:blob.type||"image/png",cacheControl:"31536000"});
+            if(!up.error){
+              const pub=S.storage.from("inventory-images").getPublicUrl(path);
+              item.image_url=pub.data?.publicUrl||null;
+            }else console.warn("No se pudo subir imagen del PDF",up.error);
+          }catch(e){console.warn("No se pudo procesar imagen del PDF",e)}
+        }
+        delete item.image_data_url;
+      }
       const payload=items.map(x=>({...x,user_id:session.user.id,catalog_id:catalog.id,supplier_id:catalog.supplier_id,status:"REVIEW"}));
       const ins=await S.from("marc_supplier_catalog_items").insert(payload);
       if(ins.error)throw ins.error;
@@ -153,10 +168,61 @@
       out.push({sku:sku?String(sku):null,name:String(name).trim(),description:desc?String(desc):null,brand:brand?String(brand):null,model:model?String(model):null,category:cat?String(cat):null,unit:String(unit),supplier_cost:cost,supplier_price:price,currency:"PEN",stock_text:stock!==null?String(stock):null,ai_confidence:price||sku?0.95:0.75,source_metadata:{sheet,row:idx+2}});});
     }); return out;
   }
+  async function pdfImageDataUrl(image){
+    if(!image||!image.data||!image.width||!image.height)return null;
+    const canvas=document.createElement("canvas");canvas.width=image.width;canvas.height=image.height;
+    const ctx=canvas.getContext("2d");if(!ctx)return null;
+    let src=image.data;
+    if(image.kind===pdfjsLib.ImageKind?.RGB_24BPP){
+      const rgba=new Uint8ClampedArray(image.width*image.height*4);
+      for(let i=0,j=0;i<src.length;i+=3,j+=4){rgba[j]=src[i];rgba[j+1]=src[i+1];rgba[j+2]=src[i+2];rgba[j+3]=255;}
+      src=rgba;
+    }else if(image.kind===pdfjsLib.ImageKind?.GRAYSCALE_1BPP||image.kind===pdfjsLib.ImageKind?.GRAYSCALE_8BPP){
+      const rgba=new Uint8ClampedArray(image.width*image.height*4);
+      for(let i=0,j=0;i<image.width*image.height;i++,j+=4){const v=src[i]||0;rgba[j]=v;rgba[j+1]=v;rgba[j+2]=v;rgba[j+3]=255;}
+      src=rgba;
+    }else if(src.length===image.width*image.height*3){
+      const rgba=new Uint8ClampedArray(image.width*image.height*4);
+      for(let i=0,j=0;i<src.length;i+=3,j+=4){rgba[j]=src[i];rgba[j+1]=src[i+1];rgba[j+2]=src[i+2];rgba[j+3]=255;}
+      src=rgba;
+    }
+    if(src.length!==image.width*image.height*4)return null;
+    try{ctx.putImageData(new ImageData(src,image.width,image.height),0,0);return canvas.toDataURL("image/png",0.9)}catch(e){console.warn("No se pudo convertir imagen PDF",e);return null}
+  }
+  async function extractPdfImages(page){
+    const op=await page.getOperatorList(),images=[];
+    const OPS=pdfjsLib.OPS||{};
+    for(let i=0;i<op.fnArray.length;i++){
+      const fn=op.fnArray[i],args=op.argsArray[i];
+      if(fn!==OPS.paintImageXObject&&!fn!==OPS.paintImageMaskXObject)continue;
+      const key=args?.[0];if(!key||!page.objs?.has?.(key))continue;
+      try{
+        const image=page.objs.get(key),dataUrl=await pdfImageDataUrl(image);
+        if(dataUrl)images.push(dataUrl);
+      }catch(e){console.warn("Imagen PDF no disponible",e)}
+    }
+    return images;
+  }
   async function parsePdfCatalog(file){
     if(!window.pdfjsLib)throw new Error("No está disponible el lector PDF.");
     const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise,out=[];
-    for(let p=1;p<=pdf.numPages;p++){const tc=await (await pdf.getPage(p)).getTextContent(),line=tc.items.map(x=>x.str).join(" ");const parts=line.split(/\s{2,}|\|/);parts.forEach(x=>{const prices=x.match(/(?:S\.?\s*)?\d+(?:[.,]\d{1,2})?/g);if(!prices)return;const price=num(prices[prices.length-1]),name=x.replace(/(?:S\.?\s*)?\d+(?:[.,]\d{1,2})?/g," ").replace(/\s+/g," ").trim();if(name.length>=3)out.push({sku:null,name:name.slice(0,180),description:x,brand:null,model:null,category:null,unit:"UND",supplier_cost:null,supplier_price:price,currency:"PEN",stock_text:null,ai_confidence:0.55,source_metadata:{page:p}});});}
+    for(let p=1;p<=pdf.numPages;p++){
+      const page=await pdf.getPage(p);
+      const tc=await page.getTextContent();
+      const images=await extractPdfImages(page);
+      const line=tc.items.map(x=>x.str).join(" ");
+      const parts=line.split(/\s{2,}|\|/);
+      let imageIndex=0;
+      parts.forEach(x=>{
+        const prices=x.match(/(?:S\.?\s*)?\d+(?:[.,]\d{1,2})?/g);if(!prices)return;
+        const price=num(prices[prices.length-1]),name=x.replace(/(?:S\.?\s*)?\d+(?:[.,]\d{1,2})?/g," ").replace(/\s+/g," ").trim();
+        if(name.length>=3){
+          const image_data_url=images[imageIndex]||null;
+          if(image_data_url)imageIndex++;
+          out.push({sku:null,name:name.slice(0,180),description:x,brand:null,model:null,category:null,unit:"UND",supplier_cost:null,supplier_price:price,currency:"PEN",stock_text:null,image_data_url,ai_confidence:image_data_url?0.78:0.55,source_metadata:{page:p,image_detected:!!image_data_url}});
+        }
+      });
+    }
     return out.slice(0,2000);
   }
   async function importCatalogItem(item){

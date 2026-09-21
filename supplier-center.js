@@ -382,7 +382,25 @@
     return rows.map(r=>({y:r.y,text:r.texts.join(" ").replace(/\s+/g," ").trim()})).filter(r=>r.text);
   }
   function cleanCatalogProductText(text){
-    return String(text||"").replace(/[\\t\\r\\n]+/g," ").replace(/\\s+/g," ").replace(/(?:S\\.?\\s*)?\\d+(?:[.,]\\d{1,2})?/g," ").replace(/(?:PVP|PRECIO|OFERTA|PROMO(?:CION)?|DESDE|UND(?:IDAD)?|UNIDAD)\\b/gi," ").replace(/[|•·]+/g," ").replace(/\\s+/g," ").trim();
+    let s=String(text||"").replace(/[\\t\\r\\n]+/g," ").replace(/\\s+/g," ").trim();
+    s=s.replace(/(?:S\\/\\.?|S\\.?|PEN|USD|US\\$)\\s*\\d+(?:[.,]\\d{1,2})?/gi," ");
+    s=s.replace(/\\b(?:PVP|PRECIO|OFERTA|PROMO(?:CION)?|DESDE)\\b/gi," ");
+    s=s.replace(/(^|\\s)\\d+(?:[.,]\\d{1,2})?(?=\\s*$)/g," ");
+    return s.replace(/[|•·]+/g," ").replace(/\\s+/g," ").trim();
+  }
+  function pdfRowPrice(text){
+    const s=String(text||"");
+    const m=s.match(/(?:S\\/\\.?|S\\.?|PEN|USD|US\\$)?\\s*\\d+(?:[.,]\\d{1,2})?(?=\\s*$)/i);
+    if(m)return num(m[0]);
+    const all=s.match(/(?:S\\/\\.?|S\\.?|PEN|USD|US\\$)\\s*\\d+(?:[.,]\\d{1,2})?/gi);
+    return all?.length?num(all[all.length-1]):null;
+  }
+  function isLikelyPdfProductText(text){
+    const raw=String(text||"").trim(), clean=cleanCatalogProductText(raw);
+    if(clean.length<4||isNoiseCatalogText(clean))return false;
+    if(/^(?:codigo|sku|modelo|marca|descripcion|producto|unidad|cantidad|precio|importe|total|catalogo)$/i.test(clean))return false;
+    const letters=(clean.match(/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g)||[]).length;
+    return letters>=3;
   }
   function catalogProductKey(text){
     return String(text||"").toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim();
@@ -421,18 +439,64 @@
     const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise,raw=[];
     for(let p=1;p<=pdf.numPages;p++){
       const page=await pdf.getPage(p),tc=await page.getTextContent(),images=await extractPdfImagesWithBoxes(page),rows=pdfProductRows(tc);
-      const candidates=rows.filter(r=>/(?:S\\.?\\s*)?\\d+(?:[.,]\\d{1,2})?/.test(r.text));
-      for(const row of candidates){
-        const prices=row.text.match(/(?:S\\.?\\s*)?\\d+(?:[.,]\\d{1,2})?/g)||[],price=num(prices[prices.length-1]),name=cleanCatalogProductText(row.text);
-        if(isNoiseCatalogText(name)||name.length<3)continue;
+      const pricedRows=rows.map((r,i)=>({...r,index:i,price:pdfRowPrice(r.text),name:cleanCatalogProductText(r.text)}));
+      const used=new Set();
+
+      for(let i=0;i<pricedRows.length;i++){
+        const row=pricedRows[i];
+        let source=row;
+        let price=row.price;
+
+        // Muchos catálogos colocan el nombre y el precio en líneas consecutivas.
+        if(!isLikelyPdfProductText(row.name)){
+          const prev=pricedRows[i-1],next=pricedRows[i+1];
+          if(prev&&isLikelyPdfProductText(prev.name)&&row.price!=null){source={...prev, text:prev.text+" "+row.text, name:cleanCatalogProductText(prev.text+" "+row.text)};price=row.price;used.add(i-1);}
+          else if(next&&isLikelyPdfProductText(next.name)&&row.price!=null){source={...next, text:next.text+" "+row.text, name:cleanCatalogProductText(next.text+" "+row.text)};price=row.price;used.add(i+1);}
+        }
+
+        if(!isLikelyPdfProductText(source.name))continue;
+        if(used.has(i))continue;
+        used.add(i);
+
         let best=-1,bestDist=Infinity;
-        images.forEach((im,i)=>{const d=Math.abs(Number(im.y||0)-Number(row.y||0));if(d<bestDist){bestDist=d;best=i}});
+        images.forEach((im,idx)=>{const d=Math.abs(Number(im.y||0)-Number(source.y||0));if(d<bestDist){bestDist=d;best=idx}});
         const matched=best>=0&&bestDist<140?images[best]:null;
-        raw.push({page:p,imageIndex:matched?best:null,sku:null,name,description:row.text.slice(0,500),brand:null,model:null,category:null,unit:"UND",supplier_cost:null,supplier_price:price,currency:"PEN",stock_text:null,image_data_url:matched?.dataUrl||null,ai_confidence:matched?0.9:0.62,source_metadata:{page:p,image_detected:!!matched,image_match_distance:matched?Math.round(bestDist):null}});
+
+        raw.push({
+          page:p,imageIndex:matched?best:null,sku:null,
+          name:source.name.slice(0,180),
+          description:source.text.slice(0,500),
+          brand:null,model:null,category:null,unit:"UND",
+          supplier_cost:null,supplier_price:price,currency:"PEN",stock_text:null,
+          image_data_url:matched?.dataUrl||null,
+          ai_confidence:price!=null?(matched?0.92:0.82):(matched?0.76:0.68),
+          source_metadata:{page:p,image_detected:!!matched,image_match_distance:matched?Math.round(bestDist):null}
+        });
       }
-      // Una imagen aislada no crea un producto. Primero debe existir evidencia textual/precio.
+
+      // Si la página tiene texto pero ningún precio detectable, usamos únicamente
+      // líneas con apariencia real de producto. Las imágenes aisladas nunca crean productos.
+      if(!raw.some(x=>x.page===p)){
+        for(let i=0;i<pricedRows.length;i++){
+          const row=pricedRows[i];
+          if(!isLikelyPdfProductText(row.name))continue;
+          const prev=pricedRows[i-1],next=pricedRows[i+1];
+          if((prev&&isLikelyPdfProductText(prev.name))||(next&&isLikelyPdfProductText(next.name)))continue;
+          raw.push({
+            page:p,imageIndex:null,sku:null,name:row.name.slice(0,180),
+            description:row.text.slice(0,500),brand:null,model:null,category:null,unit:"UND",
+            supplier_cost:null,supplier_price:null,currency:"PEN",stock_text:null,
+            image_data_url:null,ai_confidence:0.55,
+            source_metadata:{page:p,text_only:true}
+          });
+        }
+      }
     }
-    return mergeCatalogCandidates(raw).slice(0,2000);
+    const result=mergeCatalogCandidates(raw).slice(0,2000);
+    if(!result.length){
+      throw new Error("El PDF no contiene texto de productos reconocible. Si es un PDF escaneado como imágenes, necesitamos activar OCR para ese catálogo.");
+    }
+    return result;
   }
 
   async function importCatalogItem(item){

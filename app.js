@@ -2635,7 +2635,40 @@ function inventoryModal(x=null){
   $("#cancel").onclick=close;
 
   const photo=$("#productPhoto"), preview=$("#productPhotoPreview"), msg=$("#photoMsg"), analyzePhoto=$("#analyzeProductPhoto");
-  if(analyzePhoto)analyzePhoto.onclick=async()=>{const f=photo.files?.[0];if(!f)return toast("Primero toma o selecciona una foto de la caja.","err");analyzePhoto.disabled=true;try{const p=await analyzeProductBoxPhoto(f,msg);if(p.name)$("[name=name]").value=p.name;if(p.sku)$("[name=sku]").value=p.sku;if(p.brand)$("[name=brand]").value=p.brand;if(p.model)$("[name=model]").value=p.model;if(p.category)$("[name=category]").value=p.category;const confidence=Math.round(Number(p.confidence||0)*100);msg.className="msg";msg.textContent=confidence?("Caja analizada. Confianza aproximada: "+confidence+"%. Revisa los datos y coloca tu precio de venta."):("Caja analizada. Revisa los datos y coloca tu precio de venta.")}catch(err){msg.className="msg error";msg.textContent=err.message||"No se pudo analizar la caja."}finally{analyzePhoto.disabled=false}};
+  if(analyzePhoto)analyzePhoto.onclick=async()=>{
+    const f=photo.files?.[0];
+    if(!f)return toast("Primero toma o selecciona una foto de la caja.","err");
+    analyzePhoto.disabled=true;
+    const previousLabel=analyzePhoto.textContent;
+    analyzePhoto.textContent="✦ Analizando foto…";
+    msg.className="msg";
+    msg.textContent="M.A.R.C. está leyendo la caja y buscando los datos visibles…";
+    try{
+      const p=await analyzeProductBoxPhoto(f,msg);
+      const fields=[["name","name"],["sku","sku"],["brand","brand"],["model","model"],["category","category"]];
+      let filled=0;
+      fields.forEach(([source,target])=>{
+        const value=String(p?.[source]??"").trim();
+        if(value){$("[name="+target+"]").value=value;filled++}
+      });
+      const serial=String(p?.serial_number??"").trim();
+      if(serial){
+        const serialField=$("[name=serial_number]");
+        if(serialField)serialField.value=serial;
+      }
+      if(!String(p?.name||"").trim())throw new Error("La IA no pudo identificar el producto. Toma una foto más clara, de frente y con la etiqueta visible.");
+      const confidence=Math.round(Number(p.confidence||0)*100);
+      msg.className="msg ok";
+      msg.textContent=(filled?("Producto analizado. "+filled+" campos completados automáticamente. "):"Producto analizado. ")+(confidence?("Confianza aproximada: "+confidence+"%. "):"")+"Revisa los datos antes de guardar.";
+    }catch(err){
+      console.error("[M.A.R.C. inventory photo]",err);
+      msg.className="msg error";
+      msg.textContent=err.message||"No se pudo analizar la caja. Inténtalo nuevamente con una foto más clara.";
+    }finally{
+      analyzePhoto.disabled=false;
+      analyzePhoto.textContent=previousLabel;
+    }
+  };
   photo.onchange=()=>{
     const f=photo.files?.[0];
     if(!f)return;

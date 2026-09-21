@@ -3092,3 +3092,28 @@ html[data-theme="dark"] #scModalOverlay [style*="background:rgba(127,127,127,.08
   .conversation-result-actions{display:grid;grid-template-columns:1fr}
   .conversation-result-actions button{width:100%}
 }
+
+
+/* Asesor de conversaciones · UX simplificada */
+.conversation-advisor-clientbar{display:flex;align-items:center;gap:11px;padding:12px 13px;border-radius:15px;background:rgba(19,115,230,.065);border:1px solid rgba(19,115,230,.16);margin-bottom:8px}
+.conversation-advisor-clienticon{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:#1373e6;color:#fff}
+.conversation-advisor-clientbar b{display:block;font-size:13px}
+.conversation-advisor-clientbar small{display:block;margin-top:2px;opacity:.65;line-height:1.35}
+.conversation-client-info{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:-2px 0 10px;padding:9px 12px;border-radius:11px;background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.18);font-size:12px}
+.conversation-client-info b{font-size:13px}
+.conversation-client-info span{opacity:.7}
+.conversation-client-info small{margin-left:auto;opacity:.72}
+.conversation-input-choice{padding:13px;border:1px solid rgba(127,127,127,.18);border-radius:16px;background:rgba(127,127,127,.035)}
+.conversation-input-title{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px}
+.conversation-input-title b{font-size:13px}
+.conversation-input-title small{opacity:.6}
+.conversation-quick-goals{display:flex;gap:7px;flex-wrap:wrap;margin:4px 0 12px}
+.conversation-quick-goals button{border:1px solid rgba(127,127,127,.2);background:transparent;color:inherit;border-radius:999px;padding:7px 10px;font-size:11px;cursor:pointer}
+.conversation-quick-goals button.active,.conversation-quick-goals button:hover{border-color:#1373e6;background:rgba(19,115,230,.08)}
+@media(max-width:780px){
+  .conversation-input-title{display:block}
+  .conversation-input-title small{display:block;margin-top:3px}
+  .conversation-client-info small{width:100%;margin-left:0}
+  .conversation-quick-goals{display:grid;grid-template-columns:1fr 1fr}
+  .conversation-quick-goals button{width:100%}
+}

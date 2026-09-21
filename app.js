@@ -2215,11 +2215,20 @@ async function marketing(){
   const list=products||[];
   const saved=JSON.parse(localStorage.getItem("marc_marketing_last")||"null");
   $("#content").innerHTML=`
-    <div class="head marketing-hero"><div><div class="eyebrow2">CENTRO DE PUBLICIDAD</div><h1>Convierte tus productos en clientes</h1><p>Sube una foto, cuéntale a M.A.R.C. qué quieres publicar y la IA mejorará la información, creará los textos y preparará banners listos para usar.</p></div><button class="secondary" id="marketingClear">Limpiar</button></div>
-    <div class="marketing-benefits"><div><b>✦ IA que mejora tu contenido</b><small>Descripción profesional y comercial</small></div><div><b>✓ Tu información automática</b><small>Logo, teléfono y datos de tu empresa</small></div><div><b>◈ Múltiples diseños</b><small>3 propuestas visuales para elegir</small></div><div><b>▣ Listo para publicar</b><small>WhatsApp, Instagram, Facebook y más</small></div></div>
+    <div class="head marketing-hero"><div><div class="eyebrow2">CENTRO DE PUBLICIDAD</div><h1>Crea una publicidad en pocos pasos</h1><p>Elige un producto o toma una foto, dime qué quieres lograr y M.A.R.C. preparará la imagen, el texto y el formato para compartir desde tu teléfono.</p></div><button class="secondary" id="marketingClear">Nueva publicidad</button></div>
+    <div class="marketing-quick-start">
+      <div class="marketing-quick-title"><span>⚡</span><div><b>Inicio rápido</b><small>No necesitas completar todo. M.A.R.C. puede completar lo que falte.</small></div></div>
+      <div class="marketing-quick-grid">
+        <button type="button" class="marketing-quick-choice active" data-quick-objective="VENDER"><b>🛍️ Vender</b><small>Producto + beneficio + llamada a la acción</small></button>
+        <button type="button" class="marketing-quick-choice" data-quick-objective="GENERAR CONSULTAS"><b>💬 Conseguir consultas</b><small>Enfocada en contacto por WhatsApp</small></button>
+        <button type="button" class="marketing-quick-choice" data-quick-objective="PROMOCIONAR PRODUCTO"><b>✨ Promocionar</b><small>Presentación profesional del producto</small></button>
+        <button type="button" class="marketing-quick-choice" data-quick-objective="REACTIVAR CLIENTES"><b>🔁 Reactivar clientes</b><small>Mensaje directo para clientes anteriores</small></button>
+      </div>
+    </div>
+    <div class="marketing-benefits"><div><b>✦ Imagen con IA</b><small>3 propuestas visuales para elegir</small></div><div><b>✓ Texto automático</b><small>Descripción, CTA y hashtags</small></div><div><b>◉ Datos de tu empresa</b><small>Logo, nombre y teléfono</small></div><div><b>📱 Compartir desde tu teléfono</b><small>WhatsApp, Instagram y más</small></div></div>
     <div class="marketing-layout marketing-layout-v2">
       <section class="card panel marketing-form-card">
-        <div class="marketing-step-title"><span>1</span><div><b>Sube la foto de tu producto</b><small>Usa la cámara del teléfono o elige una imagen.</small></div><button class="secondary" id="marketingPhotoClear" type="button">Limpiar</button></div>
+        <div class="marketing-step-title"><span>1</span><div><b>Producto o foto</b><small>Elige un producto del inventario o toma una foto. M.A.R.C. hará el resto.</small></div><button class="secondary" id="marketingPhotoClear" type="button">Limpiar foto</button></div>
         <div class="marketing-photo-picker"><div class="marketing-photo-preview" id="adPhotoPreview"><span>📦</span><b>Sin foto</b><small>La IA puede crear la escena desde cero.</small></div><div class="marketing-photo-actions"><label class="marketing-camera-btn"><span>📷</span><b>Tomar foto</b><small>Abre la cámara del teléfono</small><input id="adImageCamera" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden></label><label class="marketing-camera-btn secondary"><span>🖼️</span><b>Subir de galería</b><small>JPG, PNG o WEBP · máx. 6 MB</small><input id="adImage" type="file" accept="image/jpeg,image/png,image/webp" hidden></label></div></div>
         <div class="marketing-photo-analysis" id="adPhotoAnalysis" hidden><div><b>La foto está lista para analizar</b><small>M.A.R.C. puede identificar el producto y mejorar la descripción.</small></div><button class="primary" id="analyzeAdPhoto" type="button">✦ Analizar y mejorar con IA</button></div>
         <div class="marketing-ai-product-card" id="adAiProductCard" hidden>
@@ -2230,29 +2239,17 @@ async function marketing(){
           <div class="marketing-ai-product-actions"><button type="button" class="secondary" id="adAiReset">Restaurar datos detectados</button><button type="button" class="primary" id="adAiApply">✓ Aplicar a la publicidad</button></div>
         </div>
         <div class="marketing-inventory-row"><label><b>Producto del inventario</b><select id="adProduct">${list.length?list.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+(p.sku?" · "+esc(p.sku):"")+'</option>').join(""):'<option value="">Puedes trabajar solo con la foto</option>'}</select></label><label><b>Buscar</b><input id="adProductSearch" placeholder="Nombre, marca o modelo…"></label></div>
-        <div class="marketing-step-title"><span>2</span><div><b>Cuéntale a M.A.R.C. qué quieres publicar</b><small>Escríbelo como hablas normalmente; la IA completará y mejorará lo necesario.</small></div></div>
+        <div class="marketing-step-title"><span>2</span><div><b>¿Qué quieres decir?</b><small>Escríbelo con tus palabras. También puedes dejarlo vacío y M.A.R.C. propondrá el contenido.</small></div></div>
         <label><textarea id="adDetails" rows="6" placeholder="Ejemplo: Quiero promocionar esta cámara para casas y pequeños negocios. Que se vea moderna y confiable. Quiero que me contacten por WhatsApp."></textarea></label>
         <div class="marketing-brief-hints"><span>Ejemplos rápidos:</span><button type="button" class="secondary" data-ad-hint="Quiero vender este producto destacando sus principales beneficios y que me contacten por WhatsApp.">Vender producto</button><button type="button" class="secondary" data-ad-hint="Quiero una publicidad profesional para empresas y generar consultas.">Para empresas</button><button type="button" class="secondary" data-ad-hint="Quiero una publicidad llamativa con oferta, precio y llamada a la acción.">Con oferta</button><button type="button" class="secondary" data-ad-hint="Quiero promocionar este producto como un nuevo servicio.">Nuevo servicio</button></div>
-        <div class="marketing-step-title"><span>3</span><div><b>Selecciona dónde publicar</b><small>El diseño se adapta al canal elegido.</small></div></div>
+        <div class="marketing-step-title"><span>3</span><div><b>Destino</b><small>Esto ayuda a adaptar el texto. No se conecta ninguna cuenta.</small></div></div>
         <div class="marketing-platforms"><button type="button" class="marketing-platform" data-platform="WHATSAPP">🟢<span>WhatsApp</span></button><button type="button" class="marketing-platform active" data-platform="INSTAGRAM">◎<span>Instagram</span></button><button type="button" class="marketing-platform" data-platform="FACEBOOK">f<span>Facebook</span></button><button type="button" class="marketing-platform" data-platform="TIKTOK">♪<span>TikTok</span></button><button type="button" class="marketing-platform" data-platform="MARKETPLACE">•••<span>Más</span></button></div>
         <select id="adPlatform" class="marketing-hidden-control"><option value="WHATSAPP">WhatsApp</option><option value="INSTAGRAM" selected>Instagram</option><option value="FACEBOOK">Facebook</option><option value="TIKTOK">TikTok</option><option value="MARKETPLACE">Marketplace</option></select>
-        <div class="marketing-step-title"><span>4</span><div><b>Formato del banner</b><small>Elige la proporción que necesitas.</small></div></div>
+        <div class="marketing-step-title"><span>4</span><div><b>Formato de la imagen</b><small>Si no sabes cuál elegir, usa Cuadrado.</small></div></div>
         <div class="marketing-formats"><button type="button" class="marketing-format active" data-format="1080x1080"><b>□</b><span>Cuadrado</span><small>1:1</small></button><button type="button" class="marketing-format" data-format="1080x1350"><b>▯</b><span>Vertical</span><small>4:5</small></button><button type="button" class="marketing-format" data-format="1080x1920"><b>▯</b><span>Historia</span><small>9:16</small></button></div>
         <select id="adFormat" class="marketing-hidden-control"><option value="1080x1080">Cuadrado · 1:1</option><option value="1080x1350">Post vertical · 4:5</option><option value="1080x1920">Historia · 9:16</option></select>
         <details class="marketing-advanced"><summary>⚙ Opciones avanzadas</summary><div class="form-grid" style="margin-top:10px"><label>Objetivo<select id="adObjective"><option>VENDER</option><option>GENERAR CONSULTAS</option><option>PROMOCIONAR PRODUCTO</option><option>REACTIVAR CLIENTES</option></select></label><label>Tono<select id="adTone"><option>PROFESIONAL</option><option>DIRECTO Y COMERCIAL</option><option>AMIGABLE</option><option>PREMIUM</option><option>URGENTE</option></select></label><label>Público objetivo<input id="adAudience" placeholder="Déjalo vacío y M.A.R.C. lo propone"></label><label>Oferta / precio especial<input id="adOffer" placeholder="Opcional; también puede salir del texto"></label><label>CTA<input id="adCta" value="Escríbenos para cotizar"></label><label>Diseño<select id="adTemplate"><option value="MODERN">Moderno</option><option value="OFFER">Oferta</option><option value="CORPORATE">Corporativo</option></select></label></div></details>
-        <div class="modal-actions marketing-generate-actions"><button class="primary marketing-main-generate" id="generateAd">✦ Generar 3 propuestas con IA</button><button class="secondary" id="generateTextAd">Crear solo textos</button></div><div id="adStatus" class="msg"></div>
-        <section class="marketing-video-card" id="marketingVideoCard">
-          <div class="marketing-video-head"><div><span class="marketing-video-icon">🎬</span><div><b>Crear video publicitario con IA</b><small>Veo genera un video de 8 segundos con audio usando tu producto y, si quieres, su foto como referencia.</small></div></div><span class="marketing-video-badge">INCLUIDO EN SUSCRIPCIÓN</span></div>
-          <div class="marketing-video-grid">
-            <label>Modelo<select id="adVideoModel"><option value="veo-3.1-lite-generate-preview">Veo 3.1 Lite · eficiente</option><option value="veo-3.1-fast-generate-preview">Veo 3.1 Fast · rápido</option><option value="veo-3.1-generate-preview">Veo 3.1 · calidad</option></select></label>
-            <label>Formato<select id="adVideoFormat"><option value="1080x1920">Vertical · 9:16</option><option value="1920x1080">Horizontal · 16:9</option></select></label>
-          </div>
-          <div class="marketing-video-included"><b>✓ Sin pago adicional dentro de M.A.R.C.</b><small>La generación se gestiona con tu suscripción activa. No se muestra un cobro por video al usuario.</small></div>
-          <label>Instrucción para el video<textarea id="adVideoDetails" rows="3" placeholder="Ej.: mostrar el producto con movimiento de cámara suave, iluminación profesional y una escena moderna para venderlo por WhatsApp."></textarea></label>
-          <div id="adVideoStatus" class="msg"></div>
-          <div class="modal-actions"><button class="primary" id="generateVideoAd" type="button">🎬 Generar video de 8 s</button><button class="secondary hidden" id="downloadVideoAd" type="button">↓ Descargar video</button></div>
-          <div class="marketing-video-result" id="adVideoResult" hidden><video id="adVideoPlayer" controls playsinline></video></div>
-        </section>
+        <div class="marketing-generate-box"><div><b>Listo para crear</b><small>M.A.R.C. generará 3 propuestas de imagen y preparará los textos.</small></div><div class="modal-actions marketing-generate-actions"><button class="primary marketing-main-generate" id="generateAd">✦ Crear publicidad</button><button class="secondary" id="generateTextAd">Solo crear textos</button></div></div><div id="adStatus" class="msg"></div>
       </section>
       <section class="card panel marketing-preview-card">
         <div class="marketing-step-title"><span>5</span><div><b>Vista previa del banner</b><small>M.A.R.C. aplica tu logo y datos de contacto automáticamente.</small></div></div>
@@ -2462,44 +2459,22 @@ async function marketing(){
   loadMarketingHistory();
   $("[data-ad-hint]").forEach(b=>b.onclick=()=>{$p("adDetails").value=$p("adDetails").value?($p("adDetails").value+" "+b.dataset.adHint):b.dataset.adHint});
   $p("adCta").oninput=renderCanvas;$p("adOffer").oninput=renderCanvas;
+  $(".marketing-quick-choice").forEach(btn=>btn.onclick=()=>{
+    const objective=btn.dataset.quickObjective||"VENDER";
+    const objectiveEl=$p("adObjective");if(objectiveEl)objectiveEl.value=objective;
+    $(".marketing-quick-choice").forEach(x=>x.classList.toggle("active",x===btn));
+    const details=$p("adDetails");
+    const hints={
+      "VENDER":"Quiero vender este producto destacando sus beneficios y una llamada a la acción clara.",
+      "GENERAR CONSULTAS":"Quiero generar consultas y que los clientes me contacten por WhatsApp.",
+      "PROMOCIONAR PRODUCTO":"Quiero presentar este producto de forma profesional y atractiva.",
+      "REACTIVAR CLIENTES":"Quiero volver a contactar a clientes anteriores con una oferta atractiva."
+    };
+    if(details&&!String(details.value||"").trim())details.value=hints[objective]||hints.VENDER;
+  });
+
   const readFileData=()=>currentImageFile?new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>resolve(fr.result);fr.onerror=reject;fr.readAsDataURL(currentImageFile)}):Promise.resolve("");
   const campaignPayload=()=>({product:currentProduct,platform:$p("adPlatform").value,objective:$p("adObjective")?.value||"VENDER",tone:$p("adTone")?.value||"PROFESIONAL",audience:$p("adAudience")?.value||"",offer:$p("adOffer")?.value||"",details:$p("adDetails").value,cta:$p("adCta")?.value||"Escríbenos para cotizar"});
-  let videoOperationName="",videoPollTimer=null,videoObjectUrl="";
-  const clearVideoObject=()=>{if(videoObjectUrl){URL.revokeObjectURL(videoObjectUrl);videoObjectUrl=""}};
-  const setVideoStatus=(text,type="")=>{const el=$p("adVideoStatus");if(el){el.className="msg"+(type?" "+type:"");el.textContent=text}};
-  const loadVideoResult=async operationName=>{
-    const r=await fetch("/api/marketing-video-status?operationName="+encodeURIComponent(operationName),{headers:{Authorization:"Bearer "+st.session?.access_token}});
-    const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.message||j.error||"No se pudo consultar el video.");
-    if(j.status==="PROCESSING")return false;
-    if(j.status==="FAILED")throw new Error(j.error||"Veo no pudo generar el video.");
-    if(j.status!=="READY")throw new Error("Estado de video inesperado.");
-    const dl=await fetch(j.downloadUrl,{headers:{Authorization:"Bearer "+st.session?.access_token}});
-    if(!dl.ok){const e=await dl.json().catch(()=>({}));throw new Error(e.message||e.error||"No se pudo descargar el video generado.");}
-    clearVideoObject();const blob=await dl.blob();videoObjectUrl=URL.createObjectURL(blob);
-    const player=$p("adVideoPlayer");if(player){player.src=videoObjectUrl;$p("adVideoResult").hidden=false}
-    const btn=$p("downloadVideoAd");if(btn){btn.classList.remove("hidden");btn.onclick=()=>{const a=document.createElement("a");a.href=videoObjectUrl;a.download="MARC_Publicidad_Video.mp4";a.click()}};
-    setVideoStatus("Video listo. Puedes reproducirlo o descargarlo.","ok");return true;
-  };
-  const generateVideoAd=async()=>{
-    const btn=$p("generateVideoAd");if(!btn)return;
-    if(videoPollTimer)clearInterval(videoPollTimer);
-    btn.disabled=true;setVideoStatus("M.A.R.C. está iniciando la generación del video…");
-    try{
-      if(!currentCampaign){await generateText();if(!currentCampaign)throw new Error("Primero necesito crear la campaña.");}
-      const imageData=await readFileData();
-      const r=await fetch("/api/marketing-video-start",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({
-        model:$p("adVideoModel").value,format:$p("adVideoFormat").value,details:$p("adVideoDetails").value||$p("adDetails").value,
-        product:currentProduct,campaign:currentCampaign,platform:$p("adPlatform").value,objective:$p("adObjective")?.value||"VENDER",tone:$p("adTone")?.value||"PROFESIONAL",imageData
-      })});
-      const j=await r.json().catch(()=>({}));
-      if(!r.ok)throw new Error(j.message||j.error||"No se pudo iniciar el video.");
-      videoOperationName=j.operationName;setVideoStatus("Video en generación. Esto puede tardar unos segundos…");
-      let tries=0;
-      const poll=async()=>{try{tries++;const done=await loadVideoResult(videoOperationName);if(done){clearInterval(videoPollTimer);videoPollTimer=null;btn.disabled=false}}catch(e){clearInterval(videoPollTimer);videoPollTimer=null;btn.disabled=false;setVideoStatus(e.message||"No se pudo completar el video.","error")}};
-      await poll();
-      if(videoOperationName&&videoPollTimer===null&&tries<2){videoPollTimer=setInterval(poll,10000)}
-    }catch(e){btn.disabled=false;setVideoStatus(e.message||"No se pudo generar el video.","error")}
-  };
   const generateText=async()=>{
     const status=$p("adStatus"),btn=$p("generateTextAd");if(btn)btn.disabled=true;status.className="msg";status.textContent="M.A.R.C. está entendiendo tu idea y creando los textos…";
     try{
@@ -2511,7 +2486,7 @@ async function marketing(){
     }catch(e){status.className="msg error";status.textContent=e.message||"No se pudo generar."}finally{if(btn)btn.disabled=false}
   };
   const generateAiBanner=async()=>{
-    const status=$p("adStatus"),btn=$p("generateAd");btn.disabled=true;status.className="msg";status.textContent="M.A.R.C. está creando la imagen del banner con IA…";
+    const status=$p("adStatus"),btn=$p("generateAd");btn.disabled=true;status.className="msg";status.textContent="M.A.R.C. está creando 3 propuestas visuales con IA…";
     try{
       if(!currentCampaign){await generateText();if(!currentCampaign)throw new Error("Primero necesito crear la campaña.");}
       const r=await fetch("/api/marketing-image",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({product:currentProduct,campaign:currentCampaign,platform:$p("adPlatform").value,objective:$p("adObjective")?.value||"VENDER",details:$p("adDetails").value,format:$p("adFormat").value,template:$p("adTemplate")?.value||"MODERN",variants:["COMMERCIAL","PROFESSIONAL","PREMIUM"],imageData:await readFileData()})});
@@ -2520,7 +2495,7 @@ async function marketing(){
       if(!currentAiVariants.length)throw new Error("La IA no devolvió propuestas visuales.");
       currentAiVariantIndex=0;currentAiImage="data:"+(currentAiVariants[0].mimeType||"image/png")+";base64,"+currentAiVariants[0].data;await renderVariants();await renderCanvas();
       localStorage.setItem("marc_marketing_last",JSON.stringify({campaign:currentCampaign,productId:currentProduct?.id}));
-      status.className="msg ok";status.textContent="M.A.R.C. creó 3 propuestas visuales. Elige la que quieras usar; el texto exacto se agregó encima para conservar precios y ofertas.";const hint=$p("bannerHint");if(hint)hint.textContent="Selecciona una de las propuestas visuales antes de descargar.";
+      status.className="msg ok";status.textContent="M.A.R.C. creó 3 propuestas visuales. Elige una y luego compártela desde tu teléfono.";const hint=$p("bannerHint");if(hint)hint.textContent="Elige una propuesta visual. Los datos, precio y CTA se colocan de forma consistente sobre la imagen.";
     }catch(e){status.className="msg error";status.textContent=e.message||"No se pudo generar el banner."}finally{btn.disabled=false}
   };
   $p("generateAd").onclick=generateAiBanner;

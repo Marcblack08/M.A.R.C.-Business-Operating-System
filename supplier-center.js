@@ -512,7 +512,15 @@
       // precio, descripción). La proximidad de filas NO debe impedir la unión:
       // eso estaba inflando 131 -> 221. La página sigue siendo parte de la clave
       // para no fusionar productos legítimamente repetidos en páginas distintas.
-      let g=key?groups.find(x=>x.page===c.page&&x.key===key):null;
+      let g=key?groups.find(x=>{
+        if(x.page!==c.page||x.key!==key)return false;
+        // Si dos fichas comparten nombre/código y precio pero tienen fotografías
+        // diferentes, pueden ser productos distintos. No los fusionamos.
+        if(c.imageIndex!==null&&c.imageIndex!==undefined &&
+           x.imageIndex!==null&&x.imageIndex!==undefined &&
+           c.imageIndex!==x.imageIndex)return false;
+        return true;
+      }):null;
       if(!g&&c.imageIndex!==null&&c.imageIndex!==undefined)
         g=groups.find(x=>x.page===c.page&&x.imageIndex===c.imageIndex);
       if(!g){

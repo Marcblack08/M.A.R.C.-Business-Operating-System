@@ -3308,6 +3308,91 @@ async function marketingAi(request,env){
   return json({campaign:{title:String(parsed?.title||p.name||"Publicidad").trim().slice(0,180),headline:String(parsed?.headline||p.name||"").trim().slice(0,180),primary_text:String(parsed?.primary_text||"").trim().slice(0,4000),short_text:String(parsed?.short_text||"").trim().slice(0,1200),whatsapp_text:String(parsed?.whatsapp_text||"").trim().slice(0,2000),banner_text:String(parsed?.banner_text||parsed?.headline||p.name||"").trim().slice(0,300),hashtags:Array.isArray(parsed?.hashtags)?parsed.hashtags.map(x=>String(x).trim()).filter(Boolean).slice(0,8):[]},entitlement:access},200,corsHeaders(request));
 }
 
+
+function b64u(bytes){
+  let s=""; for(const b of bytes)s+=String.fromCharCode(b);
+  return btoa(s).replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/,"");
+}
+function unb64u(s){
+  const x=String(s||"").replace(/-/g,"+").replace(/_/g,"/")+"===".slice((String(s||"").length+3)%4);
+  const raw=atob(x); const out=new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);
+  return out;
+}
+async function tokenKey(env){
+  if(!env.META_TOKEN_ENCRYPTION_KEY)throw Object.assign(new Error("Falta META_TOKEN_ENCRYPTION_KEY en el Worker."),{status:503});
+  const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(String(env.META_TOKEN_ENCRYPTION_KEY)));
+  return crypto.subtle.importKey("raw",digest,{name:"AES-GCM"},false,["encrypt","decrypt"]);
+}
+async function encryptSecret(env,value){
+  const iv=crypto.getRandomValues(new Uint8Array(12)),key=await tokenKey(env);
+  const data=await crypto.subtle.encrypt({name:"AES-GCM",iv},key,new TextEncoder().encode(String(value)));
+  return "v1."+b64u(iv)+"."+b64u(new Uint8Array(data));
+}
+async function decryptSecret(env,value){
+  const parts=String(value||"").split(".");
+  if(parts.length!==3||parts[0]!=="v1")throw new Error("Token protegido no válido.");
+  const key=await tokenKey(env);
+  const data=await crypto.subtle.decrypt({name:"AES-GCM",iv:unb64u(parts[1])},key,unb64u(parts[2]));
+  return new TextDecoder().decode(data);
+}
+async function metaConnect(request,env){
+  const {token,user}=await authUser(request,env);
+  const access=await entitlement(env,token,user.id);
+  if(access.kind!=="master")throw Object.assign(new Error("Conectar redes sociales requiere el plan MASTER."),{status:403});
+  if(!env.META_APP_ID||!env.META_APP_SECRET)throw Object.assign(new Error("Configura META_APP_ID y META_APP_SECRET en el Worker."),{status:503});
+  const state=randomToken(32),expires=new Date(Date.now()+10*60*1000).toISOString();
+  await sb(env,token,"marc_oauth_states",{method:"POST",body:{user_id:user.id,provider:"META",state,expires_at:expires}});
+  const redirectUri=new URL("/api/social/meta/callback",request.url).toString();
+  const version=String(env.META_GRAPH_VERSION||"v23.0");
+  const params=new URLSearchParams({
+    client_id:String(env.META_APP_ID),redirect_uri:redirectUri,state,
+    response_type:"code",
+    scope:"pages_show_list,pages_read_engagement,pages_manage_posts,instagram_basic,instagram_content_publish"
+  });
+  return Response.redirect("https://www.facebook.com/"+version+"/dialog/oauth?"+params.toString(),302);
+}
+async function metaCallback(request,env){
+  const url=new URL(request.url),error=url.searchParams.get("error"),errorDescription=url.searchParams.get("error_description");
+  const state=url.searchParams.get("state"),code=url.searchParams.get("code");
+  if(error) return new Response("M.A.R.C. · Meta canceló la conexión. "+String(errorDescription||error),{status:400,headers:{"content-type":"text/plain; charset=utf-8"}});
+  if(!state||!code)return new Response("M.A.R.C. · Faltan parámetros OAuth.",{status:400});
+  const lookup=await fetch(env.SUPABASE_URL+"/rest/v1/marc_oauth_states?select=id,user_id,provider,expires_at&state=eq."+encodeURIComponent(state)+"&provider=eq.META&limit=1",{headers:{apikey:env.SUPABASE_PUBLISHABLE_KEY}});
+  const states=await lookup.json().catch(()=>[]);
+  const st=states?.[0];
+  if(!st||new Date(st.expires_at).getTime()<Date.now())return new Response("M.A.R.C. · La sesión de conexión expiró. Vuelve a intentarlo.",{status:400});
+  if(!env.META_APP_ID||!env.META_APP_SECRET)throw new Error("Meta no está configurado.");
+  const redirectUri=new URL("/api/social/meta/callback",request.url).toString(),version=String(env.META_GRAPH_VERSION||"v23.0");
+  const tokenUrl=new URL("https://graph.facebook.com/"+version+"/oauth/access_token");
+  tokenUrl.searchParams.set("client_id",env.META_APP_ID);tokenUrl.searchParams.set("client_secret",env.META_APP_SECRET);tokenUrl.searchParams.set("redirect_uri",redirectUri);tokenUrl.searchParams.set("code",code);
+  const tr=await fetch(tokenUrl);const td=await tr.json().catch(()=>null);
+  if(!tr.ok||!td?.access_token)throw Object.assign(new Error(td?.error?.message||"Meta no devolvió un token."),{status:502});
+  const pageUrl=new URL("https://graph.facebook.com/"+version+"/me/accounts");
+  pageUrl.searchParams.set("fields","id,name,access_token,instagram_business_account{id,username}");
+  pageUrl.searchParams.set("access_token",td.access_token);
+  const pr=await fetch(pageUrl);const pd=await pr.json().catch(()=>null);
+  if(!pr.ok||!Array.isArray(pd?.data))throw Object.assign(new Error(pd?.error?.message||"No se pudieron obtener las páginas de Meta."),{status:502});
+  const adminToken=env.SUPABASE_SERVICE_ROLE_KEY||env.SUPABASE_SECRET_KEY;
+  if(!adminToken)throw Object.assign(new Error("Falta la clave privada de Supabase para finalizar OAuth."),{status:503});
+  const encrypted=[];
+  for(const page of pd.data){
+    if(!page?.id||!page?.access_token)continue;
+    const tokenRef=await encryptSecret(env,JSON.stringify({page_access_token:page.access_token,page_id:page.id}));
+    encrypted.push({platform:"FACEBOOK",account_name:page.name||"Página de Facebook",external_account_id:page.id,token_ref:tokenRef,scopes:["pages_show_list","pages_read_engagement","pages_manage_posts"],status:"CONNECTED",connected_at:new Date().toISOString(),updated_at:new Date().toISOString()});
+    const ig=page.instagram_business_account;
+    if(ig?.id){
+      encrypted.push({platform:"INSTAGRAM",account_name:ig.username||("Instagram "+ig.id),external_account_id:ig.id,token_ref:tokenRef,scopes:["instagram_basic","instagram_content_publish"],status:"CONNECTED",connected_at:new Date().toISOString(),updated_at:new Date().toISOString()});
+    }
+  }
+  if(!encrypted.length)throw Object.assign(new Error("Meta no devolvió una Página administrable con una cuenta de Instagram profesional asociada."),{status:422});
+  for(const x of encrypted){
+    await sb(env,adminToken,"marc_social_connections?user_id=eq."+encodeURIComponent(st.user_id)+"&platform=eq."+encodeURIComponent(x.platform),{method:"DELETE"});
+    await sb(env,adminToken,"marc_social_connections",{method:"POST",body:{...x,user_id:st.user_id}});
+  }
+  await sb(env,adminToken,"marc_oauth_states?id=eq."+encodeURIComponent(st.id),{method:"DELETE"});
+  return new Response("<!doctype html><html><body style='font-family:system-ui;padding:40px'><h2>✓ Meta conectada</h2><p>Facebook e Instagram ya están registrados en M.A.R.C. Puedes volver a la aplicación.</p><script>setTimeout(()=>location.href='/',1200)</script></body></html>",{status:200,headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store"}});
+}
+
 async function telegramDiagnostics(request,env){
   if(request.method!=="GET")return json({error:"Método no permitido"},405);
   if(!env.TELEGRAM_BOT_TOKEN)return json({ok:false,error:"TELEGRAM_BOT_TOKEN missing"},503);
@@ -3473,6 +3558,13 @@ export default{
     if(url.pathname==="/api/marketing-video-start"){try{return await marketingVideoStart(request,env)}catch(err){return json({error:err?.message||"No se pudo iniciar el video.",detail:err?.details||null},err?.status||500,headers)}}
     if(url.pathname==="/api/marketing-video-status"){try{return await marketingVideoStatus(request,env)}catch(err){return json({error:err?.message||"No se pudo consultar el video.",detail:err?.details||null},err?.status||500,headers)}}
     if(url.pathname==="/api/marketing-image"){try{return await marketingImage(request,env)}catch(err){return json({error:err?.message||"No se pudo generar el banner con IA.",detail:err?.details||null},err?.status||500,headers)}}
+    if(url.pathname==="/api/social/meta/connect"){
+      if(request.method!=="GET")return json({error:"Método no permitido"},405,headers);
+      try{return await metaConnect(request,env)}catch(err){return json({error:err?.message||"No se pudo iniciar la conexión con Meta."},err?.status||500,headers)}
+    }
+    if(url.pathname==="/api/social/meta/callback"){
+      try{return await metaCallback(request,env)}catch(err){return new Response("M.A.R.C. · "+String(err?.message||"No se pudo completar la conexión con Meta."),{status:err?.status||500,headers:{"content-type":"text/plain; charset=utf-8","cache-control":"no-store"}})}
+    }
     if(url.pathname==="/api/telegram/diagnostics"){return telegramDiagnostics(request,env)}
     if(url.pathname==="/api/telegram/setup"){
       if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);

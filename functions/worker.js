@@ -3420,6 +3420,15 @@ export default{
         return json({error:err?.message||"Error del webhook",detail:err?.details||null},err?.status||500);
       }
     }
+    if(url.pathname==="/api/client-portal/create"){
+      try{return await createClientPortal(request,env)}catch(err){return json({error:err?.message||"No se pudo crear el portal.",detail:err?.details||null},err?.status||500,corsHeaders(request))}
+    }
+    if(url.pathname==="/api/client-portal/revoke"){
+      try{return await revokeClientPortal(request,env)}catch(err){return json({error:err?.message||"No se pudo revocar el portal.",detail:err?.details||null},err?.status||500,corsHeaders(request))}
+    }
+    if(url.pathname==="/api/client-portal/view"){
+      try{return await clientPortalView(request,env)}catch(err){return json({error:err?.message||"No se pudo cargar el portal.",detail:err?.details||null},err?.status||500,corsHeaders(request))}
+    }
     if(url.pathname==="/api/marketing-product-ai"){
       try{return await marketingProductAi(request,env)}catch(err){return json({error:err?.message||"No se pudo analizar el producto.",detail:err?.details||null},err?.status||500,headers)}
     }

@@ -12,7 +12,7 @@
   }
   const esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
   const money=v=>new Intl.NumberFormat("es-PE",{style:"currency",currency:"PEN"}).format(Number(v||0));
-  const toast=t=>window.toast?window.toast(t):null;
+  const toast=(t,type)=>{try{if(typeof window.toast==="function")return window.toast(t,type);if(typeof window.showToast==="function")return window.showToast(t,type)}catch(e){};try{console.info("[MARC]",t)}catch(e){};};
   const supplierSalePrice=(item,supplier)=>{const base=Number(item.supplier_price??item.supplier_cost??0),pct=Number(item.markup_pct??supplier?.default_markup_pct??0);return base+(base*pct/100)};
 
   async function supplierCenter(){

@@ -3195,6 +3195,95 @@ async function marketingVideoStatus(request,env){
   return new Response(video.body,{status:200,headers});
 }
 
+async function createClientPortal(request,env){
+  if(request.method!=="POST")return json({error:"Método no permitido"},405,corsHeaders(request));
+  const {token,user}=await authUser(request,env);
+  const body=await request.json().catch(()=>({}));
+  const clientId=String(body?.clientId||"").trim();
+  if(!clientId)return json({error:"clientId requerido"},400,corsHeaders(request));
+  const clientRows=await sb(env,token,"marc_clients?id=eq."+encodeURIComponent(clientId)+"&user_id=eq."+encodeURIComponent(user.id)+"&select=id,name,portal_enabled&limit=1");
+  const client=clientRows?.[0];
+  if(!client)return json({error:"Cliente no encontrado"},404,corsHeaders(request));
+  const rawToken=randomToken(32);
+  const hash=await sha256Hex(rawToken);
+  await sb(env,token,"marc_clients?id=eq."+encodeURIComponent(clientId)+"&user_id=eq."+encodeURIComponent(user.id),{
+    method:"PATCH",
+    body:{portal_enabled:true,portal_token_hash:hash,portal_created_at:new Date().toISOString(),portal_last_seen_at:null}
+  });
+  await audit(env,token,user.id,"CLIENT",clientId,"PORTAL_CREATE",{client_name:client.name},"WEB");
+  const origin=new URL(request.url).origin;
+  return json({ok:true,clientId,name:client.name,token:rawToken,portalUrl:origin+"/?cliente_token="+encodeURIComponent(rawToken)},200,corsHeaders(request));
+}
+
+async function revokeClientPortal(request,env){
+  if(request.method!=="POST")return json({error:"Método no permitido"},405,corsHeaders(request));
+  const {token,user}=await authUser(request,env);
+  const body=await request.json().catch(()=>({}));
+  const clientId=String(body?.clientId||"").trim();
+  if(!clientId)return json({error:"clientId requerido"},400,corsHeaders(request));
+  const rows=await sb(env,token,"marc_clients?id=eq."+encodeURIComponent(clientId)+"&user_id=eq."+encodeURIComponent(user.id)+"&select=id,name&limit=1");
+  if(!rows?.[0])return json({error:"Cliente no encontrado"},404,corsHeaders(request));
+  await sb(env,token,"marc_clients?id=eq."+encodeURIComponent(clientId)+"&user_id=eq."+encodeURIComponent(user.id),{
+    method:"PATCH",body:{portal_enabled:false,portal_token_hash:null,portal_created_at:null,portal_last_seen_at:null}
+  });
+  return json({ok:true},200,corsHeaders(request));
+}
+
+async function clientPortalView(request,env){
+  if(request.method!=="GET")return json({error:"Método no permitido"},405,corsHeaders(request));
+  const url=new URL(request.url);
+  const rawToken=String(url.searchParams.get("token")||"").trim();
+  if(rawToken.length<20)return json({error:"Enlace de cliente inválido o vencido."},401,corsHeaders(request));
+  const hash=await sha256Hex(rawToken);
+  const adminToken=env.SUPABASE_SERVICE_ROLE_KEY||env.SUPABASE_SECRET_KEY;
+  if(!adminToken)throw Object.assign(new Error("El portal de clientes requiere SUPABASE_SERVICE_ROLE_KEY."),{status:503});
+  const rows=await sb(env,adminToken,"marc_clients?portal_enabled=eq.true&portal_token_hash=eq."+encodeURIComponent(hash)+"&select=id,user_id,name,document_type,document_number,contact_name,email,phone,address,portal_last_seen_at&limit=1");
+  const client=rows?.[0];
+  if(!client)return json({error:"Enlace de cliente inválido o vencido."},401,corsHeaders(request));
+  const uid=client.user_id,cid=client.id;
+  const [company,quotes,reports,history]=await Promise.all([
+    sb(env,adminToken,"marc_company_profiles?user_id=eq."+encodeURIComponent(uid)+"&select=business_name,phone,email,logo_data&limit=1"),
+    sb(env,adminToken,"marc_quotes?user_id=eq."+encodeURIComponent(uid)+"&client_id=eq."+encodeURIComponent(cid)+"&deleted_at=is.null&select=id,number,title,status,total,tax_enabled,tax_rate,notes,created_at,updated_at&order=created_at.desc&limit=100"),
+    sb(env,adminToken,"technical_reports?user_id=eq."+encodeURIComponent(uid)+"&client_id=eq."+encodeURIComponent(cid)+"&select=id,number,title,report_type,report_date,technician,location,equipment,problem,diagnosis,work_performed,recommendations,conclusions,observations,status,created_at&order=created_at.desc&limit=100"),
+    sb(env,adminToken,"marc_client_history?user_id=eq."+encodeURIComponent(uid)+"&client_id=eq."+encodeURIComponent(cid)+"&visible_to_client=eq.true&select=id,event_type,title,description,metadata,created_at&order=created_at.desc&limit=100")
+  ]);
+  const quoteIds=(quotes||[]).map(x=>x.id);
+  let items=[];
+  if(quoteIds.length){
+    const inList=quoteIds.map(id=>encodeURIComponent(id)).join(",");
+    items=await sb(env,adminToken,"marc_quote_items?user_id=eq."+encodeURIComponent(uid)+"&quote_id=in.("+inList+")&select=quote_id,item_type,name,description,quantity,unit,unit_price,line_total&order=created_at.asc");
+  }
+  const safeQuotes=(quotes||[]).map(q=>({
+    id:q.id,number:q.number,title:q.title,status:q.status,total:Number(q.total||0),
+    tax_enabled:Boolean(q.tax_enabled),tax_rate:Number(q.tax_rate||0),notes:q.notes||null,
+    created_at:q.created_at,items:(items||[]).filter(i=>i.quote_id===q.id).map(i=>({
+      item_type:i.item_type,name:i.name,description:i.description,quantity:Number(i.quantity||0),unit:i.unit,
+      unit_price:Number(i.unit_price||0),line_total:Number(i.line_total||0)
+    }))
+  }));
+  const visibleHistory=[
+    ...safeQuotes.map(q=>({id:"quote-"+q.id,event_type:"QUOTE",title:q.title||("Cotización "+q.number),description:q.notes||("Estado: "+q.status),created_at:q.created_at,metadata:{number:q.number,status:q.status,total:q.total}})),
+    ...(reports||[]).map(r=>({id:"report-"+r.id,event_type:"REPORT",title:r.title||("Informe "+r.number),description:r.work_performed||r.conclusions||r.observations||null,created_at:r.created_at,metadata:{number:r.number,status:r.status,report_date:r.report_date,technician:r.technician}})),
+    ...(history||[]).map(h=>({id:h.id,event_type:h.event_type,title:h.title,description:h.description,created_at:h.created_at,metadata:h.metadata||{}}))
+  ].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  await sb(env,adminToken,"marc_clients?id=eq."+encodeURIComponent(cid),{method:"PATCH",body:{portal_last_seen_at:new Date().toISOString()}});
+  const c=company?.[0]||{};
+  return json({
+    ok:true,client:{id:cid,name:client.name,document_type:client.document_type,document_number:client.document_number,contact_name:client.contact_name,email:client.email,phone:client.phone,address:client.address},
+    company:{business_name:c.business_name||"M.A.R.C.",phone:c.phone||null,email:c.email||null,logo_data:c.logo_data||null},
+    summary:{
+      quotes:safeQuotes.length,
+      accepted:safeQuotes.filter(q=>["ACEPTADA","COBRADA","FINALIZADO","APROBADO"].includes(String(q.status||"").toUpperCase())).length,
+      quotedTotal:safeQuotes.reduce((s,q)=>s+Number(q.total||0),0),
+      reports:(reports||[]).length,
+      products:[...new Map((items||[]).map(i=>[String(i.name||"").toLowerCase(),{name:i.name,unit:i.unit}]).filter(([k])=>k)).values()]
+    },
+    quotes:safeQuotes,
+    reports:(reports||[]).map(r=>({id:r.id,number:r.number,title:r.title,report_type:r.report_type,report_date:r.report_date,technician:r.technician,location:r.location,equipment:r.equipment,problem:r.problem,diagnosis:r.diagnosis,work_performed:r.work_performed,recommendations:r.recommendations,conclusions:r.conclusions,observations:r.observations,status:r.status,created_at:r.created_at})),
+    history:visibleHistory
+  },200,corsHeaders(request));
+}
+
 async function marketingAi(request,env){
   if(request.method!=="POST")return json({error:"Método no permitido"},405);
   const {token,user}=await authUser(request,env),access=await entitlement(env,token,user.id);

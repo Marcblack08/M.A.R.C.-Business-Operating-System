@@ -3138,3 +3138,47 @@ html[data-theme="dark"] #scModalOverlay [style*="background:rgba(127,127,127,.08
   .marketing-company-footer{display:block}
   .marketing-company-footer button{width:100%;margin-top:10px}
 }
+
+/* Acceso M.A.R.C. · tema claro/oscuro consistente */
+.auth{isolation:isolate}
+.auth-visual,.auth-card{z-index:1}
+.auth-theme-toggle{cursor:pointer}
+[data-theme="dark"] .auth{
+  background:
+    radial-gradient(circle at 80% 15%,rgba(18,92,150,.28),transparent 34%),
+    radial-gradient(circle at 10% 90%,rgba(74,52,140,.18),transparent 30%),
+    var(--bg);
+}
+[data-theme="dark"] .auth-glow{
+  border-color:rgba(60,162,255,.22);
+  box-shadow:0 0 0 90px rgba(60,162,255,.05),0 0 0 180px rgba(60,162,255,.025);
+}
+[data-theme="dark"] .auth-card{
+  background:rgba(13,24,40,.92);
+  border-color:#213a55;
+  box-shadow:0 30px 80px rgba(0,0,0,.38);
+  color:var(--text);
+}
+[data-theme="dark"] .auth-card h1{color:var(--text)}
+[data-theme="dark"] .auth-card p{color:var(--muted)}
+[data-theme="dark"] .auth-card-top-actions>span{color:#7f96ad}
+[data-theme="dark"] .auth-foot{color:#8197ad}
+[data-theme="dark"] .auth-visual-copy h2,
+[data-theme="dark"] .auth-visual-copy p,
+[data-theme="dark"] .auth-visual-stats b{color:var(--text)}
+[data-theme="dark"] .auth-visual-copy p,
+[data-theme="dark"] .auth-visual-stats small{color:var(--muted)}
+[data-theme="dark"] .auth-visual-copy>span{color:#5eb5ff}
+[data-theme="dark"] .auth-theme-toggle{
+  background:#102033;
+  border-color:#29425d;
+  color:#d8e7f6;
+}
+@media(max-width:780px){
+  .auth{padding:16px}
+  .auth-card{width:min(460px,100%);padding:26px 22px;border-radius:22px}
+  .auth-visual{display:none}
+  .auth-card-top{margin-bottom:4px}
+  .auth-card h1{font-size:28px}
+  .auth-card p{font-size:12px}
+}

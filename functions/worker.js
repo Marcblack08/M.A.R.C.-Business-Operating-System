@@ -83,8 +83,11 @@ async function sb(env,token,path,options={}){
     "content-type":"application/json",
     Prefer:options.prefer||"return=representation"
   };
-  if(!admin)headers.Authorization="Bearer "+token;
-  else if(env.SUPABASE_SERVICE_ROLE_KEY&&token===env.SUPABASE_SERVICE_ROLE_KEY)headers.Authorization="Bearer "+token;
+  // Las claves privilegiadas de Supabase (service_role o sb_secret_*) deben
+  // autenticarse de forma consistente en REST. Esto evita que el portal
+  // termine entrando como anon/authenticated y reciba "permission denied".
+  if(admin)headers.Authorization="Bearer "+token;
+  else headers.Authorization="Bearer "+token;
   const r=await fetch(env.SUPABASE_URL+"/rest/v1/"+path,{
     method:options.method||"GET",
     headers,

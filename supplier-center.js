@@ -626,6 +626,41 @@
           }
         });
       }
+
+      // Recuperación conservadora: algunas fichas reales tienen nombres muy
+      // cortos o mezclan código + texto y no pasan el filtro principal. Solo
+      // recuperamos esas filas si además tienen precio o una imagen cercana.
+      for(let i=0;i<parsed.length;i++){
+        const row=parsed[i];
+        const name=cleanCatalogProductText(row.name);
+        if(!name||isNoiseCatalogText(name)||name.length<4)continue;
+        const letters=(name.match(/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g)||[]).length;
+        if(letters<2||letters>=3)continue;
+
+        let price=row.price;
+        for(const offset of [0,-1,1,-2,2]){
+          if(price!=null)break;
+          const n=parsed[i+offset];
+          if(n?.price!=null)price=n.price;
+        }
+
+        let best=-1,bestDist=Infinity;
+        images.forEach((im,idx)=>{
+          const d=Math.abs(Number(im.y||0)-Number(row.y||0));
+          if(d<bestDist){bestDist=d;best=idx}
+        });
+        const matched=best>=0&&bestDist<120?images[best]:null;
+        if(price==null&&!matched)continue;
+
+        raw.push({
+          page:p,imageIndex:matched?best:null,sku:null,name:name.slice(0,180),
+          description:row.text.slice(0,500),brand:null,model:null,category:null,
+          unit:"UND",supplier_cost:null,supplier_price:price,currency:"PEN",
+          stock_text:null,image_data_url:matched?.dataUrl||null,
+          ai_confidence:price!=null?(matched?0.84:0.72):(matched?0.65:0.55),
+          source_metadata:{page:p,image_detected:!!matched,image_match_distance:matched?Math.round(bestDist):null,source_row:i,recovered:true}
+        });
+      }
     }
 
     const result=mergeCatalogCandidates(raw).slice(0,2000);

@@ -601,6 +601,12 @@ async function extractPdfCatalogRows(page){
     return {rows:[],text:"",usedLocal:false};
   }
 }
+// Expuesto para que el Centro de Proveedores utilice exactamente el mismo
+// lector PDF local que Inventario, evitando dos analizadores distintos.
+window.MARC_PDF_CATALOG_READER=window.MARC_PDF_CATALOG_READER||{};
+window.MARC_PDF_CATALOG_READER.extractRows=extractPdfCatalogRows;
+window.MARC_PDF_CATALOG_READER.extractPageText=extractPdfPageText;
+
 async function extractPdfPageText(page){
   try{
     const content=await page.getTextContent({normalizeWhitespace:true,disableCombineTextItems:false});

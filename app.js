@@ -2616,7 +2616,7 @@ function inventoryModal(x=null){
         '</div>'+
       '</div>'+
       '<div id="photoMsg" class="msg"></div>'+
-      '<div class="form-grid">
+      '<div class="form-grid">'+
         '<label>Nombre<input name="name" required value="'+esc(x?.name||"")+'"></label>'+
         '<label>Código / SKU<input name="sku" value="'+esc(x?.sku||"")+'"></label>'+
         '<label>Marca<input name="brand" value="'+esc(x?.brand||"")+'"></label>'+
@@ -2666,8 +2666,9 @@ function inventoryModal(x=null){
       }
       if(!String(p?.name||"").trim())throw new Error("La IA no pudo identificar el producto. Toma una foto más clara, de frente y con la etiqueta visible.");
       const confidence=Math.round(Number(p.confidence||0)*100);
+      setGuideStep(3);
       msg.className="msg ok";
-      msg.textContent=(filled?("Producto analizado. "+filled+" campos completados automáticamente. "):"Producto analizado. ")+(confidence?("Confianza aproximada: "+confidence+"%. "):"")+"Revisa los datos antes de guardar.";
+      msg.textContent=(filled?("Producto analizado. "+filled+" campos completados automáticamente. "):"Producto analizado. ")+(confidence?("Confianza aproximada: "+confidence+"%. "):"")+"Revisa los datos y completa precio, costo y stock antes de guardar.";
     }catch(err){
       console.error("[M.A.R.C. inventory photo]",err);
       msg.className="msg error";

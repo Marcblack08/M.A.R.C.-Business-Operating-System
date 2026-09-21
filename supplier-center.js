@@ -70,20 +70,49 @@
 
   async function newCatalog(){
     const S=sb(); const {data:{session}}=await S.auth.getSession();
-    const {data:suppliers}=await S.from("marc_suppliers").select("id,name").eq("user_id",session.user.id).eq("active",true).order("name");
-    const names=(suppliers||[]).map((x,i)=>(i+1)+". "+x.name).join("\n");
-    const pick=prompt("Selecciona proveedor por número:\n"+names+"\n\n0 = sin proveedor");
-    const n=Number(pick||0); const supplier=(suppliers||[])[n-1];
-    const name=prompt("Nombre del catálogo","Catálogo de proveedor"); if(!name?.trim())return;
-    const file=await chooseFile();
-    if(!file)return;
-    const path=session.user.id+"/"+Date.now()+"-"+file.name.replace(/[^a-zA-Z0-9._-]/g,"_");
-    const up=await S.storage.from("catalog-pdfs").upload(path,file,{upsert:false,contentType:file.type||"application/octet-stream"});
-    if(up.error)return alert("No se pudo guardar el catálogo: "+up.error.message);
-    const ins=await S.from("marc_supplier_catalogs").insert({user_id:session.user.id,supplier_id:supplier?.id||null,name:name.trim(),source_type:file.type==="application/pdf"?"PDF":file.name.match(/\.xlsx?$/i)?"EXCEL":"OTHER",storage_path:path,file_name:file.name,file_size_bytes:file.size,status:"UPLOADED"}).select().single();
-    if(ins.error)return alert(ins.error.message);
-    await analyzeCatalog(ins.data, file);
-    await loadCenter();
+    const {data:suppliers,error:supErr}=await S.from("marc_suppliers").select("id,name").eq("user_id",session.user.id).eq("active",true).order("name");
+    if(supErr)return alert("No se pudieron cargar los proveedores: "+supErr.message);
+    const supplierOptions=(suppliers||[]).map(x=>'<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>').join("");
+    const body='<div style="display:grid;gap:16px">'+
+      '<label style="display:grid;gap:7px"><span style="font-weight:700">Proveedor</span><select id="scCatalogSupplier" class="input"><option value="">Sin proveedor</option>'+supplierOptions+'</select></label>'+
+      '<label style="display:grid;gap:7px"><span style="font-weight:700">Nombre del catálogo</span><input id="scCatalogName" class="input" value="Catálogo de proveedor" placeholder="Ej. Catálogo Hikvision 2026"></label>'+
+      '<div style="border:2px dashed rgba(37,99,235,.45);border-radius:18px;padding:22px;text-align:center;background:rgba(37,99,235,.05)">'+
+        '<div style="font-size:34px;margin-bottom:8px">📄</div><b style="display:block;font-size:17px">Sube el catálogo del proveedor</b>'+
+        '<small style="display:block;margin:6px 0 14px;opacity:.72">PDF, Excel o imagen. Si el PDF contiene fotos de productos, M.A.R.C. intentará extraerlas.</small>'+
+        '<input id="scCatalogFile" type="file" accept=".pdf,.xlsx,.xls,image/*" style="display:none">'+
+        '<button id="scChooseCatalogFile" type="button" class="primary">📎 Seleccionar PDF / Excel</button>'+
+        '<div id="scCatalogFileName" style="margin-top:10px;font-size:13px;opacity:.8">Ningún archivo seleccionado</div>'+
+      '</div>'+
+      '<div id="scUploadProgress" style="display:none;font-size:13px;opacity:.8">Preparando catálogo…</div>'+
+    '</div>';
+    scModal("Registrar catálogo",body,'<button id="scCatalogCancel" class="secondary">Cancelar</button><button id="scCatalogUpload" class="primary">⬆️ Subir y analizar</button>');
+    const fileInput=document.querySelector("#scCatalogFile"),fileName=document.querySelector("#scCatalogFileName");
+    document.querySelector("#scChooseCatalogFile").onclick=()=>fileInput.click();
+    fileInput.onchange=()=>{const file=fileInput.files?.[0];fileName.textContent=file?("📎 "+file.name+" · "+Math.max(1,file.size/1024/1024).toFixed(2)+" MB"):"Ningún archivo seleccionado"};
+    document.querySelector("#scCatalogCancel").onclick=()=>document.querySelector("#modal").innerHTML="";
+    document.querySelector("#scCatalogUpload").onclick=async()=>{
+      const file=fileInput.files?.[0];
+      const name=document.querySelector("#scCatalogName").value.trim();
+      const supplierId=document.querySelector("#scCatalogSupplier").value||null;
+      if(!name)return alert("Escribe el nombre del catálogo.");
+      if(!file)return alert("Selecciona primero el PDF, Excel o imagen del catálogo.");
+      const btn=document.querySelector("#scCatalogUpload"),progress=document.querySelector("#scUploadProgress");
+      btn.disabled=true;progress.style.display="block";progress.textContent="Subiendo "+file.name+"…";
+      try{
+        const path=session.user.id+"/"+Date.now()+"-"+file.name.replace(/[^a-zA-Z0-9._-]/g,"_");
+        const up=await S.storage.from("catalog-pdfs").upload(path,file,{upsert:false,contentType:file.type||"application/octet-stream"});
+        if(up.error)throw up.error;
+        progress.textContent="Archivo guardado. Analizando productos y fotografías…";
+        const ins=await S.from("marc_supplier_catalogs").insert({user_id:session.user.id,supplier_id:supplierId,name,source_type:file.type==="application/pdf"?"PDF":file.name.match(/\.xlsx?$/i)?"EXCEL":"OTHER",storage_path:path,file_name:file.name,file_size_bytes:file.size,status:"UPLOADED"}).select().single();
+        if(ins.error)throw ins.error;
+        await analyzeCatalog(ins.data,file);
+        document.querySelector("#modal").innerHTML="";
+        await loadCenter();
+      }catch(e){
+        console.error(e);btn.disabled=false;progress.textContent="No se pudo completar la carga.";
+        alert("No se pudo subir el catálogo: "+(e.message||e));
+      }
+    };
   }
 
   function chooseFile(){

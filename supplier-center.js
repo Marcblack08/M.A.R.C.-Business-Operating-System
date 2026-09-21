@@ -50,11 +50,11 @@
       const supplier=suppliers.find(v=>v.id===x.supplier_id);
       const its=items.filter(v=>v.catalog_id===x.id);
       const ready=its.filter(v=>v.status==="APPROVED"||v.status==="IMPORTED").length;
-      return '<article class="client-card"><div class="client-card-top"><div class="client-avatar">'+esc(x.source_type==="EXCEL"?"XLS":"PDF")+'</div><div class="client-card-name"><h3>'+esc(x.name)+'</h3><small>'+esc(supplier?.name||"Proveedor no asignado")+'</small></div><span class="badge '+(x.status==="READY"?"ok":"low")+'">'+esc(x.status)+'</span></div><div class="client-details"><div><span>Productos</span><b>'+its.length+'</b></div><div><span>Listos</span><b>'+ready+'</b></div><div><span>Origen</span><b>'+esc(x.source_type)+'</b></div></div><div class="client-card-actions"><button class="primary" data-catalog="'+x.id+'">Ver productos</button><button class="secondary scReanalyze" data-catalog="'+x.id+'">↻ Reanalizar</button></div></article>'
+      return '<article class="client-card"><div class="client-card-top"><div class="client-avatar">'+esc(x.source_type==="EXCEL"?"XLS":"PDF")+'</div><div class="client-card-name"><h3>'+esc(x.name)+'</h3><small>'+esc(supplier?.name||"Proveedor no asignado")+'</small></div><span class="badge '+(x.status==="READY"?"ok":"low")+'">'+esc(x.status)+'</span></div><div class="client-details"><div><span>Productos</span><b>'+its.length+'</b></div><div><span>Listos</span><b>'+ready+'</b></div><div><span>Origen</span><b>'+esc(x.source_type)+'</b></div></div><div class="client-card-actions"><button class="primary scOpenCatalog" data-catalog="'+x.id+'">Ver productos</button><button class="secondary scReanalyze" data-catalog="'+x.id+'">↻ Reanalizar</button></div></article>'
     }).join("")||'<div class="empty-state"><span>📄</span><b>Aún no hay catálogos</b><small>Registra un catálogo para empezar.</small></div>';
 
     document.querySelectorAll("[data-supplier]").forEach(b=>b.onclick=()=>filterCatalogs(b.dataset.supplier));
-    document.querySelectorAll("[data-catalog]").forEach(b=>b.onclick=()=>catalogProducts(b.dataset.catalog));
+    document.querySelectorAll(".scOpenCatalog").forEach(b=>b.onclick=()=>catalogProducts(b.dataset.catalog));
     document.querySelectorAll(".scReanalyze").forEach(b=>b.onclick=()=>reanalyzeCatalog(b.dataset.catalog));
   }
 

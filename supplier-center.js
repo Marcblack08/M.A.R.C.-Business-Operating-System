@@ -146,18 +146,93 @@
     return document.querySelector("#scModalBody");
   }
 
+  async function saveCatalogItem(item, patch){
+    const S=sb(); const {data:{session}}=await S.auth.getSession(); if(!session)return false;
+    const allowed=["name","sku","description","brand","model","category","unit","supplier_cost","supplier_price","currency","stock_text","status"];
+    const payload={};
+    allowed.forEach(k=>{if(Object.prototype.hasOwnProperty.call(patch,k))payload[k]=patch[k]});
+    payload.updated_at=new Date().toISOString();
+    const r=await S.from("marc_supplier_catalog_items").update(payload).eq("id",item.id).eq("user_id",session.user.id);
+    if(r.error){alert("No se pudo guardar el producto: "+r.error.message);return false}
+    return true;
+  }
+
+  async function editCatalogItem(item, catalogId){
+    const body='<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">'+
+      '<label style="display:grid;gap:6px"><span>Nombre *</span><input id="scEditName" class="input" value="'+esc(item.name||"")+'"></label>'+
+      '<label style="display:grid;gap:6px"><span>SKU / Código</span><input id="scEditSku" class="input" value="'+esc(item.sku||"")+'"></label>'+
+      '<label style="display:grid;gap:6px"><span>Marca</span><input id="scEditBrand" class="input" value="'+esc(item.brand||"")+'"></label>'+
+      '<label style="display:grid;gap:6px"><span>Modelo</span><input id="scEditModel" class="input" value="'+esc(item.model||"")+'"></label>'+
+      '<label style="display:grid;gap:6px"><span>Categoría</span><input id="scEditCategory" class="input" value="'+esc(item.category||"")+'"></label>'+
+      '<label style="display:grid;gap:6px"><span>Unidad</span><input id="scEditUnit" class="input" value="'+esc(item.unit||"UND")+'"></label>'+
+      '<label style="display:grid;gap:6px"><span>Precio proveedor</span><input id="scEditSupplierPrice" class="input" type="number" step="0.01" value="'+esc(item.supplier_price??"")+'"></label>'+
+      '<label style="display:grid;gap:6px"><span>Costo proveedor</span><input id="scEditSupplierCost" class="input" type="number" step="0.01" value="'+esc(item.supplier_cost??"")+'"></label>'+
+      '<label style="display:grid;gap:6px"><span>Stock / presentación</span><input id="scEditStock" class="input" value="'+esc(item.stock_text||"")+'"></label>'+
+      '<label style="display:grid;gap:6px"><span>Estado</span><select id="scEditStatus" class="input"><option value="REVIEW" '+(item.status==="REVIEW"?"selected":"")+'>REVISAR</option><option value="APPROVED" '+(item.status==="APPROVED"?"selected":"")+'>APROBADO</option><option value="IMPORTED" '+(item.status==="IMPORTED"?"selected":"")+'>IMPORTADO</option></select></label>'+
+      '<label style="display:grid;gap:6px;grid-column:1/-1"><span>Descripción</span><textarea id="scEditDescription" class="input" rows="4">'+esc(item.description||"")+'</textarea></label>'+
+      '</div>';
+    scModal("Editar producto del proveedor",body,'<button id="scEditCancel" class="secondary">Cancelar</button><button id="scEditSave" class="primary">Guardar cambios</button>');
+    document.querySelector("#scEditCancel").onclick=()=>catalogProducts(catalogId);
+    document.querySelector("#scEditSave").onclick=async()=>{
+      const name=document.querySelector("#scEditName").value.trim();
+      if(!name)return alert("El nombre del producto es obligatorio.");
+      const n=v=>{const s=String(v??"").trim();if(!s)return null;const x=Number(s);return Number.isFinite(x)?x:null};
+      const ok=await saveCatalogItem(item,{
+        name,
+        sku:document.querySelector("#scEditSku").value.trim()||null,
+        brand:document.querySelector("#scEditBrand").value.trim()||null,
+        model:document.querySelector("#scEditModel").value.trim()||null,
+        category:document.querySelector("#scEditCategory").value.trim()||null,
+        unit:document.querySelector("#scEditUnit").value.trim()||"UND",
+        supplier_price:n(document.querySelector("#scEditSupplierPrice").value),
+        supplier_cost:n(document.querySelector("#scEditSupplierCost").value),
+        stock_text:document.querySelector("#scEditStock").value.trim()||null,
+        status:document.querySelector("#scEditStatus").value,
+        description:document.querySelector("#scEditDescription").value.trim()||null
+      });
+      if(ok){toast("Producto actualizado.");await catalogProducts(catalogId)}
+    };
+  }
+
+  async function deleteCatalogItem(item, catalogId){
+    if(!confirm("¿Eliminar «"+String(item.name||"Producto")+"» del catálogo? Esta acción no elimina nada de tu Inventario."))return;
+    const S=sb(); const {data:{session}}=await S.auth.getSession(); if(!session)return;
+    const r=await S.from("marc_supplier_catalog_items").delete().eq("id",item.id).eq("user_id",session.user.id);
+    if(r.error)return alert("No se pudo eliminar: "+r.error.message);
+    toast("Producto eliminado del catálogo.");
+    await catalogProducts(catalogId);
+  }
+
   async function catalogProducts(catalogId){
     const S=sb(); const {data,error}=await S.from("marc_supplier_catalog_items").select("*").eq("catalog_id",catalogId).order("created_at",{ascending:true});
     if(error)return alert(error.message);
     const items=data||[];
-    if(!items.length){alert("Este catálogo todavía no tiene productos detectados.");return;}
-    const rows=items.map((x,i)=>'<tr><td><input type="checkbox" class="scItemCheck" value="'+x.id+'"></td><td>'+(x.image_url?'<img src="'+esc(x.image_url)+'" alt="" style="width:52px;height:52px;object-fit:contain;border-radius:10px;border:1px solid rgba(127,127,127,.18);vertical-align:middle;margin-right:8px">': '<span style="display:inline-flex;width:52px;height:52px;align-items:center;justify-content:center;border-radius:10px;background:rgba(127,127,127,.08);margin-right:8px">📦</span>')+'<b>'+esc(x.name)+'</b><br><small>'+esc([x.brand,x.model,x.sku].filter(Boolean).join(" · "))+'</small></td><td>'+money(x.supplier_price||x.supplier_cost)+'</td><td><span class="badge '+(x.status==="IMPORTED"?"ok":"low")+'">'+esc(x.status)+'</span></td><td><button class="secondary scPublishOne" data-id="'+x.id+'">Publicidad</button></td></tr>').join("");
-    scModal("Productos detectados",'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"><button id="scSelectAll" class="secondary">Seleccionar todo</button><button id="scImportSelected" class="primary">Importar seleccionados</button><button id="scPublishSelected" class="secondary">Crear publicaciones</button></div><div style="overflow:auto"><table style="width:100%;border-collapse:collapse"><thead><tr><th></th><th>Producto</th><th>Precio</th><th>Estado</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>','<button id="scDone" class="primary">Listo</button>');
+    if(!items.length){alert("Este catálogo no tiene productos detectados.");return;}
+    const rows=items.map(x=>'<tr>'+
+      '<td><input type="checkbox" class="scItemCheck" value="'+x.id+'"></td>'+
+      '<td>'+(x.image_url?'<img src="'+esc(x.image_url)+'" alt="" style="width:52px;height:52px;object-fit:contain;border-radius:10px;border:1px solid rgba(127,127,127,.18);vertical-align:middle;margin-right:8px">':'<span style="display:inline-flex;width:52px;height:52px;align-items:center;justify-content:center;border-radius:10px;background:rgba(127,127,127,.08);margin-right:8px">📦</span>')+
+      '<b>'+esc(x.name)+'</b><br><small>'+esc([x.brand,x.model,x.sku].filter(Boolean).join(" · "))+'</small></td>'+
+      '<td>'+money(x.supplier_price??x.supplier_cost)+'</td>'+
+      '<td><span class="badge '+(x.status==="IMPORTED"||x.status==="APPROVED"?"ok":"low")+'">'+esc(x.status)+'</span></td>'+
+      '<td><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="secondary scEditOne" data-id="'+x.id+'">Editar</button><button class="secondary scPublishOne" data-id="'+x.id+'">Publicidad</button><button class="danger scDeleteOne" data-id="'+x.id+'">Eliminar</button></div></td>'+
+      '</tr>').join("");
+    const body='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">'+
+      '<button id="scSelectAll" class="secondary">Seleccionar todo</button><button id="scClearAll" class="secondary">Quitar selección</button>'+
+      '<button id="scImportSelected" class="primary">Importar seleccionados</button><button id="scApproveSelected" class="secondary">Aprobar seleccionados</button>'+
+      '<button id="scDeleteSelected" class="danger">Eliminar seleccionados</button><button id="scPublishSelected" class="secondary">Crear publicaciones</button></div>'+
+      '<div style="padding:10px 12px;margin-bottom:12px;border-radius:12px;background:rgba(37,99,235,.08);font-size:13px">Revisa antes de importar. Las imágenes del PDF sirven como referencia visual; una imagen por sí sola ya no se convierte automáticamente en un producto.</div>'+
+      '<div style="overflow:auto"><table style="width:100%;border-collapse:collapse"><thead><tr><th></th><th>Producto</th><th>Precio</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+    scModal("Productos detectados · "+items.length,body,'<button id="scDone" class="primary">Listo</button>');
     document.querySelector("#scDone").onclick=()=>document.querySelector("#modal").innerHTML="";
     document.querySelector("#scSelectAll").onclick=()=>document.querySelectorAll(".scItemCheck").forEach(x=>x.checked=true);
+    document.querySelector("#scClearAll").onclick=()=>document.querySelectorAll(".scItemCheck").forEach(x=>x.checked=false);
     const selected=()=>[...document.querySelectorAll(".scItemCheck:checked")].map(x=>items.find(i=>i.id===x.value)).filter(Boolean);
-    document.querySelector("#scImportSelected").onclick=async()=>{for(const item of selected())await importCatalogItem(item);document.querySelector("#modal").innerHTML="";await loadCenter()};
-    document.querySelector("#scPublishSelected").onclick=async()=>{for(const item of selected())await createPublicationDraft(item);document.querySelector("#modal").innerHTML="";await loadCenter()};
+    document.querySelector("#scImportSelected").onclick=async()=>{const chosen=selected();if(!chosen.length)return alert("Selecciona al menos un producto.");for(const item of chosen)await importCatalogItem(item);await catalogProducts(catalogId)};
+    document.querySelector("#scApproveSelected").onclick=async()=>{const chosen=selected();if(!chosen.length)return alert("Selecciona al menos un producto.");const r=await S.from("marc_supplier_catalog_items").update({status:"APPROVED",updated_at:new Date().toISOString()}).in("id",chosen.map(x=>x.id));if(r.error)return alert("No se pudieron aprobar: "+r.error.message);await catalogProducts(catalogId)};
+    document.querySelector("#scDeleteSelected").onclick=async()=>{const chosen=selected();if(!chosen.length)return alert("Selecciona al menos un producto.");if(!confirm("¿Eliminar "+chosen.length+" producto(s) del catálogo? Esto no elimina productos de tu Inventario."))return;const r=await S.from("marc_supplier_catalog_items").delete().in("id",chosen.map(x=>x.id));if(r.error)return alert("No se pudieron eliminar: "+r.error.message);toast("Productos eliminados.");await catalogProducts(catalogId)};
+    document.querySelector("#scPublishSelected").onclick=async()=>{for(const item of selected())await createPublicationDraft(item);await catalogProducts(catalogId)};
+    document.querySelectorAll(".scEditOne").forEach(b=>b.onclick=()=>{const item=items.find(i=>i.id===b.dataset.id);if(item)editCatalogItem(item,catalogId)});
+    document.querySelectorAll(".scDeleteOne").forEach(b=>b.onclick=()=>{const item=items.find(i=>i.id===b.dataset.id);if(item)deleteCatalogItem(item,catalogId)});
     document.querySelectorAll(".scPublishOne").forEach(b=>b.onclick=async()=>{const item=items.find(i=>i.id===b.dataset.id);if(item)await createPublicationDraft(item)});
   }
 
@@ -274,37 +349,58 @@
     });
     return rows.map(r=>({y:r.y,text:r.texts.join(" ").replace(/\s+/g," ").trim()})).filter(r=>r.text);
   }
+  function cleanCatalogProductText(text){
+    return String(text||"").replace(/[\\t\\r\\n]+/g," ").replace(/\\s+/g," ").replace(/(?:S\\.?\\s*)?\\d+(?:[.,]\\d{1,2})?/g," ").replace(/(?:PVP|PRECIO|OFERTA|PROMO(?:CION)?|DESDE|UND(?:IDAD)?|UNIDAD)\\b/gi," ").replace(/[|•·]+/g," ").replace(/\\s+/g," ").trim();
+  }
+  function catalogProductKey(text){
+    return String(text||"").toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim();
+  }
+  function isNoiseCatalogText(text){
+    const k=catalogProductKey(text);
+    if(k.length<3)return true;
+    const noise=["precio","pvp","oferta","promocion","catalogo","www","telefono","celular","contacto","pagina","page","subtotal","total","igv","incluye","consulta","cotiza"];
+    if(noise.includes(k))return true;
+    if(/^(?:s|usd|us|precio|pvp)?\\s*\\d+(?:[.,]\\d+)?$/i.test(String(text||"").trim()))return true;
+    return false;
+  }
+  function mergeCatalogCandidates(candidates){
+    const groups=[];
+    for(const c of candidates){
+      const key=c.sku?catalogProductKey(c.sku):catalogProductKey(c.name);
+      let g=key?groups.find(x=>x.page===c.page&&x.key===key):null;
+      if(!g&&c.imageIndex!==null&&c.imageIndex!==undefined)g=groups.find(x=>x.page===c.page&&x.imageIndex===c.imageIndex);
+      if(!g){g={...c,key,prices:[],descriptions:[]};if(c.supplier_price!=null)g.prices.push(c.supplier_price);if(c.description)g.descriptions.push(c.description);groups.push(g)}
+      else{if(c.supplier_price!=null)g.prices.push(c.supplier_price);if(c.description)g.descriptions.push(c.description);if((c.name||"").length>(g.name||"").length)g.name=c.name;if(!g.sku&&c.sku)g.sku=c.sku;if(!g.image_data_url&&c.image_data_url)g.image_data_url=c.image_data_url;if(c.ai_confidence>g.ai_confidence)g.ai_confidence=c.ai_confidence}
+    }
+    const out=[];
+    for(const g of groups){
+      const name=String(g.name||"").trim();if(isNoiseCatalogText(name))continue;
+      const prices=g.prices.filter(Number.isFinite),price=prices.length?Math.max(...prices):null;
+      const desc=[...new Set(g.descriptions.map(x=>String(x).trim()).filter(Boolean))].join(" · ").slice(0,800);
+      out.push({sku:g.sku||null,name:name.slice(0,180),description:desc||null,brand:g.brand||null,model:g.model||null,category:g.category||null,unit:g.unit||"UND",supplier_cost:g.supplier_cost??null,supplier_price:price,currency:"PEN",stock_text:g.stock_text||null,image_data_url:g.image_data_url||null,ai_confidence:Number(g.ai_confidence||0.55),source_metadata:{...(g.source_metadata||{}),merged_prices:prices.length}});
+    }
+    const final=[],seen=new Set();
+    for(const x of out){const key=[x.sku?catalogProductKey(x.sku):"",catalogProductKey(x.name),x.supplier_price??""].join("|");if(seen.has(key))continue;seen.add(key);final.push(x)}
+    return final;
+  }
+
   async function parsePdfCatalog(file){
     if(!window.pdfjsLib)throw new Error("No está disponible el lector PDF.");
-    const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise,out=[];
+    const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise,raw=[];
     for(let p=1;p<=pdf.numPages;p++){
-      const page=await pdf.getPage(p),tc=await page.getTextContent();
-      const images=await extractPdfImagesWithBoxes(page);
-      const rows=pdfProductRows(tc);
-      const candidates=rows.filter(r=>/(?:S\.?\s*)?\d+(?:[.,]\d{1,2})?/.test(r.text));
-      const used=new Set();
-      candidates.forEach(row=>{
-        const prices=row.text.match(/(?:S\.?\s*)?\d+(?:[.,]\d{1,2})?/g);if(!prices)return;
-        const price=num(prices[prices.length-1]);
-        const name=row.text.replace(/(?:S\.?\s*)?\d+(?:[.,]\d{1,2})?/g," ").replace(/\s+/g," ").trim();
-        if(name.length<3)return;
+      const page=await pdf.getPage(p),tc=await page.getTextContent(),images=await extractPdfImagesWithBoxes(page),rows=pdfProductRows(tc);
+      const candidates=rows.filter(r=>/(?:S\\.?\\s*)?\\d+(?:[.,]\\d{1,2})?/.test(r.text));
+      for(const row of candidates){
+        const prices=row.text.match(/(?:S\\.?\\s*)?\\d+(?:[.,]\\d{1,2})?/g)||[],price=num(prices[prices.length-1]),name=cleanCatalogProductText(row.text);
+        if(isNoiseCatalogText(name)||name.length<3)continue;
         let best=-1,bestDist=Infinity;
-        images.forEach((im,i)=>{if(used.has(i))return;const d=Math.abs(im.y-row.y);if(d<bestDist){bestDist=d;best=i}});
-        const matched=best>=0&&bestDist<120?images[best]:null;
-        if(matched)used.add(best);
-        out.push({
-          sku:null,name:name.slice(0,180),description:row.text,brand:null,model:null,category:null,unit:"UND",
-          supplier_cost:null,supplier_price:price,currency:"PEN",stock_text:null,
-          image_data_url:matched?.dataUrl||null,
-          ai_confidence:matched?0.88:0.55,
-          source_metadata:{page:p,image_detected:!!matched,image_match_distance:matched?Math.round(bestDist):null}
-        });
-      });
-      if(!candidates.length&&images.length){
-        images.forEach(im=>out.push({sku:null,name:"Producto con imagen detectada",description:"Imagen extraída del catálogo PDF",brand:null,model:null,category:null,unit:"UND",supplier_cost:null,supplier_price:null,currency:"PEN",stock_text:null,image_data_url:im.dataUrl,ai_confidence:0.45,source_metadata:{page:p,image_detected:true,unmatched_image:true}}));
+        images.forEach((im,i)=>{const d=Math.abs(Number(im.y||0)-Number(row.y||0));if(d<bestDist){bestDist=d;best=i}});
+        const matched=best>=0&&bestDist<140?images[best]:null;
+        raw.push({page:p,imageIndex:matched?best:null,sku:null,name,description:row.text.slice(0,500),brand:null,model:null,category:null,unit:"UND",supplier_cost:null,supplier_price:price,currency:"PEN",stock_text:null,image_data_url:matched?.dataUrl||null,ai_confidence:matched?0.9:0.62,source_metadata:{page:p,image_detected:!!matched,image_match_distance:matched?Math.round(bestDist):null}});
       }
+      // Una imagen aislada no crea un producto. Primero debe existir evidencia textual/precio.
     }
-    return out.slice(0,2000);
+    return mergeCatalogCandidates(raw).slice(0,2000);
   }
 
   async function importCatalogItem(item){

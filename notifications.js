@@ -62,6 +62,18 @@
   function reminder(title,body,when){
     const rows=read(REMINDERS);rows.push({id:uid(),title,body,when:new Date(when).toISOString(),done:false});write(REMINDERS,rows);addNotification("Recordatorio creado",title+" · "+new Date(when).toLocaleString("es-PE"));return rows[rows.length-1];
   }
+  function installMarketingShare(){
+    const host=document.querySelector("#marketingPublishCenter");
+    if(!host||host.querySelector(".marc-share-marketing"))return;
+    const b=document.createElement("button");b.type="button";b.className="secondary marc-share-marketing";b.textContent="📤 Compartir publicidad";
+    b.onclick=()=>{
+      const title=document.querySelector("#marketingPublishCenter h3,h2,h4")?.textContent||"Publicidad de M.A.R.C.";
+      const text=host.innerText.replace(/\\s+/g," ").trim().slice(0,1800);
+      share({title,text,url:location.href});
+    };
+    const actions=host.querySelector(".hero-actions,.panel-actions,.actions,.modal-actions")||host;
+    actions.appendChild(b);
+  }
   function checkReminders(){
     const now=Date.now();let changed=false;const rows=read(REMINDERS).map(r=>{
       if(!r.done&&new Date(r.when).getTime()<=now){r.done=true;changed=true;notify(r.title,r.body)}return r;
@@ -70,7 +82,7 @@
   window.MARCNotifications={notifications,add:addNotification,notify,open,share,reminder,check:checkReminders};
   document.addEventListener("DOMContentLoaded",()=>{
     $("#notificationBell")?.addEventListener("click",open);
-    renderCount();checkReminders();setInterval(checkReminders,30000);
+    renderCount();checkReminders();installMarketingShare();setInterval(checkReminders,30000);new MutationObserver(()=>installMarketingShare()).observe(document.body,{childList:true,subtree:true});
     if(!notifications().length)addNotification("Bienvenido a M.A.R.C.","Aquí aparecerán recordatorios, publicidad pendiente, cobros y tareas importantes.");
   });
 })();

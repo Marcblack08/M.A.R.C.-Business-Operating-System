@@ -3311,7 +3311,7 @@ async function marketingAi(request,env){
 
 function b64u(bytes){
   let s=""; for(const b of bytes)s+=String.fromCharCode(b);
-  return btoa(s).replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/,"");
+  return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
 }
 function unb64u(s){
   const x=String(s||"").replace(/-/g,"+").replace(/_/g,"/")+"===".slice((String(s||"").length+3)%4);

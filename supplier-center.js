@@ -529,63 +529,73 @@
     if(!window.pdfjsLib)throw new Error("No está disponible el lector PDF.");
     const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise,raw=[];
     for(let p=1;p<=pdf.numPages;p++){
-      const page=await pdf.getPage(p),tc=await page.getTextContent(),images=await extractPdfImagesWithBoxes(page),rows=pdfProductRows(tc);
-      const pricedRows=rows.map((r,i)=>({...r,index:i,price:pdfRowPrice(r.text),name:cleanCatalogProductText(r.text)}));
-      const used=new Set();
+      const page=await pdf.getPage(p);
+      const tc=await page.getTextContent();
+      const images=await extractPdfImagesWithBoxes(page);
+      const rows=pdfProductRows(tc);
+      const parsed=rows.map((r,i)=>({...r,index:i,price:pdfRowPrice(r.text),name:cleanCatalogProductText(r.text)}));
 
-      for(let i=0;i<pricedRows.length;i++){
-        const row=pricedRows[i];
-        let source=row;
+      // Analizamos TODAS las líneas con apariencia de producto. Antes solo se
+      // analizaban las filas con precio, lo que hacía perder productos cuando
+      // el precio estaba en otra columna o no tenía símbolo de moneda.
+      for(let i=0;i<parsed.length;i++){
+        const row=parsed[i];
+        if(!isLikelyPdfProductText(row.name))continue;
+
         let price=row.price;
+        let fullText=row.text;
+        let sourceName=row.name;
 
-        // Muchos catálogos colocan el nombre y el precio en líneas consecutivas.
-        const prev=pricedRows[i-1],next=pricedRows[i+1];
-        if(isLikelyPdfProductText(row.name)&&next&&next.price!=null&&!isLikelyPdfProductText(next.name)){
-          source={...row,text:row.text+" "+next.text,name:cleanCatalogProductText(row.text+" "+next.text)};
-          price=next.price;used.add(i+1);
-        }else if(!isLikelyPdfProductText(row.name)){
-          if(prev&&isLikelyPdfProductText(prev.name)&&row.price!=null){source={...prev,text:prev.text+" "+row.text,name:cleanCatalogProductText(prev.text+" "+row.text)};price=row.price;used.add(i-1);}
-          else if(next&&isLikelyPdfProductText(next.name)&&row.price!=null){source={...next,text:next.text+" "+row.text,name:cleanCatalogProductText(next.text+" "+row.text)};price=row.price;used.add(i+1);}
+        // Buscar precio en la misma fila o en las dos filas vecinas.
+        // No convertimos una imagen aislada en producto.
+        for(const offset of [0,-1,1,-2,2]){
+          if(price!=null)break;
+          const n=parsed[i+offset];
+          if(!n)continue;
+          if(n.price!=null){
+            price=n.price;
+            fullText=row.text+" "+n.text;
+            sourceName=cleanCatalogProductText(fullText);
+          }
         }
 
-        if(!isLikelyPdfProductText(source.name))continue;
-        if(used.has(i))continue;
-        used.add(i);
+        // Si el nombre quedó contaminado con una línea de precio, limpiarlo.
+        sourceName=cleanCatalogProductText(sourceName);
+        if(!isLikelyPdfProductText(sourceName))continue;
 
         let best=-1,bestDist=Infinity;
-        images.forEach((im,idx)=>{const d=Math.abs(Number(im.y||0)-Number(source.y||0));if(d<bestDist){bestDist=d;best=idx}});
+        images.forEach((im,idx)=>{
+          const d=Math.abs(Number(im.y||0)-Number(row.y||0));
+          if(d<bestDist){bestDist=d;best=idx}
+        });
         const matched=best>=0&&bestDist<140?images[best]:null;
 
         raw.push({
-          page:p,imageIndex:matched?best:null,sku:null,
-          name:source.name.slice(0,180),
-          description:source.text.slice(0,500),
-          brand:null,model:null,category:null,unit:"UND",
-          supplier_cost:null,supplier_price:price,currency:"PEN",stock_text:null,
+          page:p,
+          imageIndex:matched?best:null,
+          sku:null,
+          name:sourceName.slice(0,180),
+          description:fullText.slice(0,500),
+          brand:null,
+          model:null,
+          category:null,
+          unit:"UND",
+          supplier_cost:null,
+          supplier_price:price,
+          currency:"PEN",
+          stock_text:null,
           image_data_url:matched?.dataUrl||null,
           ai_confidence:price!=null?(matched?0.92:0.82):(matched?0.76:0.68),
-          source_metadata:{page:p,image_detected:!!matched,image_match_distance:matched?Math.round(bestDist):null}
+          source_metadata:{
+            page:p,
+            image_detected:!!matched,
+            image_match_distance:matched?Math.round(bestDist):null,
+            source_row:i
+          }
         });
       }
-
-      // Si la página tiene texto pero ningún precio detectable, usamos únicamente
-      // líneas con apariencia real de producto. Las imágenes aisladas nunca crean productos.
-      if(!raw.some(x=>x.page===p)){
-        for(let i=0;i<pricedRows.length;i++){
-          const row=pricedRows[i];
-          if(!isLikelyPdfProductText(row.name))continue;
-          const prev=pricedRows[i-1],next=pricedRows[i+1];
-          if((prev&&isLikelyPdfProductText(prev.name))||(next&&isLikelyPdfProductText(next.name)))continue;
-          raw.push({
-            page:p,imageIndex:null,sku:null,name:row.name.slice(0,180),
-            description:row.text.slice(0,500),brand:null,model:null,category:null,unit:"UND",
-            supplier_cost:null,supplier_price:null,currency:"PEN",stock_text:null,
-            image_data_url:null,ai_confidence:0.55,
-            source_metadata:{page:p,text_only:true}
-          });
-        }
-      }
     }
+
     const result=mergeCatalogCandidates(raw).slice(0,2000);
     if(!result.length){
       throw new Error("El PDF no contiene texto de productos reconocible. Si es un PDF escaneado como imágenes, necesitamos activar OCR para ese catálogo.");

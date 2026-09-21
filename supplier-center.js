@@ -51,13 +51,14 @@
       const supplier=suppliers.find(v=>v.id===x.supplier_id);
       const its=items.filter(v=>v.catalog_id===x.id);
       const ready=its.filter(v=>v.status==="APPROVED"||v.status==="IMPORTED").length;
-      return '<article class="client-card"><div class="client-card-top"><div class="client-avatar">'+esc(x.source_type==="EXCEL"?"XLS":"PDF")+'</div><div class="client-card-name"><h3>'+esc(x.name)+'</h3><small>'+esc(supplier?.name||"Proveedor no asignado")+'</small></div><span class="badge '+(x.status==="READY"?"ok":"low")+'">'+esc(x.status)+'</span></div><div class="client-details"><div><span>Productos</span><b>'+its.length+'</b></div><div><span>Listos</span><b>'+ready+'</b></div><div><span>Origen</span><b>'+esc(x.source_type)+'</b></div></div><div class="client-card-actions"><button class="primary scOpenCatalog" data-catalog="'+x.id+'">Ver productos</button><button class="secondary scReanalyze" data-catalog="'+x.id+'">↻ Reanalizar</button></div></article>'
+      return '<article class="client-card"><div class="client-card-top"><div class="client-avatar">'+esc(x.source_type==="EXCEL"?"XLS":"PDF")+'</div><div class="client-card-name"><h3>'+esc(x.name)+'</h3><small>'+esc(supplier?.name||"Proveedor no asignado")+'</small></div><span class="badge '+(x.status==="READY"?"ok":"low")+'">'+esc(x.status)+'</span></div><div class="client-details"><div><span>Productos</span><b>'+its.length+'</b></div><div><span>Listos</span><b>'+ready+'</b></div><div><span>Origen</span><b>'+esc(x.source_type)+'</b></div></div><div class="client-card-actions"><button class="primary scOpenCatalog" data-catalog="'+x.id+'">Ver productos</button><button class="secondary scReanalyze" data-catalog="'+x.id+'">↻ Reanalizar</button><button class="danger scDeleteCatalog" data-catalog="'+x.id+'">🗑 Eliminar catálogo</button></div></article>'
     }).join("")||'<div class="empty-state"><span>📄</span><b>Aún no hay catálogos</b><small>Registra un catálogo para empezar.</small></div>';
 
     document.querySelectorAll("[data-supplier]").forEach(b=>b.onclick=()=>filterCatalogs(b.dataset.supplier));
     document.querySelectorAll(".scEditSupplier").forEach(b=>b.onclick=()=>editSupplier(b.dataset.supplierId));
     document.querySelectorAll(".scOpenCatalog").forEach(b=>b.onclick=()=>catalogProducts(b.dataset.catalog));
     document.querySelectorAll(".scReanalyze").forEach(b=>b.onclick=()=>reanalyzeCatalog(b.dataset.catalog));
+    document.querySelectorAll(".scDeleteCatalog").forEach(b=>b.onclick=()=>deleteCatalog(b.dataset.catalog));
   }
 
   async function newSupplier(existing=null){
@@ -272,6 +273,34 @@
       });
       if(ok){toast("Producto actualizado.");await catalogProducts(catalogId)}
     };
+  }
+
+  async function deleteCatalog(catalogId){
+    const S=sb();
+    const {data:{session}}=await S.auth.getSession();
+    if(!session)return;
+    const r=await S.from("marc_supplier_catalogs").select("id,name,file_name,storage_path").eq("id",catalogId).eq("user_id",session.user.id).maybeSingle();
+    if(r.error)return alert("No se pudo consultar el catálogo: "+r.error.message);
+    if(!r.data)return alert("El catálogo no existe o no tienes permiso para eliminarlo.");
+    const catalog=r.data;
+    const ok=confirm("¿Eliminar COMPLETAMENTE el catálogo «"+String(catalog.name||catalog.file_name||"Catálogo")+"»?\\n\\nSe eliminarán todos los productos detectados y el archivo original. Los productos que ya hayas importado al Inventario NO se eliminarán.");
+    if(!ok)return;
+
+    // Primero eliminamos el archivo original. Si falla, detenemos la operación
+    // para no dejar un catálogo incompleto en la base de datos.
+    if(catalog.storage_path){
+      const sr=await S.storage.from("catalog-pdfs").remove([catalog.storage_path]);
+      if(sr.error)return alert("No se pudo eliminar el archivo del catálogo: "+sr.error.message);
+    }
+
+    const ir=await S.from("marc_supplier_catalog_items").delete().eq("catalog_id",catalogId).eq("user_id",session.user.id);
+    if(ir.error)return alert("Archivo eliminado, pero no se pudieron eliminar los productos del catálogo: "+ir.error.message);
+
+    const cr=await S.from("marc_supplier_catalogs").delete().eq("id",catalogId).eq("user_id",session.user.id);
+    if(cr.error)return alert("Productos eliminados, pero no se pudo eliminar el catálogo: "+cr.error.message);
+
+    toast("Catálogo eliminado completamente.");
+    await loadCenter();
   }
 
   async function deleteCatalogItem(item, catalogId){

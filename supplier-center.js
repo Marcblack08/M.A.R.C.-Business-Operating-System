@@ -236,7 +236,13 @@
       if(r.error)return alert(r.error.message);
       return socialConnectionsPanel();
     }
-    alert("La conexión OAuth de "+platform+" todavía debe configurarse con las credenciales oficiales de esa plataforma. M.A.R.C. ya tiene el registro y el estado de conexión preparados, sin guardar tokens directamente en la base de datos.");
+    if(platform==="FACEBOOK"||platform==="INSTAGRAM"){
+      const p=await getPublicationPlan();
+      if(!p.canPublish)return publicationUpgradeMessage();
+      window.location.href="/api/social/meta/connect";
+      return;
+    }
+    alert("La conexión OAuth de "+platform+" se incorporará con el mismo sistema seguro. Por ahora M.A.R.C. ya tiene preparado el registro de la cuenta sin guardar tokens directamente en la base de datos.");
   }
 
   function install(){

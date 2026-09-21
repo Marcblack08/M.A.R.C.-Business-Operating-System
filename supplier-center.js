@@ -522,10 +522,10 @@
     return result;
   }
 
-  async function importCatalogItem(item){
+  async function importCatalogItem(item,supplier=null){
     const S=sb(); const {data:{session}}=await S.auth.getSession(); let existing=null;
     if(item.sku){const r=await S.from("marc_inventory").select("*").eq("user_id",session.user.id).eq("sku",item.sku).maybeSingle();existing=r.data;}
-    const payload={sku:item.sku||null,name:item.name,brand:item.brand||null,model:item.model||null,category:item.category||null,unit:item.unit||"UND",cost:Number(item.supplier_cost||item.supplier_price||0),price:Number(item.supplier_price||item.supplier_cost||0),stock:0,min_stock:0,image_url:item.image_url||null,active:true};
+    const base=Number(item.supplier_price||item.supplier_cost||0),markup=Number(item.markup_pct??supplier?.default_markup_pct??0),sell=base+(base*markup/100); const payload={sku:item.sku||null,name:item.name,brand:item.brand||null,model:item.model||null,category:item.category||null,unit:item.unit||"UND",cost:base,price:sell,stock:0,min_stock:0,image_url:item.image_url||null,active:true};
     const r=existing?await S.from("marc_inventory").update(payload).eq("id",existing.id).select().single():await S.from("marc_inventory").insert({...payload,user_id:session.user.id}).select().single();
     if(r.error)return alert("No se pudo importar a Inventario: "+r.error.message);
     await S.from("marc_supplier_catalog_items").update({inventory_id:r.data.id,status:"IMPORTED"}).eq("id",item.id);

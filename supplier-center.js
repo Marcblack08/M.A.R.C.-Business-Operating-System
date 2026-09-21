@@ -82,7 +82,7 @@
     if(up.error)return alert("No se pudo guardar el catálogo: "+up.error.message);
     const ins=await S.from("marc_supplier_catalogs").insert({user_id:session.user.id,supplier_id:supplier?.id||null,name:name.trim(),source_type:file.type==="application/pdf"?"PDF":file.name.match(/\.xlsx?$/i)?"EXCEL":"OTHER",storage_path:path,file_name:file.name,file_size_bytes:file.size,status:"UPLOADED"}).select().single();
     if(ins.error)return alert(ins.error.message);
-    alert("Catálogo guardado. El siguiente paso es analizarlo y detectar sus productos.");
+    await analyzeCatalog(ins.data, file);
     await loadCenter();
   }
 
@@ -101,10 +101,64 @@
   async function catalogProducts(catalogId){
     const S=sb(); const {data,error}=await S.from("marc_supplier_catalog_items").select("*").eq("catalog_id",catalogId).order("created_at",{ascending:true});
     if(error)return alert(error.message);
-    const title=data?.length?data.map((x,i)=>(i+1)+". "+x.name+" | "+money(x.supplier_price)+" | "+x.status).join("\n"):"No hay productos detectados todavía.";
-    const pick=prompt("Productos del catálogo:\n"+title+"\n\nEscribe el número para abrirlo en Publicidad, o Cancelar.");
-    const n=Number(pick||0); const item=(data||[])[n-1];
-    if(item)await createPublicationDraft(item);
+    const items=data||[];
+    if(!items.length){ alert("Este catálogo todavía no tiene productos detectados."); return; }
+    const lines=items.map((x,i)=>(i+1)+". "+x.name+" | "+money(x.supplier_price||x.supplier_cost)+" | "+x.status).join("\n");
+    const pick=prompt("Productos detectados:\n"+lines+"\n\nNúmero = Publicidad. I + número = importar a Inventario.");
+    if(!pick)return;
+    const m=pick.trim().match(/^I\s*(\d+)$/i);
+    const n=Number((m?m[1]:pick).trim()); const item=items[n-1];
+    if(!item)return;
+    if(m)return importCatalogItem(item);
+    await createPublicationDraft(item);
+  }
+
+  async function analyzeCatalog(catalog,file){
+    const S=sb();
+    await S.from("marc_supplier_catalogs").update({status:"ANALYZING",ai_provider:file.name.match(/\.xlsx?$/i)?"XLSX-PARSER":"PDF-JS"}).eq("id",catalog.id);
+    try{
+      let items=[];
+      if(/\.xlsx?$/i.test(file.name)) items=await parseExcelCatalog(file);
+      else if(file.type==="application/pdf"||/\.pdf$/i.test(file.name)) items=await parsePdfCatalog(file);
+      else throw new Error("El análisis automático funciona con Excel y PDF.");
+      if(!items.length)throw new Error("No se detectaron productos.");
+      const {data:{session}}=await S.auth.getSession();
+      const payload=items.map(x=>({...x,user_id:session.user.id,catalog_id:catalog.id,supplier_id:catalog.supplier_id,status:"REVIEW"}));
+      const ins=await S.from("marc_supplier_catalog_items").insert(payload);
+      if(ins.error)throw ins.error;
+      await S.from("marc_supplier_catalogs").update({status:"READY",imported_at:new Date().toISOString()}).eq("id",catalog.id);
+      alert("Análisis terminado: "+items.length+" productos detectados.");
+    }catch(e){
+      console.error(e); await S.from("marc_supplier_catalogs").update({status:"ERROR"}).eq("id",catalog.id);
+      alert("No se pudo analizar el catálogo: "+(e.message||e));
+    }
+  }
+
+  function normalizeHeader(v){return String(v||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"");}
+  function num(v){if(v===null||v===undefined||v==="")return null; const n=Number(String(v).replace(/[^0-9,.-]/g,"").replace(/,(?=\d{3}(?:\D|$))/g,"").replace(",", "."));return Number.isFinite(n)?n:null;}
+  function pickField(row,map,names){for(const n of names){const k=map[normalizeHeader(n)];if(k&&row[k]!==undefined&&row[k]!==null&&String(row[k]).trim()!=="")return row[k];}return null;}
+  async function parseExcelCatalog(file){
+    if(!window.XLSX)throw new Error("No está disponible el lector de Excel.");
+    const wb=XLSX.read(await file.arrayBuffer(),{type:"array"}),out=[];
+    wb.SheetNames.forEach(sheet=>{const rows=XLSX.utils.sheet_to_json(wb.Sheets[sheet],{defval:""});if(!rows.length)return;const map={};Object.keys(rows[0]).forEach(k=>map[normalizeHeader(k)]=k);
+      rows.forEach((r,idx)=>{const name=pickField(r,map,["nombre","producto","descripcion","articulo","item"]);if(!name)return;const sku=pickField(r,map,["sku","codigo","part number","pn"]),brand=pickField(r,map,["marca","brand"]),model=pickField(r,map,["modelo","model"]),cat=pickField(r,map,["categoria","category","rubro"]),unit=pickField(r,map,["unidad","unit"])||"UND",cost=num(pickField(r,map,["precio compra","costo","cost","precio proveedor"])),price=num(pickField(r,map,["precio venta","precio","venta","price","pvp"])),stock=pickField(r,map,["stock","existencia","cantidad"]),desc=pickField(r,map,["descripcion","detalle","description"]);
+      out.push({sku:sku?String(sku):null,name:String(name).trim(),description:desc?String(desc):null,brand:brand?String(brand):null,model:model?String(model):null,category:cat?String(cat):null,unit:String(unit),supplier_cost:cost,supplier_price:price,currency:"PEN",stock_text:stock!==null?String(stock):null,ai_confidence:price||sku?0.95:0.75,source_metadata:{sheet,row:idx+2}});});
+    }); return out;
+  }
+  async function parsePdfCatalog(file){
+    if(!window.pdfjsLib)throw new Error("No está disponible el lector PDF.");
+    const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise,out=[];
+    for(let p=1;p<=pdf.numPages;p++){const tc=await (await pdf.getPage(p)).getTextContent(),line=tc.items.map(x=>x.str).join(" ");const parts=line.split(/\s{2,}|\|/);parts.forEach(x=>{const prices=x.match(/(?:S\.?\s*)?\d+(?:[.,]\d{1,2})?/g);if(!prices)return;const price=num(prices[prices.length-1]),name=x.replace(/(?:S\.?\s*)?\d+(?:[.,]\d{1,2})?/g," ").replace(/\s+/g," ").trim();if(name.length>=3)out.push({sku:null,name:name.slice(0,180),description:x,brand:null,model:null,category:null,unit:"UND",supplier_cost:null,supplier_price:price,currency:"PEN",stock_text:null,ai_confidence:0.55,source_metadata:{page:p}});});}
+    return out.slice(0,2000);
+  }
+  async function importCatalogItem(item){
+    const S=sb(); const {data:{session}}=await S.auth.getSession(); let existing=null;
+    if(item.sku){const r=await S.from("marc_inventory").select("*").eq("user_id",session.user.id).eq("sku",item.sku).maybeSingle();existing=r.data;}
+    const payload={sku:item.sku||null,name:item.name,brand:item.brand||null,model:item.model||null,category:item.category||null,unit:item.unit||"UND",cost:Number(item.supplier_cost||item.supplier_price||0),price:Number(item.supplier_price||item.supplier_cost||0),stock:0,min_stock:0,image_url:item.image_url||null,active:true};
+    const r=existing?await S.from("marc_inventory").update(payload).eq("id",existing.id).select().single():await S.from("marc_inventory").insert({...payload,user_id:session.user.id}).select().single();
+    if(r.error)return alert("No se pudo importar a Inventario: "+r.error.message);
+    await S.from("marc_supplier_catalog_items").update({inventory_id:r.data.id,status:"IMPORTED"}).eq("id",item.id);
+    alert("Producto importado a Inventario: "+item.name);
   }
 
   async function createPublicationDraft(item){

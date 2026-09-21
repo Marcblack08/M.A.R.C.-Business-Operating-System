@@ -504,37 +504,55 @@
     const all=s.match(/(?:S\/\.?|S\.?|PEN|USD|US\$)\s*\d+(?:[.,]\d{1,2})?/gi);
     return all?.length?num(all[all.length-1]):null;
   }
-  function mergeCatalogCandidates(candidates){
+    function mergeCatalogCandidates(candidates){
     const groups=[];
     for(const c of candidates){
       const key=c.sku?catalogProductKey(c.sku):catalogProductKey(c.name);
-      const row=Number(c.source_metadata?.source_row??-999);
-      let g=key?groups.find(x=>{
-        if(x.page!==c.page||x.key!==key)return false;
-        const gr=Number(x.source_metadata?.source_row??-999);
-        return c.sku ? true : Math.abs(row-gr)<=3;
-      }):null;
-      if(!g&&c.imageIndex!==null&&c.imageIndex!==undefined)g=groups.find(x=>{
-        if(x.page!==c.page||x.imageIndex!==c.imageIndex)return false;
-        const gr=Number(x.source_metadata?.source_row??-999);
-        return Math.abs(row-gr)<=3;
-      });
-      if(!g){g={...c,key,prices:[],descriptions:[]};if(c.supplier_price!=null)g.prices.push(c.supplier_price);if(c.description)g.descriptions.push(c.description);groups.push(g)}
-      else{if(c.supplier_price!=null)g.prices.push(c.supplier_price);if(c.description)g.descriptions.push(c.description);if((c.name||"").length>(g.name||"").length)g.name=c.name;if(!g.sku&&c.sku)g.sku=c.sku;if(!g.image_data_url&&c.image_data_url)g.image_data_url=c.image_data_url;if(c.ai_confidence>g.ai_confidence)g.ai_confidence=c.ai_confidence}
+      // Un mismo producto puede ocupar varias líneas del PDF (nombre, modelo,
+      // precio, descripción). La proximidad de filas NO debe impedir la unión:
+      // eso estaba inflando 131 -> 221. La página sigue siendo parte de la clave
+      // para no fusionar productos legítimamente repetidos en páginas distintas.
+      let g=key?groups.find(x=>x.page===c.page&&x.key===key):null;
+      if(!g&&c.imageIndex!==null&&c.imageIndex!==undefined)
+        g=groups.find(x=>x.page===c.page&&x.imageIndex===c.imageIndex);
+      if(!g){
+        g={...c,key,prices:[],descriptions:[]};
+        if(c.supplier_price!=null)g.prices.push(c.supplier_price);
+        if(c.description)g.descriptions.push(c.description);
+        groups.push(g);
+      }else{
+        if(c.supplier_price!=null)g.prices.push(c.supplier_price);
+        if(c.description)g.descriptions.push(c.description);
+        if((c.name||"").length>(g.name||"").length)g.name=c.name;
+        if(!g.sku&&c.sku)g.sku=c.sku;
+        if(!g.image_data_url&&c.image_data_url)g.image_data_url=c.image_data_url;
+        if(c.ai_confidence>g.ai_confidence)g.ai_confidence=c.ai_confidence;
+      }
     }
     const out=[];
     for(const g of groups){
-      const name=String(g.name||"").trim();if(isNoiseCatalogText(name))continue;
-      const prices=g.prices.filter(Number.isFinite),price=prices.length?Math.max(...prices):null;
+      const name=String(g.name||"").trim();
+      if(isNoiseCatalogText(name))continue;
+      const prices=g.prices.filter(Number.isFinite);
+      const price=prices.length?Math.max(...prices):null;
       const desc=[...new Set(g.descriptions.map(x=>String(x).trim()).filter(Boolean))].join(" · ").slice(0,800);
-      out.push({sku:g.sku||null,name:name.slice(0,180),description:desc||null,brand:g.brand||null,model:g.model||null,category:g.category||null,unit:g.unit||"UND",supplier_cost:g.supplier_cost??null,supplier_price:price,currency:"PEN",stock_text:g.stock_text||null,image_data_url:g.image_data_url||null,ai_confidence:Number(g.ai_confidence||0.55),source_metadata:{...(g.source_metadata||{}),merged_prices:prices.length}});
+      out.push({
+        sku:g.sku||null,name:name.slice(0,180),description:desc||null,
+        brand:g.brand||null,model:g.model||null,category:g.category||null,
+        unit:g.unit||"UND",supplier_cost:g.supplier_cost??null,
+        supplier_price:price,currency:"PEN",stock_text:g.stock_text||null,
+        image_data_url:g.image_data_url||null,
+        ai_confidence:Number(g.ai_confidence||0.55),
+        source_metadata:{...(g.source_metadata||{}),merged_prices:prices.length}
+      });
     }
     const final=[],seen=new Set();
     for(const x of out){
       const page=x.source_metadata?.page??"";
       const key=[page,x.sku?catalogProductKey(x.sku):"",catalogProductKey(x.name),x.supplier_price??""].join("|");
       if(seen.has(key))continue;
-      seen.add(key);final.push(x);
+      seen.add(key);
+      final.push(x);
     }
     return final;
   }

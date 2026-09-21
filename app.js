@@ -340,29 +340,105 @@ async function clients(){
   const {data,error}=await S.from("marc_clients").select("*").eq("user_id",st.u.id).order("name");
   if(error)return toast(error.message,"err");
   const list=data||[],c=$("#content");
-  c.innerHTML=`<div class="head"><div><div class="eyebrow2">CLIENTES</div><h1>Relaciones y contexto.</h1><p>Una ficha clara para cada cliente y toda su información operativa.</p></div><button id="new" class="primary">＋ Nuevo cliente</button></div>
+  c.innerHTML=`<div class="head"><div><div class="eyebrow2">CLIENTES</div><h1>Relaciones y contexto.</h1><p>Ahora cada cliente tiene una historia completa: cotizaciones, compras, productos, trabajos, pagos y notas.</p></div><button id="new" class="primary">＋ Nuevo cliente</button></div>
   <section class="client-summary">
     <div><span>CLIENTES REGISTRADOS</span><strong>${list.length}</strong><small>Base de contactos de M.A.R.C.</small></div>
-    <div><span>CON CORREO</span><strong>${list.filter(x=>x.email).length}</strong><small>Contactos con email</small></div>
-    <div><span>CON TELÉFONO</span><strong>${list.filter(x=>x.phone).length}</strong><small>Contactos localizables</small></div>
+    <div><span>CON HISTORIA</span><strong>${list.filter(x=>x.updated_at||x.created_at).length}</strong><small>Fichas con actividad registrada</small></div>
+    <div><span>PORTAL DE CLIENTE</span><strong>${list.filter(x=>x.portal_enabled).length}</strong><small>Clientes con acceso compartido</small></div>
   </section>
   <section class="card table clients-browser"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar cliente, documento, correo o teléfono…"></div><button id="ask" class="secondary">✦ Preguntar</button></div>
-    <div class="scroll clients-desktop"><table class="data"><thead><tr><th>Cliente</th><th>Contacto</th><th>Correo</th><th>Teléfono</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
+    <div class="scroll clients-desktop"><table class="data"><thead><tr><th>Cliente</th><th>Contacto</th><th>Correo</th><th>Teléfono</th><th>Acciones</th></tr></thead><tbody id="rows"></tbody></table></div>
     <div id="clientCards" class="client-cards"></div>
   </section>`;
   const rows=$("#rows"),cards=$("#clientCards");
   const draw=(items)=>{
-    rows.innerHTML=items.map(x=>`<tr><td><b>${esc(x.name)}</b><br><small>${esc(x.document_number||"")}</small></td><td>${esc(x.contact_name||"—")}</td><td>${esc(x.email||"—")}</td><td>${esc(x.phone||"—")}</td><td><button class="secondary" type="button" data-id="${x.id}">Editar</button></td></tr>`).join("")||'<tr><td colspan="5" class="empty">Aún no tienes clientes.</td></tr>';
-    cards.innerHTML=items.map(x=>`<article class="client-card"><div class="client-card-top"><div class="client-avatar">${esc(String(x.name||"C").split(/\s+/).filter(Boolean).slice(0,2).map(v=>v[0]).join("").toUpperCase())}</div><div class="client-card-name"><h3>${esc(x.name)}</h3><small>${esc(x.document_number||"Sin documento")}</small></div><button class="icon" type="button" data-id="${x.id}" aria-label="Editar cliente">✎</button></div><div class="client-details">${x.contact_name?`<div><span>Contacto</span><b>${esc(x.contact_name)}</b></div>`:""}${x.email?`<div><span>Correo</span><b>${esc(x.email)}</b></div>`:""}${x.phone?`<div><span>Teléfono</span><b><a class="client-contact-link" href="tel:${esc(x.phone)}">${esc(x.phone)}</a></b></div>`:""}${x.email?`<div><span>Correo</span><b><a class="client-contact-link" href="mailto:${esc(x.email)}">${esc(x.email)}</a></b></div>`:""}${(!x.contact_name&&!x.email&&!x.phone)?'<small class="client-empty">Sin datos adicionales registrados.</small>':""}</div></article>`).join("")||'<div class="empty-state"><span>＋</span><b>Aún no tienes clientes</b><small>Crea tu primer cliente para comenzar.</small></div>';
+    rows.innerHTML=items.map(x=>`<tr><td><b>${esc(x.name)}</b><br><small>${esc(x.document_number||"")}</small></td><td>${esc(x.contact_name||"—")}</td><td>${esc(x.email||"—")}</td><td>${esc(x.phone||"—")}</td><td><button class="secondary" type="button" data-history="${x.id}">Ver historia</button> <button class="secondary" type="button" data-edit="${x.id}">Editar</button></td></tr>`).join("")||'<tr><td colspan="5" class="empty">Aún no tienes clientes.</td></tr>';
+    cards.innerHTML=items.map(x=>`<article class="client-card"><div class="client-card-top"><div class="client-avatar">${esc(String(x.name||"C").split(/\s+/).filter(Boolean).slice(0,2).map(v=>v[0]).join("").toUpperCase())}</div><div class="client-card-name"><h3>${esc(x.name)}</h3><small>${esc(x.document_number||"Sin documento")}</small></div><button class="icon" type="button" data-history="${x.id}" aria-label="Ver historia del cliente">⌁</button></div><div class="client-details">${x.contact_name?`<div><span>Contacto</span><b>${esc(x.contact_name)}</b></div>`:""}${x.email?`<div><span>Correo</span><b>${esc(x.email)}</b></div>`:""}${x.phone?`<div><span>Teléfono</span><b><a class="client-contact-link" href="tel:${esc(x.phone)}">${esc(x.phone)}</a></b></div>`:""}${x.portal_enabled?'<div><span>Portal</span><b class="client-portal-active">Activo</b></div>':""}${(!x.contact_name&&!x.email&&!x.phone)?'<small class="client-empty">Sin datos adicionales registrados.</small>':""}</div><div class="client-card-actions"><button class="primary" type="button" data-history="${x.id}">Ver historia</button><button class="secondary" type="button" data-edit="${x.id}">Editar</button></div></article>`).join("")||'<div class="empty-state"><span>＋</span><b>Aún no tienes clientes</b><small>Crea tu primer cliente para comenzar.</small></div>';
   };
   draw(list);
   const filter=()=>{const q=($("#search").value||"").toLowerCase();draw(list.filter(x=>[x.name,x.email,x.phone,x.document_number,x.contact_name].some(v=>String(v||"").toLowerCase().includes(q))))};
   $("#search").oninput=filter;
   $("#new").onclick=()=>clientModal();
   $("#ask").onclick=()=>openChat();
-  cards.onclick=e=>{const b=e.target.closest("[data-id]");if(b)clientModal(list.find(x=>x.id===b.dataset.id))};
-  rows.onclick=e=>{const b=e.target.closest("[data-id]");if(b)clientModal(list.find(x=>x.id===b.dataset.id))};
+  const handle=e=>{const b=e.target.closest("[data-history],[data-edit]");if(!b)return;const x=list.find(v=>v.id===(b.dataset.history||b.dataset.edit));if(!x)return;b.dataset.history?clientHistoryModal(x):clientModal(x)};
+  cards.onclick=handle;rows.onclick=handle;
 }
+
+async function clientHistoryModal(client){
+  const close=modal('<div class="modal-head"><div><h2>Historia del cliente</h2><p>Cargando toda la relación comercial y técnica…</p></div><button class="close" id="x">×</button></div><div id="clientHistoryBody" class="client-history-loading">Cargando…</div>');
+  $("#x").onclick=close;
+  try{
+    const [quotesRes,reportsRes,historyRes]=await Promise.all([
+      S.from("marc_quotes").select("id,number,title,status,total,tax_enabled,tax_rate,notes,created_at,updated_at").eq("user_id",st.u.id).eq("client_id",client.id).is("deleted_at",null).order("created_at",{ascending:false}),
+      S.from("technical_reports").select("id,number,title,report_type,report_date,technician,location,equipment,problem,diagnosis,work_performed,recommendations,conclusions,observations,status,created_at").eq("user_id",st.u.id).eq("client_id",client.id).order("created_at",{ascending:false}),
+      S.from("marc_client_history").select("id,event_type,title,description,metadata,visible_to_client,created_at").eq("user_id",st.u.id).eq("client_id",client.id).order("created_at",{ascending:false})
+    ]);
+    if(quotesRes.error)throw quotesRes.error;
+    if(reportsRes.error)throw reportsRes.error;
+    if(historyRes.error)throw historyRes.error;
+    const quotes=quotesRes.data||[],reports=reportsRes.data||[],notes=historyRes.data||[];
+    const ids=quotes.map(q=>q.id);
+    let items=[];
+    if(ids.length){
+      const r=await S.from("marc_quote_items").select("quote_id,item_type,name,description,quantity,unit,unit_price,line_total").eq("user_id",st.u.id).in("quote_id",ids).order("created_at",{ascending:true});
+      if(r.error)throw r.error;items=r.data||[];
+    }
+    const payments=ids.length?(await S.from("marc_cash_movements").select("id,type,amount,concept,reference,quote_id,created_at").eq("user_id",st.u.id).in("quote_id",ids).eq("type","INCOME").order("created_at",{ascending:false})).data||[];
+    const productMap=new Map();
+    items.forEach(i=>{const k=String(i.name||"").trim();if(!k)return;const x=productMap.get(k)||{name:k,quantity:0,total:0};x.quantity+=Number(i.quantity||0);x.total+=Number(i.line_total||0);productMap.set(k,x)});
+    const purchased=quotes.filter(q=>["ACEPTADA","COBRADA","FINALIZADO","APROBADO"].includes(String(q.status||"").toUpperCase()));
+    const quotedTotal=quotes.reduce((s,q)=>s+Number(q.total||0),0);
+    const paidTotal=payments.reduce((s,p)=>s+Number(p.amount||0),0);
+    const body=$("#clientHistoryBody");
+    body.innerHTML=`<div class="client-history-hero"><div><div class="client-avatar large">${esc(String(client.name||"C").split(/\s+/).filter(Boolean).slice(0,2).map(v=>v[0]).join("").toUpperCase())}</div></div><div class="client-history-main"><div class="eyebrow2">HISTORIA COMPLETA</div><h2>${esc(client.name)}</h2><p>${esc([client.document_number,client.phone,client.email].filter(Boolean).join(" · ")||"Sin datos de contacto")}</p></div><div class="client-history-actions"><button class="primary" id="shareClientPortal">Compartir portal</button><button class="secondary" id="editHistoryClient">Editar ficha</button></div></div>
+    <div class="client-history-stats"><div><span>COTIZACIONES</span><b>${quotes.length}</b><small>Importe acumulado ${money(quotedTotal)}</small></div><div><span>COMPRAS / TRABAJOS</span><b>${purchased.length}</b><small>Partidas aceptadas o cobradas</small></div><div><span>PAGADO</span><b>${money(paidTotal)}</b><small>Ingresos vinculados</small></div><div><span>INFORMES</span><b>${reports.length}</b><small>Historial técnico</small></div></div>
+    <div class="client-history-grid">
+      <section class="client-history-panel"><div class="panel-title-row"><div><div class="eyebrow2">PRODUCTOS Y SERVICIOS</div><h3>Lo que este cliente ha solicitado</h3></div></div><div class="client-product-list">${[...productMap.values()].map(x=>`<div><b>${esc(x.name)}</b><span>${Number(x.quantity).toLocaleString("es-PE")} · ${money(x.total)}</span></div>`).join("")||'<div class="empty">Todavía no hay partidas registradas.</div>'}</div></section>
+      <section class="client-history-panel"><div class="panel-title-row"><div><div class="eyebrow2">CONDICIONES Y NOTAS</div><h3>Contexto del cliente</h3></div></div><div class="client-notes-list">${client.notes?`<article><b>Ficha del cliente</b><p>${esc(client.notes)}</p></article>`:""}${quotes.filter(q=>q.notes).slice(0,10).map(q=>`<article><b>${esc(q.number||q.title)}</b><p>${esc(q.notes)}</p></article>`).join("")}${notes.map(n=>`<article><b>${esc(n.title)}</b><p>${esc(n.description||"")}</p><small>${new Date(n.created_at).toLocaleString("es-PE")}${n.visible_to_client?" · visible al cliente":""}</small></article>`).join("")||(!client.notes&&!quotes.some(q=>q.notes)?'<div class="empty">No hay condiciones o notas registradas.</div>':"")}</div></section>
+      <section class="client-history-panel full"><div class="panel-title-row"><div><div class="eyebrow2">COMPRAS Y COTIZACIONES</div><h3>Historial comercial</h3></div></div><div class="client-quote-list">${quotes.map(q=>`<article><div><b>${esc(q.number||"Cotización")}</b><strong>${money(q.total)}</strong></div><p>${esc(q.title||"Sin título")} · ${esc(q.status||"")}</p><small>${new Date(q.created_at).toLocaleString("es-PE")}</small><div class="client-quote-items">${items.filter(i=>i.quote_id===q.id).map(i=>`<span>${esc(i.name||"Partida")} × ${Number(i.quantity||0).toLocaleString("es-PE")} · ${money(i.line_total)}</span>`).join("")}</div></article>`).join("")||'<div class="empty">No hay cotizaciones para este cliente.</div>'}</div></section>
+      <section class="client-history-panel full"><div class="panel-title-row"><div><div class="eyebrow2">TRABAJOS E INFORMES</div><h3>Historial técnico</h3></div></div><div class="client-report-list">${reports.map(r=>`<article><div><b>${esc(r.number||r.title||"Informe")}</b><span>${esc(r.status||"")}</span></div><p>${esc(r.work_performed||r.conclusions||r.observations||"Sin detalle")}</p><small>${esc(r.report_date||r.created_at||"")} · ${esc(r.technician||"")}</small></article>`).join("")||'<div class="empty">No hay informes técnicos vinculados.</div>'}</div></section>
+    </div>`;
+    $("#editHistoryClient").onclick=()=>{close();clientModal(client)};
+    $("#shareClientPortal").onclick=()=>clientPortalShare(client);
+  }catch(err){
+    $("#clientHistoryBody").innerHTML='<div class="msg error">'+esc(err.message||"No se pudo cargar la historia del cliente.")+'</div>';
+  }
+}
+
+async function clientPortalShare(client){
+  const loading=modal('<div class="modal-head"><div><h2>Portal de '+esc(client.name)+'</h2><p>Genera un enlace privado para que el cliente consulte su propia historia.</p></div><button class="close" id="x">×</button></div><div class="client-portal-share"><div class="client-portal-warning">El cliente verá cotizaciones, productos/servicios, informes y notas marcadas como visibles. No verá costos internos, utilidad ni datos de otros clientes.</div><div id="portalStatus" class="msg">Generando enlace…</div><div class="client-portal-url" id="portalUrl"></div><div class="modal-actions"><button class="secondary" id="copyPortal" disabled>Copiar enlace</button><button class="primary" id="sendPortal" disabled>Compartir</button><button class="danger" id="revokePortal">Revocar acceso</button></div></div>');
+  $("#x").onclick=loading;
+  const status=$("#portalStatus"),urlBox=$("#portalUrl"),copy=$("#copyPortal"),send=$("#sendPortal"),revoke=$("#revokePortal");
+  let portalUrl="";
+  try{
+    const r=await fetch("/api/client-portal/create",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({clientId:client.id})});
+    const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.message||j.error||"No se pudo generar el portal.");
+    portalUrl=j.portalUrl||"";urlBox.textContent=portalUrl;copy.disabled=!portalUrl;send.disabled=!portalUrl;status.className="msg ok";status.textContent="Portal activo. Puedes enviar este enlace al cliente.";
+    copy.onclick=async()=>{await navigator.clipboard?.writeText(portalUrl);toast("Enlace del portal copiado","ok")};
+    send.onclick=async()=>{try{if(navigator.share)await navigator.share({title:"Portal de "+client.name,text:"Consulta tu historial con M.A.R.C.",url:portalUrl});else{await navigator.clipboard?.writeText(portalUrl);toast("Enlace copiado para compartir","ok")}}catch(e){if(e?.name!=="AbortError")toast("No se pudo compartir el enlace.","err")}};
+  }catch(e){status.className="msg error";status.textContent=e.message||"No se pudo generar el enlace."}
+  revoke.onclick=async()=>{if(!confirm("¿Revocar el acceso de este cliente? El enlace dejará de funcionar."))return;revoke.disabled=true;try{const r=await fetch("/api/client-portal/revoke",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({clientId:client.id})});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.message||j.error||"No se pudo revocar.");loading();toast("Portal revocado","ok")}catch(e){revoke.disabled=false;toast(e.message||"No se pudo revocar","err")}};
+}
+
+async function renderClientPortal(token){
+  document.body.innerHTML='<main class="client-portal-page"><div id="clientPortalApp" class="client-portal-shell"><div class="client-portal-loading">Cargando portal seguro…</div></div></main>';
+  try{
+    const r=await fetch("/api/client-portal/view?token="+encodeURIComponent(token));
+    const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.message||j.error||"Enlace inválido o vencido.");
+    const c=j.client||{},co=j.company||{},s=j.summary||{};
+    document.title="Portal · "+(c.name||"Cliente");
+    const logo=co.logo_data?`<img src="${esc(co.logo_data)}" alt="Logo">`:"";
+    $("#clientPortalApp").innerHTML=`<header class="client-portal-header"><div class="client-portal-brand">${logo}<div><b>${esc(co.business_name||"M.A.R.C.")}</b><small>Portal de cliente</small></div></div><div class="client-portal-contact">${esc([co.phone,co.email].filter(Boolean).join(" · ")||"")}</div></header>
+      <section class="client-portal-welcome"><div class="eyebrow2">TU HISTORIA</div><h1>Hola, ${esc(c.name||"cliente")}.</h1><p>Aquí puedes consultar tu relación con la empresa: cotizaciones, compras, productos, servicios e informes.</p></section>
+      <section class="client-portal-stats"><div><span>COTIZACIONES</span><b>${s.quotes||0}</b></div><div><span>COMPRAS / TRABAJOS</span><b>${s.accepted||0}</b></div><div><span>TOTAL COTIZADO</span><b>${money(s.quotedTotal)}</b></div><div><span>INFORMES</span><b>${s.reports||0}</b></div></section>
+      <section class="client-portal-section"><div class="eyebrow2">PRODUCTOS Y SERVICIOS</div><h2>Lo que hemos trabajado contigo</h2><div class="client-portal-products">${(s.products||[]).map(p=>`<span>${esc(p.name||"Producto")}</span>`).join("")||'<small>No hay productos registrados todavía.</small>'}</div></section>
+      <section class="client-portal-section"><div class="eyebrow2">COTIZACIONES</div><h2>Historial comercial</h2><div class="client-portal-list">${(j.quotes||[]).map(q=>`<article><div><b>${esc(q.number||"Cotización")}</b><strong>${money(q.total)}</strong></div><p>${esc(q.title||"")} · ${esc(q.status||"")}</p><small>${new Date(q.created_at).toLocaleString("es-PE")}</small><div>${(q.items||[]).map(i=>`<span class="client-portal-item">${esc(i.name||"Partida")} × ${Number(i.quantity||0).toLocaleString("es-PE")} · ${money(i.line_total)}</span>`).join("")}</div>${q.notes?`<p class="client-portal-note">${esc(q.notes)}</p>`:""}</article>`).join("")||'<div class="empty">Todavía no hay cotizaciones.</div>'}</div></section>
+      <section class="client-portal-section"><div class="eyebrow2">INFORMES Y TRABAJOS</div><h2>Historial técnico</h2><div class="client-portal-list">${(j.reports||[]).map(r=>`<article><div><b>${esc(r.number||r.title||"Informe")}</b><span>${esc(r.status||"")}</span></div><p>${esc(r.work_performed||r.conclusions||r.observations||"Sin detalle")}</p><small>${esc(r.report_date||r.created_at||"")} · ${esc(r.technician||"")}</small></article>`).join("")||'<div class="empty">Todavía no hay informes técnicos.</div>'}</div></section>
+      <section class="client-portal-section"><div class="eyebrow2">HISTORIA</div><h2>Actividad registrada</h2><div class="client-portal-timeline">${(j.history||[]).map(h=>`<article><i></i><div><b>${esc(h.title)}</b><p>${esc(h.description||"")}</p><small>${new Date(h.created_at).toLocaleString("es-PE")}</small></div></article>`).join("")||'<div class="empty">Aún no hay actividad adicional.</div>'}</div></section>
+      <footer class="client-portal-footer">Portal privado de ${esc(co.business_name||"M.A.R.C.")}. Solo muestra información compartida con este cliente.</footer>`;
+  }catch(e){$("#clientPortalApp").innerHTML='<div class="client-portal-error"><h1>Portal no disponible</h1><p>'+esc(e.message||"El enlace no es válido.")+'</p></div>'}
+}
+
 async function ensurePdfJs(){
   if(window.pdfjsLib)return window.pdfjsLib;
   throw new Error("No se pudo cargar el lector PDF. Recarga la página e inténtalo nuevamente.");

@@ -596,21 +596,22 @@
 
   async function parsePdfCatalog(file){
     if(!window.pdfjsLib)throw new Error("No está disponible el lector PDF.");
-    const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise,raw=[];
-    const sharedReader=window.MARC_PDF_CATALOG_READER;
-
-    // El análisis de proveedores debe aprovechar el mismo analizador avanzado
-    // que Inventario. Primero intentamos el endpoint PDF por página (texto +
-    // render de la página para Gemini). El lector local queda como respaldo.
+    const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;
     const {data:{session}}=await sb().auth.getSession();
+    const sharedReader=window.MARC_PDF_CATALOG_READER;
+    const raw=[];
     let advancedPendingId=null;
     let advancedPendingPromise=null;
+
     const ensureAdvancedPending=async()=>{
       if(advancedPendingId)return advancedPendingId;
       if(advancedPendingPromise)return advancedPendingPromise;
       advancedPendingPromise=fetch("/api/inventory/pdf-start",{
         method:"POST",
-        headers:{"Content-Type":"application/json",Authorization:"Bearer "+(session?.access_token||"")},
+        headers:{
+          "Content-Type":"application/json",
+          Authorization:"Bearer "+(session?.access_token||"")
+        },
         body:JSON.stringify({filename:file.name,totalPages:pdf.numPages})
       }).then(async r=>{
         const j=await r.json();
@@ -622,9 +623,7 @@
       return advancedPendingPromise;
     };
 
-    const analyzeAdvancedPage=async(page,pageNumber)=>{
-      const pendingId=await ensureAdvancedPending();
-      const text=sharedReader?.extractPageText?await sharedReader.extractPageText(page):"";
+    const renderPageImage=async(page)=>{
       let viewport=page.getViewport({scale:1.25});
       if(viewport.width>1600)viewport=page.getViewport({scale:1.25*(1600/viewport.width)});
       const canvas=document.createElement("canvas");
@@ -633,63 +632,132 @@
       canvas.width=Math.ceil(viewport.width);
       canvas.height=Math.ceil(viewport.height);
       await page.render({canvasContext:ctx,viewport}).promise;
-      const image=canvas.toDataURL("image/jpeg",0.72);
+      return canvas.toDataURL("image/jpeg",0.72);
+    };
+
+    const analyzeAdvancedPage=async(page,pageNumber)=>{
+      const pendingId=await ensureAdvancedPending();
+      const text=sharedReader?.extractPageText
+        ?await sharedReader.extractPageText(page)
+        :"";
+      const image=await renderPageImage(page);
       const r=await fetch("/api/inventory/pdf-page",{
         method:"POST",
-        headers:{"Content-Type":"application/json",Authorization:"Bearer "+(session?.access_token||"")},
+        headers:{
+          "Content-Type":"application/json",
+          Authorization:"Bearer "+(session?.access_token||"")
+        },
         body:JSON.stringify({pendingId,pageNumber,totalPages:pdf.numPages,text,image})
       });
       const j=await r.json();
       if(!r.ok)throw new Error(j.message||j.error||("No se pudo analizar la página "+pageNumber));
       return Array.isArray(j.items)?j.items:[];
     };
-    for(let p=1;p<=pdf.numPages;p++){
-      const page=await pdf.getPage(p);
-      const images=await extractPdfImagesWithBoxes(page);
+
+    const localFallback=async(page,pageNumber,images)=>{
       let shared=null;
       if(sharedReader?.extractRows){
-        try{ shared=await sharedReader.extractRows(page); }
-        catch(e){ console.warn("Lector PDF compartido:",e); }
+        try{shared=await sharedReader.extractRows(page)}catch(e){console.warn("Lector PDF compartido:",e)}
       }
-
-      // Primero usamos el mismo lector local de Inventario. Es inmediato y evita
-      // enviar a IA páginas que ya contienen una tabla de productos perfectamente
-      // legible. El análisis avanzado solo entra en las páginas que el lector local
-      // no puede resolver.
-      // No damos por buena una lectura local incompleta. Si la página
-      // contiene más imágenes/fichas que filas detectadas, dejamos que el
-      // analizador visual complete esa página.
-      const localCount=shared?.usedLocal&&Array.isArray(shared.rows)?shared.rows.length:0;
-      const imageCount=Array.isArray(images)?images.length:0;
-      const localLooksComplete=localCount>0 && (imageCount===0 || localCount>=Math.max(1,Math.ceil(imageCount*0.9)));
-      if(localLooksComplete){
-        for(let i=0;i<shared.rows.length;i++){
-          const row=shared.rows[i];
+      if(shared?.usedLocal&&Array.isArray(shared.rows)&&shared.rows.length){
+        return shared.rows.map((row,i)=>{
           let best=-1,bestDist=Infinity;
-          images.forEach((im,idx)=>{
+          (images||[]).forEach((im,idx)=>{
             const d=Math.abs(Number(im.y||0)-Number(row.pdf_y||row.y||0));
             if(d<bestDist){bestDist=d;best=idx}
           });
           const matched=best>=0&&bestDist<140?images[best]:null;
           const name=cleanCatalogProductText(row.name);
-          if(!name||isNoiseCatalogText(name))continue;
-          raw.push({
-            page:p,imageIndex:matched?best:null,sku:row.sku||null,
-            name:name.slice(0,180),description:String(row.description||row.name||"").slice(0,500),
+          if(!name||isNoiseCatalogText(name))return null;
+          return {
+            page:pageNumber,imageIndex:matched?best:null,sku:row.sku||null,
+            name:name.slice(0,180),
+            description:String(row.description||row.name||"").slice(0,500),
             brand:row.brand||null,model:row.model||null,category:row.category||null,
-            unit:row.unit||"UND",supplier_cost:null,supplier_price:row.price!=null?Number(row.price):null,
-            currency:row.currency||"PEN",stock_text:null,image_data_url:matched?.dataUrl||null,
-            ai_confidence:matched?0.97:0.94,
-            source_metadata:{page:p,image_detected:!!matched,image_match_distance:matched?Math.round(bestDist):null,source_row:i,reader:"INVENTARIO_COMPARTIDO"}
-          });
-        }
-        continue;
+            unit:row.unit||"UND",supplier_cost:null,
+            supplier_price:row.price!=null?Number(row.price):null,
+            currency:row.currency||"PEN",stock_text:null,
+            image_data_url:matched?.dataUrl||null,
+            ai_confidence:matched?0.88:0.78,
+            source_metadata:{
+              page:pageNumber,image_detected:!!matched,
+              image_match_distance:matched?Math.round(bestDist):null,
+              source_row:i,reader:"INVENTARIO_COMPARTIDO_FALLBACK"
+            }
+          };
+        }).filter(Boolean);
       }
 
-      try{
-        const advancedItems=await analyzeAdvancedPage(page,p);
-        if(advancedItems.length){
-          advancedItems.forEach((row,i)=>{
+      // Último respaldo para PDFs que no tienen texto estructurado.
+      const tc=await page.getTextContent();
+      const rows=pdfProductRows(tc);
+      const parsed=rows.map((r,i)=>({...r,index:i,price:pdfRowPrice(r.text),name:cleanCatalogProductText(r.text)}));
+      const out=[];
+      for(let i=0;i<parsed.length;i++){
+        const row=parsed[i];
+        if(!isLikelyPdfProductText(row.name))continue;
+        let price=row.price,fullText=row.text,sourceName=row.name;
+        for(const offset of [0,-1,1,-2,2]){
+          if(price!=null)break;
+          const n=parsed[i+offset];
+          if(n?.price!=null){
+            price=n.price;
+            fullText=row.text+" "+n.text;
+            sourceName=cleanCatalogProductText(fullText);
+          }
+        }
+        sourceName=cleanCatalogProductText(sourceName);
+        if(!isLikelyPdfProductText(sourceName))continue;
+        let best=-1,bestDist=Infinity;
+        (images||[]).forEach((im,idx)=>{
+          const d=Math.abs(Number(im.y||0)-Number(row.y||0));
+          if(d<bestDist){bestDist=d;best=idx}
+        });
+        const matched=best>=0&&bestDist<140?images[best]:null;
+        out.push({
+          page:pageNumber,imageIndex:matched?best:null,sku:null,
+          name:sourceName.slice(0,180),description:fullText.slice(0,500),
+          brand:null,model:null,category:null,unit:"UND",
+          supplier_cost:null,supplier_price:price,currency:"PEN",stock_text:null,
+          image_data_url:matched?.dataUrl||null,
+          ai_confidence:price!=null?(matched?0.82:0.68):(matched?0.65:0.55),
+          source_metadata:{
+            page:pageNumber,image_detected:!!matched,
+            image_match_distance:matched?Math.round(bestDist):null,
+            source_row:i,reader:"PROVEEDOR_LOCAL_FALLBACK"
+          }
+        });
+      }
+      return out;
+    };
+
+    // IMPORTANTE: para catálogos de proveedores no aceptamos automáticamente
+    // la lectura local solo porque encontró algunas filas. Ese era el motivo
+    // por el que este catálogo terminaba en 49 productos. El mismo motor visual
+    // usado por Inventario debe tener la oportunidad de leer cada página.
+    // Procesamos 4 páginas a la vez, igual que Inventario, para evitar esperas
+    // de varios minutos por un PDF de muchas páginas.
+    const CONCURRENCY=4;
+    const pageResults=[];
+    for(let batchStart=1;batchStart<=pdf.numPages;batchStart+=CONCURRENCY){
+      const batch=[];
+      for(let i=0;i<CONCURRENCY&&batchStart+i<=pdf.numPages;i++)batch.push(batchStart+i);
+      const settled=await Promise.allSettled(batch.map(async pageNumber=>{
+        const page=await pdf.getPage(pageNumber);
+        let advanced=[];
+        let advancedError=null;
+        try{
+          advanced=await analyzeAdvancedPage(page,pageNumber);
+        }catch(e){
+          advancedError=e;
+          console.warn("Analizador avanzado no disponible en P"+pageNumber,e);
+        }
+
+        // El resultado visual tiene prioridad. Solo usamos el lector local si
+        // la página visual no devolvió productos.
+        if(advanced.length){
+          const images=await extractPdfImagesWithBoxes(page).catch(()=>[]);
+          const items=advanced.map((row,i)=>{
             let best=-1,bestDist=Infinity;
             images.forEach((im,idx)=>{
               const d=Math.abs(Number(im.y||0)-Number(row.pdf_y||row.y||0));
@@ -697,9 +765,9 @@
             });
             const matched=best>=0&&bestDist<160?images[best]:null;
             const name=cleanCatalogProductText(row.name||row.product||row.description||"");
-            if(!name||isNoiseCatalogText(name))return;
-            raw.push({
-              page:p,imageIndex:matched?best:null,sku:row.sku||null,
+            if(!name||isNoiseCatalogText(name))return null;
+            return {
+              page:pageNumber,imageIndex:matched?best:null,sku:row.sku||null,
               name:name.slice(0,180),
               description:String(row.description||row.name||row.product||"").slice(0,500),
               brand:row.brand||null,model:row.model||row.sku||null,
@@ -709,122 +777,49 @@
               currency:row.currency||"PEN",stock_text:row.stock_text||null,
               image_data_url:matched?.dataUrl||null,
               ai_confidence:Number(row.ai_confidence??0.94),
-              source_metadata:{page:p,image_detected:!!matched,image_match_distance:matched?Math.round(bestDist):null,source_row:i,reader:"INVENTARIO_AVANZADO"}
-            });
-          });
-          continue;
-        }
-      }catch(e){
-        console.warn("Analizador avanzado de Inventario no disponible en página "+p+", usando lector local:",e);
-      }
-      // Fallback: mantenemos el analizador específico de proveedores para
-      // PDFs que no tienen una tabla de texto reconocible.
-      const tc=await page.getTextContent();
-      const rows=pdfProductRows(tc);
-      const parsed=rows.map((r,i)=>({...r,index:i,price:pdfRowPrice(r.text),name:cleanCatalogProductText(r.text)}));
-      // Analizamos TODAS las líneas con apariencia de producto. Antes solo se
-      // analizaban las filas con precio, lo que hacía perder productos cuando
-      // el precio estaba en otra columna o no tenía símbolo de moneda.
-      for(let i=0;i<parsed.length;i++){
-        const row=parsed[i];
-        if(!isLikelyPdfProductText(row.name))continue;
-
-        let price=row.price;
-        let fullText=row.text;
-        let sourceName=row.name;
-
-        // Buscar precio en la misma fila o en las dos filas vecinas.
-        // No convertimos una imagen aislada en producto.
-        for(const offset of [0,-1,1,-2,2]){
-          if(price!=null)break;
-          const n=parsed[i+offset];
-          if(!n)continue;
-          if(n.price!=null){
-            price=n.price;
-            fullText=row.text+" "+n.text;
-            sourceName=cleanCatalogProductText(fullText);
-          }
+              source_metadata:{
+                page:pageNumber,image_detected:!!matched,
+                image_match_distance:matched?Math.round(bestDist):null,
+                source_row:i,reader:"INVENTARIO_AVANZADO"
+              }
+            };
+          }).filter(Boolean);
+          return {pageNumber,items,mode:"INVENTARIO_AVANZADO"};
         }
 
-        // Si el nombre quedó contaminado con una línea de precio, limpiarlo.
-        sourceName=cleanCatalogProductText(sourceName);
-        if(!isLikelyPdfProductText(sourceName))continue;
+        const images=await extractPdfImagesWithBoxes(page).catch(()=>[]);
+        const fallback=await localFallback(page,pageNumber,images);
+        if(fallback.length)return {pageNumber,items:fallback,mode:"LOCAL_FALLBACK"};
+        if(advancedError)throw advancedError;
+        return {pageNumber,items:[],mode:"SIN_PRODUCTOS"};
+      }));
 
-        let best=-1,bestDist=Infinity;
-        images.forEach((im,idx)=>{
-          const d=Math.abs(Number(im.y||0)-Number(row.y||0));
-          if(d<bestDist){bestDist=d;best=idx}
-        });
-        const matched=best>=0&&bestDist<140?images[best]:null;
-
-        raw.push({
-          page:p,
-          imageIndex:matched?best:null,
-          sku:null,
-          name:sourceName.slice(0,180),
-          description:fullText.slice(0,500),
-          brand:null,
-          model:null,
-          category:null,
-          unit:"UND",
-          supplier_cost:null,
-          supplier_price:price,
-          currency:"PEN",
-          stock_text:null,
-          image_data_url:matched?.dataUrl||null,
-          ai_confidence:price!=null?(matched?0.92:0.82):(matched?0.76:0.68),
-          source_metadata:{
-            page:p,
-            image_detected:!!matched,
-            image_match_distance:matched?Math.round(bestDist):null,
-            source_row:i
-          }
-        });
-      }
-
-      // Recuperación conservadora: algunas fichas reales tienen nombres muy
-      // cortos o mezclan código + texto y no pasan el filtro principal. Solo
-      // recuperamos esas filas si además tienen precio o una imagen cercana.
-      for(let i=0;i<parsed.length;i++){
-        const row=parsed[i];
-        const name=cleanCatalogProductText(row.name);
-        // Recuperación ultra-conservadora de códigos excepcionalmente cortos.
-        // No abrimos el filtro general: solo aceptamos 2 letras cuando forman
-        // un código con número y además existe precio o imagen cercana.
-        if(!name||isNoiseCatalogText(name)||name.length<2)continue;
-        const letters=(name.match(/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g)||[]).length;
-        const shortCode=/^[A-Za-z]{1,2}[-_/]?[A-Za-z0-9]{1,8}$/.test(name) && /\d/.test(name);
-        if(letters>=3 || !shortCode)continue;
-
-        let price=row.price;
-        for(const offset of [0,-1,1,-2,2]){
-          if(price!=null)break;
-          const n=parsed[i+offset];
-          if(n?.price!=null)price=n.price;
+      settled.forEach((r,idx)=>{
+        if(r.status==="fulfilled"){
+          pageResults.push(r.value);
+        }else{
+          pageResults.push({pageNumber:batch[idx],items:[],mode:"ERROR",error:r.reason?.message||"Error desconocido"});
         }
-
-        let best=-1,bestDist=Infinity;
-        images.forEach((im,idx)=>{
-          const d=Math.abs(Number(im.y||0)-Number(row.y||0));
-          if(d<bestDist){bestDist=d;best=idx}
-        });
-        const matched=best>=0&&bestDist<120?images[best]:null;
-        if(price==null&&!matched)continue;
-
-        raw.push({
-          page:p,imageIndex:matched?best:null,sku:null,name:name.slice(0,180),
-          description:row.text.slice(0,500),brand:null,model:null,category:null,
-          unit:"UND",supplier_cost:null,supplier_price:price,currency:"PEN",
-          stock_text:null,image_data_url:matched?.dataUrl||null,
-          ai_confidence:price!=null?(matched?0.84:0.72):(matched?0.65:0.55),
-          source_metadata:{page:p,image_detected:!!matched,image_match_distance:matched?Math.round(bestDist):null,source_row:i,recovered:true}
-        });
-      }
+      });
     }
+
+    pageResults.sort((a,b)=>a.pageNumber-b.pageNumber);
+    const failed=pageResults.filter(x=>x.mode==="ERROR");
+    if(failed.length){
+      throw new Error("No se pudieron analizar las páginas: "+failed.map(x=>"P"+x.pageNumber).join(", "));
+    }
+
+    pageResults.forEach(result=>raw.push(...result.items));
     const result=mergeCatalogCandidates(raw).slice(0,2000);
     if(!result.length){
-      throw new Error("El PDF no contiene texto de productos reconocible. Si es un PDF escaneado como imágenes, necesitamos activar OCR para ese catálogo.");
+      throw new Error("El PDF no contiene productos reconocibles. Si es un PDF escaneado como imágenes, necesitamos activar OCR para ese catálogo.");
     }
+
+    // Normalizamos la página de origen para que la revisión y las imágenes
+    // del catálogo tengan trazabilidad correcta.
+    result.forEach(x=>{
+      if(x.source_metadata?.page&&!x.page_number)x.page_number=Number(x.source_metadata.page);
+    });
     return result;
   }
 

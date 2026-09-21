@@ -2256,6 +2256,17 @@ async function marketing(){
     </div>
     <section class="card panel marketing-copy-card"><div class="eyebrow2">6 · PROPUESTAS DE TEXTO</div><div class="marketing-copy-grid"><article><div class="marketing-copy-head"><b>Texto principal</b><button class="secondary" data-copy="primary_text">Copiar</button></div><p id="adPrimary">—</p></article><article><div class="marketing-copy-head"><b>WhatsApp</b><button class="secondary" data-copy="whatsapp_text">Copiar</button></div><p id="adWhatsapp">—</p></article><article><div class="marketing-copy-head"><b>Texto corto</b><button class="secondary" data-copy="short_text">Copiar</button></div><p id="adShort">—</p></article><article><div class="marketing-copy-head"><b>Hashtags</b><button class="secondary" data-copy="hashtags">Copiar</button></div><p id="adHashtags">—</p></article></div></section>
     <section class="card panel marketing-company-footer"><div><b>✓ Datos de tu empresa aplicados automáticamente</b><small>Logo, nombre, teléfono y datos disponibles en tu perfil empresarial.</small></div><button class="secondary" type="button" id="marketingCompanyInfo">Ver datos de contacto</button></section>
+    <section class="card panel" id="marketingPublishCenter" style="margin-top:14px">
+      <div class="eyebrow2">7 · PUBLICACIÓN</div>
+      <div class="panel-title-row"><div><h3 style="margin:0">Publicar desde M.A.R.C.</h3><small>Prepara el contenido aquí y controla tus canales desde un solo lugar.</small></div><span id="marketingPlanBadge" class="badge low">VERIFICANDO PLAN…</span></div>
+      <div id="marketingSocialAccounts" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="primary" id="marketingPreparePublication" type="button">＋ Preparar publicación</button>
+        <button class="secondary" id="marketingSchedulePublication" type="button">◷ Programar</button>
+        <button class="secondary" id="marketingSocialSettings" type="button">⚙ Cuentas sociales</button>
+      </div>
+      <div id="marketingPublishStatus" class="msg" style="margin-top:10px"></div>
+    </section>
     <section class="card panel marketing-history"><div class="panel-title-row"><div><div class="eyebrow2">HISTORIAL</div><h3>Últimas campañas creadas</h3></div></div><div id="marketingHistory" class="marketing-history-list"><span class="muted-small">Cargando…</span></div></section>
   `;
 
@@ -2373,6 +2384,40 @@ async function marketing(){
   $p("analyzeAdPhoto").onclick=analyzeAdPhoto;
   $p("marketingPhotoClear").onclick=clearAdPhoto;
   $p("marketingCompanyInfo").onclick=()=>toast("Datos usados: "+String(company.business_name||"Tu empresa")+(company.phone?" · "+company.phone:""),"ok");
+  const loadMarketingSocialCenter=async()=>{
+    const box=$p("marketingSocialAccounts"),badge=$p("marketingPlanBadge"),status=$p("marketingPublishStatus"); if(!box)return;
+    const sub=await S.from("marc_subscriptions").select("plan,status").eq("user_id",st.u.id).eq("status","active").order("created_at",{ascending:false}).limit(1).maybeSingle();
+    const plan=String(sub.data?.plan||"TRIAL").toUpperCase(), canPublish=plan==="MASTER";
+    badge.textContent=canPublish?"MASTER · PUBLICACIÓN":"PUBLICACIÓN BLOQUEADA";
+    badge.className="badge "+(canPublish?"ok":"low");
+    const rr=await S.from("marc_social_connections").select("platform,account_name,status").eq("user_id",st.u.id).order("platform");
+    const map=Object.fromEntries((rr.data||[]).map(x=>[x.platform,x]));
+    box.innerHTML=["FACEBOOK","INSTAGRAM","TIKTOK","WHATSAPP","LINKEDIN"].map(p=>{const x=map[p],ok=x?.status==="CONNECTED";return '<div style="padding:12px;border:1px solid rgba(127,127,127,.18);border-radius:14px"><b>'+p+'</b><small style="display:block;opacity:.7">'+(ok?(esc(x.account_name||"Conectada")):"No conectada")+'</small><span class="badge '+(ok?"ok":"low")+'" style="margin-top:7px;display:inline-block">'+(ok?"CONECTADA":"PENDIENTE")+'</span></div>'}).join("");
+    status.textContent=canPublish?"MASTER: publicación y programación habilitadas cuando exista una conexión oficial.":"Puedes preparar borradores. La publicación y programación automática requieren MASTER.";
+  };
+  const preparePublication=async(scheduled=false)=>{
+    if(!currentCampaign)return toast("Primero genera la publicidad con IA.","err");
+    const platform=$p("adPlatform").value;
+    const r=await S.from("marc_publications").insert({user_id:st.u.id,inventory_id:currentProduct?.id||null,platform,status:"DRAFT",title:currentCampaign.title||currentProduct?.name,headline:currentCampaign.headline,body:currentCampaign.primary_text,short_text:currentCampaign.short_text,hashtags:currentCampaign.hashtags||[],media_url:currentAiImage||currentImage||currentProduct?.image_url||null,media_type:"IMAGE"}).select().single();
+    if(r.error)return toast(r.error.message,"err");
+    if(scheduled){
+      const sub=await S.from("marc_subscriptions").select("plan,status").eq("user_id",st.u.id).eq("status","active").limit(1).maybeSingle();
+      if(String(sub.data?.plan||"").toUpperCase()!=="MASTER")return toast("Programar publicaciones requiere el plan MASTER.","err");
+      const when=prompt("Fecha y hora (YYYY-MM-DD HH:MM):","");
+      if(!when)return;
+      const d=new Date(when.replace(" ","T")+":00"); if(Number.isNaN(d.getTime()))return toast("Fecha no válida.","err");
+      const u=await S.from("marc_publications").update({status:"SCHEDULED",scheduled_for:d.toISOString()}).eq("id",r.data.id).eq("user_id",st.u.id);
+      if(u.error)return toast(u.error.message,"err");
+      const j=await S.from("marc_publication_jobs").insert({publication_id:r.data.id,user_id:st.u.id,status:"PENDING",run_after:d.toISOString()});
+      if(j.error)return toast(j.error.message,"err");
+      return toast("Publicación programada. Falta la conexión oficial de la red para ejecutar el envío.","ok");
+    }
+    toast("Publicación preparada y guardada como borrador.","ok");
+  };
+  $p("marketingPreparePublication").onclick=()=>preparePublication(false);
+  $p("marketingSchedulePublication").onclick=()=>preparePublication(true);
+  $p("marketingSocialSettings").onclick=()=>{if(window.marcSupplierCenter)window.marcSupplierCenter();else toast("Centro de redes disponible desde Proveedores y catálogos.","")};
+  loadMarketingSocialCenter();
   $("[data-ad-hint]").forEach(b=>b.onclick=()=>{$p("adDetails").value=$p("adDetails").value?($p("adDetails").value+" "+b.dataset.adHint):b.dataset.adHint});
   $p("adCta").oninput=renderCanvas;$p("adOffer").oninput=renderCanvas;
   const readFileData=()=>currentImageFile?new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>resolve(fr.result);fr.onerror=reject;fr.readAsDataURL(currentImageFile)}):Promise.resolve("");

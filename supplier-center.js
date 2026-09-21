@@ -596,17 +596,25 @@
 
   async function parsePdfCatalog(file){
     if(!window.pdfjsLib)throw new Error("No está disponible el lector PDF.");
-    const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;
-    const {data:{session}}=await sb().auth.getSession();
-    const sharedReader=window.MARC_PDF_CATALOG_READER;
-    const raw=[];
-    let advancedPendingId=null;
-    let advancedPendingPromise=null;
 
-    const ensureAdvancedPending=async()=>{
-      if(advancedPendingId)return advancedPendingId;
-      if(advancedPendingPromise)return advancedPendingPromise;
-      advancedPendingPromise=fetch("/api/inventory/pdf-start",{
+    // PROVEEDORES usa exactamente el mismo motor de lectura PDF de INVENTARIO.
+    // No duplicamos la lógica ni usamos heurísticas por cantidad de imágenes:
+    // si Inventario puede leer una página directamente, Proveedores usa ese
+    // mismo resultado. Solo las páginas que Inventario no puede resolver pasan
+    // al mismo analizador avanzado que ya utiliza Inventario.
+    const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;
+    const sharedReader=window.MARC_PDF_CATALOG_READER;
+    const {data:{session}}=await sb().auth.getSession();
+    const detected=[];
+    const failedPages=[];
+    const CONCURRENCY=4;
+
+    let pendingId=null;
+    let pendingPromise=null;
+    const ensurePendingId=async()=>{
+      if(pendingId)return pendingId;
+      if(pendingPromise)return pendingPromise;
+      pendingPromise=fetch("/api/inventory/pdf-start",{
         method:"POST",
         headers:{
           "Content-Type":"application/json",
@@ -617,13 +625,17 @@
         const j=await r.json();
         if(!r.ok)throw new Error(j.message||j.error||"No se pudo iniciar el análisis avanzado.");
         if(!j.pendingId)throw new Error("No se recibió la sesión de análisis avanzado.");
-        advancedPendingId=j.pendingId;
-        return advancedPendingId;
-      }).finally(()=>{advancedPendingPromise=null});
-      return advancedPendingPromise;
+        pendingId=j.pendingId;
+        return pendingId;
+      }).finally(()=>{pendingPromise=null});
+      return pendingPromise;
     };
 
-    const renderPageImage=async(page)=>{
+    const analyzeAdvancedPage=async(page,pageNumber)=>{
+      const pendingForPage=await ensurePendingId();
+      const text=sharedReader?.extractPageText
+        ?await sharedReader.extractPageText(page)
+        :"";
       let viewport=page.getViewport({scale:1.25});
       if(viewport.width>1600)viewport=page.getViewport({scale:1.25*(1600/viewport.width)});
       const canvas=document.createElement("canvas");
@@ -632,200 +644,171 @@
       canvas.width=Math.ceil(viewport.width);
       canvas.height=Math.ceil(viewport.height);
       await page.render({canvasContext:ctx,viewport}).promise;
-      return canvas.toDataURL("image/jpeg",0.72);
-    };
+      const image=canvas.toDataURL("image/jpeg",0.72);
 
-    const analyzeAdvancedPage=async(page,pageNumber)=>{
-      const pendingId=await ensureAdvancedPending();
-      const text=sharedReader?.extractPageText
-        ?await sharedReader.extractPageText(page)
-        :"";
-      const image=await renderPageImage(page);
-      const r=await fetch("/api/inventory/pdf-page",{
-        method:"POST",
-        headers:{
-          "Content-Type":"application/json",
-          Authorization:"Bearer "+(session?.access_token||"")
-        },
-        body:JSON.stringify({pendingId,pageNumber,totalPages:pdf.numPages,text,image})
-      });
-      const j=await r.json();
-      if(!r.ok)throw new Error(j.message||j.error||("No se pudo analizar la página "+pageNumber));
-      return Array.isArray(j.items)?j.items:[];
-    };
-
-    const localFallback=async(page,pageNumber,images)=>{
-      let shared=null;
-      if(sharedReader?.extractRows){
-        try{shared=await sharedReader.extractRows(page)}catch(e){console.warn("Lector PDF compartido:",e)}
-      }
-      if(shared?.usedLocal&&Array.isArray(shared.rows)&&shared.rows.length){
-        return shared.rows.map((row,i)=>{
-          let best=-1,bestDist=Infinity;
-          (images||[]).forEach((im,idx)=>{
-            const d=Math.abs(Number(im.y||0)-Number(row.pdf_y||row.y||0));
-            if(d<bestDist){bestDist=d;best=idx}
+      let lastError=null;
+      for(let retry=0;retry<2;retry++){
+        try{
+          const r=await fetch("/api/inventory/pdf-page",{
+            method:"POST",
+            headers:{
+              "Content-Type":"application/json",
+              Authorization:"Bearer "+(session?.access_token||"")
+            },
+            body:JSON.stringify({
+              pendingId:pendingForPage,
+              pageNumber,
+              totalPages:pdf.numPages,
+              text,
+              image
+            })
           });
-          const matched=best>=0&&bestDist<140?images[best]:null;
-          const name=cleanCatalogProductText(row.name);
-          if(!name||isNoiseCatalogText(name))return null;
-          return {
-            page:pageNumber,imageIndex:matched?best:null,sku:row.sku||null,
-            name:name.slice(0,180),
-            description:String(row.description||row.name||"").slice(0,500),
-            brand:row.brand||null,model:row.model||null,category:row.category||null,
-            unit:row.unit||"UND",supplier_cost:null,
-            supplier_price:row.price!=null?Number(row.price):null,
-            currency:row.currency||"PEN",stock_text:null,
-            image_data_url:matched?.dataUrl||null,
-            ai_confidence:matched?0.88:0.78,
-            source_metadata:{
-              page:pageNumber,image_detected:!!matched,
-              image_match_distance:matched?Math.round(bestDist):null,
-              source_row:i,reader:"INVENTARIO_COMPARTIDO_FALLBACK"
-            }
-          };
-        }).filter(Boolean);
-      }
-
-      // Último respaldo para PDFs que no tienen texto estructurado.
-      const tc=await page.getTextContent();
-      const rows=pdfProductRows(tc);
-      const parsed=rows.map((r,i)=>({...r,index:i,price:pdfRowPrice(r.text),name:cleanCatalogProductText(r.text)}));
-      const out=[];
-      for(let i=0;i<parsed.length;i++){
-        const row=parsed[i];
-        if(!isLikelyPdfProductText(row.name))continue;
-        let price=row.price,fullText=row.text,sourceName=row.name;
-        for(const offset of [0,-1,1,-2,2]){
-          if(price!=null)break;
-          const n=parsed[i+offset];
-          if(n?.price!=null){
-            price=n.price;
-            fullText=row.text+" "+n.text;
-            sourceName=cleanCatalogProductText(fullText);
-          }
+          const j=await r.json();
+          if(!r.ok)throw new Error(j.message||j.error||("No se pudo analizar la página "+pageNumber));
+          return Array.isArray(j.items)?j.items:[];
+        }catch(e){
+          lastError=e;
+          if(retry===0)console.warn("Reintentando análisis de P"+pageNumber,e);
         }
-        sourceName=cleanCatalogProductText(sourceName);
-        if(!isLikelyPdfProductText(sourceName))continue;
+      }
+      throw lastError||new Error("No se pudo analizar la página "+pageNumber);
+    };
+
+    const attachSupplierImages=async(page,items,pageNumber)=>{
+      if(!items.length)return;
+      let images=[];
+      try{images=await extractPdfImagesWithBoxes(page)}catch(e){console.warn("No se pudieron extraer imágenes de P"+pageNumber,e)}
+      if(!images.length)return;
+
+      items.forEach((item,index)=>{
         let best=-1,bestDist=Infinity;
-        (images||[]).forEach((im,idx)=>{
-          const d=Math.abs(Number(im.y||0)-Number(row.y||0));
+        images.forEach((im,idx)=>{
+          const d=Math.abs(Number(im.y||0)-Number(item.pdf_y||item.y||0));
           if(d<bestDist){bestDist=d;best=idx}
         });
-        const matched=best>=0&&bestDist<140?images[best]:null;
-        out.push({
-          page:pageNumber,imageIndex:matched?best:null,sku:null,
-          name:sourceName.slice(0,180),description:fullText.slice(0,500),
-          brand:null,model:null,category:null,unit:"UND",
-          supplier_cost:null,supplier_price:price,currency:"PEN",stock_text:null,
-          image_data_url:matched?.dataUrl||null,
-          ai_confidence:price!=null?(matched?0.82:0.68):(matched?0.65:0.55),
-          source_metadata:{
-            page:pageNumber,image_detected:!!matched,
-            image_match_distance:matched?Math.round(bestDist):null,
-            source_row:i,reader:"PROVEEDOR_LOCAL_FALLBACK"
-          }
+        const matched=best>=0&&bestDist<160?images[best]:null;
+        if(matched){
+          item.image_data_url=matched.dataUrl||item.image_data_url||null;
+          item.source_metadata=Object.assign({},item.source_metadata||{},{
+            image_detected:true,
+            image_index:best,
+            image_match_distance:Math.round(bestDist)
+          });
+        }
+        item.source_metadata=Object.assign({},item.source_metadata||{},{
+          page:pageNumber,
+          source_row:index,
+          reader:item.source_metadata?.reader||"INVENTARIO_COMPARTIDO"
         });
-      }
-      return out;
+      });
     };
 
-    // IMPORTANTE: para catálogos de proveedores no aceptamos automáticamente
-    // la lectura local solo porque encontró algunas filas. Ese era el motivo
-    // por el que este catálogo terminaba en 49 productos. El mismo motor visual
-    // usado por Inventario debe tener la oportunidad de leer cada página.
-    // Procesamos 4 páginas a la vez, igual que Inventario, para evitar esperas
-    // de varios minutos por un PDF de muchas páginas.
-    const CONCURRENCY=4;
-    const pageResults=[];
     for(let batchStart=1;batchStart<=pdf.numPages;batchStart+=CONCURRENCY){
       const batch=[];
       for(let i=0;i<CONCURRENCY&&batchStart+i<=pdf.numPages;i++)batch.push(batchStart+i);
+
       const settled=await Promise.allSettled(batch.map(async pageNumber=>{
         const page=await pdf.getPage(pageNumber);
-        let advanced=[];
-        let advancedError=null;
-        try{
-          advanced=await analyzeAdvancedPage(page,pageNumber);
-        }catch(e){
-          advancedError=e;
-          console.warn("Analizador avanzado no disponible en P"+pageNumber,e);
+
+        // EXACTAMENTE igual que Inventario:
+        // 1. lector local compartido;
+        // 2. si funciona, se acepta inmediatamente;
+        // 3. solo si no funciona, se usa Gemini/analizador avanzado.
+        const local=sharedReader?.extractRows
+          ?await sharedReader.extractRows(page)
+          :{rows:[],text:"",usedLocal:false};
+
+        if(local.usedLocal&&local.rows.length){
+          const items=local.rows.map((row,index)=>({
+            ...row,
+            page_number:row.page_number||pageNumber,
+            source_metadata:Object.assign({},row.source_metadata||{},{
+              page:pageNumber,
+              source_row:index,
+              reader:"INVENTARIO_COMPARTIDO"
+            })
+          }));
+          await attachSupplierImages(page,items,pageNumber);
+          return {pageNumber,items,mode:"LECTURA DIRECTA"};
         }
 
-        // El resultado visual tiene prioridad. Solo usamos el lector local si
-        // la página visual no devolvió productos.
-        if(advanced.length){
-          const images=await extractPdfImagesWithBoxes(page).catch(()=>[]);
-          const items=advanced.map((row,i)=>{
-            let best=-1,bestDist=Infinity;
-            images.forEach((im,idx)=>{
-              const d=Math.abs(Number(im.y||0)-Number(row.pdf_y||row.y||0));
-              if(d<bestDist){bestDist=d;best=idx}
-            });
-            const matched=best>=0&&bestDist<160?images[best]:null;
-            const name=cleanCatalogProductText(row.name||row.product||row.description||"");
-            if(!name||isNoiseCatalogText(name))return null;
-            return {
-              page:pageNumber,imageIndex:matched?best:null,sku:row.sku||null,
-              name:name.slice(0,180),
-              description:String(row.description||row.name||row.product||"").slice(0,500),
-              brand:row.brand||null,model:row.model||row.sku||null,
-              category:row.category||null,unit:row.unit||"UND",
-              supplier_cost:row.supplier_cost??row.cost??null,
-              supplier_price:row.supplier_price??row.price??null,
-              currency:row.currency||"PEN",stock_text:row.stock_text||null,
-              image_data_url:matched?.dataUrl||null,
-              ai_confidence:Number(row.ai_confidence??0.94),
-              source_metadata:{
-                page:pageNumber,image_detected:!!matched,
-                image_match_distance:matched?Math.round(bestDist):null,
-                source_row:i,reader:"INVENTARIO_AVANZADO"
-              }
-            };
-          }).filter(Boolean);
-          return {pageNumber,items,mode:"INVENTARIO_AVANZADO"};
-        }
-
-        const images=await extractPdfImagesWithBoxes(page).catch(()=>[]);
-        const fallback=await localFallback(page,pageNumber,images);
-        if(fallback.length)return {pageNumber,items:fallback,mode:"LOCAL_FALLBACK"};
-        if(advancedError)throw advancedError;
-        return {pageNumber,items:[],mode:"SIN_PRODUCTOS"};
+        // EXACTAMENTE el mismo camino de respaldo de Inventario.
+        const analyzed=await analyzeAdvancedPage(page,pageNumber);
+        const items=Array.isArray(analyzed)?analyzed.map((row,index)=>({
+          ...row,
+          page_number:row.page_number||pageNumber,
+          source_metadata:Object.assign({},row.source_metadata||{},{
+            page:pageNumber,
+            source_row:index,
+            reader:"INVENTARIO_AVANZADO"
+          })
+        })):[];
+        await attachSupplierImages(page,items,pageNumber);
+        return {pageNumber,items,mode:"GEMINI"};
       }));
 
       settled.forEach((r,idx)=>{
         if(r.status==="fulfilled"){
-          pageResults.push(r.value);
+          const result=r.value;
+          detected.push(...result.items);
         }else{
-          pageResults.push({pageNumber:batch[idx],items:[],mode:"ERROR",error:r.reason?.message||"Error desconocido"});
+          failedPages.push({
+            pageNumber:batch[idx],
+            error:r.reason?.message||"Error desconocido"
+          });
         }
       });
+
       const progressEl=document.querySelector("#scReanalyzeStatus");
       if(progressEl){
         const done=Math.min(batchStart+batch.length-1,pdf.numPages);
-        const detectedSoFar=pageResults.reduce((n,x)=>n+(x.items?.length||0),0);
-        progressEl.textContent="Páginas "+done+"/"+pdf.numPages+" procesadas · "+detectedSoFar+" productos candidatos. Analizando en paralelo…";
+        progressEl.textContent="Leyendo páginas "+done+"/"+pdf.numPages+" · "+detected.length+" productos detectados";
       }
     }
 
-    pageResults.sort((a,b)=>a.pageNumber-b.pageNumber);
-    const failed=pageResults.filter(x=>x.mode==="ERROR");
-    if(failed.length){
-      throw new Error("No se pudieron analizar las páginas: "+failed.map(x=>"P"+x.pageNumber).join(", "));
+    if(failedPages.length){
+      throw new Error(
+        "No se pudieron analizar todas las páginas: "+
+        failedPages.map(x=>"P"+x.pageNumber).join(", ")+
+        ". No se reemplazó el catálogo."
+      );
     }
 
-    pageResults.forEach(result=>raw.push(...result.items));
-    const result=mergeCatalogCandidates(raw).slice(0,2000);
+    // El lector de Inventario ya hace su propia consolidación por página.
+    // Aquí solo adaptamos el resultado al esquema de proveedores y aplicamos
+    // la consolidación específica del catálogo, sin volver a interpretar PDF.
+    const normalized=detected.map((row,index)=>{
+      const price=row.price??row.supplier_price??null;
+      const cost=row.cost??row.supplier_cost??null;
+      const name=cleanCatalogProductText(row.name||row.product||row.description||"");
+      return {
+        page:Number(row.page_number||row.source_metadata?.page||1),
+        imageIndex:row.source_metadata?.image_index??null,
+        sku:row.sku?String(row.sku).trim():null,
+        name:name.slice(0,180),
+        description:String(row.description||row.name||"").slice(0,800)||null,
+        brand:row.brand?String(row.brand).trim():null,
+        model:row.model?String(row.model).trim():null,
+        category:row.category?String(row.category).trim():null,
+        unit:row.unit||"UND",
+        supplier_cost:Number.isFinite(Number(cost))?Number(cost):null,
+        supplier_price:Number.isFinite(Number(price))?Number(price):null,
+        currency:row.currency||"PEN",
+        stock_text:row.stock_text?String(row.stock_text):null,
+        image_data_url:row.image_data_url||null,
+        ai_confidence:Number(row.ai_confidence??0.9),
+        source_metadata:Object.assign({},row.source_metadata||{},{
+          page:Number(row.page_number||row.source_metadata?.page||1),
+          reader:row.source_metadata?.reader||"INVENTARIO_COMPARTIDO",
+          source_index:index
+        })
+      };
+    }).filter(x=>x.name&&!isNoiseCatalogText(x.name));
+
+    const result=mergeCatalogCandidates(normalized).slice(0,2000);
     if(!result.length){
-      throw new Error("El PDF no contiene productos reconocibles. Si es un PDF escaneado como imágenes, necesitamos activar OCR para ese catálogo.");
+      throw new Error("El PDF no contiene productos reconocibles.");
     }
-
-    // Normalizamos la página de origen para que la revisión y las imágenes
-    // del catálogo tengan trazabilidad correcta.
-    result.forEach(x=>{
-      if(x.source_metadata?.page&&!x.page_number)x.page_number=Number(x.source_metadata.page);
-    });
     return result;
   }
 

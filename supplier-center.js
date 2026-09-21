@@ -385,8 +385,9 @@
       await S.from("marc_supplier_catalogs").update({status:"READY",imported_at:new Date().toISOString()}).eq("id",catalog.id);
       alert("Análisis terminado: "+items.length+" productos detectados.");
     }catch(e){
-      console.error(e); await S.from("marc_supplier_catalogs").update({status:"ERROR"}).eq("id",catalog.id);
-      alert("No se pudo analizar el catálogo: "+(e.message||e));
+      console.error(e);
+      await S.from("marc_supplier_catalogs").update({status:"ERROR"}).eq("id",catalog.id);
+      throw e;
     }
   }
 

@@ -783,7 +783,6 @@
       const name=cleanCatalogProductText(row.name||row.product||row.description||"");
       return {
         page:Number(row.page_number||row.source_metadata?.page||1),
-        imageIndex:row.source_metadata?.image_index??null,
         sku:row.sku?String(row.sku).trim():null,
         name:name.slice(0,180),
         description:String(row.description||row.name||"").slice(0,800)||null,
@@ -914,8 +913,3 @@
         const anchor=document.querySelector("#importPdf");anchor.parentElement.insertBefore(b,anchor);
       }
     });
-    obs.observe(content,{childList:true,subtree:true});
-  }
-  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",install);else install();
-  window.marcSupplierCenter=supplierCenter;
-})();

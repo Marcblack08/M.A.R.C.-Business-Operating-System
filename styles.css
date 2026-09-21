@@ -2675,3 +2675,171 @@ body.modal-open{overflow:hidden!important}
   color:#53677c!important;
   font-weight:700!important;
 }
+
+
+/* ===== Centro de abastecimiento · tema adaptativo real ===== */
+#scModalOverlay{
+  --sc-bg:#f8fafc;
+  --sc-surface:#ffffff;
+  --sc-surface2:#f1f6fb;
+  --sc-text:#10233a;
+  --sc-muted:#526a82;
+  --sc-line:#cbd9e7;
+  --sc-accent:#147ee5;
+  --sc-accent2:#0d62c8;
+  --sc-shadow:rgba(8,35,65,.22);
+  color:var(--sc-text)!important;
+}
+#scModalOverlay>div{
+  background:var(--sc-surface)!important;
+  color:var(--sc-text)!important;
+  border-color:var(--sc-line)!important;
+  box-shadow:0 28px 90px var(--sc-shadow)!important;
+}
+#scModalOverlay .eyebrow2,
+#scModalOverlay h2,
+#scModalOverlay label,
+#scModalOverlay tbody td b{color:var(--sc-text)!important}
+#scModalOverlay p,
+#scModalOverlay small,
+#scModalOverlay tbody td small,
+#scModalOverlay #scCatalogFileName{color:var(--sc-muted)!important}
+#scModalOverlay input,
+#scModalOverlay select,
+#scModalOverlay textarea{
+  color:var(--sc-text)!important;
+  background:var(--sc-surface)!important;
+  border-color:var(--sc-line)!important;
+}
+#scModalOverlay [style*="border:2px dashed"]{
+  background:var(--sc-surface2)!important;
+  border-color:#4b9df1!important;
+}
+#scModalOverlay .secondary{
+  background:var(--sc-surface2)!important;
+  color:var(--sc-text)!important;
+  border-color:var(--sc-line)!important;
+}
+#scModalOverlay #scModalClose{
+  background:var(--sc-text)!important;
+  color:var(--sc-surface)!important;
+}
+
+/* Claro: limpio, nítido y sin textos que se pierdan */
+html:not([data-theme="dark"]) #scModalOverlay{
+  --sc-bg:#f7fafd;
+  --sc-surface:#ffffff;
+  --sc-surface2:#f0f6fc;
+  --sc-text:#10233a;
+  --sc-muted:#50657b;
+  --sc-line:#c7d6e5;
+  --sc-shadow:rgba(10,40,70,.24);
+}
+html:not([data-theme="dark"]) #scModalOverlay h2{color:#10233a!important}
+html:not([data-theme="dark"]) #scModalOverlay .eyebrow2{color:#126ed1!important}
+html:not([data-theme="dark"]) #scModalOverlay .primary{color:#fff!important}
+
+/* Oscuro: fondo profundo + texto luminoso + acentos neón suaves */
+html[data-theme="dark"] #scModalOverlay{
+  --sc-bg:#050d18;
+  --sc-surface:#0d1a2b;
+  --sc-surface2:#11243a;
+  --sc-text:#f2f8ff;
+  --sc-muted:#a8bdd2;
+  --sc-line:#2b4561;
+  --sc-accent:#45b6ff;
+  --sc-accent2:#167be4;
+  --sc-shadow:rgba(0,0,0,.62);
+}
+html[data-theme="dark"] #scModalOverlay{
+  background:rgba(1,7,16,.78)!important;
+}
+html[data-theme="dark"] #scModalOverlay>div{
+  background:
+    radial-gradient(circle at 92% 0%,rgba(48,171,255,.12),transparent 32%),
+    linear-gradient(145deg,#0e1d30,#091522)!important;
+  border-color:#294865!important;
+  box-shadow:0 30px 90px rgba(0,0,0,.65),0 0 45px rgba(35,153,255,.08)!important;
+}
+html[data-theme="dark"] #scModalOverlay .eyebrow2{
+  color:#58baff!important;
+  text-shadow:0 0 16px rgba(69,182,255,.22);
+}
+html[data-theme="dark"] #scModalOverlay h2{
+  color:#f5f9ff!important;
+  text-shadow:0 1px 18px rgba(255,255,255,.05);
+}
+html[data-theme="dark"] #scModalOverlay p,
+html[data-theme="dark"] #scModalOverlay small,
+html[data-theme="dark"] #scModalOverlay #scCatalogFileName{
+  color:#a9bfd4!important;
+}
+html[data-theme="dark"] #scModalOverlay label{
+  color:#dcecff!important;
+}
+html[data-theme="dark"] #scModalOverlay input,
+html[data-theme="dark"] #scModalOverlay select,
+html[data-theme="dark"] #scModalOverlay textarea{
+  background:#0a1726!important;
+  color:#f1f7ff!important;
+  border-color:#2c4965!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.025);
+}
+html[data-theme="dark"] #scModalOverlay input::placeholder{color:#7189a1!important}
+html[data-theme="dark"] #scModalOverlay [style*="border:2px dashed"]{
+  background:linear-gradient(145deg,#0d2136,#0a1929)!important;
+  border-color:#389cf0!important;
+  box-shadow:inset 0 0 28px rgba(40,158,240,.045);
+}
+html[data-theme="dark"] #scModalOverlay #scModalClose{
+  background:#142b42!important;
+  color:#eaf6ff!important;
+  border:1px solid #31506c!important;
+  box-shadow:0 0 18px rgba(55,170,255,.08);
+}
+html[data-theme="dark"] #scModalOverlay .secondary{
+  background:#12243a!important;
+  color:#e7f3ff!important;
+  border-color:#2d4862!important;
+}
+html[data-theme="dark"] #scModalOverlay .primary{
+  background:linear-gradient(135deg,#24aaf6,#126ee0)!important;
+  color:#fff!important;
+  box-shadow:0 8px 24px rgba(20,126,229,.28),0 0 18px rgba(42,171,255,.08)!important;
+}
+html[data-theme="dark"] #scModalOverlay #scChooseExcel{
+  background:linear-gradient(135deg,#1dbb65,#08783c)!important;
+}
+html[data-theme="dark"] #scModalOverlay #scChooseImage{
+  background:linear-gradient(135deg,#8a63f3,#5d30c9)!important;
+}
+html[data-theme="dark"] #scModalOverlay #scChoosePdf{
+  background:linear-gradient(135deg,#2aaeff,#1472df)!important;
+}
+html[data-theme="dark"] #scModalOverlay table{background:transparent!important}
+html[data-theme="dark"] #scModalOverlay thead th{
+  color:#dcecff!important;
+  background:#12253a!important;
+  border-color:#29445f!important;
+}
+html[data-theme="dark"] #scModalOverlay tbody td{
+  color:#d8e7f5!important;
+  border-color:#203a53!important;
+}
+html[data-theme="dark"] #scModalOverlay tbody td b{color:#f1f7ff!important}
+html[data-theme="dark"] #scModalOverlay tbody td small{color:#9cb4c9!important}
+html[data-theme="dark"] #scModalOverlay .badge.low{
+  background:#392e12!important;color:#ffd66e!important;border-color:#735c22!important;
+}
+html[data-theme="dark"] #scModalOverlay .badge.ok{
+  background:#123b29!important;color:#75e5a4!important;border-color:#276c4b!important;
+}
+html[data-theme="dark"] #scModalOverlay [style*="background:rgba(127,127,127,.08)"]{
+  background:#12253a!important;
+}
+@media(max-width:620px){
+  #scModalOverlay>div{font-size:14px}
+  #scModalOverlay h2{font-size:25px!important}
+  #scModalOverlay .eyebrow2{font-size:10px!important}
+  #scModalOverlay input,#scModalOverlay select,#scModalOverlay textarea{font-size:16px!important}
+}

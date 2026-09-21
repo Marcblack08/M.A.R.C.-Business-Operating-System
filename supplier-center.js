@@ -62,9 +62,7 @@
 
   async function newSupplier(existing=null){
     const S=sb(); const {data:{session}}=await S.auth.getSession(); if(!session)return;
-    let selectedPhoto=null;
     const body='<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">'+
-      '<label style="grid-column:1/-1;display:grid;gap:6px"><span>Foto del producto</span><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'+(item.image_url?'<img src="'+esc(item.image_url)+'" style="width:90px;height:90px;object-fit:contain;border-radius:12px;border:1px solid rgba(127,127,127,.18)">' : '<span style="width:90px;height:90px;display:grid;place-items:center;border-radius:12px;background:rgba(127,127,127,.08)">📷</span>')+'<input id="scEditPhoto" type="file" accept="image/*" capture="environment" class="input"><small style="opacity:.7">Toma una nueva foto o selecciona una imagen.</small></div></label>'+
       '<label>Nombre del proveedor *<input id="scSupName" class="input" value="'+esc(existing?.name||'')+'"></label>'+
       '<label>Persona de contacto<input id="scSupContact" class="input" value="'+esc(existing?.contact_name||'')+'"></label>'+
       '<label>Teléfono / WhatsApp<input id="scSupPhone" class="input" value="'+esc(existing?.phone||'')+'"></label>'+

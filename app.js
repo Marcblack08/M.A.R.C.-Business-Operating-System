@@ -390,7 +390,7 @@ async function clientHistoryModal(client){
     const quotedTotal=quotes.reduce((s,q)=>s+Number(q.total||0),0);
     const paidTotal=payments.reduce((s,p)=>s+Number(p.amount||0),0);
     const body=$("#clientHistoryBody");
-    body.innerHTML=`<div class="client-history-hero"><div><div class="client-avatar large">${esc(String(client.name||"C").split(/\s+/).filter(Boolean).slice(0,2).map(v=>v[0]).join("").toUpperCase())}</div></div><div class="client-history-main"><div class="eyebrow2">HISTORIA COMPLETA</div><h2>${esc(client.name)}</h2><p>${esc([client.document_number,client.phone,client.email].filter(Boolean).join(" · ")||"Sin datos de contacto")}</p></div><div class="client-history-actions"><button class="primary" id="shareClientPortal">Compartir portal</button><button class="secondary" id="editHistoryClient">Editar ficha</button></div></div>
+    body.innerHTML=`<div class="client-history-hero"><div><div class="client-avatar large">${esc(String(client.name||"C").split(/\s+/).filter(Boolean).slice(0,2).map(v=>v[0]).join("").toUpperCase())}</div></div><div class="client-history-main"><div class="eyebrow2">HISTORIA COMPLETA</div><h2>${esc(client.name)}</h2><p>${esc([client.document_number,client.phone,client.email].filter(Boolean).join(" · ")||"Sin datos de contacto")}</p></div><div class="client-history-actions"><button class="primary" id="shareClientPortal">Compartir portal</button><button class="secondary" id="addClientHistory">＋ Registrar nota</button><button class="secondary" id="editHistoryClient">Editar ficha</button></div></div>
     <div class="client-history-stats"><div><span>COTIZACIONES</span><b>${quotes.length}</b><small>Importe acumulado ${money(quotedTotal)}</small></div><div><span>COMPRAS / TRABAJOS</span><b>${purchased.length}</b><small>Partidas aceptadas o cobradas</small></div><div><span>PAGADO</span><b>${money(paidTotal)}</b><small>Ingresos vinculados</small></div><div><span>INFORMES</span><b>${reports.length}</b><small>Historial técnico</small></div></div>
     <div class="client-history-grid">
       <section class="client-history-panel"><div class="panel-title-row"><div><div class="eyebrow2">PRODUCTOS Y SERVICIOS</div><h3>Lo que este cliente ha solicitado</h3></div></div><div class="client-product-list">${[...productMap.values()].map(x=>`<div><b>${esc(x.name)}</b><span>${Number(x.quantity).toLocaleString("es-PE")} · ${money(x.total)}</span></div>`).join("")||'<div class="empty">Todavía no hay partidas registradas.</div>'}</div></section>
@@ -400,6 +400,15 @@ async function clientHistoryModal(client){
     </div>`;
     $("#editHistoryClient").onclick=()=>{close();clientModal(client)};
     $("#shareClientPortal").onclick=()=>clientPortalShare(client);
+    $("#addClientHistory").onclick=async()=>{
+      const title=prompt("Título de la nota","Condición / acuerdo con el cliente");
+      if(!title?.trim())return;
+      const description=prompt("Detalle de la condición, acuerdo, visita o seguimiento","");
+      const visible=confirm("¿Esta nota también debe verla el cliente desde su portal?");
+      const r=await S.from("marc_client_history").insert({user_id:st.u.id,client_id:client.id,event_type:"NOTE",title:title.trim(),description:description||null,visible_to_client:visible,metadata:{}});
+      if(r.error)return toast(r.error.message,"err");
+      toast("Nota registrada","ok");close();clientHistoryModal(client);
+    };
   }catch(err){
     $("#clientHistoryBody").innerHTML='<div class="msg error">'+esc(err.message||"No se pudo cargar la historia del cliente.")+'</div>';
   }

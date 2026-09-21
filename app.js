@@ -3141,6 +3141,11 @@ function describeAuthFailure(search,hash){
 }
 function wire(){
   initTheme();
+  const portalToken=new URLSearchParams(location.search).get("cliente_token");
+  if(portalToken){
+    renderClientPortal(portalToken);
+    return;
+  }
   const toggleTheme=()=>applyTheme(document.documentElement.dataset.theme==="dark"?"light":"dark");
   $("#themeToggle").onclick=toggleTheme;
   $("#authThemeToggle").onclick=toggleTheme;

@@ -2422,10 +2422,14 @@ async function marketing(){
     const title=currentCampaign.title||currentProduct?.name||"Publicidad de M.A.R.C.";
     const text=[currentCampaign.headline,currentCampaign.primary_text,currentCampaign.short_text,(currentCampaign.hashtags||[]).join(" ")].filter(Boolean).join("\n\n");
     try{
+      const imageDataUrl=currentAiImage||currentImage||"";
       if(window.MARCNotifications?.share){
-        await window.MARCNotifications.share({title,text,url:location.href});
+        await window.MARCNotifications.share({title,text,url:location.href,imageDataUrl,fileName:"publicidad-marc-"+Date.now()+".png"});
       }else if(navigator.share){
-        await navigator.share({title,text,url:location.href});
+        let files=[];
+        try{if(imageDataUrl){const m=String(imageDataUrl).match(/^data:([^;]+);base64,(.+)$/);if(m){const bin=atob(m[2]),bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);files=[new File([bytes],"publicidad-marc.png",{type:m[1]})]}}}catch{}
+        if(files.length&&navigator.canShare?.({files}))await navigator.share({title,text,url:location.href,files});
+        else await navigator.share({title,text,url:location.href});
       }else{
         await navigator.clipboard?.writeText(text);toast("Texto copiado para compartir.","ok");
       }

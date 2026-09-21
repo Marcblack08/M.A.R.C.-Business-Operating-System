@@ -3552,6 +3552,35 @@ async function telegramUnlink(request,env){
   return json({ok:true},200,corsHeaders(request));
 }
 
+async function processDuePublicationJobs(env){
+  const adminToken=env.SUPABASE_SERVICE_ROLE_KEY||env.SUPABASE_SECRET_KEY;
+  if(!adminToken)return {ok:false,error:"Falta la clave privada de Supabase."};
+  const now=new Date().toISOString();
+  const jobs=await sb(env,adminToken,"marc_publication_jobs?select=id,publication_id,user_id,attempt,status,run_after&status=eq.PENDING&run_after=lte."+encodeURIComponent(now)+"&order=run_after.asc&limit=20");
+  const results=[];
+  for(const job of Array.isArray(jobs)?jobs:[]){
+    await sb(env,adminToken,"marc_publication_jobs?id=eq."+encodeURIComponent(job.id)+"&status=eq.PENDING",{method:"PATCH",body:{status:"RUNNING",started_at:now,attempt:Number(job.attempt||0)+1}}).catch(()=>{});
+    try{
+      const userRows=await sb(env,adminToken,"auth.users?select=id&id=eq."+encodeURIComponent(job.user_id)+"&limit=1").catch(()=>[]);
+      if(!userRows?.length)throw new Error("Usuario no encontrado.");
+      const pubRows=await sb(env,adminToken,"marc_publications?select=id,user_id,inventory_id,campaign_id,platform,status,title,headline,body,short_text,hashtags,media_url,media_type,scheduled_for&user_id=eq."+encodeURIComponent(job.user_id)+"&id=eq."+encodeURIComponent(job.publication_id)+"&status=eq.SCHEDULED&limit=1");
+      if(!pubRows?.[0])throw new Error("La publicación ya no está programada o no existe.");
+      const fakeRequest=new Request("https://worker.internal/api/social/meta/publish",{method:"POST",headers:{Authorization:"Bearer "+adminToken,"content-type":"application/json"},body:JSON.stringify({publicationId:job.publication_id})});
+      const response=await metaPublish(fakeRequest,env);
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok||!data?.ok)throw Object.assign(new Error(data?.error||data?.message||"No se pudo publicar."),{status:response.status,details:data});
+      await sb(env,adminToken,"marc_publication_jobs?id=eq."+encodeURIComponent(job.id),{method:"PATCH",body:{status:"DONE",finished_at:new Date().toISOString(),response_metadata:data,error_message:null}});
+      results.push({id:job.id,status:"DONE"});
+    }catch(err){
+      const attempt=Number(job.attempt||0)+1;
+      const retry=attempt<3;
+      await sb(env,adminToken,"marc_publication_jobs?id=eq."+encodeURIComponent(job.id),{method:"PATCH",body:{status:retry?"PENDING":"FAILED",run_after:retry?new Date(Date.now()+attempt*5*60*1000).toISOString():job.run_after,finished_at:retry?null:new Date().toISOString(),error_message:String(err?.message||"Error de publicación"),response_metadata:{status:err?.status||500,detail:err?.details||null}}}).catch(()=>{});
+      results.push({id:job.id,status:retry?"RETRY":"FAILED",error:String(err?.message||"Error")});
+    }
+  }
+  return {ok:true,processed:results.length,results};
+}
+
 export default{
   async fetch(request,env,ctx){
     const headers=corsHeaders(request);

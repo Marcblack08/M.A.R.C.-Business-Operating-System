@@ -3251,7 +3251,7 @@ function wire(){
   $("#mobileScrim").onclick=()=>$("#sidebar").classList.remove("open");
   // Navegación robusta para escritorio y móvil: delegación de eventos para que
   // los botones sigan funcionando aunque el contenido se redibuje dinámicamente.
-  $(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>{
+  document.querySelectorAll(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>{
     b.type="button";
     b.onclick=(e)=>{e.preventDefault();e.stopPropagation();if(b.dataset.view==="suppliers"&&typeof window.marcSupplierCenter==="function")return window.marcSupplierCenter();return view(b.dataset.view)};
   });

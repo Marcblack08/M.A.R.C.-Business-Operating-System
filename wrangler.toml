@@ -9,10 +9,17 @@ TELEGRAM_BOT_USERNAME="MARC_CopilotoBot"
 GEMINI_MODEL="gemini-3.8-flash"
 GEMINI_MODEL_FALLBACK="gemini-3.7-flash"
 GEMINI_MODEL_FALLBACK2="gemini-3.6-flash"
-# Secretos: SUPABASE_SECRET_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET
+# Secretos: SUPABASE_SECRET_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET,
+# META_APP_ID, META_APP_SECRET, META_TOKEN_ENCRYPTION_KEY
 
 [assets]
 directory="."
 binding="ASSETS"
 run_worker_first=["/api/*","/","/index.html","/app.js","/styles.css","/config.js"]
+
+[triggers]
+# Procesa publicaciones programadas cada minuto.
+crons=["* * * * *"]
+
 # deploy-trigger: telegram-mayordomo-direct-routes-20260919-2045
+# social-scheduler-cron-20260921

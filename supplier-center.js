@@ -98,19 +98,27 @@
     alert(names||"Este proveedor todavía no tiene catálogos.");
   }
 
+  function scModal(title,body,actions=""){
+    let root=document.querySelector("#modal")||document.body;
+    root.innerHTML='<div id="scModalOverlay" style="position:fixed;inset:0;background:rgba(2,8,23,.72);backdrop-filter:blur(8px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px"><div style="width:min(980px,100%);max-height:92vh;overflow:auto;background:var(--card,#fff);color:inherit;border:1px solid rgba(127,127,127,.18);border-radius:22px;box-shadow:0 25px 80px rgba(0,0,0,.35);padding:22px"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px"><div><div class="eyebrow2">M.A.R.C. · CENTRO DE ABASTECIMIENTO</div><h2 style="margin:4px 0 0">'+esc(title)+'</h2></div><button id="scModalClose" class="icon" type="button">×</button></div><div id="scModalBody">'+body+'</div><div id="scModalActions" style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px">'+actions+'</div></div></div>';
+    document.querySelector("#scModalClose").onclick=()=>root.innerHTML="";
+    document.querySelector("#scModalOverlay").onclick=e=>{if(e.target.id==="scModalOverlay")root.innerHTML=""};
+    return document.querySelector("#scModalBody");
+  }
+
   async function catalogProducts(catalogId){
     const S=sb(); const {data,error}=await S.from("marc_supplier_catalog_items").select("*").eq("catalog_id",catalogId).order("created_at",{ascending:true});
     if(error)return alert(error.message);
     const items=data||[];
-    if(!items.length){ alert("Este catálogo todavía no tiene productos detectados."); return; }
-    const lines=items.map((x,i)=>(i+1)+". "+x.name+" | "+money(x.supplier_price||x.supplier_cost)+" | "+x.status).join("\n");
-    const pick=prompt("Productos detectados:\n"+lines+"\n\nNúmero = Publicidad. I + número = importar a Inventario.");
-    if(!pick)return;
-    const m=pick.trim().match(/^I\s*(\d+)$/i);
-    const n=Number((m?m[1]:pick).trim()); const item=items[n-1];
-    if(!item)return;
-    if(m)return importCatalogItem(item);
-    await createPublicationDraft(item);
+    if(!items.length){alert("Este catálogo todavía no tiene productos detectados.");return;}
+    const rows=items.map((x,i)=>'<tr><td><input type="checkbox" class="scItemCheck" value="'+x.id+'"></td><td><b>'+esc(x.name)+'</b><br><small>'+esc([x.brand,x.model,x.sku].filter(Boolean).join(" · "))+'</small></td><td>'+money(x.supplier_price||x.supplier_cost)+'</td><td><span class="badge '+(x.status==="IMPORTED"?"ok":"low")+'">'+esc(x.status)+'</span></td><td><button class="secondary scPublishOne" data-id="'+x.id+'">Publicidad</button></td></tr>').join("");
+    scModal("Productos detectados",'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"><button id="scSelectAll" class="secondary">Seleccionar todo</button><button id="scImportSelected" class="primary">Importar seleccionados</button><button id="scPublishSelected" class="secondary">Crear publicaciones</button></div><div style="overflow:auto"><table style="width:100%;border-collapse:collapse"><thead><tr><th></th><th>Producto</th><th>Precio</th><th>Estado</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>','<button id="scDone" class="primary">Listo</button>');
+    document.querySelector("#scDone").onclick=()=>document.querySelector("#modal").innerHTML="";
+    document.querySelector("#scSelectAll").onclick=()=>document.querySelectorAll(".scItemCheck").forEach(x=>x.checked=true);
+    const selected=()=>[...document.querySelectorAll(".scItemCheck:checked")].map(x=>items.find(i=>i.id===x.value)).filter(Boolean);
+    document.querySelector("#scImportSelected").onclick=async()=>{for(const item of selected())await importCatalogItem(item);document.querySelector("#modal").innerHTML="";await loadCenter()};
+    document.querySelector("#scPublishSelected").onclick=async()=>{for(const item of selected())await createPublicationDraft(item);document.querySelector("#modal").innerHTML="";await loadCenter()};
+    document.querySelectorAll(".scPublishOne").forEach(b=>b.onclick=async()=>{const item=items.find(i=>i.id===b.dataset.id);if(item)await createPublicationDraft(item)});
   }
 
   async function analyzeCatalog(catalog,file){

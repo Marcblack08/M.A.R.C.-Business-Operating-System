@@ -2210,7 +2210,7 @@ function downloadCashExcel(report){
 }
 
 async function marketing(){
-  const [{data:products,error},{data:companyData},{data:clientsData}]=await Promise.all([S.from("marc_inventory").select("id,name,sku,brand,model,category,price,stock,image_url").eq("user_id",st.u.id).eq("active",true).order("name").limit(1000),S.from("marc_accounts").select("business_name,logo_data,phone").eq("id",st.u.id).maybeSingle(),S.from("marc_clients").select("id,name,contact_name,phone,email").eq("user_id",st.u.id).order("name").limit(1000)]);
+  const [{data:products,error},{data:companyData},{data:clientsData}]=await Promise.all([S.from("marc_inventory").select("id,name,sku,brand,model,category,price,stock,image_url").eq("user_id",st.u.id).eq("active",true).order("name").limit(1000),S.from("marc_company_profiles").select("business_name,legal_name,ruc,address,phone,email,logo_data").eq("user_id",st.u.id).maybeSingle(),S.from("marc_clients").select("id,name,contact_name,phone,email").eq("user_id",st.u.id).order("name").limit(1000)]);
   if(error){toast(error.message,"err");return}
   const list=products||[],clientsList=clientsData||[];
   const saved=JSON.parse(localStorage.getItem("marc_marketing_last")||"null");
@@ -2250,11 +2250,11 @@ async function marketing(){
         <div class="marketing-formats"><button type="button" class="marketing-format active" data-format="1080x1080"><b>□</b><span>Cuadrado</span><small>1:1</small></button><button type="button" class="marketing-format" data-format="1080x1350"><b>▯</b><span>Vertical</span><small>4:5</small></button><button type="button" class="marketing-format" data-format="1080x1920"><b>▯</b><span>Historia</span><small>9:16</small></button></div>
         <select id="adFormat" class="marketing-hidden-control"><option value="1080x1080">Cuadrado · 1:1</option><option value="1080x1350">Post vertical · 4:5</option><option value="1080x1920">Historia · 9:16</option></select>
         <details class="marketing-advanced"><summary>⚙ Opciones avanzadas</summary><div class="form-grid" style="margin-top:10px"><label>Objetivo<select id="adObjective"><option>VENDER</option><option>GENERAR CONSULTAS</option><option>PROMOCIONAR PRODUCTO</option><option>REACTIVAR CLIENTES</option></select></label><label>Tono<select id="adTone"><option>PROFESIONAL</option><option>DIRECTO Y COMERCIAL</option><option>AMIGABLE</option><option>PREMIUM</option><option>URGENTE</option></select></label><label>Público objetivo<input id="adAudience" placeholder="Déjalo vacío y M.A.R.C. lo propone"></label><label>Oferta / precio especial<input id="adOffer" placeholder="Opcional; también puede salir del texto"></label><label>CTA<input id="adCta" value="Escríbenos para cotizar"></label><label>Diseño<select id="adTemplate"><option value="MODERN">Moderno</option><option value="OFFER">Oferta</option><option value="CORPORATE">Corporativo</option></select></label></div></details>
-        <div class="marketing-generate-box"><div><b>Listo para crear</b><small>M.A.R.C. generará 2 propuestas de imagen y preparará los textos.</small></div><div class="modal-actions marketing-generate-actions"><button class="primary marketing-main-generate" id="generateAd">✦ Crear publicidad</button><button class="secondary" id="generateTextAd">Solo crear textos</button></div></div><div id="adStatus" class="msg"></div>
+        <div class="marketing-generate-box"><div><b>Listo para crear</b><small>M.A.R.C. generará 2 propuestas visuales y preparará los textos.</small></div><div class="modal-actions marketing-generate-actions"><button class="primary marketing-main-generate" id="generateAd">✦ Crear publicidad</button><button class="secondary" id="generateTextAd">Solo crear textos</button></div></div><div id="adStatus" class="msg"></div>
       </section>
       <section class="card panel marketing-preview-card">
         <div class="marketing-step-title"><span>5</span><div><b>Vista previa del banner</b><small>M.A.R.C. aplica tu logo y datos de contacto automáticamente.</small></div></div>
-        <div class="marketing-company-strip"><span class="marketing-company-logo" id="adCompanyLogo"></span><div><b id="adCompanyName">${esc(companyData?.business_name||"Tu empresa")}</b><small id="adCompanyContact">${esc(companyData?.phone||"Datos de contacto del perfil")}</small></div><span>✓ Datos automáticos</span></div>
+        <div class="marketing-company-strip"><span class="marketing-company-logo" id="adCompanyLogo"></span><div><b id="adCompanyName">${esc(companyData?.business_name||"Tu empresa")}</b><small id="adCompanyContact">${esc([companyData?.phone,companyData?.email].filter(Boolean).join(" · ")||"Datos de contacto del perfil")}</small></div><span>✓ Datos automáticos</span></div>
         <div class="marketing-canvas-wrap"><canvas id="adCanvas" width="1080" height="1080"></canvas></div><div id="adVariants" class="marketing-variants" aria-live="polite"></div><div class="marketing-banner-actions"><button class="primary" id="downloadAd" disabled>↓ Descargar PNG</button><button class="secondary" id="copyBanner">Copiar texto</button><button class="secondary" id="shareAd">Compartir</button></div><small id="bannerHint" class="muted-small">Sube una foto y cuéntale a M.A.R.C. qué quieres publicar.</small>
       </section>
     </div>
@@ -2287,7 +2287,7 @@ async function marketing(){
   const $p=id=>document.getElementById(id);
   const companyLogo=$p("adCompanyLogo");if(companyLogo&&company.logo_data)companyLogo.style.backgroundImage='url("'+company.logo_data.replace(/"/g,'&quot;')+'")';
   if($p("adCompanyName"))$p("adCompanyName").textContent=company.business_name||"Tu empresa";
-  if($p("adCompanyContact"))$p("adCompanyContact").textContent=company.phone||"Datos de contacto del perfil";
+  if($p("adCompanyContact"))$p("adCompanyContact").textContent=[company.phone,company.email].filter(Boolean).join(" · ")||"Datos de contacto del perfil";
   const renderCanvas=async()=>{
     const canvas=$p("adCanvas");if(!canvas||!currentProduct)return;
     const [w,h]=($p("adFormat").value||"1080x1080").split("x").map(Number);canvas.width=w;canvas.height=h;
@@ -2399,7 +2399,7 @@ async function marketing(){
   $p("adImageCamera").onchange=async e=>{await setAdImageFile(e.target.files?.[0])};
   $p("analyzeAdPhoto").onclick=analyzeAdPhoto;
   $p("marketingPhotoClear").onclick=clearAdPhoto;
-  $p("marketingCompanyInfo").onclick=()=>toast("Datos usados: "+String(company.business_name||"Tu empresa")+(company.phone?" · "+company.phone:""),"ok");
+  $p("marketingCompanyInfo").onclick=()=>toast("Datos usados: "+String(company.business_name||"Tu empresa")+(company.phone?" · "+company.phone:"")+(company.email?" · "+company.email:"")+(company.address?" · "+company.address:""),"ok");
   const publicationText=()=>{const body=[currentCampaign?.headline,currentCampaign?.primary_text,currentCampaign?.short_text,(currentCampaign?.hashtags||[]).join(" ")].filter(Boolean).join("\n\n");return currentClient?"Hola "+(currentClient.contact_name||currentClient.name)+",\n\n"+body:body};
   const recordClientShare=async(publicationId,target)=>{if(!currentClient)return;const h=await S.from("marc_client_history").insert({user_id:st.u.id,client_id:currentClient.id,event_type:"PUBLICIDAD",title:"Publicidad compartida",description:"Se compartió una publicidad de "+(currentProduct?.name||"un producto")+" con "+currentClient.name+".",metadata:{publication_id:publicationId||null,platform:target||"SHARE",product_id:currentProduct?.id||null,product_name:currentProduct?.name||null},visible_to_client:true});if(h.error)console.warn("No se pudo registrar el historial del cliente",h.error)};
   const ensurePublicationRecord=async(target)=>{if(currentPublicationId)return currentPublicationId;if(!currentCampaign)return null;const platform=target==="SHARE"?"WHATSAPP":target||"WHATSAPP";const r=await S.from("marc_publications").insert({user_id:st.u.id,inventory_id:currentProduct?.id||null,client_id:currentClient?.id||null,platform,status:"DRAFT",title:currentCampaign.title||currentProduct?.name,headline:currentCampaign.headline,body:currentCampaign.primary_text,short_text:currentCampaign.short_text,hashtags:currentCampaign.hashtags||[],media_url:currentAiImage||currentImage||currentProduct?.image_url||null,media_type:"IMAGE"}).select("id").single();if(r.error)throw r.error;currentPublicationId=r.data.id;return r.data.id};
@@ -2481,7 +2481,7 @@ async function marketing(){
       if(!currentAiVariants.length)throw new Error("La IA no devolvió propuestas visuales.");
       currentAiVariantIndex=0;currentAiImage="data:"+(currentAiVariants[0].mimeType||"image/png")+";base64,"+currentAiVariants[0].data;await renderVariants();await renderCanvas();
       localStorage.setItem("marc_marketing_last",JSON.stringify({campaign:currentCampaign,productId:currentProduct?.id,clientId:currentClient?.id||null}));
-      status.className="msg ok";status.textContent="M.A.R.C. creó 2 propuestas visuales. Elige una y luego compártela desde tu teléfono.";const hint=$p("bannerHint");if(hint)hint.textContent="Elige una propuesta visual. Los datos, precio y CTA se colocan de forma consistente sobre la imagen.";
+      status.className="msg ok";status.textContent="M.A.R.C. creó 2 propuestas visuales. Elige una y úsala para compartir.";const hint=$p("bannerHint");if(hint)hint.textContent="Elige una propuesta visual. Los datos, precio y CTA se colocan de forma consistente sobre la imagen.";
     }catch(e){status.className="msg error";status.textContent=e.message||"No se pudo generar el banner."}finally{btn.disabled=false}
   };
   $p("generateAd").onclick=generateAiBanner;

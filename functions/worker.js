@@ -2618,10 +2618,10 @@ async function geminiGenerateImage(env,imageBase64,prompt,options={}){
   const clean=String(imageBase64||"").replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/,"");
   const body={
     contents:[{parts:[
-      {inlineData:{mimeType:"image/jpeg",data:clean}},
+      {inlineData:{mimeType:options.mimeType||"image/jpeg",data:clean}},
       {text:String(prompt)}
     ]}],
-    generationConfig:{maxOutputTokens:options.maxTokens||3200}
+    generationConfig:{maxOutputTokens:options.maxTokens||3200,...(options.json?{responseMimeType:"application/json"}:{})}
   };
   const transient=[429,500,502,503,504,529];
   let last=null;
@@ -2708,7 +2708,7 @@ async function analyzeInventoryProductPhoto(request,env){
   image=image.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/,"");
   if(image.length>7000000)return json({error:"La imagen es demasiado grande para analizarla. Usa una foto más pequeña."},413,corsHeaders(request));
   const prompt='Analiza esta foto de la caja o empaque de un producto para inventario. Extrae SOLO información que realmente puedas leer o identificar en la imagen. No inventes SKU, marca, modelo, categoría ni número de serie. No extraigas ni calcules precios de venta. Devuelve SOLO JSON con este formato exacto: {"name":"","sku":null,"brand":null,"model":null,"category":"","serial_number":null,"confidence":0}. name es el nombre comercial visible. sku es el código/SKU/part number del producto. serial_number es el número de serie único de ESTA unidad si aparece claramente en la caja o etiqueta; no confundas SKU o modelo con serial y usa null si no es visible. brand y model solo si aparecen. category solo si es evidente. confidence entre 0 y 1.';
-  const out=await geminiGenerateImage(env,image,prompt,{maxTokens:500,json:true});
+  const out=await geminiGenerateImage(env,image,prompt,{maxTokens:700,json:true,mimeType:mime});
   const text=out?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("")||"";
   if(!text)throw Object.assign(new Error("Gemini no devolvió datos de la imagen."),{status:502});
   let parsed;

@@ -3117,3 +3117,24 @@ html[data-theme="dark"] #scModalOverlay [style*="background:rgba(127,127,127,.08
   .conversation-quick-goals{display:grid;grid-template-columns:1fr 1fr}
   .conversation-quick-goals button{width:100%}
 }
+
+
+/* Publicidad · destinatario e identidad de marca */
+.marketing-recipient-card{border:1px solid rgba(19,115,230,.18);background:linear-gradient(180deg,rgba(19,115,230,.06),rgba(19,115,230,.02))}
+.marketing-recipient-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.marketing-recipient-head h3{margin:3px 0 2px}
+.marketing-recipient-head small{display:block;opacity:.68}
+.marketing-recipient-head>span{width:42px;height:42px;display:grid;place-items:center;border-radius:13px;background:rgba(19,115,230,.12);font-size:20px}
+.marketing-recipient-row{display:grid;grid-template-columns:minmax(240px,1fr) minmax(220px,1fr);gap:10px;align-items:end}
+.marketing-recipient-select span{display:block;font-size:12px;font-weight:700;margin-bottom:6px}
+.marketing-recipient-select select{width:100%}
+.marketing-recipient-info{min-height:44px;border:1px solid rgba(127,127,127,.16);border-radius:12px;padding:9px 12px;background:rgba(127,127,127,.045)}
+.marketing-recipient-info b{display:block;font-size:13px}
+.marketing-recipient-info small{display:block;margin-top:3px;opacity:.68;line-height:1.35}
+.marketing-company-footer{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.marketing-company-footer small{display:block;margin-top:3px;opacity:.65}
+@media(max-width:780px){
+  .marketing-recipient-row{grid-template-columns:1fr}
+  .marketing-company-footer{display:block}
+  .marketing-company-footer button{width:100%;margin-top:10px}
+}

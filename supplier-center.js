@@ -45,7 +45,7 @@
     const suppliers=s.data||[], catalogs=c.data||[], items=i.data||[];
     document.querySelector("#scSupplierList").innerHTML=suppliers.map(x=>{
       const count=catalogs.filter(v=>v.supplier_id===x.id).length;
-      return '<article class="client-card"><div class="client-card-top"><div class="client-avatar">'+esc((x.name||"P").slice(0,2).toUpperCase())+'</div><div class="client-card-name"><h3>'+esc(x.name)+'</h3><small>'+esc(x.contact_name||x.phone||x.email||"Sin contacto")+'</small></div></div><div class="client-details"><div><span>Catálogos</span><b>'+count+'</b></div><div><span>Web</span><b>'+esc(x.website||"—")+'</b></div></div><div class="client-card-actions"><button class="secondary" data-supplier="'+x.id+'">Ver catálogos</button></div></article>'
+      return '<article class="client-card"><div class="client-card-top"><div class="client-avatar">'+esc((x.name||"P").slice(0,2).toUpperCase())+'</div><div class="client-card-name"><h3>'+esc(x.name)+'</h3><small>'+esc(x.contact_name||x.phone||x.email||"Sin contacto")+'</small></div></div><div class="client-details"><div><span>Catálogos</span><b>'+count+'</b></div><div><span>Web</span><b>'+esc(x.website||"—")+'</b></div></div><div class="client-card-actions"><button class="secondary" data-supplier="'+x.id+'">Ver catálogos</button><button class="secondary scEditSupplier" data-supplier-id="'+x.id+'">Editar</button></div></article>'
     }).join("")||'<div class="empty-state"><span>＋</span><b>Aún no hay proveedores</b><small>Registra tu primer proveedor.</small></div>';
     document.querySelector("#scCatalogList").innerHTML=catalogs.map(x=>{
       const supplier=suppliers.find(v=>v.id===x.supplier_id);
@@ -226,36 +226,35 @@
   }
 
   async function catalogProducts(catalogId){
-    const S=sb(); const {data,error}=await S.from("marc_supplier_catalog_items").select("*").eq("catalog_id",catalogId).order("created_at",{ascending:true});
+    const S=sb();
+    const {data,error}=await S.from("marc_supplier_catalog_items").select("*").eq("catalog_id",catalogId).order("category").order("name");
     if(error)return alert(error.message);
     const items=data||[];
     if(!items.length){alert("Este catálogo no tiene productos detectados.");return;}
-    const rows=items.map(x=>'<tr>'+
-      '<td><input type="checkbox" class="scItemCheck" value="'+x.id+'"></td>'+
-      '<td>'+(x.image_url?'<img src="'+esc(x.image_url)+'" alt="" style="width:52px;height:52px;object-fit:contain;border-radius:10px;border:1px solid rgba(127,127,127,.18);vertical-align:middle;margin-right:8px">':'<span style="display:inline-flex;width:52px;height:52px;align-items:center;justify-content:center;border-radius:10px;background:rgba(127,127,127,.08);margin-right:8px">📦</span>')+
-      '<b>'+esc(x.name)+'</b><br><small>'+esc([x.brand,x.model,x.sku].filter(Boolean).join(" · "))+'</small></td>'+
-      '<td>'+money(x.supplier_price??x.supplier_cost)+'</td>'+
-      '<td><span class="badge '+(x.status==="IMPORTED"||x.status==="APPROVED"?"ok":"low")+'">'+esc(x.status)+'</span></td>'+
-      '<td><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="secondary scEditOne" data-id="'+x.id+'">Editar</button><button class="secondary scPublishOne" data-id="'+x.id+'">Publicidad</button><button class="danger scDeleteOne" data-id="'+x.id+'">Eliminar</button></div></td>'+
-      '</tr>').join("");
-    const body='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">'+
-      '<button id="scSelectAll" class="secondary">Seleccionar todo</button><button id="scClearAll" class="secondary">Quitar selección</button>'+
-      '<button id="scImportSelected" class="primary">Importar seleccionados</button><button id="scApproveSelected" class="secondary">Aprobar seleccionados</button>'+
-      '<button id="scDeleteSelected" class="danger">Eliminar seleccionados</button><button id="scPublishSelected" class="secondary">Crear publicaciones</button></div>'+
-      '<div style="padding:10px 12px;margin-bottom:12px;border-radius:12px;background:rgba(37,99,235,.08);font-size:13px">Revisa antes de importar. Las imágenes del PDF sirven como referencia visual; una imagen por sí sola ya no se convierte automáticamente en un producto.</div>'+
-      '<div style="overflow:auto"><table style="width:100%;border-collapse:collapse"><thead><tr><th></th><th>Producto</th><th>Precio</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
-    scModal("Productos detectados · "+items.length,body,'<button id="scDone" class="primary">Listo</button>');
+    const catRow=await S.from("marc_supplier_catalogs").select("supplier_id,marc_suppliers(name,default_markup_pct)").eq("id",catalogId).maybeSingle();
+    const supplier=catRow.data?.marc_suppliers||null;
+    const categories=[...new Set(items.map(x=>String(x.category||"Sin categoría").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"es"));
+    const body='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"><input id="scCatSearch" class="input" placeholder="Buscar producto, SKU, marca o modelo…" style="flex:1;min-width:220px"><select id="scCatFilter" class="input"><option value="">Todas las categorías</option>'+categories.map(x=>'<option value="'+esc(x)+'">'+esc(x)+'</option>').join('')+'</select></div>'+
+      '<div style="padding:10px 12px;margin-bottom:12px;border-radius:12px;background:rgba(37,99,235,.08);font-size:13px">Proveedor: <b>'+esc(supplier?.name||"Sin proveedor")+'</b> · Aumento predeterminado: <b>'+Number(supplier?.default_markup_pct||0).toFixed(1)+'%</b>. El precio sugerido es solo de referencia hasta usarlo en una cotización.</div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px"><button id="scSelectAll" class="secondary">Seleccionar visibles</button><button id="scClearAll" class="secondary">Quitar selección</button><button id="scImportSelected" class="primary">Importar a Inventario</button><button id="scApproveSelected" class="secondary">Aprobar</button><button id="scDeleteSelected" class="danger">Eliminar</button><button id="scPublishSelected" class="secondary">Crear publicaciones</button></div><div id="scCatTable" style="overflow:auto"></div>';
+    scModal("Productos del proveedor · "+items.length,body,'<button id="scDone" class="primary">Listo</button>');
     document.querySelector("#scDone").onclick=()=>document.querySelector("#modal").innerHTML="";
-    document.querySelector("#scSelectAll").onclick=()=>document.querySelectorAll(".scItemCheck").forEach(x=>x.checked=true);
-    document.querySelector("#scClearAll").onclick=()=>document.querySelectorAll(".scItemCheck").forEach(x=>x.checked=false);
     const selected=()=>[...document.querySelectorAll(".scItemCheck:checked")].map(x=>items.find(i=>i.id===x.value)).filter(Boolean);
-    document.querySelector("#scImportSelected").onclick=async()=>{const chosen=selected();if(!chosen.length)return alert("Selecciona al menos un producto.");for(const item of chosen)await importCatalogItem(item);await catalogProducts(catalogId)};
-    document.querySelector("#scApproveSelected").onclick=async()=>{const chosen=selected();if(!chosen.length)return alert("Selecciona al menos un producto.");const r=await S.from("marc_supplier_catalog_items").update({status:"APPROVED",updated_at:new Date().toISOString()}).in("id",chosen.map(x=>x.id));if(r.error)return alert("No se pudieron aprobar: "+r.error.message);await catalogProducts(catalogId)};
-    document.querySelector("#scDeleteSelected").onclick=async()=>{const chosen=selected();if(!chosen.length)return alert("Selecciona al menos un producto.");if(!confirm("¿Eliminar "+chosen.length+" producto(s) del catálogo? Esto no elimina productos de tu Inventario."))return;const r=await S.from("marc_supplier_catalog_items").delete().in("id",chosen.map(x=>x.id));if(r.error)return alert("No se pudieron eliminar: "+r.error.message);toast("Productos eliminados.");await catalogProducts(catalogId)};
-    document.querySelector("#scPublishSelected").onclick=async()=>{for(const item of selected())await createPublicationDraft(item);await catalogProducts(catalogId)};
-    document.querySelectorAll(".scEditOne").forEach(b=>b.onclick=()=>{const item=items.find(i=>i.id===b.dataset.id);if(item)editCatalogItem(item,catalogId)});
-    document.querySelectorAll(".scDeleteOne").forEach(b=>b.onclick=()=>{const item=items.find(i=>i.id===b.dataset.id);if(item)deleteCatalogItem(item,catalogId)});
-    document.querySelectorAll(".scPublishOne").forEach(b=>b.onclick=async()=>{const item=items.find(i=>i.id===b.dataset.id);if(item)await createPublicationDraft(item)});
+    const render=()=>{
+      const q=String(document.querySelector("#scCatSearch").value||"").toLowerCase().trim(),cat=document.querySelector("#scCatFilter").value;
+      const visible=items.filter(x=>{const hay=[x.name,x.sku,x.brand,x.model,x.category].filter(Boolean).join(" ").toLowerCase();return(!q||hay.includes(q))&&(!cat||String(x.category||"Sin categoría")===cat)});
+      const rows=visible.map(x=>{const base=Number(x.supplier_price??x.supplier_cost??0),pct=Number(x.markup_pct??supplier?.default_markup_pct??0),sell=base+(base*pct/100);return '<tr><td><input type="checkbox" class="scItemCheck" value="'+x.id+'"></td><td><b>'+esc(x.name)+'</b><br><small>'+esc([x.brand,x.model,x.sku].filter(Boolean).join(" · "))+'</small></td><td>'+money(base)+'</td><td><b>'+money(sell)+'</b><small style="display:block;opacity:.65">+'+pct.toFixed(1)+'%</small></td><td>'+esc(x.category||"Sin categoría")+'</td><td><span class="badge '+(x.status==="IMPORTED"||x.status==="APPROVED"?"ok":"low")+'">'+esc(x.status)+'</span></td><td><button class="secondary scEditOne" data-id="'+x.id+'">Editar</button> <button class="danger scDeleteOne" data-id="'+x.id+'">Eliminar</button></td></tr>'}).join('');
+      document.querySelector("#scCatTable").innerHTML='<table style="width:100%;border-collapse:collapse"><thead><tr><th></th><th>Producto</th><th>Proveedor</th><th>Venta sugerida</th><th>Categoría</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>'+rows+'</tbody></table>';
+      document.querySelector("#scSelectAll").onclick=()=>document.querySelectorAll("#scCatTable .scItemCheck").forEach(x=>x.checked=true);
+      document.querySelector("#scClearAll").onclick=()=>document.querySelectorAll("#scCatTable .scItemCheck").forEach(x=>x.checked=false);
+      document.querySelectorAll(".scEditOne").forEach(b=>b.onclick=()=>{const item=items.find(i=>i.id===b.dataset.id);if(item)editCatalogItem(item,catalogId)});
+      document.querySelectorAll(".scDeleteOne").forEach(b=>b.onclick=()=>{const item=items.find(i=>i.id===b.dataset.id);if(item)deleteCatalogItem(item,catalogId)});
+    };
+    document.querySelector("#scCatSearch").oninput=render;document.querySelector("#scCatFilter").onchange=render;render();
+    document.querySelector("#scImportSelected").onclick=async()=>{const chosen=selected();if(!chosen.length)return alert("Selecciona al menos un producto.");for(const item of chosen)await importCatalogItem(item,supplier);await catalogProducts(catalogId)};
+    document.querySelector("#scApproveSelected").onclick=async()=>{const chosen=selected();if(!chosen.length)return alert("Selecciona al menos un producto.");const r=await S.from("marc_supplier_catalog_items").update({status:"APPROVED",updated_at:new Date().toISOString()}).in("id",chosen.map(x=>x.id));if(r.error)return alert(r.error.message);await catalogProducts(catalogId)};
+    document.querySelector("#scDeleteSelected").onclick=async()=>{const chosen=selected();if(!chosen.length)return alert("Selecciona al menos un producto.");if(!confirm("¿Eliminar "+chosen.length+" producto(s)?"))return;const r=await S.from("marc_supplier_catalog_items").delete().in("id",chosen.map(x=>x.id));if(r.error)return alert(r.error.message);await catalogProducts(catalogId)};
+    document.querySelector("#scPublishSelected").onclick=async()=>{for(const item of selected())await createPublicationDraft(item)};
   }
 
   async function reanalyzeCatalog(catalogId){

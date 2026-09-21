@@ -3350,7 +3350,10 @@ async function uploadMarketingDataUrl(env,adminToken,userId,dataUrl){
   return env.SUPABASE_URL+"/storage/v1/object/public/inventory-images/"+path;
 }
 async function metaPublish(request,env){
-  const {token,user}=await authUser(request,env);
+  const internal= request.headers.get("X-MARC-Internal")==="1" && isAdminToken(env,(request.headers.get("Authorization")||"").replace(/^Bearer\\s+/,""));
+  let token,user;
+  if(internal){ token=(request.headers.get("Authorization")||"").replace(/^Bearer\\s+/,""); const body=await request.clone().json().catch(()=>({})); if(!body?.userId)throw Object.assign(new Error("Falta userId interno."),{status:400}); user={id:String(body.userId)}; }
+  else { const auth=await authUser(request,env); token=auth.token; user=auth.user; }
   const access=await entitlement(env,token,user.id);
   if(access.kind!=="master")throw Object.assign(new Error("Publicar en redes sociales requiere el plan MASTER."),{status:403});
   if(request.method!=="POST")return json({error:"Método no permitido"},405,corsHeaders(request));
@@ -3565,7 +3568,7 @@ async function processDuePublicationJobs(env){
       if(!userRows?.length)throw new Error("Usuario no encontrado.");
       const pubRows=await sb(env,adminToken,"marc_publications?select=id,user_id,inventory_id,campaign_id,platform,status,title,headline,body,short_text,hashtags,media_url,media_type,scheduled_for&user_id=eq."+encodeURIComponent(job.user_id)+"&id=eq."+encodeURIComponent(job.publication_id)+"&status=eq.SCHEDULED&limit=1");
       if(!pubRows?.[0])throw new Error("La publicación ya no está programada o no existe.");
-      const fakeRequest=new Request("https://worker.internal/api/social/meta/publish",{method:"POST",headers:{Authorization:"Bearer "+adminToken,"content-type":"application/json"},body:JSON.stringify({publicationId:job.publication_id})});
+      const fakeRequest=new Request("https://worker.internal/api/social/meta/publish",{method:"POST",headers:{Authorization:"Bearer "+adminToken,"X-MARC-Internal":"1","content-type":"application/json"},body:JSON.stringify({publicationId:job.publication_id,userId:job.user_id})});
       const response=await metaPublish(fakeRequest,env);
       const data=await response.json().catch(()=>({}));
       if(!response.ok||!data?.ok)throw Object.assign(new Error(data?.error||data?.message||"No se pudo publicar."),{status:response.status,details:data});

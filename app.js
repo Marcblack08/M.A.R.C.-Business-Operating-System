@@ -2289,27 +2289,48 @@ async function marketing(){
   if($p("adCompanyName"))$p("adCompanyName").textContent=company.business_name||"Tu empresa";
   if($p("adCompanyContact"))$p("adCompanyContact").textContent=[company.phone,company.email].filter(Boolean).join(" · ")||"Datos de contacto del perfil";
   const renderCanvas=async()=>{
-    const canvas=$p("adCanvas");if(!canvas||!currentProduct)return;
+    const canvas=$p("adCanvas");if(!canvas)return;
     const [w,h]=($p("adFormat").value||"1080x1080").split("x").map(Number);canvas.width=w;canvas.height=h;
-    const ctx=canvas.getContext("2d"),tpl=$p("adTemplate")?.value||"MODERN";
-    const palette=tpl==="OFFER"?["#15100a","#8a4b08","#f59e0b"]:tpl==="CORPORATE"?["#071827","#123b5b","#2d78b7"]:["#071a32","#0b4c91","#18a5ee"];
-    const g=ctx.createLinearGradient(0,0,w,h);g.addColorStop(0,palette[0]);g.addColorStop(.58,palette[1]);g.addColorStop(1,palette[2]);ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
-    ctx.fillStyle="rgba(255,255,255,.08)";ctx.beginPath();ctx.arc(w*.86,h*.12,Math.min(w,h)*.24,0,Math.PI*2);ctx.fill();
-    if(company.logo_data){try{const logo=await new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=reject;im.src=company.logo_data});const lh=Math.min(h*.07,w*.22),lw=lh*(logo.width/logo.height);ctx.drawImage(logo,w*.08,h*.045,lw,lh)}catch{}}
-    let img=null;const src=currentAiImage||currentImage||currentProduct.image_url;
+    const ctx=canvas.getContext("2d"),tpl=$p("adTemplate")?.value||"MODERN",product=currentProduct||{};
+    const isStory=h>w*1.45,isPortrait=h>w*1.08;
+    const palette=tpl==="OFFER"?["#04152a","#0b4c73","#12b9d8"]:tpl==="CORPORATE"?["#031427","#073b63","#08a6cf"]:["#03152a","#064b78","#08b7d6"];
+    const g=ctx.createLinearGradient(0,0,w,h);g.addColorStop(0,palette[0]);g.addColorStop(.55,palette[1]);g.addColorStop(1,palette[2]);ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
+    const glow=ctx.createRadialGradient(w*.82,h*.12,10,w*.82,h*.12,Math.min(w,h)*.62);glow.addColorStop(0,"rgba(58,220,255,.22)");glow.addColorStop(1,"rgba(0,0,0,0)");ctx.fillStyle=glow;ctx.fillRect(0,0,w,h);
+    ctx.fillStyle="rgba(0,10,25,.18)";for(let i=0;i<7;i++){ctx.beginPath();ctx.arc(w*(.08+i*.17),h*.88,Math.min(w,h)*(.16+i*.012),0,Math.PI*2);ctx.fill()}
+    const logoData=company.logo_data;
+    if(logoData){try{const logo=await new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=reject;im.src=logoData});const lh=Math.min(h*.075,w*.13),lw=lh*(logo.width/logo.height);ctx.fillStyle="#fff";ctx.beginPath();ctx.roundRect?.(w*.055,h*.035,lw+28,lh+18,18);if(!ctx.roundRect)ctx.fillRect(w*.055,h*.035,lw+28,lh+18);ctx.fill();ctx.drawImage(logo,w*.055+14,h*.035+9,lw,lh)}catch{}}
+    ctx.fillStyle="#e9fbff";ctx.font="800 "+Math.round(Math.min(w,h)*.024)+"px Inter";ctx.fillText(String(company.business_name||"M.A.R.C.").slice(0,28),w*.055,h*.145);
+    let img=null;const src=currentAiImage||currentImage||product.image_url;
     if(src){try{img=await new Promise((resolve,reject)=>{const im=new Image();im.crossOrigin="anonymous";im.onload=()=>resolve(im);im.onerror=reject;im.src=src})}catch{}}
+    const imageX=isPortrait?w*.07:w*.06,imageY=isPortrait?h*.18:h*.20,imageW=isPortrait?w*.86:w*.43,imageH=isPortrait?h*.34:h*.42;
     if(img){
-      const boxW=w*.82,boxH=h*.40,scale=Math.min(boxW/img.width,boxH/img.height),iw=img.width*scale,ih=img.height*scale,x=(w-iw)/2,y=h*.13+(boxH-ih)/2;
-      ctx.fillStyle="rgba(255,255,255,.96)";ctx.beginPath();ctx.roundRect?.(x-18,y-18,iw+36,ih+36,28);if(!ctx.roundRect)ctx.fillRect(x-18,y-18,iw+36,ih+36);ctx.fill();ctx.drawImage(img,x,y,iw,ih);
+      const scale=Math.min(imageW/img.width,imageH/img.height),iw=img.width*scale,ih=img.height*scale,x=imageX+(imageW-iw)/2,y=imageY+(imageH-ih)/2;
+      ctx.fillStyle="rgba(255,255,255,.98)";ctx.beginPath();ctx.roundRect?.(x-20,y-20,iw+40,ih+40,28);if(!ctx.roundRect)ctx.fillRect(x-20,y-20,iw+40,ih+40);ctx.fill();
+      ctx.shadowColor="rgba(0,0,0,.22)";ctx.shadowBlur=28;ctx.drawImage(img,x,y,iw,ih);ctx.shadowBlur=0;
     }
-    ctx.textAlign="left";ctx.fillStyle=tpl==="OFFER"?"#ffd166":"#8ee4ff";ctx.font="800 "+Math.round(Math.min(w,h)*.026)+"px Inter";ctx.fillText(tpl==="OFFER"?"OFERTA · M.A.R.C.":"PUBLICIDAD · "+String(company.business_name||"M.A.R.C.").slice(0,28),w*.08,h*.59);
-    const banner=String(currentCampaign?.banner_text||currentCampaign?.headline||currentProduct.name||"Tu producto").split(/\n/).slice(0,3);
-    ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*.062)+"px Inter";
-    let y=h*.66;banner.forEach(line=>{const words=line.split(" "),lines=[];let row="";const max=w*.84;for(const word of words){const test=row?row+" "+word:word;if(ctx.measureText(test).width>max&&row){lines.push(row);row=word}else row=test}if(row)lines.push(row);lines.slice(0,3).forEach(t=>{ctx.fillText(t,w*.08,y);y+=Math.round(Math.min(w,h)*.071)})});
-    if($p("adOffer").value.trim()){ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*.034)+"px Inter";ctx.fillText($p("adOffer").value.trim().slice(0,42),w*.08,h*.86)}
-    else if(currentProduct.price!=null&&currentProduct.price!==""){ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*.038)+"px Inter";ctx.fillText(money(currentProduct.price),w*.08,h*.86)}
-    ctx.fillStyle="#d9efff";ctx.font="800 "+Math.round(Math.min(w,h)*.021)+"px Inter";ctx.fillText(String(company.business_name||currentProduct.name).slice(0,55),w*.08,h*.925);if(company.phone){ctx.fillStyle="#9fd8ff";ctx.font="700 "+Math.round(Math.min(w,h)*.017)+"px Inter";ctx.fillText("WhatsApp · "+String(company.phone).slice(0,28),w*.08,h*.955)}
-    ctx.fillStyle="#fff";ctx.beginPath();ctx.roundRect?.(w*.67,h*.88,w*.25,h*.065,18);if(!ctx.roundRect)ctx.fillRect(w*.67,h*.88,w*.25,h*.065);ctx.fillStyle=palette[1];ctx.font="900 "+Math.round(Math.min(w,h)*.019)+"px Inter";ctx.textAlign="center";ctx.fillText(String($p("adCta").value||"Escríbenos").slice(0,24),w*.795,h*.922);ctx.textAlign="left";
+    const xText=isPortrait?w*.07:w*.55;
+    const textW=isPortrait?w*.86:w*.39;
+    ctx.textAlign="left";ctx.fillStyle="#66e7ff";ctx.font="900 "+Math.round(Math.min(w,h)*.024)+"px Inter";ctx.fillText((tpl==="OFFER"?"OFERTA · ":"PUBLICIDAD · ")+String(company.business_name||"").slice(0,22),xText,isPortrait?h*.57:h*.25);
+    const title=String(currentCampaign?.headline||product.name||"Tu producto").trim();
+    ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*(isStory?.055:isPortrait?.062:.058))+"px Inter";
+    const wrap=(text,maxWidth,maxLines)=>{const words=text.split(/\s+/),out=[];let row="";for(const word of words){const test=row?row+" "+word:word;if(ctx.measureText(test).width>maxWidth&&row){out.push(row);row=word}else row=test}if(row)out.push(row);return out.slice(0,maxLines)};
+    const titleLines=wrap(title,textW,isPortrait?4:4);let ty=isPortrait?h*.63:h*.34;titleLines.forEach(line=>{ctx.fillText(line,xText,ty);ty+=Math.round(Math.min(w,h)*.066)});
+    const points=Array.isArray(product.key_points)?product.key_points.filter(Boolean).slice(0,4):[];
+    const detailSource=points.length?points:(String(product.description||"").split(/[.\n]/).map(x=>x.trim()).filter(x=>x.length>4).slice(0,3));
+    let py=isPortrait?h*.80:h*.62;
+    ctx.font="700 "+Math.round(Math.min(w,h)*.022)+"px Inter";
+    detailSource.forEach((item,i)=>{if(py>h*.88)return;ctx.fillStyle="#b9f5ff";ctx.beginPath();ctx.arc(xText+5,py-6,4,0,Math.PI*2);ctx.fill();ctx.fillStyle="#fff";wrap(String(item),textW-18,1).forEach(line=>{ctx.fillText(line,xText+17,py);py+=Math.round(Math.min(w,h)*.028)});py+=Math.round(Math.min(w,h)*.012)});
+    const price=String($p("adOffer")?.value||"").trim()||(product.price!=null&&product.price!==""?money(product.price):"");
+    if(price){
+      const pw=isPortrait?w*.52:w*.36,ph=Math.min(h*.105,Math.max(62,h*.09)),px=xText,pyPrice=isPortrait?h*.89:h*.76;
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.roundRect?.(px,pyPrice,pw,ph,18);if(!ctx.roundRect)ctx.fillRect(px,pyPrice,pw,ph);ctx.fill();
+      ctx.fillStyle="#062b4d";ctx.font="950 "+Math.round(Math.min(w,h)*.052)+"px Inter";ctx.fillText(price,px+20,pyPrice+ph*.69);
+    }
+    const cta=String($p("adCta")?.value||"Escríbenos").slice(0,28),ctaW=isPortrait?w*.58:w*.36,ctaX=isPortrait:w*.07:w*.55,ctaY=isPortrait?h*.935:h*.86,ctaH=Math.max(46,h*.075);
+    ctx.fillStyle="#0a1730";ctx.strokeStyle="#7cecff";ctx.lineWidth=2;ctx.beginPath();ctx.roundRect?.(ctaX,ctaY,ctaW,ctaH,18);if(!ctx.roundRect)ctx.fillRect(ctaX,ctaY,ctaW,ctaH);ctx.fill();ctx.stroke();
+    ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*.024)+"px Inter";ctx.textAlign="center";ctx.fillText(cta,ctaX+ctaW/2,ctaY+ctaH*.63);
+    ctx.textAlign="left";ctx.fillStyle="#dffbff";ctx.font="850 "+Math.round(Math.min(w,h)*.018)+"px Inter";ctx.fillText(String(company.business_name||"").slice(0,35),w*.055,h*.965);
+    if(company.phone){ctx.fillStyle="#9defff";ctx.font="750 "+Math.round(Math.min(w,h)*.017)+"px Inter";ctx.fillText("WhatsApp · "+String(company.phone).slice(0,28),w*.055,h*.985)}
   };
   const renderVariants=async()=>{
     const box=$p("adVariants");if(!box)return;

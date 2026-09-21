@@ -13,6 +13,7 @@
   const esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
   const money=v=>new Intl.NumberFormat("es-PE",{style:"currency",currency:"PEN"}).format(Number(v||0));
   const toast=t=>window.toast?window.toast(t):null;
+  const supplierSalePrice=(item,supplier)=>{const base=Number(item.supplier_price??item.supplier_cost??0),pct=Number(item.markup_pct??supplier?.default_markup_pct??0);return base+(base*pct/100)};
 
   async function supplierCenter(){
     const S=sb(); if(!S)return;
@@ -35,7 +36,7 @@
     const [s,c,i]=await Promise.all([
       S.from("marc_suppliers").select("*").eq("active",true).order("name"),
       S.from("marc_supplier_catalogs").select("*").order("created_at",{ascending:false}),
-      S.from("marc_supplier_catalog_items").select("id,name,sku,supplier_price,status,catalog_id,inventory_id,image_url,brand,model").order("created_at",{ascending:false})
+      S.from("marc_supplier_catalog_items").select("id,name,sku,supplier_price,supplier_cost,markup_pct,status,catalog_id,supplier_id,inventory_id,image_url,brand,model,category").order("created_at",{ascending:false})
     ]);
     if(s.error||c.error||i.error){console.error(s.error||c.error||i.error);return}
     document.querySelector("#scSuppliers").textContent=(s.data||[]).length;
@@ -54,19 +55,38 @@
     }).join("")||'<div class="empty-state"><span>📄</span><b>Aún no hay catálogos</b><small>Registra un catálogo para empezar.</small></div>';
 
     document.querySelectorAll("[data-supplier]").forEach(b=>b.onclick=()=>filterCatalogs(b.dataset.supplier));
+    document.querySelectorAll(".scEditSupplier").forEach(b=>b.onclick=()=>editSupplier(b.dataset.supplierId));
     document.querySelectorAll(".scOpenCatalog").forEach(b=>b.onclick=()=>catalogProducts(b.dataset.catalog));
     document.querySelectorAll(".scReanalyze").forEach(b=>b.onclick=()=>reanalyzeCatalog(b.dataset.catalog));
   }
 
-  async function newSupplier(){
-    const name=prompt("Nombre del proveedor"); if(!name?.trim())return;
-    const contact=prompt("Persona de contacto","")||null;
-    const phone=prompt("Teléfono","")||null;
-    const email=prompt("Correo","")||null;
-    const S=sb(); const {data:{session}}=await S.auth.getSession();
-    const r=await S.from("marc_suppliers").insert({user_id:session.user.id,name:name.trim(),contact_name:contact,phone,email}).select().single();
-    if(r.error)return alert(r.error.message);
-    await loadCenter();
+  async function newSupplier(existing=null){
+    const S=sb(); const {data:{session}}=await S.auth.getSession(); if(!session)return;
+    const body='<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">'+
+      '<label>Nombre del proveedor *<input id="scSupName" class="input" value="'+esc(existing?.name||'')+'"></label>'+
+      '<label>Persona de contacto<input id="scSupContact" class="input" value="'+esc(existing?.contact_name||'')+'"></label>'+
+      '<label>Teléfono / WhatsApp<input id="scSupPhone" class="input" value="'+esc(existing?.phone||'')+'"></label>'+
+      '<label>Correo<input id="scSupEmail" class="input" value="'+esc(existing?.email||'')+'"></label>'+
+      '<label>Web<input id="scSupWeb" class="input" value="'+esc(existing?.website||'')+'"></label>'+
+      '<label>Aumento predeterminado (%)<input id="scSupMarkup" class="input" type="number" min="0" max="1000" step="0.1" value="'+Number(existing?.default_markup_pct??20)+'"></label>'+
+      '<label style="grid-column:1/-1">Notas<textarea id="scSupNotes" class="input" rows="3">'+esc(existing?.notes||'')+'</textarea></label></div>'+
+      '<div style="margin-top:12px;padding:12px;border-radius:12px;background:rgba(37,99,235,.08);font-size:13px">Este porcentaje se suma al precio del proveedor para calcular tu precio sugerido. Cada producto puede tener un porcentaje diferente.</div>';
+    scModal(existing?'Editar proveedor':'Nuevo proveedor',body,'<button id="scSupCancel" class="secondary">Cancelar</button><button id="scSupSave" class="primary">Guardar</button>');
+    document.querySelector("#scSupCancel").onclick=()=>document.querySelector("#modal").innerHTML="";
+    document.querySelector("#scSupSave").onclick=async()=>{
+      const name=document.querySelector("#scSupName").value.trim(),markup=Number(document.querySelector("#scSupMarkup").value||0);
+      if(!name)return alert("El nombre del proveedor es obligatorio.");
+      if(markup<0||markup>1000)return alert("El aumento debe estar entre 0% y 1000%.");
+      const payload={name,contact_name:document.querySelector("#scSupContact").value.trim()||null,phone:document.querySelector("#scSupPhone").value.trim()||null,email:document.querySelector("#scSupEmail").value.trim()||null,website:document.querySelector("#scSupWeb").value.trim()||null,default_markup_pct:markup,notes:document.querySelector("#scSupNotes").value.trim()||null,updated_at:new Date().toISOString()};
+      const r=existing?await S.from("marc_suppliers").update(payload).eq("id",existing.id).eq("user_id",session.user.id):await S.from("marc_suppliers").insert({...payload,user_id:session.user.id});
+      if(r.error)return alert(r.error.message);
+      document.querySelector("#modal").innerHTML="";await loadCenter();toast(existing?"Proveedor actualizado.":"Proveedor creado.","ok");
+    };
+  }
+  async function editSupplier(id){
+    const S=sb();const {data:{session}}=await S.auth.getSession();if(!session)return;
+    const r=await S.from("marc_suppliers").select("*").eq("id",id).eq("user_id",session.user.id).maybeSingle();
+    if(r.error)return alert(r.error.message);if(r.data)return newSupplier(r.data);
   }
 
   async function newCatalog(){
@@ -149,7 +169,7 @@
 
   async function saveCatalogItem(item, patch){
     const S=sb(); const {data:{session}}=await S.auth.getSession(); if(!session)return false;
-    const allowed=["name","sku","description","brand","model","category","unit","supplier_cost","supplier_price","currency","stock_text","status"];
+    const allowed=["name","sku","description","brand","model","category","unit","supplier_cost","supplier_price","currency","stock_text","status","markup_pct"];
     const payload={};
     allowed.forEach(k=>{if(Object.prototype.hasOwnProperty.call(patch,k))payload[k]=patch[k]});
     payload.updated_at=new Date().toISOString();
@@ -169,7 +189,7 @@
       '<label style="display:grid;gap:6px"><span>Precio proveedor</span><input id="scEditSupplierPrice" class="input" type="number" step="0.01" value="'+esc(item.supplier_price??"")+'"></label>'+
       '<label style="display:grid;gap:6px"><span>Costo proveedor</span><input id="scEditSupplierCost" class="input" type="number" step="0.01" value="'+esc(item.supplier_cost??"")+'"></label>'+
       '<label style="display:grid;gap:6px"><span>Stock / presentación</span><input id="scEditStock" class="input" value="'+esc(item.stock_text||"")+'"></label>'+
-      '<label style="display:grid;gap:6px"><span>Estado</span><select id="scEditStatus" class="input"><option value="REVIEW" '+(item.status==="REVIEW"?"selected":"")+'>REVISAR</option><option value="APPROVED" '+(item.status==="APPROVED"?"selected":"")+'>APROBADO</option><option value="IMPORTED" '+(item.status==="IMPORTED"?"selected":"")+'>IMPORTADO</option></select></label>'+
+      '<label style="display:grid;gap:6px"><span>Aumento de este producto (%)</span><input id="scEditMarkup" class="input" type="number" min="0" max="1000" step="0.1" value="'+esc(item.markup_pct??"")+'" placeholder="Usar proveedor"></label><label style="display:grid;gap:6px"><span>Estado</span><select id="scEditStatus" class="input"><option value="REVIEW" '+(item.status==="REVIEW"?"selected":"")+'>REVISAR</option><option value="APPROVED" '+(item.status==="APPROVED"?"selected":"")+'>APROBADO</option><option value="IMPORTED" '+(item.status==="IMPORTED"?"selected":"")+'>IMPORTADO</option></select></label>'+
       '<label style="display:grid;gap:6px;grid-column:1/-1"><span>Descripción</span><textarea id="scEditDescription" class="input" rows="4">'+esc(item.description||"")+'</textarea></label>'+
       '</div>';
     scModal("Editar producto del proveedor",body,'<button id="scEditCancel" class="secondary">Cancelar</button><button id="scEditSave" class="primary">Guardar cambios</button>');
@@ -189,6 +209,7 @@
         supplier_cost:n(document.querySelector("#scEditSupplierCost").value),
         stock_text:document.querySelector("#scEditStock").value.trim()||null,
         status:document.querySelector("#scEditStatus").value,
+        markup_pct:n(document.querySelector("#scEditMarkup").value),
         description:document.querySelector("#scEditDescription").value.trim()||null
       });
       if(ok){toast("Producto actualizado.");await catalogProducts(catalogId)}

@@ -2263,6 +2263,7 @@ async function marketing(){
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="primary" id="marketingPreparePublication" type="button">＋ Preparar publicación</button>
         <button class="secondary" id="marketingSchedulePublication" type="button">◷ Programar</button>
+        <button class="primary" id="marketingPublishNow" type="button" disabled>🚀 Publicar ahora</button>
         <button class="secondary" id="marketingSocialSettings" type="button">⚙ Cuentas sociales</button>
       </div>
       <div id="marketingPublishStatus" class="msg" style="margin-top:10px"></div>
@@ -2270,7 +2271,7 @@ async function marketing(){
     <section class="card panel marketing-history"><div class="panel-title-row"><div><div class="eyebrow2">HISTORIAL</div><h3>Últimas campañas creadas</h3></div></div><div id="marketingHistory" class="marketing-history-list"><span class="muted-small">Cargando…</span></div></section>
   `;
 
-  let currentCampaign=saved?.campaign||null,currentProduct=list.find(p=>p.id===saved?.productId)||list[0]||null,currentImage=null,currentImageFile=null,currentAiImage=null,currentAiVariants=[],currentAiVariantIndex=0,company=companyData||{};
+  let currentPublicationId=null,currentCampaign=saved?.campaign||null,currentProduct=list.find(p=>p.id===saved?.productId)||list[0]||null,currentImage=null,currentImageFile=null,currentAiImage=null,currentAiVariants=[],currentAiVariantIndex=0,company=companyData||{};
   const $p=id=>document.getElementById(id);
   const companyLogo=$p("adCompanyLogo");if(companyLogo&&company.logo_data)companyLogo.style.backgroundImage='url("'+company.logo_data.replace(/"/g,'&quot;')+'")';
   if($p("adCompanyName"))$p("adCompanyName").textContent=company.business_name||"Tu empresa";
@@ -2412,10 +2413,23 @@ async function marketing(){
       if(j.error)return toast(j.error.message,"err");
       return toast("Publicación programada. Falta la conexión oficial de la red para ejecutar el envío.","ok");
     }
-    toast("Publicación preparada y guardada como borrador.","ok");
+    currentPublicationId=r.data.id;
+    const publishBtn=$p("marketingPublishNow");if(publishBtn)publishBtn.disabled=false;
+    toast("Publicación preparada y guardada como borrador. Ya puedes publicarla ahora.","ok");
+  };
+  const publishNow=async()=>{
+    if(!currentPublicationId)return toast("Primero prepara una publicación.","err");
+    const btn=$p("marketingPublishNow");if(btn)btn.disabled=true;
+    const rr=await fetch("/api/social/meta/publish",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({publicationId:currentPublicationId})});
+    const data=await rr.json().catch(()=>({}));
+    if(!rr.ok){if(btn)btn.disabled=false;return toast(data.message||data.error||"No se pudo publicar.","err")}
+    if(btn)btn.textContent="✓ Publicado";
+    toast("Publicado correctamente en "+data.platform+".","ok");
+    await loadMarketingSocialCenter();
   };
   $p("marketingPreparePublication").onclick=()=>preparePublication(false);
   $p("marketingSchedulePublication").onclick=()=>preparePublication(true);
+  $p("marketingPublishNow").onclick=publishNow;
   $p("marketingSocialSettings").onclick=()=>{if(window.marcSupplierCenter)window.marcSupplierCenter();else toast("Centro de redes disponible desde Proveedores y catálogos.","")};
   loadMarketingSocialCenter();
   $("[data-ad-hint]").forEach(b=>b.onclick=()=>{$p("adDetails").value=$p("adDetails").value?($p("adDetails").value+" "+b.dataset.adHint):b.dataset.adHint});

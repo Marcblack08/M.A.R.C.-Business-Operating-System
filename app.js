@@ -24,22 +24,31 @@ function authRateLimitMessage(e){const raw=String(e?.message||"").toLowerCase();
 function mode(m){authMode=m;const title=m==="login"?"Inicia sesión en M.A.R.C.":"Accede a M.A.R.C.";const sub=m==="login"?"Accede a M.A.R.C. de forma rápida y segura con tu cuenta de Google.":"Accede a M.A.R.C. con tu cuenta de Google.";if($("#authTitle"))$("#authTitle").textContent=title;if($("#authSub"))$("#authSub").textContent=sub;msg("")}
 async function signInGoogle(){
   const b=$("#googleLogin");
+  if(!b)return;
   try{
-    if(b)b.disabled=true;
-    msg("Conectando con Google…");
+    b.disabled=true;
+    b.setAttribute("aria-busy","true");
+    const label=b.querySelector("span:last-child");
+    if(label)label.textContent="Conectando…";
+    msg("Abriendo acceso con Google…");
     sessionStorage.setItem("marc_google_oauth_pending","1");
     const redirectUrl=new URL(location.origin+location.pathname);
     redirectUrl.search="";
     redirectUrl.hash="";
-    const {error}=await S.auth.signInWithOAuth({
+    const {data,error}=await S.auth.signInWithOAuth({
       provider:"google",
-      options:{redirectTo:redirectUrl.toString()}
+      options:{redirectTo:redirectUrl.toString(),queryParams:{access_type:"offline",prompt:"select_account"}}
     });
     if(error)throw error;
+    if(data?.url && location.href===location.href) location.assign(data.url);
   }catch(e){
     sessionStorage.removeItem("marc_google_oauth_pending");
+    console.error("[M.A.R.C. Google login]",e);
     msg(e?.message||"No se pudo iniciar sesión con Google.","error");
-    if(b)b.disabled=false;
+    b.disabled=false;
+    b.removeAttribute("aria-busy");
+    const label=b.querySelector("span:last-child");
+    if(label)label.textContent="Continuar con Google";
   }
 }
 async function handleAuthSession(s){if(!s?.user)return;const id=s.user.id;if(authEnteredSessionId===id && st.u?.id===id && !$("#app").classList.contains("hidden"))return;authEnteredSessionId=id;try{await enter(s)}catch(e){authEnteredSessionId=null;throw e}}function resetUiToLogin(message="",type=""){st.authEpoch++;st.u=null;st.session=null;st.cid=null;$("#app").classList.add("hidden");$("#auth").classList.remove("hidden");mode("login");if(message)msg(message,type)}

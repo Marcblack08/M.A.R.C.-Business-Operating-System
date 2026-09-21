@@ -160,6 +160,86 @@ async function chatSend(text){
     loading.textContent="No pude conectar con el núcleo de IA. La plataforma sigue disponible.";
   }
 }
+async function conversationAdvisorModal(preselectedClient=null){
+  let clients=[];
+  try{
+    const r=await S.from("marc_clients").select("id,name,phone").eq("user_id",st.u.id).order("name");
+    clients=r.data||[];
+  }catch{}
+  const close=modal(`
+    <div class="modal-head">
+      <div><div class="eyebrow2">ASISTENTE DE CONVERSACIONES</div><h2>¿Qué le respondo?</h2><p>Pega una conversación con tu cliente y M.A.R.C. te ayudará a entenderla y a elegir cómo continuar.</p></div>
+      <button class="close" id="conversationAdvisorClose">×</button>
+    </div>
+    <div class="conversation-advisor">
+      <div class="conversation-advisor-steps">
+        <div class="conversation-advisor-step active"><span>1</span><b>Conversación</b></div>
+        <div class="conversation-advisor-line"></div>
+        <div class="conversation-advisor-step"><span>2</span><b>Objetivo</b></div>
+        <div class="conversation-advisor-line"></div>
+        <div class="conversation-advisor-step"><span>3</span><b>Opciones</b></div>
+      </div>
+      <label class="conversation-field"><span>Conversación</span><small>Pega aquí el chat de WhatsApp, Telegram, SMS o correo. También puedes cargar una exportación .txt.</small>
+        <textarea id="conversationAdvisorText" rows="10" placeholder="Ejemplo:\nCliente: ¿Cuánto me cobras por instalar las cámaras?\nYo: Depende de la cantidad...\nCliente: Son 4 cámaras, pero me parece un poco caro..."></textarea>
+      </label>
+      <div class="conversation-file-row"><label class="conversation-file"><input id="conversationAdvisorFile" type="file" accept=".txt,.csv,text/plain,text/csv"><span>＋ Cargar conversación .txt</span></label><button type="button" class="secondary" id="conversationAdvisorClear">Limpiar</button><span id="conversationAdvisorFileName"></span></div>
+      <div class="conversation-advisor-grid">
+        <label class="conversation-field"><span>¿Qué quieres lograr?</span><select id="conversationAdvisorGoal"><option value="VENDER">Cerrar la venta</option><option value="COTIZAR">Conseguir que acepte la cotización</option><option value="NEGOCIAR">Negociar sin perder margen</option><option value="RECUPERAR">Recuperar al cliente</option><option value="COBRAR">Gestionar un pago pendiente</option><option value="ACLARAR">Aclarar una duda o conflicto</option><option value="SEGUIMIENTO">Dar seguimiento</option></select></label>
+        <label class="conversation-field"><span>Tono</span><select id="conversationAdvisorTone"><option value="PROFESIONAL">Profesional y claro</option><option value="CERCANO">Cercano y natural</option><option value="PERSUASIVO">Persuasivo sin presionar</option><option value="DIRECTO">Directo y breve</option><option value="AMABLE">Amable y conciliador</option></select></label>
+      </div>
+      <label class="conversation-field"><span>Cliente <em>opcional</em></span><select id="conversationAdvisorClient"><option value="">No asociar a un cliente</option>${clients.map(x=>`<option value="${esc(x.id)}" ${preselectedClient?.id===x.id?"selected":""}>${esc(x.name)}${x.phone?" · "+esc(x.phone):""}</option>`).join("")}</select></label>
+      <div class="conversation-advisor-tip">💡 M.A.R.C. no solo redactará una respuesta: identificará la intención del cliente, posibles objeciones, qué conviene evitar y te dará varias respuestas listas para enviar.</div>
+      <div id="conversationAdvisorStatus" class="msg"></div>
+      <div class="modal-actions conversation-advisor-actions"><button class="secondary" id="conversationAdvisorCancel">Cancelar</button><button class="primary" id="conversationAdvisorRun">✦ Analizar conversación</button></div>
+      <div id="conversationAdvisorResult" class="conversation-advisor-result" hidden></div>
+    </div>`);
+  const q=s=>document.querySelector(s);
+  q("#conversationAdvisorClose").onclick=close;
+  q("#conversationAdvisorCancel").onclick=close;
+  q("#conversationAdvisorClear").onclick=()=>{q("#conversationAdvisorText").value="";q("#conversationAdvisorFile").value="";q("#conversationAdvisorFileName").textContent=""};
+  q("#conversationAdvisorFile").onchange=async e=>{
+    const file=e.target.files?.[0];if(!file)return;
+    try{q("#conversationAdvisorText").value=await file.text();q("#conversationAdvisorFileName").textContent=file.name}
+    catch{toast("No se pudo leer el archivo.","err")}
+  };
+  q("#conversationAdvisorRun").onclick=async()=>{
+    const convo=q("#conversationAdvisorText").value.trim(),goal=q("#conversationAdvisorGoal").value,tone=q("#conversationAdvisorTone").value,clientId=q("#conversationAdvisorClient").value;
+    if(convo.length<20)return toast("Pega una conversación un poco más completa para poder analizarla.","err");
+    const btn=q("#conversationAdvisorRun"),status=q("#conversationAdvisorStatus"),result=q("#conversationAdvisorResult");
+    btn.disabled=true;btn.textContent="Analizando…";status.className="msg";status.textContent="M.A.R.C. está leyendo el contexto de la conversación…";result.hidden=true;
+    const goalText={VENDER:"cerrar la venta",COTIZAR:"conseguir que acepte la cotización",NEGOCIAR:"negociar sin destruir el margen",RECUPERAR:"recuperar al cliente",COBRAR:"gestionar un pago pendiente",ACLARAR:"aclarar la duda o conflicto",SEGUIMIENTO:"dar un seguimiento efectivo"}[goal]||goal;
+    const toneText={PROFESIONAL:"profesional y claro",CERCANO:"cercano y natural",PERSUASIVO:"persuasivo sin presionar",DIRECTO:"directo y breve",AMABLE:"amable y conciliador"}[tone]||tone;
+    const prompt=[`Actúa como asesor comercial de M.A.R.C. Analiza la siguiente conversación real con un cliente. Mi objetivo es ${goalText}. Quiero un tono ${toneText}.`,
+      "Devuélveme una respuesta práctica, no teoría. Organiza exactamente así:",
+      "1. QUÉ ESTÁ BUSCANDO EL CLIENTE: una explicación breve.",
+      "2. QUÉ ESTÁ FRENANDO LA DECISIÓN: objeciones, dudas o señales.",
+      "3. QUÉ NO CONVIENE DECIR: errores o frases que podrían alejarlo.",
+      "4. OPCIÓN RECOMENDADA: una respuesta lista para copiar y enviar.",
+      "5. DOS ALTERNATIVAS: una más corta y otra más persuasiva.",
+      "6. SIGUIENTE PASO: qué debería hacer después de enviar la respuesta.",
+      "No inventes datos que no aparezcan en la conversación. Si falta información, indícalo.",
+      "--- CONVERSACIÓN ---",convo].join("\n\n");
+    try{
+      const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({message:prompt,conversationId:st.cid,entityContext:{feature:"conversation_advisor",clientId:clientId||null}})});
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(j.message||j.error||"No se pudo analizar la conversación.");
+      const answer=j.text||"No recibí una respuesta del asesor.";
+      result.innerHTML=`<div class="conversation-result-head"><div><div class="eyebrow2">ANÁLISIS LISTO</div><h3>Esto es lo que podrías responder</h3></div><button class="secondary" id="conversationAdvisorCopy">Copiar respuesta</button></div><div class="conversation-result-body">${esc(answer).replace(/\n/g,"<br>")}</div><div class="conversation-result-actions"><button class="primary" id="conversationAdvisorShare">📤 Compartir respuesta</button><button class="secondary" id="conversationAdvisorAgain">Analizar otra vez</button></div>`;
+      result.hidden=false;status.className="msg ok";status.textContent="Listo. Revisé la conversación y preparé varias formas de continuar.";
+      q("#conversationAdvisorCopy").onclick=async()=>{await navigator.clipboard?.writeText(answer);toast("Respuesta copiada.","ok")};
+      q("#conversationAdvisorShare").onclick=async()=>{try{if(navigator.share)await navigator.share({title:"Respuesta sugerida por M.A.R.C.",text:answer});else{await navigator.clipboard?.writeText(answer);toast("Respuesta copiada.","ok")}}catch(e){if(e?.name!=="AbortError")toast("No se pudo compartir.","err")}};
+      q("#conversationAdvisorAgain").onclick=()=>{result.hidden=true;q("#conversationAdvisorText").focus()};
+      if(clientId){
+        const originalTitle="Conversación analizada";
+        const client=clients.find(x=>x.id===clientId);
+        const save=await S.from("marc_client_history").insert({user_id:st.u.id,client_id:clientId,event_type:"CONVERSATION_ANALYSIS",title:originalTitle,description:answer,visible_to_client:false,metadata:{goal,tone,source:"conversation_advisor",conversation:convo.slice(0,12000)}}); 
+        if(save.error)console.warn("[MARC conversation history]",save.error);
+      }
+    }catch(e){status.className="msg error";status.textContent=e.message||"No se pudo analizar la conversación."}
+    finally{btn.disabled=false;btn.textContent="✦ Analizar conversación"}
+  };
+}
+
 function openChat(){
   $("#chat").classList.remove("closed");
   $("#app").classList.remove("chat-closed");
@@ -400,7 +480,7 @@ async function clientHistoryModal(client){
     </div>`;
     $("#editHistoryClient").onclick=()=>{close();clientModal(client)};
     $("#shareClientPortal").onclick=()=>clientPortalShare(client);
-    $("#addClientHistory").onclick=async()=>{
+    const analyzeBtn=document.createElement("button"); analyzeBtn.className="secondary"; analyzeBtn.type="button"; analyzeBtn.textContent="✦ Analizar conversación"; analyzeBtn.onclick=()=>conversationAdvisorModal(client); document.querySelector("#editHistoryClient")?.parentElement?.insertBefore(analyzeBtn,document.querySelector("#editHistoryClient"));\n    $("#addClientHistory").onclick=async()=>{
       const title=prompt("Título de la nota","Condición / acuerdo con el cliente");
       if(!title?.trim())return;
       const description=prompt("Detalle de la condición, acuerdo, visita o seguimiento","");
@@ -3228,7 +3308,8 @@ function wire(){
   },true);
   $("#chatForm").onsubmit=e=>{e.preventDefault();const v=$("#chatInput").value.trim();if(v){$("#chatInput").value="";chatSend(v)}};
   $("#chatInput").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("#chatForm").requestSubmit()}};
-  $$(".chips button").forEach(b=>b.onclick=()=>{$("#chatInput").value=b.dataset.q;$("#chatInput").focus()});
+  $(".chips button").forEach(b=>b.onclick=()=>{$("#chatInput").value=b.dataset.q;$("#chatInput").focus()});
+  $("#analyzeConversationBtn")?.addEventListener("click",()=>conversationAdvisorModal());
 
   const bootAuth=async()=>{
     const {search,hash}=authCallbackParams();

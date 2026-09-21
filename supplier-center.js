@@ -646,6 +646,11 @@
     for(let p=1;p<=pdf.numPages;p++){
       const page=await pdf.getPage(p);
       const images=await extractPdfImagesWithBoxes(page);
+      let shared=null;
+      if(sharedReader?.extractRows){
+        try{ shared=await sharedReader.extractRows(page); }
+        catch(e){ console.warn("Lector PDF compartido:",e); }
+      }
 
       // Primero usamos el mismo lector local de Inventario. Es inmediato y evita
       // enviar a IA páginas que ya contienen una tabla de productos perfectamente
@@ -706,54 +711,6 @@
       }catch(e){
         console.warn("Analizador avanzado de Inventario no disponible en página "+p+", usando lector local:",e);
       }
-      // Respaldo local si el analizador avanzado no devuelve productos.
-      // Proveedores usa exactamente el mismo lector que Inventario cuando el
-      // PDF contiene una tabla de texto. Así ambos módulos deben detectar las
-      // mismas fichas y no mantenemos dos algoritmos distintos.
-      let shared=null;
-      if(sharedReader?.extractRows){
-        try{ shared=await sharedReader.extractRows(page); }catch(e){ console.warn("Lector PDF compartido:",e); }
-      }
-
-      if(shared?.usedLocal&&Array.isArray(shared.rows)&&shared.rows.length){
-        for(let i=0;i<shared.rows.length;i++){
-          const row=shared.rows[i];
-          let best=-1,bestDist=Infinity;
-          images.forEach((im,idx)=>{
-            const d=Math.abs(Number(im.y||0)-Number(row.pdf_y||row.y||0));
-            if(d<bestDist){bestDist=d;best=idx}
-          });
-          const matched=best>=0&&bestDist<140?images[best]:null;
-          const name=cleanCatalogProductText(row.name);
-          if(!name||isNoiseCatalogText(name))continue;
-          raw.push({
-            page:p,
-            imageIndex:matched?best:null,
-            sku:row.sku||null,
-            name:name.slice(0,180),
-            description:String(row.description||row.name||"").slice(0,500),
-            brand:row.brand||null,
-            model:row.model||null,
-            category:row.category||null,
-            unit:row.unit||"UND",
-            supplier_cost:null,
-            supplier_price:row.price!=null?Number(row.price):null,
-            currency:row.currency||"PEN",
-            stock_text:null,
-            image_data_url:matched?.dataUrl||null,
-            ai_confidence:matched?0.97:0.94,
-            source_metadata:{
-              page:p,
-              image_detected:!!matched,
-              image_match_distance:matched?Math.round(bestDist):null,
-              source_row:i,
-              reader:"INVENTARIO_COMPARTIDO"
-            }
-          });
-        }
-        continue;
-      }
-
       // Fallback: mantenemos el analizador específico de proveedores para
       // PDFs que no tienen una tabla de texto reconocible.
       const tc=await page.getTextContent();

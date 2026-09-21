@@ -383,7 +383,7 @@ async function clientHistoryModal(client){
       const r=await S.from("marc_quote_items").select("quote_id,item_type,name,description,quantity,unit,unit_price,line_total").eq("user_id",st.u.id).in("quote_id",ids).order("created_at",{ascending:true});
       if(r.error)throw r.error;items=r.data||[];
     }
-    const payments=ids.length?(await S.from("marc_cash_movements").select("id,type,amount,concept,reference,quote_id,created_at").eq("user_id",st.u.id).in("quote_id",ids).eq("type","INCOME").order("created_at",{ascending:false})).data||[];
+    const payments=ids.length?((await S.from("marc_cash_movements").select("id,type,amount,concept,reference,quote_id,created_at").eq("user_id",st.u.id).in("quote_id",ids).eq("type","INCOME").order("created_at",{ascending:false})).data||[]):[];
     const productMap=new Map();
     items.forEach(i=>{const k=String(i.name||"").trim();if(!k)return;const x=productMap.get(k)||{name:k,quantity:0,total:0};x.quantity+=Number(i.quantity||0);x.total+=Number(i.line_total||0);productMap.set(k,x)});
     const purchased=quotes.filter(q=>["ACEPTADA","COBRADA","FINALIZADO","APROBADO"].includes(String(q.status||"").toUpperCase()));

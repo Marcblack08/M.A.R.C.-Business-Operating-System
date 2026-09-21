@@ -171,8 +171,8 @@ function closeChat(){
   $("#chat").classList.add("closed");
   $("#app").classList.add("chat-closed");
 }
-function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",quotes:"Cotizaciones",marketing:"Publicidad",settings:"Configuración",cash:"Cierre de caja"}[x]||"Inicio";$$(".sidebar nav button, #mobileNav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
-async function view(x){st.view=x;title(x);$("#sidebar").classList.remove("open");document.body.style.overflow="";if(window.innerWidth<=780)window.scrollTo(0,0);$$(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x));if(x==="home")return home();if(x==="clients")return clients();if(x==="inventory")return inventory();if(x==="quotes")return quotes();if(x==="marketing")return marketing();if(x==="cash")return cash();return settings()}
+function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",suppliers:"Proveedores",quotes:"Cotizaciones",marketing:"Publicidad",settings:"Configuración",cash:"Cierre de caja"}[x]||"Inicio";$$(".sidebar nav button, #mobileNav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
+async function view(x){st.view=x;title(x);$("#sidebar").classList.remove("open");document.body.style.overflow="";if(window.innerWidth<=780)window.scrollTo(0,0);$$(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x));if(x==="home")return home();if(x==="clients")return clients();if(x==="inventory")return inventory();if(x==="suppliers"){if(window.marcSupplierCenter)return window.marcSupplierCenter();return toast("Centro de proveedores no disponible.");}if(x==="quotes")return quotes();if(x==="marketing")return marketing();if(x==="cash")return cash();return settings()}
 async function home(){
   const c=$("#content");
   const [cl,iv,qt]=await Promise.all([

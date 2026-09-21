@@ -32,15 +32,25 @@ async function signInGoogle(){
     if(label)label.textContent="Conectando…";
     msg("Abriendo acceso con Google…");
     sessionStorage.setItem("marc_google_oauth_pending","1");
-    const redirectUrl=new URL(location.origin+location.pathname);
+
+    // OAuth must return to the exact canonical origin/path used by the app.
+    // This avoids redirect mismatches on Cloudflare/Workers and mobile browsers.
+    const redirectUrl=new URL(location.href);
     redirectUrl.search="";
     redirectUrl.hash="";
+    const redirectTo=redirectUrl.toString();
+    console.info("[M.A.R.C. OAuth] redirectTo:",redirectTo);
+
     const {data,error}=await S.auth.signInWithOAuth({
       provider:"google",
-      options:{redirectTo:redirectUrl.toString(),queryParams:{access_type:"offline",prompt:"select_account"}}
+      options:{
+        redirectTo,
+        queryParams:{prompt:"select_account"}
+      }
     });
     if(error)throw error;
-    if(data?.url && location.href===location.href) location.assign(data.url);
+    if(!data?.url)throw new Error("Google no devolvió la URL de inicio de sesión.");
+    window.location.assign(data.url);
   }catch(e){
     sessionStorage.removeItem("marc_google_oauth_pending");
     console.error("[M.A.R.C. Google login]",e);

@@ -480,7 +480,8 @@ async function clientHistoryModal(client){
     </div>`;
     $("#editHistoryClient").onclick=()=>{close();clientModal(client)};
     $("#shareClientPortal").onclick=()=>clientPortalShare(client);
-    const analyzeBtn=document.createElement("button"); analyzeBtn.className="secondary"; analyzeBtn.type="button"; analyzeBtn.textContent="✦ Analizar conversación"; analyzeBtn.onclick=()=>conversationAdvisorModal(client); document.querySelector("#editHistoryClient")?.parentElement?.insertBefore(analyzeBtn,document.querySelector("#editHistoryClient"));\n    $("#addClientHistory").onclick=async()=>{
+    const analyzeBtn=document.createElement("button"); analyzeBtn.className="secondary"; analyzeBtn.type="button"; analyzeBtn.textContent="✦ Analizar conversación"; analyzeBtn.onclick=()=>conversationAdvisorModal(client); document.querySelector("#editHistoryClient")?.parentElement?.insertBefore(analyzeBtn,document.querySelector("#editHistoryClient"));
+    $("#addClientHistory").onclick=async()=>{
       const title=prompt("Título de la nota","Condición / acuerdo con el cliente");
       if(!title?.trim())return;
       const description=prompt("Detalle de la condición, acuerdo, visita o seguimiento","");

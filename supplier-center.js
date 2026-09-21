@@ -468,6 +468,15 @@
     });
     return rows.map(r=>({y:r.y,text:r.texts.join(" ").replace(/\s+/g," ").trim()})).filter(r=>r.text);
   }
+  function catalogProductKey(value){
+    return String(value||"")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\\u0300-\\u036f]/g,"")
+      .replace(/[^a-z0-9]+/g," ")
+      .trim()
+      .replace(/\\s+/g," ");
+  }
   function cleanCatalogProductText(text){
     let s=String(text||"").replace(/[\t\r\n]+/g," ").replace(/\s+/g," ").trim();
     s=s.replace(/(?:S\/\.?|S\.?|PEN|USD|US\$)\s*\d+(?:[.,]\d{1,2})?/gi," ");

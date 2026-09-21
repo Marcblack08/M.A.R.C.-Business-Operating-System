@@ -1,4 +1,4 @@
-(()=>{const C=window.MARC_CONFIG,S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"pkce"}});const st={u:null,session:null,view:"home",cid:null,authEpoch:0};let authListenerSession=null,authTimer=null,authEnteredSessionId=null;S.auth.onAuthStateChange((ev,s)=>{authListenerSession=s||null;console.info("[M.A.R.C. auth]",ev,!!s,s?.user?.id||"");if(s?.user){clearTimeout(authTimer);authTimer=setTimeout(()=>handleAuthSession(s),0)}else if(ev==="SIGNED_OUT"){clearTimeout(authTimer);authTimer=setTimeout(()=>resetUiToLogin(),0)}});const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)],esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])),money=v=>new Intl.NumberFormat("es-PE",{style:"currency",currency:"PEN"}).format(Number(v||0)),toast=(t,c="")=>{const e=document.createElement("div");e.className="toast "+c;e.textContent=t;$("#toast").appendChild(e);setTimeout(()=>e.remove(),2600)},initials=n=>String(n||"M").split(/\s+/).slice(0,2).map(x=>x[0]?.toUpperCase()).join("");let authMode="login",recoveryMode=new URLSearchParams(location.search).get("recovery")==="1"||/type=recovery/i.test(location.hash);
+(()=>{const C=window.MARC_CONFIG,S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"implicit"}});const st={u:null,session:null,view:"home",cid:null,authEpoch:0};let authListenerSession=null,authTimer=null,authEnteredSessionId=null;S.auth.onAuthStateChange((ev,s)=>{authListenerSession=s||null;console.info("[M.A.R.C. auth]",ev,!!s,s?.user?.id||"");if(s?.user){clearTimeout(authTimer);authTimer=setTimeout(()=>handleAuthSession(s),0)}else if(ev==="SIGNED_OUT"){clearTimeout(authTimer);authTimer=setTimeout(()=>resetUiToLogin(),0)}});const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)],esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])),money=v=>new Intl.NumberFormat("es-PE",{style:"currency",currency:"PEN"}).format(Number(v||0)),toast=(t,c="")=>{const e=document.createElement("div");e.className="toast "+c;e.textContent=t;$("#toast").appendChild(e);setTimeout(()=>e.remove(),2600)},initials=n=>String(n||"M").split(/\s+/).slice(0,2).map(x=>x[0]?.toUpperCase()).join("");let authMode="login",recoveryMode=new URLSearchParams(location.search).get("recovery")==="1"||/type=recovery/i.test(location.hash);
 function msg(t,c=""){const e=$("#authMsg");if(!e)return;e.textContent=t;e.className="msg "+c}
 const THEME_KEY="marc_theme";
 function applyTheme(theme,save=true){
@@ -33,24 +33,21 @@ async function signInGoogle(){
     msg("Abriendo acceso con Google…");
     sessionStorage.setItem("marc_google_oauth_pending","1");
 
-    // OAuth must return to the exact canonical origin/path used by the app.
-    // This avoids redirect mismatches on Cloudflare/Workers and mobile browsers.
-    const redirectUrl=new URL(location.href);
+    // Supabase realiza el redirect del navegador. En M.A.R.C., que es una app
+    // estática sobre Cloudflare Workers, usamos el flujo implicit para que el
+    // navegador pueda restaurar la sesión al volver de Google sin PKCE.
+    const redirectUrl=new URL(location.origin+location.pathname);
     redirectUrl.search="";
     redirectUrl.hash="";
-    const redirectTo=redirectUrl.toString();
-    console.info("[M.A.R.C. OAuth] redirectTo:",redirectTo);
 
-    const {data,error}=await S.auth.signInWithOAuth({
+    const {error}=await S.auth.signInWithOAuth({
       provider:"google",
       options:{
-        redirectTo,
+        redirectTo:redirectUrl.toString(),
         queryParams:{prompt:"select_account"}
       }
     });
     if(error)throw error;
-    if(!data?.url)throw new Error("Google no devolvió la URL de inicio de sesión.");
-    window.location.assign(data.url);
   }catch(e){
     sessionStorage.removeItem("marc_google_oauth_pending");
     console.error("[M.A.R.C. Google login]",e);
@@ -3374,26 +3371,16 @@ function wire(){
 
   const bootAuth=async()=>{
     const {search,hash}=authCallbackParams();
-    const code=search.get("code");
     const error=hash.get("error_description")||search.get("error_description")||hash.get("error")||search.get("error");
     const oauthPending=sessionStorage.getItem("marc_google_oauth_pending")==="1";
 
     if(error){
       sessionStorage.removeItem("marc_google_oauth_pending");
-      throw new Error(decodeURIComponent(String(error).replace(/\+/g," ")));
+      throw new Error(decodeURIComponent(String(error).replace(/\\+/g," ")));
     }
 
-    if(code){
-      const exchanged=await S.auth.exchangeCodeForSession(code);
-      if(exchanged.error)throw exchanged.error;
-      if(exchanged.data?.session){
-        sessionStorage.removeItem("marc_google_oauth_pending");
-        cleanAuthUrl();
-        await handleAuthSession(exchanged.data.session);
-        return;
-      }
-    }
-
+    // Con implicit, Supabase detecta automáticamente el access_token del hash
+    // y dispara SIGNED_IN. No debemos intentar exchangeCodeForSession().
     const current=await S.auth.getSession();
     if(current.error)throw current.error;
     if(current.data?.session){
@@ -3403,7 +3390,31 @@ function wire(){
       return;
     }
 
-    await new Promise(r=>setTimeout(r,900));
+    // En una visita normal no hay sesión todavía. Si regresamos de Google,
+    // esperamos el evento de Supabase hasta 10 segundos, comprobando cada 200 ms.
+    if(!oauthPending){
+      msg("");
+      return;
+    }
+
+    const session=await new Promise(resolve=>{
+      const started=Date.now();
+      const poll=()=>{
+        if(authListenerSession?.user)return resolve(authListenerSession);
+        if(Date.now()-started>=10000)return resolve(null);
+        setTimeout(poll,200);
+      };
+      poll();
+    });
+
+    if(session?.user){
+      sessionStorage.removeItem("marc_google_oauth_pending");
+      cleanAuthUrl();
+      await handleAuthSession(session);
+      return;
+    }
+
+    // Último intento por si el evento llegó justo después de la ventana de espera.
     const retry=await S.auth.getSession();
     if(retry.error)throw retry.error;
     if(retry.data?.session){
@@ -3413,11 +3424,11 @@ function wire(){
       return;
     }
 
-    // No hay sesión: la pantalla de acceso ya comunica el estado.
-    // No mostramos diagnósticos técnicos debajo del botón de Google.
-    msg("");
+    const fresh=authCallbackParams();
+    const failure=describeAuthFailure(fresh.search,fresh.hash);
+    sessionStorage.removeItem("marc_google_oauth_pending");
+    msg(authDiag("Google volvió a M.A.R.C., pero no se pudo recuperar la sesión",failure),"error");
   };
-
   bootAuth().catch(e=>{
     console.error("[M.A.R.C. auth error]",e);
     msg(authDiag("Error de autenticación",e?.message||"Error desconocido"),"error");

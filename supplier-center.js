@@ -633,9 +633,12 @@
       for(let i=0;i<parsed.length;i++){
         const row=parsed[i];
         const name=cleanCatalogProductText(row.name);
-        if(!name||isNoiseCatalogText(name)||name.length<4)continue;
+        // También admitimos nombres/códigos muy cortos (p. ej. USB, AUX,
+        // C-C, AD-X) cuando existe evidencia adicional. Esto recupera fichas
+        // reales que no tienen un nombre descriptivo largo.
+        if(!name||isNoiseCatalogText(name)||name.length<2)continue;
         const letters=(name.match(/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g)||[]).length;
-        if(letters<2||letters>=3)continue;
+        if(letters<1||letters>=3)continue;
 
         let price=row.price;
         for(const offset of [0,-1,1,-2,2]){

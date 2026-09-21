@@ -50,11 +50,12 @@
       const supplier=suppliers.find(v=>v.id===x.supplier_id);
       const its=items.filter(v=>v.catalog_id===x.id);
       const ready=its.filter(v=>v.status==="APPROVED"||v.status==="IMPORTED").length;
-      return '<article class="client-card"><div class="client-card-top"><div class="client-avatar">PDF</div><div class="client-card-name"><h3>'+esc(x.name)+'</h3><small>'+esc(supplier?.name||"Proveedor no asignado")+'</small></div><span class="badge '+(x.status==="READY"?"ok":"low")+'">'+esc(x.status)+'</span></div><div class="client-details"><div><span>Productos</span><b>'+its.length+'</b></div><div><span>Listos</span><b>'+ready+'</b></div><div><span>Origen</span><b>'+esc(x.source_type)+'</b></div></div><div class="client-card-actions"><button class="primary" data-catalog="'+x.id+'">Ver productos</button></div></article>'
+      return '<article class="client-card"><div class="client-card-top"><div class="client-avatar">'+esc(x.source_type==="EXCEL"?"XLS":"PDF")+'</div><div class="client-card-name"><h3>'+esc(x.name)+'</h3><small>'+esc(supplier?.name||"Proveedor no asignado")+'</small></div><span class="badge '+(x.status==="READY"?"ok":"low")+'">'+esc(x.status)+'</span></div><div class="client-details"><div><span>Productos</span><b>'+its.length+'</b></div><div><span>Listos</span><b>'+ready+'</b></div><div><span>Origen</span><b>'+esc(x.source_type)+'</b></div></div><div class="client-card-actions"><button class="primary" data-catalog="'+x.id+'">Ver productos</button><button class="secondary scReanalyze" data-catalog="'+x.id+'">↻ Reanalizar</button></div></article>'
     }).join("")||'<div class="empty-state"><span>📄</span><b>Aún no hay catálogos</b><small>Registra un catálogo para empezar.</small></div>';
 
     document.querySelectorAll("[data-supplier]").forEach(b=>b.onclick=()=>filterCatalogs(b.dataset.supplier));
     document.querySelectorAll("[data-catalog]").forEach(b=>b.onclick=()=>catalogProducts(b.dataset.catalog));
+    document.querySelectorAll(".scReanalyze").forEach(b=>b.onclick=()=>reanalyzeCatalog(b.dataset.catalog));
   }
 
   async function newSupplier(){
@@ -236,7 +237,34 @@
     document.querySelectorAll(".scPublishOne").forEach(b=>b.onclick=async()=>{const item=items.find(i=>i.id===b.dataset.id);if(item)await createPublicationDraft(item)});
   }
 
-  async function analyzeCatalog(catalog,file){
+  async function reanalyzeCatalog(catalogId){
+    const S=sb(); const {data:{session}}=await S.auth.getSession(); if(!session)return;
+    const r=await S.from("marc_supplier_catalogs").select("*").eq("id",catalogId).eq("user_id",session.user.id).maybeSingle();
+    if(r.error)return alert("No se pudo cargar el catálogo: "+r.error.message);
+    const catalog=r.data;
+    if(!catalog?.storage_path)return alert("Este catálogo no tiene el archivo original guardado.");
+    if(!confirm("Se volverá a leer el archivo original con el nuevo detector. Los productos detectados actualmente se reemplazarán solo después de que el nuevo análisis termine correctamente. ¿Continuar?"))return;
+    const progress=scModal("Reanalizando catálogo",'<div style="display:grid;gap:12px"><div style="font-size:42px;text-align:center">🔎</div><b style="text-align:center">Analizando nuevamente el archivo original…</b><small id="scReanalyzeStatus" style="text-align:center;opacity:.72">Preparando lectura inteligente.</small></div>','<button id="scReanalyzeCancel" class="secondary">Cerrar</button>');
+    document.querySelector("#scReanalyzeCancel").onclick=()=>document.querySelector("#modal").innerHTML="";
+    try{
+      await S.from("marc_supplier_catalogs").update({status:"ANALYZING",ai_provider:catalog.source_type==="EXCEL"?"XLSX-PARSER-V2":"PDF-JS-V2"}).eq("id",catalog.id);
+      const dl=await S.storage.from("catalog-pdfs").download(catalog.storage_path);
+      if(dl.error)throw dl.error;
+      document.querySelector("#scReanalyzeStatus").textContent="Archivo recuperado. Aplicando el nuevo detector…";
+      await analyzeCatalog(catalog,dl.data,true);
+      document.querySelector("#modal").innerHTML="";
+      await loadCenter();
+      toast("Catálogo reanalizado correctamente.");
+    }catch(e){
+      console.error(e);
+      await S.from("marc_supplier_catalogs").update({status:"ERROR"}).eq("id",catalog.id);
+      document.querySelector("#modal").innerHTML="";
+      alert("No se pudo reanalizar el catálogo: "+(e.message||e));
+      await loadCenter();
+    }
+  }
+
+  async function analyzeCatalog(catalog,file,replaceExisting=false){
     const S=sb();
     await S.from("marc_supplier_catalogs").update({status:"ANALYZING",ai_provider:file.name.match(/\.xlsx?$/i)?"XLSX-PARSER":"PDF-JS"}).eq("id",catalog.id);
     try{
@@ -260,6 +288,10 @@
           }catch(e){console.warn("No se pudo procesar imagen del PDF",e)}
         }
         delete item.image_data_url;
+      }
+      if(replaceExisting){
+        const del=await S.from("marc_supplier_catalog_items").delete().eq("catalog_id",catalog.id).eq("user_id",session.user.id);
+        if(del.error)throw del.error;
       }
       const payload=items.map(x=>({...x,user_id:session.user.id,catalog_id:catalog.id,supplier_id:catalog.supplier_id,status:"REVIEW"}));
       const ins=await S.from("marc_supplier_catalog_items").insert(payload);

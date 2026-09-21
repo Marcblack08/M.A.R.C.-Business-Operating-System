@@ -233,6 +233,7 @@
 
   async function editCatalogItem(item, catalogId){
     const body='<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">'+
+      '<label style="grid-column:1/-1;display:grid;gap:6px"><span>Foto del producto</span><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'+(item.image_url?'<img src="'+esc(item.image_url)+'" style="width:90px;height:90px;object-fit:contain;border-radius:12px;border:1px solid rgba(127,127,127,.18)">' : '<span style="width:90px;height:90px;display:grid;place-items:center;border-radius:12px;background:rgba(127,127,127,.08)">📷</span>')+'<input id="scEditPhoto" type="file" accept="image/*" capture="environment" class="input"><small style="opacity:.7">En celular puedes tomar una nueva foto directamente.</small></div></label>'+
       '<label style="display:grid;gap:6px"><span>Nombre *</span><input id="scEditName" class="input" value="'+esc(item.name||"")+'"></label>'+
       '<label style="display:grid;gap:6px"><span>SKU / Código</span><input id="scEditSku" class="input" value="'+esc(item.sku||"")+'"></label>'+
       '<label style="display:grid;gap:6px"><span>Marca</span><input id="scEditBrand" class="input" value="'+esc(item.brand||"")+'"></label>'+

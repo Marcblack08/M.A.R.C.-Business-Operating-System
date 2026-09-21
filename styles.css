@@ -3053,3 +3053,42 @@ html[data-theme="dark"] #scModalOverlay [style*="background:rgba(127,127,127,.08
   .marketing-share-grid{gap:8px}
   .marketing-share-option{min-height:96px}
 }
+
+
+/* Asesor de conversaciones */
+.conversation-advisor{padding:4px 0 8px}
+.conversation-advisor-steps{display:flex;align-items:center;gap:8px;margin-bottom:18px}
+.conversation-advisor-step{display:flex;align-items:center;gap:7px;font-size:12px;opacity:.55}
+.conversation-advisor-step.active{opacity:1}
+.conversation-advisor-step span{width:25px;height:25px;border-radius:50%;display:grid;place-items:center;background:rgba(19,115,230,.12);border:1px solid rgba(19,115,230,.3)}
+.conversation-advisor-step.active span{background:#1373e6;color:#fff;border-color:#1373e6}
+.conversation-advisor-line{height:1px;flex:1;background:rgba(127,127,127,.2)}
+.conversation-field{display:block;margin:12px 0}
+.conversation-field>span{display:block;font-weight:700;font-size:13px;margin-bottom:5px}
+.conversation-field>span em{font-style:normal;font-weight:400;opacity:.55}
+.conversation-field>small{display:block;opacity:.65;line-height:1.4;margin-bottom:8px}
+.conversation-field textarea,.conversation-field select{width:100%;box-sizing:border-box;border:1px solid rgba(127,127,127,.24);background:rgba(127,127,127,.055);color:inherit;border-radius:13px;padding:12px;font:inherit;outline:none}
+.conversation-field textarea{resize:vertical;min-height:150px;line-height:1.45}
+.conversation-field textarea:focus,.conversation-field select:focus{border-color:#1373e6;box-shadow:0 0 0 2px rgba(19,115,230,.1)}
+.conversation-advisor-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.conversation-file-row{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:8px 0 14px}
+.conversation-file{position:relative;display:inline-flex;align-items:center;padding:9px 12px;border:1px dashed rgba(19,115,230,.4);border-radius:11px;cursor:pointer;font-size:12px}
+.conversation-file input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.conversation-file-row>span:last-child{font-size:11px;opacity:.6}
+.conversation-advisor-tip{padding:12px 13px;border-radius:13px;background:rgba(19,115,230,.07);border:1px solid rgba(19,115,230,.16);font-size:12px;line-height:1.45;margin:14px 0}
+.conversation-advisor-actions{display:flex;justify-content:flex-end;gap:8px}
+.conversation-advisor-result{margin-top:18px;border-top:1px solid rgba(127,127,127,.18);padding-top:16px}
+.conversation-result-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.conversation-result-head h3{margin:2px 0 0}
+.conversation-result-body{margin-top:12px;padding:14px;border-radius:14px;background:rgba(127,127,127,.055);border:1px solid rgba(127,127,127,.16);line-height:1.55;max-height:420px;overflow:auto}
+.conversation-result-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+@media(max-width:780px){
+  .conversation-advisor-grid{grid-template-columns:1fr}
+  .conversation-advisor-steps{gap:5px}
+  .conversation-advisor-step b{font-size:10px}
+  .conversation-advisor-actions{display:grid;grid-template-columns:1fr}
+  .conversation-advisor-actions button{width:100%}
+  .conversation-result-head{align-items:flex-start;flex-direction:column}
+  .conversation-result-actions{display:grid;grid-template-columns:1fr}
+  .conversation-result-actions button{width:100%}
+}

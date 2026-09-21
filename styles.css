@@ -2442,3 +2442,44 @@ body,
   .marketing-video-grid{grid-template-columns:1fr}
   .marketing-video-card{padding:15px}
 }
+
+
+/* CLIENT HISTORY + CUSTOMER PORTAL */
+.client-card-actions{display:flex;gap:8px;margin-top:12px}
+.client-portal-active{color:#18a5ee}
+.client-history-loading{padding:24px;text-align:center;color:var(--muted,#8fa6bc)}
+.client-history-hero{display:grid;grid-template-columns:auto 1fr auto;gap:16px;align-items:center;padding:18px;border:1px solid rgba(24,165,238,.25);border-radius:22px;background:linear-gradient(135deg,rgba(24,165,238,.10),rgba(255,255,255,.03))}
+.client-history-main h2{margin:2px 0 4px}.client-history-main p{margin:0;color:var(--muted,#8fa6bc)}
+.client-history-actions{display:flex;gap:8px;flex-wrap:wrap}
+.client-avatar.large{width:58px;height:58px;font-size:18px}
+.client-history-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}
+.client-history-stats>div{padding:15px;border:1px solid var(--line,#20354a);border-radius:16px;background:var(--panel,#0b1b2b)}
+.client-history-stats span,.client-history-stats small{display:block;color:var(--muted,#8fa6bc);font-size:11px}.client-history-stats b{display:block;font-size:20px;margin:5px 0}
+.client-history-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.client-history-panel{padding:16px;border:1px solid var(--line,#20354a);border-radius:18px;background:var(--panel,#0b1b2b);min-width:0}.client-history-panel.full{grid-column:1/-1}
+.client-history-panel h3{margin:0}
+.client-product-list,.client-notes-list,.client-quote-list,.client-report-list{display:grid;gap:8px;margin-top:12px}
+.client-product-list>div,.client-notes-list article,.client-quote-list article,.client-report-list article{padding:12px;border:1px solid var(--line,#20354a);border-radius:13px;background:rgba(255,255,255,.025)}
+.client-product-list>div{display:flex;justify-content:space-between;gap:12px}.client-product-list span,.client-notes-list small,.client-quote-list small,.client-report-list small{color:var(--muted,#8fa6bc);font-size:11px}
+.client-notes-list p,.client-quote-list p,.client-report-list p{margin:5px 0;color:var(--muted,#a9bac9);white-space:pre-wrap}
+.client-quote-list article>div,.client-report-list article>div{display:flex;justify-content:space-between;gap:10px}.client-quote-list strong{font-size:16px}
+.client-quote-items{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}.client-quote-items span,.client-portal-item{font-size:11px;padding:6px 8px;border-radius:999px;background:rgba(24,165,238,.10);color:#bfe9ff}
+.client-portal-share{padding:18px}.client-portal-warning{padding:12px 14px;border:1px solid rgba(245,185,66,.35);border-radius:14px;background:rgba(245,185,66,.07);font-size:13px;line-height:1.45}
+.client-portal-url{word-break:break-all;padding:13px;margin:10px 0;border:1px solid var(--line,#20354a);border-radius:12px;background:rgba(0,0,0,.16);font-size:12px}
+.client-portal-page{min-height:100vh;background:radial-gradient(circle at 10% 0%,rgba(24,165,238,.16),transparent 34%),var(--bg,#061321);color:var(--text,#eef6ff);padding:18px}
+.client-portal-shell{max-width:1080px;margin:0 auto}
+.client-portal-header{display:flex;justify-content:space-between;align-items:center;gap:15px;padding:14px 4px 20px;border-bottom:1px solid var(--line,#20354a)}
+.client-portal-brand{display:flex;align-items:center;gap:10px}.client-portal-brand img{width:42px;height:42px;object-fit:contain;border-radius:10px}.client-portal-brand b,.client-portal-brand small{display:block}.client-portal-brand small,.client-portal-contact{color:var(--muted,#8fa6bc);font-size:12px}
+.client-portal-welcome{padding:34px 0 20px}.client-portal-welcome h1{font-size:clamp(30px,6vw,52px);margin:5px 0}.client-portal-welcome p{max-width:720px;color:var(--muted,#a9bac9);font-size:16px}
+.client-portal-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.client-portal-stats>div{padding:16px;border:1px solid var(--line,#20354a);border-radius:18px;background:rgba(255,255,255,.035)}.client-portal-stats span{display:block;color:var(--muted,#8fa6bc);font-size:10px}.client-portal-stats b{display:block;font-size:20px;margin-top:7px}
+.client-portal-section{margin-top:14px;padding:18px;border:1px solid var(--line,#20354a);border-radius:20px;background:rgba(255,255,255,.025)}.client-portal-section h2{margin:2px 0 14px}
+.client-portal-products{display:flex;flex-wrap:wrap;gap:8px}.client-portal-products span{padding:8px 11px;border-radius:999px;background:rgba(24,165,238,.10);font-size:12px}
+.client-portal-list{display:grid;gap:10px}.client-portal-list article{padding:14px;border:1px solid var(--line,#20354a);border-radius:14px}.client-portal-list article>div:first-child{display:flex;justify-content:space-between;gap:10px}.client-portal-list p{margin:6px 0;color:var(--muted,#a9bac9);white-space:pre-wrap}.client-portal-list small{color:var(--muted,#8fa6bc)}.client-portal-note{padding:10px;border-left:3px solid #18a5ee;background:rgba(24,165,238,.05)}
+.client-portal-timeline{display:grid;gap:0}.client-portal-timeline article{display:grid;grid-template-columns:14px 1fr;gap:10px;position:relative;padding:0 0 18px}.client-portal-timeline article i{width:9px;height:9px;border-radius:50%;background:#18a5ee;margin-top:5px;box-shadow:0 0 0 4px rgba(24,165,238,.12)}.client-portal-timeline article:not(:last-child) i:after{content:"";position:absolute;left:4px;top:14px;width:1px;height:calc(100% - 14px);background:var(--line,#20354a)}.client-portal-timeline p{margin:4px 0;color:var(--muted,#a9bac9);white-space:pre-wrap}.client-portal-timeline small{color:var(--muted,#8fa6bc)}
+.client-portal-footer{text-align:center;color:var(--muted,#8fa6bc);font-size:11px;padding:24px}
+.client-portal-loading,.client-portal-error{max-width:620px;margin:15vh auto;padding:28px;text-align:center;border:1px solid var(--line,#20354a);border-radius:22px;background:rgba(255,255,255,.035)}.client-portal-error h1{margin-top:0}
+@media(max-width:760px){
+  .client-history-hero{grid-template-columns:auto 1fr}.client-history-actions{grid-column:1/-1}.client-history-stats{grid-template-columns:1fr 1fr}.client-history-grid{grid-template-columns:1fr}.client-history-panel.full{grid-column:auto}
+  .client-portal-header{align-items:flex-start;flex-direction:column}.client-portal-stats{grid-template-columns:1fr 1fr}.client-portal-page{padding:12px}
+}
+@media(max-width:460px){.client-history-stats{grid-template-columns:1fr 1fr}.client-portal-stats{grid-template-columns:1fr 1fr}.client-card-actions button{flex:1}}

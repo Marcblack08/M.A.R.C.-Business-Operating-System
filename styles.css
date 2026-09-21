@@ -3053,3 +3053,20 @@ html[data-theme="dark"] #scModalOverlay [style*="background:rgba(127,127,127,.08
   .marketing-share-grid{gap:8px}
   .marketing-share-option{min-height:96px}
 }
+
+/* Guía del flujo de foto → IA → revisión del inventario */
+.inventory-ai-guide{display:flex;align-items:center;gap:8px;padding:10px 12px;margin-bottom:12px;border:1px solid var(--line,#dfe5ee);border-radius:14px;background:var(--surface-soft,#f7f9fc)}
+.inventory-ai-step{display:flex;align-items:center;gap:6px;color:#8a93a3;font-size:12px;font-weight:700;white-space:nowrap}
+.inventory-ai-step b{display:grid;place-items:center;width:25px;height:25px;border-radius:50%;background:#e8edf4;color:#687386;font-size:12px}
+.inventory-ai-step.active{color:var(--text,#172033)}
+.inventory-ai-step.active b{background:#0b73e6;color:#fff}
+.inventory-ai-guide>i{height:1px;flex:1;background:var(--line,#dfe5ee);min-width:12px}
+.inventory-photo-tips{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:10px;background:var(--surface-soft,#f7f9fc);font-size:11px;color:#687386;line-height:1.35}
+.inventory-photo-tips b{color:var(--text,#172033);margin-bottom:2px}
+#analyzeProductPhoto:disabled{opacity:.55;cursor:not-allowed}
+@media(max-width:600px){
+  .inventory-ai-guide{gap:4px;padding:8px}
+  .inventory-ai-step{font-size:10px;gap:4px}
+  .inventory-ai-step b{width:22px;height:22px}
+  .inventory-ai-guide>i{min-width:6px}
+}

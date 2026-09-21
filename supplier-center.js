@@ -78,32 +78,43 @@
       '<label style="display:grid;gap:7px"><span style="font-weight:700">Nombre del catálogo</span><input id="scCatalogName" class="input" value="Catálogo de proveedor" placeholder="Ej. Catálogo Hikvision 2026"></label>'+
       '<div style="border:2px dashed rgba(37,99,235,.45);border-radius:18px;padding:22px;text-align:center;background:rgba(37,99,235,.05)">'+
         '<div style="font-size:34px;margin-bottom:8px">📄</div><b style="display:block;font-size:17px">Sube el catálogo del proveedor</b>'+
-        '<small style="display:block;margin:6px 0 14px;opacity:.72">PDF, Excel o imagen. Si el PDF contiene fotos de productos, M.A.R.C. intentará extraerlas.</small>'+
-        '<input id="scCatalogFile" type="file" accept=".pdf,.xlsx,.xls,image/*" style="display:none">'+
-        '<button id="scChooseCatalogFile" type="button" class="primary">📎 Seleccionar PDF / Excel</button>'+
-        '<div id="scCatalogFileName" style="margin-top:10px;font-size:13px;opacity:.8">Ningún archivo seleccionado</div>'+
+        '<small style="display:block;margin:6px 0 16px;opacity:.72">Selecciona el tipo de archivo. El PDF se analiza para detectar productos y fotografías.</small>'+
+        '<input id="scCatalogPdf" type="file" accept="application/pdf,.pdf" style="display:none">'+
+        '<input id="scCatalogExcel" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" style="display:none">'+
+        '<input id="scCatalogImage" type="file" accept="image/*" style="display:none">'+
+        '<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">'+
+          '<button id="scChoosePdf" type="button" class="primary">📄 Subir PDF</button>'+
+          '<button id="scChooseExcel" type="button" class="secondary">📊 Subir Excel</button>'+
+          '<button id="scChooseImage" type="button" class="secondary">🖼️ Subir foto</button>'+
+        '</div>'+
+        '<div id="scCatalogFileName" style="margin-top:12px;font-size:13px;opacity:.8">Ningún archivo seleccionado</div>'+
       '</div>'+
       '<div id="scUploadProgress" style="display:none;font-size:13px;opacity:.8">Preparando catálogo…</div>'+
     '</div>';
     scModal("Registrar catálogo",body,'<button id="scCatalogCancel" class="secondary">Cancelar</button><button id="scCatalogUpload" class="primary">⬆️ Subir y analizar</button>');
-    const fileInput=document.querySelector("#scCatalogFile"),fileName=document.querySelector("#scCatalogFileName");
-    document.querySelector("#scChooseCatalogFile").onclick=()=>fileInput.click();
-    fileInput.onchange=()=>{const file=fileInput.files?.[0];fileName.textContent=file?("📎 "+file.name+" · "+Math.max(1,file.size/1024/1024).toFixed(2)+" MB"):"Ningún archivo seleccionado"};
+    const pdfInput=document.querySelector("#scCatalogPdf"),excelInput=document.querySelector("#scCatalogExcel"),imageInput=document.querySelector("#scCatalogImage"),fileName=document.querySelector("#scCatalogFileName");
+    let selectedFile=null;
+    const choose=input=>{input.value="";input.click()};
+    document.querySelector("#scChoosePdf").onclick=()=>choose(pdfInput);
+    document.querySelector("#scChooseExcel").onclick=()=>choose(excelInput);
+    document.querySelector("#scChooseImage").onclick=()=>choose(imageInput);
+    [pdfInput,excelInput,imageInput].forEach(input=>input.onchange=()=>{if(input.files?.[0]){selectedFile=input.files[0];fileName.textContent="📎 "+selectedFile.name+" · "+Math.max(1,selectedFile.size/1024/1024).toFixed(2)+" MB"}});
     document.querySelector("#scCatalogCancel").onclick=()=>document.querySelector("#modal").innerHTML="";
     document.querySelector("#scCatalogUpload").onclick=async()=>{
-      const file=fileInput.files?.[0];
+      const file=selectedFile;
       const name=document.querySelector("#scCatalogName").value.trim();
       const supplierId=document.querySelector("#scCatalogSupplier").value||null;
       if(!name)return alert("Escribe el nombre del catálogo.");
-      if(!file)return alert("Selecciona primero el PDF, Excel o imagen del catálogo.");
+      if(!file)return alert("Selecciona primero el PDF, Excel o imagen.");
       const btn=document.querySelector("#scCatalogUpload"),progress=document.querySelector("#scUploadProgress");
       btn.disabled=true;progress.style.display="block";progress.textContent="Subiendo "+file.name+"…";
       try{
         const path=session.user.id+"/"+Date.now()+"-"+file.name.replace(/[^a-zA-Z0-9._-]/g,"_");
+        const sourceType=file.type==="application/pdf"||/\.pdf$/i.test(file.name)?"PDF":/\.xlsx?$/i.test(file.name)?"EXCEL":"OTHER";
         const up=await S.storage.from("catalog-pdfs").upload(path,file,{upsert:false,contentType:file.type||"application/octet-stream"});
         if(up.error)throw up.error;
-        progress.textContent="Archivo guardado. Analizando productos y fotografías…";
-        const ins=await S.from("marc_supplier_catalogs").insert({user_id:session.user.id,supplier_id:supplierId,name,source_type:file.type==="application/pdf"?"PDF":file.name.match(/\.xlsx?$/i)?"EXCEL":"OTHER",storage_path:path,file_name:file.name,file_size_bytes:file.size,status:"UPLOADED"}).select().single();
+        progress.textContent=sourceType==="PDF"?"Archivo guardado. Analizando productos y fotografías del PDF…":"Archivo guardado. Analizando productos…";
+        const ins=await S.from("marc_supplier_catalogs").insert({user_id:session.user.id,supplier_id:supplierId,name,source_type:sourceType,storage_path:path,file_name:file.name,file_size_bytes:file.size,status:"UPLOADED"}).select().single();
         if(ins.error)throw ins.error;
         await analyzeCatalog(ins.data,file);
         document.querySelector("#modal").innerHTML="";

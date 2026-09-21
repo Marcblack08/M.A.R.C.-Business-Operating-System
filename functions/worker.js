@@ -3148,6 +3148,7 @@ async function marketingVideoStatus(request,env){
   if(method!=="GET"&&method!=="POST")return json({error:"Método no permitido"},405);
   const {token,user}=await authUser(request,env),access=await entitlement(env,token,user.id);
   if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request));
+  if(access.kind!=="paid"&&access.kind!=="master")return json({error:"VIDEO_SUBSCRIPTION_REQUIRED",message:"La generación de videos está incluida en una suscripción activa de M.A.R.C."},402,corsHeaders(request));
 
   let operationName="";
   let download=false;
@@ -3248,18 +3249,24 @@ async function clientPortalView(request,env){
     sb(env,adminToken,"marc_client_history?user_id=eq."+encodeURIComponent(uid)+"&client_id=eq."+encodeURIComponent(cid)+"&visible_to_client=eq.true&select=id,event_type,title,description,metadata,created_at&order=created_at.desc&limit=100")
   ]);
   const quoteIds=(quotes||[]).map(x=>x.id);
-  let items=[];
+  let items=[],payments=[];
   if(quoteIds.length){
     const inList=quoteIds.map(id=>encodeURIComponent(id)).join(",");
-    items=await sb(env,adminToken,"marc_quote_items?user_id=eq."+encodeURIComponent(uid)+"&quote_id=in.("+inList+")&select=quote_id,item_type,name,description,quantity,unit,unit_price,line_total&order=created_at.asc");
+    [items,payments]=await Promise.all([
+      sb(env,adminToken,"marc_quote_items?user_id=eq."+encodeURIComponent(uid)+"&quote_id=in.("+inList+")&select=quote_id,item_type,name,description,quantity,unit,unit_price,line_total&order=created_at.asc"),
+      sb(env,adminToken,"marc_cash_movements?user_id=eq."+encodeURIComponent(uid)+"&quote_id=in.("+inList+")&type=eq.INCOME&select=quote_id,amount,concept,reference,created_at&order=created_at.desc")
+    ]);
   }
-  const safeQuotes=(quotes||[]).map(q=>({
+  const safeQuotes=(quotes||[]).filter(q=>!["BORRADOR","RECHAZADA","ANULADA"].includes(String(q.status||"").toUpperCase())).map(q=>({
     id:q.id,number:q.number,title:q.title,status:q.status,total:Number(q.total||0),
     tax_enabled:Boolean(q.tax_enabled),tax_rate:Number(q.tax_rate||0),notes:q.notes||null,
-    created_at:q.created_at,items:(items||[]).filter(i=>i.quote_id===q.id).map(i=>({
+    created_at:q.created_at,
+    items:(items||[]).filter(i=>i.quote_id===q.id).map(i=>({
       item_type:i.item_type,name:i.name,description:i.description,quantity:Number(i.quantity||0),unit:i.unit,
       unit_price:Number(i.unit_price||0),line_total:Number(i.line_total||0)
-    }))
+    })),
+    payments:(payments||[]).filter(p=>p.quote_id===q.id).map(p=>({amount:Number(p.amount||0),concept:p.concept||null,reference:p.reference||null,created_at:p.created_at})),
+    paid_total:(payments||[]).filter(p=>p.quote_id===q.id).reduce((s,p)=>s+Number(p.amount||0),0)
   }));
   const visibleHistory=[
     ...safeQuotes.map(q=>({id:"quote-"+q.id,event_type:"QUOTE",title:q.title||("Cotización "+q.number),description:q.notes||("Estado: "+q.status),created_at:q.created_at,metadata:{number:q.number,status:q.status,total:q.total}})),

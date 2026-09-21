@@ -805,7 +805,12 @@
       };
     }).filter(x=>x.name&&!isNoiseCatalogText(x.name));
 
-    const result=mergeCatalogCandidates(normalized).slice(0,2000);
+    // El lector compartido de Inventario ya entrega las filas de productos consolidadas.
+    // En Proveedores NO volvemos a agrupar por nombre: eso estaba convirtiendo
+    // 136 productos leídos correctamente en solo 49 al fusionar variantes del
+    // mismo nombre dentro de una misma página.
+    // Cada fila detectada por el lector se conserva como un producto del catálogo.
+    const result=normalized.slice(0,2000);
     if(!result.length){
       throw new Error("El PDF no contiene productos reconocibles.");
     }

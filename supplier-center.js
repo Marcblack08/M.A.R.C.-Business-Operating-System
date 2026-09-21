@@ -801,6 +801,12 @@
           pageResults.push({pageNumber:batch[idx],items:[],mode:"ERROR",error:r.reason?.message||"Error desconocido"});
         }
       });
+      const progressEl=document.querySelector("#scReanalyzeStatus");
+      if(progressEl){
+        const done=Math.min(batchStart+batch.length-1,pdf.numPages);
+        const detectedSoFar=pageResults.reduce((n,x)=>n+(x.items?.length||0),0);
+        progressEl.textContent="Páginas "+done+"/"+pdf.numPages+" procesadas · "+detectedSoFar+" productos candidatos. Analizando en paralelo…";
+      }
     }
 
     pageResults.sort((a,b)=>a.pageNumber-b.pageNumber);

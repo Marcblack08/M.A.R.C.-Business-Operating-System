@@ -3376,7 +3376,7 @@ function wire(){
 
     if(error){
       sessionStorage.removeItem("marc_google_oauth_pending");
-      throw new Error(decodeURIComponent(String(error).replace(/\\+/g," ")));
+      throw new Error(decodeURIComponent(String(error).replace(/\+/g," ")));
     }
 
     // Con implicit, Supabase detecta automáticamente el access_token del hash

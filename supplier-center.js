@@ -913,3 +913,8 @@
         const anchor=document.querySelector("#importPdf");anchor.parentElement.insertBefore(b,anchor);
       }
     });
+    obs.observe(content,{childList:true,subtree:true});
+  }
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",install);else install();
+  window.marcSupplierCenter=supplierCenter;
+})();

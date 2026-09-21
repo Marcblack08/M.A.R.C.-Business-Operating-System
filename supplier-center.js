@@ -216,6 +216,29 @@
     if(window.view)window.view("marketing");
   }
 
+  async function socialConnectionsPanel(){
+    const S=sb(); const {data:{session}}=await S.auth.getSession(); if(!session)return;
+    const plan=await getPublicationPlan();
+    const r=await S.from("marc_social_connections").select("id,platform,account_name,status,scopes,connected_at,updated_at,last_error").eq("user_id",session.user.id).order("platform");
+    if(r.error)return alert(r.error.message);
+    const rows=(r.data||[]);
+    const platforms=["FACEBOOK","INSTAGRAM","TIKTOK","WHATSAPP","LINKEDIN"];
+    const body='<div style="display:grid;gap:10px">'+platforms.map(p=>{const x=rows.find(v=>v.platform===p);const ok=x?.status==="CONNECTED";return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;border:1px solid rgba(127,127,127,.18);border-radius:14px"><div><b>'+p+'</b><small style="display:block;opacity:.7">'+(ok?(esc(x.account_name||"Cuenta conectada")):"Sin conectar")+'</small></div><span class="badge '+(ok?"ok":"low")+'">'+(ok?"CONECTADA":"DESCONECTADA")+'</span><button class="'+(ok?"secondary":"primary")+'" data-social="'+p+'">'+(ok?"Desconectar":"Conectar")+'</button></div>'}).join("")+'</div>'+(plan.canPublish?'<p style="margin-top:14px">Plan MASTER activo: podrás publicar/programar cuando la API de la red esté conectada.</p>':'<p style="margin-top:14px">Las cuentas pueden prepararse, pero la publicación automática requiere el plan MASTER.</p>');
+    scModal("Cuentas sociales",body,'<button id="scSocialClose" class="primary">Listo</button>');
+    document.querySelector("#scSocialClose").onclick=()=>document.querySelector("#modal").innerHTML="";
+    document.querySelectorAll("[data-social]").forEach(b=>b.onclick=()=>socialConnectionAction(b.dataset.social,rows.find(v=>v.platform===b.dataset.social)));
+  }
+  async function socialConnectionAction(platform,current){
+    const S=sb(); const {data:{session}}=await S.auth.getSession();
+    if(current?.status==="CONNECTED"){
+      if(!confirm("¿Desconectar "+platform+"?"))return;
+      const r=await S.from("marc_social_connections").update({status:"DISCONNECTED",token_ref:null,external_account_id:null,account_name:null,last_error:null}).eq("id",current.id).eq("user_id",session.user.id);
+      if(r.error)return alert(r.error.message);
+      return socialConnectionsPanel();
+    }
+    alert("La conexión OAuth de "+platform+" todavía debe configurarse con las credenciales oficiales de esa plataforma. M.A.R.C. ya tiene el registro y el estado de conexión preparados, sin guardar tokens directamente en la base de datos.");
+  }
+
   function install(){
     const content=document.querySelector("#content");
     if(!content)return;

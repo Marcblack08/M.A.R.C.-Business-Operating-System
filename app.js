@@ -168,33 +168,65 @@ async function conversationAdvisorModal(preselectedClient=null){
   }catch{}
   const close=modal(`
     <div class="modal-head">
-      <div><div class="eyebrow2">ASISTENTE DE CONVERSACIONES</div><h2>¿Qué le respondo?</h2><p>Pega una conversación con tu cliente y M.A.R.C. te ayudará a entenderla y a elegir cómo continuar.</p></div>
+      <div><div class="eyebrow2">ASESOR DE CONVERSACIONES</div><h2>Te ayudo a responder</h2><p>Muéstrame lo que habló tu cliente y M.A.R.C. te propone qué decir y cómo continuar.</p></div>
       <button class="close" id="conversationAdvisorClose">×</button>
     </div>
     <div class="conversation-advisor">
+      <div class="conversation-advisor-clientbar">
+        <div class="conversation-advisor-clienticon">◉</div>
+        <div><b>¿Con quién estás hablando?</b><small>Si eliges un cliente, el análisis quedará guardado automáticamente en su historia.</small></div>
+      </div>
+      <label class="conversation-field conversation-client-select"><span>Cliente <em>opcional</em></span><select id="conversationAdvisorClient"><option value="">Solo analizar, sin guardar en un cliente</option>${clients.map(x=>`<option value="${esc(x.id)}" ${preselectedClient?.id===x.id?"selected":""}>${esc(x.name)}${x.phone?" · "+esc(x.phone):""}</option>`).join("")}</select></label>
+      <div id="conversationAdvisorClientInfo" class="conversation-client-info" hidden></div>
+
       <div class="conversation-advisor-steps">
-        <div class="conversation-advisor-step active"><span>1</span><b>Conversación</b></div>
+        <div class="conversation-advisor-step active"><span>1</span><b>Envía la conversación</b></div>
         <div class="conversation-advisor-line"></div>
-        <div class="conversation-advisor-step"><span>2</span><b>Objetivo</b></div>
+        <div class="conversation-advisor-step"><span>2</span><b>Define qué buscas</b></div>
         <div class="conversation-advisor-line"></div>
-        <div class="conversation-advisor-step"><span>3</span><b>Opciones</b></div>
+        <div class="conversation-advisor-step"><span>3</span><b>Recibe respuestas</b></div>
       </div>
-      <label class="conversation-field"><span>Conversación</span><small>Pega aquí el chat de WhatsApp, Telegram, SMS o correo. También puedes cargar una exportación .txt.</small>
-        <textarea id="conversationAdvisorText" rows="10" placeholder="Ejemplo:\nCliente: ¿Cuánto me cobras por instalar las cámaras?\nYo: Depende de la cantidad...\nCliente: Son 4 cámaras, pero me parece un poco caro..."></textarea>
-      </label>
-      <div class="conversation-file-row"><label class="conversation-file"><input id="conversationAdvisorFile" type="file" accept=".txt,.csv,text/plain,text/csv"><span>＋ Cargar conversación .txt</span></label><button type="button" class="secondary" id="conversationAdvisorClear">Limpiar</button><span id="conversationAdvisorFileName"></span></div>
+
+      <div class="conversation-input-choice">
+        <div class="conversation-input-title"><b>📋 Pega la conversación</b><small>Desde WhatsApp, Telegram, SMS o correo.</small></div>
+        <textarea id="conversationAdvisorText" rows="9" placeholder="Pega aquí la conversación completa…\n\nCliente: Hola, ¿cuánto cuesta?\nYo: Te puedo cotizar…\nCliente: Déjame pensarlo."></textarea>
+        <div class="conversation-file-row"><label class="conversation-file"><input id="conversationAdvisorFile" type="file" accept=".txt,.csv,text/plain,text/csv"><span>＋ Cargar archivo de conversación</span></label><button type="button" class="secondary" id="conversationAdvisorClear">Limpiar</button><span id="conversationAdvisorFileName"></span></div>
+      </div>
+
       <div class="conversation-advisor-grid">
-        <label class="conversation-field"><span>¿Qué quieres lograr?</span><select id="conversationAdvisorGoal"><option value="VENDER">Cerrar la venta</option><option value="COTIZAR">Conseguir que acepte la cotización</option><option value="NEGOCIAR">Negociar sin perder margen</option><option value="RECUPERAR">Recuperar al cliente</option><option value="COBRAR">Gestionar un pago pendiente</option><option value="ACLARAR">Aclarar una duda o conflicto</option><option value="SEGUIMIENTO">Dar seguimiento</option></select></label>
-        <label class="conversation-field"><span>Tono</span><select id="conversationAdvisorTone"><option value="PROFESIONAL">Profesional y claro</option><option value="CERCANO">Cercano y natural</option><option value="PERSUASIVO">Persuasivo sin presionar</option><option value="DIRECTO">Directo y breve</option><option value="AMABLE">Amable y conciliador</option></select></label>
+        <label class="conversation-field"><span>¿Qué quieres conseguir?</span><select id="conversationAdvisorGoal"><option value="VENDER">Quiero avanzar hacia la venta</option><option value="COTIZAR">Quiero que revise o acepte la cotización</option><option value="NEGOCIAR">Quiero negociar sin regalar mi margen</option><option value="RECUPERAR">Quiero recuperar el contacto</option><option value="COBRAR">Quiero gestionar un pago pendiente</option><option value="ACLARAR">Quiero aclarar una duda o problema</option><option value="SEGUIMIENTO">Quiero hacer seguimiento</option></select></label>
+        <label class="conversation-field"><span>¿Cómo quieres sonar?</span><select id="conversationAdvisorTone"><option value="PROFESIONAL">Profesional y claro</option><option value="CERCANO">Cercano y natural</option><option value="PERSUASIVO">Persuasivo sin presionar</option><option value="DIRECTO">Directo y breve</option><option value="AMABLE">Amable y conciliador</option></select></label>
       </div>
-      <label class="conversation-field"><span>Cliente <em>opcional</em></span><select id="conversationAdvisorClient"><option value="">No asociar a un cliente</option>${clients.map(x=>`<option value="${esc(x.id)}" ${preselectedClient?.id===x.id?"selected":""}>${esc(x.name)}${x.phone?" · "+esc(x.phone):""}</option>`).join("")}</select></label>
-      <div class="conversation-advisor-tip">💡 M.A.R.C. no solo redactará una respuesta: identificará la intención del cliente, posibles objeciones, qué conviene evitar y te dará varias respuestas listas para enviar.</div>
+      <div class="conversation-quick-goals">
+        <button type="button" data-advisor-goal="VENDER">💰 Quiero vender</button>
+        <button type="button" data-advisor-goal="NEGOCIAR">🤝 Quiero negociar</button>
+        <button type="button" data-advisor-goal="SEGUIMIENTO">🔔 Quiero seguir el contacto</button>
+        <button type="button" data-advisor-goal="COBRAR">💳 Quiero cobrar</button>
+      </div>
+
+      <div class="conversation-advisor-tip">✦ M.A.R.C. analizará lo que el cliente está buscando, sus dudas y el contexto. Luego te dará una respuesta lista para enviar, una alternativa corta y el siguiente paso.</div>
       <div id="conversationAdvisorStatus" class="msg"></div>
-      <div class="modal-actions conversation-advisor-actions"><button class="secondary" id="conversationAdvisorCancel">Cancelar</button><button class="primary" id="conversationAdvisorRun">✦ Analizar conversación</button></div>
+      <div class="modal-actions conversation-advisor-actions"><button class="secondary" id="conversationAdvisorCancel">Cancelar</button><button class="primary" id="conversationAdvisorRun">✦ Ayúdame a responder</button></div>
       <div id="conversationAdvisorResult" class="conversation-advisor-result" hidden></div>
     </div>`);
+>`);
   const q=s=>document.querySelector(s);
   q("#conversationAdvisorClose").onclick=close;
+  const syncClientInfo=()=>{
+    const id=q("#conversationAdvisorClient")?.value, box=q("#conversationAdvisorClientInfo");
+    const client=clients.find(x=>x.id===id);
+    if(!box)return;
+    if(!client){box.hidden=true;box.innerHTML="";return}
+    box.hidden=false;
+    box.innerHTML=`<b>${esc(client.name)}</b><span>${client.phone?esc(client.phone):"Sin teléfono registrado"}</span><small>✓ El análisis se guardará en su historia comercial.</small>`;
+  };
+  q("#conversationAdvisorClient").onchange=syncClientInfo;
+  syncClientInfo();
+  q(".conversation-quick-goals").querySelectorAll("button").forEach(b=>b.onclick=()=>{
+    q("#conversationAdvisorGoal").value=b.dataset.advisorGoal;
+    q(".conversation-quick-goals").querySelectorAll("button").forEach(x=>x.classList.toggle("active",x===b));
+  });
+
   q("#conversationAdvisorCancel").onclick=close;
   q("#conversationAdvisorClear").onclick=()=>{q("#conversationAdvisorText").value="";q("#conversationAdvisorFile").value="";q("#conversationAdvisorFileName").textContent=""};
   q("#conversationAdvisorFile").onchange=async e=>{

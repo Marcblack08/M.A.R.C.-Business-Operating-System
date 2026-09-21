@@ -3344,7 +3344,10 @@ function wire(){
   bindThemeButton("#authThemeToggle");
   mode("login");
   const googleBtn=$("#googleLogin");
-  if(googleBtn){googleBtn.type="button";googleBtn.onclick=signInGoogle;}
+  if(googleBtn){
+    googleBtn.type="button";
+    googleBtn.onclick=(e)=>{e.preventDefault();e.stopPropagation();signInGoogle();};
+  }
   $("#logout").onclick=async()=>{resetUiToLogin();await S.auth.signOut();};
   $("#askTop").onclick=openChat;
   $("#closeChat").onclick=closeChat;

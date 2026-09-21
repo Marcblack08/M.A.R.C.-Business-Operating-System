@@ -2262,15 +2262,27 @@ async function marketing(){
     </div>
     <section class="card panel marketing-copy-card"><div class="eyebrow2">6 · PROPUESTAS DE TEXTO</div><div class="marketing-copy-grid"><article><div class="marketing-copy-head"><b>Texto principal</b><button class="secondary" data-copy="primary_text">Copiar</button></div><p id="adPrimary">—</p></article><article><div class="marketing-copy-head"><b>WhatsApp</b><button class="secondary" data-copy="whatsapp_text">Copiar</button></div><p id="adWhatsapp">—</p></article><article><div class="marketing-copy-head"><b>Texto corto</b><button class="secondary" data-copy="short_text">Copiar</button></div><p id="adShort">—</p></article><article><div class="marketing-copy-head"><b>Hashtags</b><button class="secondary" data-copy="hashtags">Copiar</button></div><p id="adHashtags">—</p></article></div></section>
     <section class="card panel marketing-company-footer"><div><b>✓ Datos de tu empresa aplicados automáticamente</b><small>Logo, nombre, teléfono y datos disponibles en tu perfil empresarial.</small></div><button class="secondary" type="button" id="marketingCompanyInfo">Ver datos de contacto</button></section>
-    <section class="card panel" id="marketingPublishCenter" style="margin-top:14px">
-      <div class="eyebrow2">7 · PUBLICACIÓN</div>
-      <div class="panel-title-row"><div><h3 style="margin:0">Publicar desde M.A.R.C.</h3><small>Prepara el contenido aquí y controla tus canales desde un solo lugar.</small></div><span id="marketingPlanBadge" class="badge low">VERIFICANDO PLAN…</span></div>
-      <div id="marketingSocialAccounts" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0"></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="primary" id="marketingPreparePublication" type="button">＋ Preparar publicación</button>
-        <button class="secondary" id="marketingSchedulePublication" type="button">◷ Programar</button>
-        <button class="primary" id="marketingPublishNow" type="button" disabled>🚀 Publicar ahora</button>
-        <button class="secondary" id="marketingSocialSettings" type="button">⚙ Cuentas sociales</button>
+    <section class="card panel marketing-share-center" id="marketingPublishCenter" style="margin-top:14px">
+      <div class="eyebrow2">7 · COMPARTIR Y PUBLICAR</div>
+      <div class="panel-title-row">
+        <div><h3 style="margin:0">Lleva tu publicidad a tus redes</h3><small>M.A.R.C. prepara el contenido y tu teléfono se encarga de compartirlo.</small></div>
+        <span class="badge ok">📱 TELÉFONO</span>
+      </div>
+      <div class="marketing-share-explainer">
+        <div class="marketing-share-icon">📤</div>
+        <div><b>No necesitas conectar Facebook, Instagram, TikTok ni WhatsApp.</b><small>Cuando pulses compartir, Android/iPhone abrirá el menú de aplicaciones de tu propio teléfono. Tú eliges dónde enviarlo.</small></div>
+      </div>
+      <div class="marketing-share-grid">
+        <button class="marketing-share-option" id="marketingShareWhatsApp" type="button"><span>🟢</span><b>WhatsApp</b><small>Enviar a un contacto o grupo</small></button>
+        <button class="marketing-share-option" id="marketingShareInstagram" type="button"><span>📸</span><b>Instagram</b><small>Compartir desde tu teléfono</small></button>
+        <button class="marketing-share-option" id="marketingShareFacebook" type="button"><span>f</span><b>Facebook</b><small>Compartir desde tu teléfono</small></button>
+        <button class="marketing-share-option" id="marketingShareTikTok" type="button"><span>♪</span><b>TikTok</b><small>Compartir desde tu teléfono</small></button>
+        <button class="marketing-share-option marketing-share-more" id="marketingShareMore" type="button"><span>＋</span><b>Más aplicaciones</b><small>Abrir el menú completo</small></button>
+      </div>
+      <div class="marketing-share-actions">
+        <button class="primary" id="marketingPreparePublication" type="button">💾 Guardar publicidad</button>
+        <button class="secondary" id="marketingShareNow" type="button">📤 Compartir ahora</button>
+        <button class="secondary" id="marketingReminder" type="button">🔔 Recordarme después</button>
       </div>
       <div id="marketingPublishStatus" class="msg" style="margin-top:10px"></div>
     </section>
@@ -2391,71 +2403,63 @@ async function marketing(){
   $p("analyzeAdPhoto").onclick=analyzeAdPhoto;
   $p("marketingPhotoClear").onclick=clearAdPhoto;
   $p("marketingCompanyInfo").onclick=()=>toast("Datos usados: "+String(company.business_name||"Tu empresa")+(company.phone?" · "+company.phone:""),"ok");
-  const loadMarketingSocialCenter=async()=>{
-    const box=$p("marketingSocialAccounts"),badge=$p("marketingPlanBadge"),status=$p("marketingPublishStatus"); if(!box)return;
-    const sub=await S.from("marc_subscriptions").select("plan,status").eq("user_id",st.u.id).eq("status","active").order("created_at",{ascending:false}).limit(1).maybeSingle();
-    const plan=String(sub.data?.plan||"TRIAL").toUpperCase(), canPublish=plan==="MASTER";
-    badge.textContent=canPublish?"MASTER · PUBLICACIÓN":"PUBLICACIÓN BLOQUEADA";
-    badge.className="badge "+(canPublish?"ok":"low");
-    const rr=await S.from("marc_social_connections").select("platform,account_name,status").eq("user_id",st.u.id).order("platform");
-    const map=Object.fromEntries((rr.data||[]).map(x=>[x.platform,x]));
-    box.innerHTML=["FACEBOOK","INSTAGRAM","TIKTOK","WHATSAPP","LINKEDIN"].map(p=>{const x=map[p],ok=x?.status==="CONNECTED";return '<div style="padding:12px;border:1px solid rgba(127,127,127,.18);border-radius:14px"><b>'+p+'</b><small style="display:block;opacity:.7">'+(ok?(esc(x.account_name||"Conectada")):"No conectada")+'</small><span class="badge '+(ok?"ok":"low")+'" style="margin-top:7px;display:inline-block">'+(ok?"CONECTADA":"PENDIENTE")+'</span></div>'}).join("");
-    status.textContent=canPublish?"MASTER: publicación y programación habilitadas cuando exista una conexión oficial.":"Puedes preparar borradores. La publicación y programación automática requieren MASTER.";
-  };
-  const preparePublication=async(scheduled=false)=>{
-    if(!currentCampaign)return toast("Primero genera la publicidad con IA.","err");
-    const platform=$p("adPlatform").value;
-    const r=await S.from("marc_publications").insert({user_id:st.u.id,inventory_id:currentProduct?.id||null,platform,status:"DRAFT",title:currentCampaign.title||currentProduct?.name,headline:currentCampaign.headline,body:currentCampaign.primary_text,short_text:currentCampaign.short_text,hashtags:currentCampaign.hashtags||[],media_url:currentAiImage||currentImage||currentProduct?.image_url||null,media_type:"IMAGE"}).select().single();
-    if(r.error)return toast(r.error.message,"err");
-    if(scheduled){
-      const sub=await S.from("marc_subscriptions").select("plan,status").eq("user_id",st.u.id).eq("status","active").limit(1).maybeSingle();
-      if(String(sub.data?.plan||"").toUpperCase()!=="MASTER")return toast("Programar publicaciones requiere el plan MASTER.","err");
-      const when=prompt("Fecha y hora (YYYY-MM-DD HH:MM):","");
-      if(!when)return;
-      const d=new Date(when.replace(" ","T")+":00"); if(Number.isNaN(d.getTime()))return toast("Fecha no válida.","err");
-      const u=await S.from("marc_publications").update({status:"SCHEDULED",scheduled_for:d.toISOString()}).eq("id",r.data.id).eq("user_id",st.u.id);
-      if(u.error)return toast(u.error.message,"err");
-      const j=await S.from("marc_publication_jobs").insert({publication_id:r.data.id,user_id:st.u.id,status:"PENDING",run_after:d.toISOString()});
-      if(j.error)return toast(j.error.message,"err");
-      return toast("Publicación programada. Falta la conexión oficial de la red para ejecutar el envío.","ok");
-    }
-    currentPublicationId=r.data.id;
-    const publishBtn=$p("marketingPublishNow");if(publishBtn)publishBtn.disabled=false;
-    toast("Publicación preparada y guardada como borrador. Ya puedes publicarla ahora.","ok");
-  };
-  const sharePublication=async()=>{
+  const publicationText=()=>[currentCampaign?.headline,currentCampaign?.primary_text,currentCampaign?.short_text,(currentCampaign?.hashtags||[]).join(" ")].filter(Boolean).join("\n\n");
+  const sharePublication=async(target="SHARE")=>{
     if(!currentCampaign)return toast("Primero genera la publicidad con IA.","err");
     const title=currentCampaign.title||currentProduct?.name||"Publicidad de M.A.R.C.";
-    const text=[currentCampaign.headline,currentCampaign.primary_text,currentCampaign.short_text,(currentCampaign.hashtags||[]).join(" ")].filter(Boolean).join("\n\n");
+    const text=publicationText();
     try{
-      const imageDataUrl=currentAiImage||currentImage||"";
+      const imageDataUrl=currentAiImage||currentImage||currentProduct?.image_url||"";
       if(window.MARCNotifications?.share){
         await window.MARCNotifications.share({title,text,url:location.href,imageDataUrl,fileName:"publicidad-marc-"+Date.now()+".png"});
       }else if(navigator.share){
-        let files=[];
-        try{if(imageDataUrl){const m=String(imageDataUrl).match(/^data:([^;]+);base64,(.+)$/);if(m){const bin=atob(m[2]),bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);files=[new File([bytes],"publicidad-marc.png",{type:m[1]})]}}}catch{}
-        if(files.length&&navigator.canShare?.({files}))await navigator.share({title,text,url:location.href,files});
-        else await navigator.share({title,text,url:location.href});
+        await navigator.share({title,text,url:location.href});
       }else{
-        await navigator.clipboard?.writeText(text);toast("Texto copiado para compartir.","ok");
+        await navigator.clipboard?.writeText(text);
+        toast("Texto copiado para compartir.","ok");
       }
+      if(target!=="SHARE")toast("Publicidad preparada para compartir en "+target+".","ok");
     }catch(e){if(e?.name!=="AbortError")toast("No se pudo abrir el menú de compartir.","err")}
   };
-  const publishNow=async()=>{
-    if(!currentPublicationId)return toast("Primero prepara una publicación.","err");
-    const btn=$p("marketingPublishNow");if(btn)btn.disabled=true;
-    const rr=await fetch("/api/social/meta/publish",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({publicationId:currentPublicationId})});
-    const data=await rr.json().catch(()=>({}));
-    if(!rr.ok){if(btn)btn.disabled=false;return toast(data.message||data.error||"No se pudo publicar.","err")}
-    if(btn)btn.textContent="✓ Publicado";
-    toast("Publicado correctamente en "+data.platform+".","ok");
-    await loadMarketingSocialCenter();
+  const savePublicationDraft=async()=>{
+    if(!currentCampaign)return toast("Primero genera la publicidad con IA.","err");
+    const platform=$p("adPlatform").value||"WHATSAPP";
+    const r=await S.from("marc_publications").insert({
+      user_id:st.u.id,inventory_id:currentProduct?.id||null,platform,status:"DRAFT",
+      title:currentCampaign.title||currentProduct?.name,headline:currentCampaign.headline,
+      body:currentCampaign.primary_text,short_text:currentCampaign.short_text,
+      hashtags:currentCampaign.hashtags||[],media_url:currentAiImage||currentImage||currentProduct?.image_url||null,media_type:"IMAGE"
+    }).select().single();
+    if(r.error)return toast(r.error.message,"err");
+    currentPublicationId=r.data.id;
+    toast("Publicidad guardada en el historial.","ok");
+    const status=$p("marketingPublishStatus");if(status){status.className="msg ok";status.textContent="Guardada. Cuando quieras, pulsa Compartir ahora y elige la aplicación de tu teléfono."}
+    await loadMarketingHistory();
   };
-  $p("marketingPreparePublication").onclick=()=>preparePublication(false);
-  $p("marketingSchedulePublication").onclick=()=>preparePublication(true);
-  $p("marketingPublishNow").onclick=publishNow;
-  $p("marketingSocialSettings").onclick=()=>{if(window.marcSupplierCenter)window.marcSupplierCenter();else toast("Centro de redes disponible desde Proveedores y catálogos.","")};
-  loadMarketingSocialCenter();
+  const setShareStatus=(message)=>{
+    const status=$p("marketingPublishStatus");if(status){status.className="msg ok";status.textContent=message}
+  };
+  const remindToShare=()=>{
+    if(!currentCampaign)return toast("Primero genera la publicidad con IA.","err");
+    const raw=prompt("¿Cuándo quieres que M.A.R.C. te recuerde compartir esta publicidad?\nEjemplo: 2026-09-21 18:30","");
+    if(!raw)return;
+    const when=new Date(raw.replace(" ","T")+":00");
+    if(Number.isNaN(when.getTime()))return toast("Fecha y hora no válidas.","err");
+    if(window.MARCNotifications?.reminder){
+      window.MARCNotifications.reminder("Compartir publicidad","Recuerda compartir la publicidad de "+(currentProduct?.name||"tu producto")+" por WhatsApp o tus redes.",when);
+      setShareStatus("Recordatorio creado para "+when.toLocaleString("es-PE")+".");
+    }
+  };
+  $p("marketingPreparePublication").onclick=savePublicationDraft;
+  $p("marketingShareNow").onclick=()=>sharePublication("SHARE");
+  $p("marketingReminder").onclick=remindToShare;
+  $p("marketingShareWhatsApp").onclick=()=>sharePublication("WHATSAPP");
+  $p("marketingShareInstagram").onclick=()=>sharePublication("INSTAGRAM");
+  $p("marketingShareFacebook").onclick=()=>sharePublication("FACEBOOK");
+  $p("marketingShareTikTok").onclick=()=>sharePublication("TIKTOK");
+  $p("marketingShareMore").onclick=()=>sharePublication("SHARE");
+  setShareStatus("Listo. M.A.R.C. no necesita conectar tus cuentas: usa el menú de compartir de tu teléfono.");
+  loadMarketingHistory();
   $("[data-ad-hint]").forEach(b=>b.onclick=()=>{$p("adDetails").value=$p("adDetails").value?($p("adDetails").value+" "+b.dataset.adHint):b.dataset.adHint});
   $p("adCta").oninput=renderCanvas;$p("adOffer").oninput=renderCanvas;
   const readFileData=()=>currentImageFile?new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>resolve(fr.result);fr.onerror=reject;fr.readAsDataURL(currentImageFile)}):Promise.resolve("");

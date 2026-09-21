@@ -169,6 +169,18 @@
     alert("Producto importado a Inventario: "+item.name);
   }
 
+  async function getPublicationPlan(){
+    const S=sb();
+    const {data:{session}}=await S.auth.getSession();
+    if(!session)return {plan:"NONE",active:false};
+    const r=await S.from("marc_subscriptions").select("plan,status,current_period_end").eq("user_id",session.user.id).eq("status","active").order("created_at",{ascending:false}).limit(1).maybeSingle();
+    if(r.error)return {plan:"NONE",active:false,error:r.error.message};
+    const plan=String(r.data?.plan||"").toUpperCase();
+    return {plan,active:!!r.data,canPublish:!!r.data&&plan==="MASTER",end:r.data?.current_period_end||null};
+  }
+  function publicationUpgradeMessage(){
+    alert("La publicación y programación automática en redes sociales están reservadas para el plan MASTER. En planes inferiores puedes preparar y guardar borradores.");
+  }
   async function createPublicationDraft(item){
     const S=sb(); const {data:{session}}=await S.auth.getSession();
     const options="1. FACEBOOK\\n2. INSTAGRAM\\n3. TIKTOK\\n4. WHATSAPP\\n5. LINKEDIN";
@@ -178,7 +190,29 @@
     const body="Producto: "+item.name+"\\n"+[item.brand,item.model,item.sku].filter(Boolean).join(" · ")+"\\nPrecio proveedor: "+money(item.supplier_price||item.supplier_cost);
     const r=await S.from("marc_publications").insert({user_id:session.user.id,inventory_id:item.inventory_id||null,platform,status:"DRAFT",title:item.name,headline:item.name,body,short_text:"Consulta disponibilidad y precio.",hashtags:[],media_url:item.image_url||null,media_type:"IMAGE"}).select().single();
     if(r.error)return alert("No se pudo crear el borrador: "+r.error.message);
-    alert("Borrador creado para "+platform+". La publicación real quedará disponible cuando conectemos la cuenta social y el plan correspondiente.");
+    const p=await getPublicationPlan();
+    if(p.canPublish){
+      const action=prompt("MASTER activo. Escribe 1 para guardar borrador o 2 para programar publicación:","1");
+      if(String(action)==="2")return schedulePublication(r.data.id,platform);
+    }
+    alert("Borrador creado para "+platform+". Puedes editarlo en Publicidad. La publicación real está bloqueada hasta tener MASTER y una cuenta social conectada.");
+    if(window.view)window.view("marketing");
+  }
+  async function schedulePublication(publicationId,platform){
+    const S=sb();
+    const p=await getPublicationPlan();
+    if(!p.canPublish)return publicationUpgradeMessage();
+    const when=prompt("Fecha y hora de publicación (YYYY-MM-DD HH:MM)","");
+    if(!when)return;
+    const iso=when.replace(" ","T")+":00";
+    const d=new Date(iso);
+    if(Number.isNaN(d.getTime()))return alert("Fecha no válida.");
+    const u=await S.from("marc_publications").update({status:"SCHEDULED",scheduled_for:d.toISOString()}).eq("id",publicationId).eq("user_id",(await S.auth.getSession()).data.session.user.id);
+    if(u.error)return alert("No se pudo programar: "+u.error.message);
+    const session=(await S.auth.getSession()).data.session;
+    const j=await S.from("marc_publication_jobs").insert({publication_id:publicationId,user_id:session.user.id,status:"PENDING",run_after:d.toISOString()});
+    if(j.error)return alert("La publicación quedó programada, pero no se pudo crear el trabajo automático: "+j.error.message);
+    alert("Publicación programada para "+platform+". La ejecución automática de la red social requiere conectar la cuenta correspondiente.");
     if(window.view)window.view("marketing");
   }
 

@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - graphic-lab
+      - mejoras-productos-proveedores-caja-ui
   workflow_dispatch:
 
 permissions:

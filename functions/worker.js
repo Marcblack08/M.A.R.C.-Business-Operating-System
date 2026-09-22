@@ -3837,11 +3837,11 @@ export default{
           if(!username||!displayName||password.length<6)return json({error:"Completa usuario, nombre y una contraseña de mínimo 6 caracteres."},400,headers);
           const exists=await sb(env,token,"marc_cash_staff?select=id&owner_user_id=eq."+encodeURIComponent(user.id)+"&username=eq."+encodeURIComponent(username)+"&limit=1");
           if(exists?.length)return json({error:"Ese usuario de caja ya existe."},409,headers);
-          const email=username+"@cash.marc.local";
+          const email=username+"@cash.marc.pe";
           const ar=await fetch(env.SUPABASE_URL+"/auth/v1/admin/users",{method:"POST",headers:{"content-type":"application/json",apikey:adminToken,Authorization:"Bearer "+adminToken},body:JSON.stringify({email,password,email_confirm:true,user_metadata:{cash_username:username,cash_owner_id:user.id}})});
           const ad=await ar.json().catch(()=>null);
           if(!ar.ok)throw Object.assign(new Error(ad?.msg||ad?.message||ad?.error_description||"No se pudo crear el usuario de caja."),{status:ar.status});
-          const rows=await sb(env,adminToken,"marc_cash_staff",{method:"POST",body:{owner_user_id:user.id,auth_user_id:ad.user.id,username,display_name:displayName,role:"CASHIER",active:true}});
+          const rows=await sb(env,adminToken,"marc_cash_staff",{method:"POST",body:{owner_user_id:user.id,auth_user_id:ad.user.id,username,display_name:displayName,employee_code:String(body?.employee_code||"").trim().slice(0,60),role:"CASHIER",active:true}});
           return json({staff:rows?.[0]||null},201,headers);
         }
 

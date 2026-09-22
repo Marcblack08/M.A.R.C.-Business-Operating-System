@@ -3801,8 +3801,9 @@ img{max-width:100%}
 }
 
 /* Theme-aware browser controls. */
-html:not([data-theme="dark"]){color-scheme:light}
+html:not([data-theme="dark"]):not([data-theme="color"]){color-scheme:light}
 html[data-theme="dark"]{color-scheme:dark}
+html[data-theme="color"]{color-scheme:light}
 
 
 /* ===== LAYOUT CONTRACT v1 =====

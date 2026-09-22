@@ -2001,10 +2001,11 @@ body,
     width:auto!important;display:grid!important;grid-template-columns:1fr!important;gap:9px!important
   }
   .hero-primary,.hero-secondary{width:100%!important}
-  .hero-visual{top:26px!important;right:1px!important;width:44%!important;height:210px!important}
-  .hero-visual-ring{width:178px!important;height:178px!important}
-  .hero-visual-logo{width:158px!important;height:158px!important}
-  .hero-visual-caption{bottom:-1px!important;right:0!important;font-size:5.5px!important}
+  .hero-visual{top:34px!important;right:4px!important;width:37%!important;height:175px!important}
+  .hero-visual-ring{width:138px!important;height:138px!important}
+  .hero-visual-logo{width:118px!important;height:118px!important;padding:10px!important}
+  .hero-visual-logo img{width:100%!important;height:100%!important;object-fit:contain!important}
+  .hero-visual-caption{bottom:2px!important;right:0!important;font-size:5px!important}
 }
 @media(min-width:781px){
   .dashboard-hero{min-height:410px!important;padding:38px 34px 22px!important}
@@ -2016,7 +2017,11 @@ body,
     width:auto!important;display:grid!important;grid-template-columns:1fr 1fr!important;gap:12px!important;z-index:4
   }
   .hero-primary,.hero-secondary{width:100%!important}
-  .hero-visual{right:18px!important;top:35px!important}
+  .hero-visual{right:34px!important;top:52px!important;width:220px!important;height:220px!important}
+  .hero-visual-ring{width:205px!important;height:205px!important}
+  .hero-visual-logo{width:170px!important;height:170px!important;padding:12px!important}
+  .hero-visual-logo img{width:100%!important;height:100%!important;object-fit:contain!important}
+  .hero-visual-caption{bottom:0!important;right:0!important;font-size:6px!important}
 }
 /* Make the mobile navigation a clean app bar, not a floating/stroboscopic panel */
 @media(max-width:780px){

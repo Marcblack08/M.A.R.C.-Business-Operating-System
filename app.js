@@ -2742,7 +2742,7 @@ async function marketing(){
   if(currentProduct){$p("adProduct").value=currentProduct.id;renderProductSummary();await renderCanvas()}
   if(saved?.campaign)setCampaign(saved.campaign);
 }
-async async function quoteModal(existing=null,preset=null){
+async function quoteModal(existing=null,preset=null){
   const clientsResult=await S.from("marc_clients").select("id,name,phone").eq("user_id",st.u.id).order("name");
   const inventoryResult=await S.from("marc_inventory").select("id,name,brand,model,price,cost,unit,stock").eq("user_id",st.u.id).eq("active",true).order("name");
   if(clientsResult.error)throw new Error("No se pudieron cargar los clientes: "+clientsResult.error.message);

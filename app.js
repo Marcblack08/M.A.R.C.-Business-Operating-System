@@ -3303,7 +3303,12 @@ function wire(){
 
   bootAuth().catch(e=>{
     console.error("[M.A.R.C. auth error]",e);
-    msg(authDiag("Error de autenticación",e?.message||"Error desconocido"),"error");
+    sessionStorage.removeItem("marc_google_oauth_pending");
+    const raw=String(e?.message||"");
+    const friendly=/pkce|code verifier|verifier not found|oauth/i.test(raw)
+      ? "No se pudo completar el acceso con Google. Vuelve a pulsar «Continuar con Google» e inténtalo nuevamente."
+      : (raw||"No se pudo completar el acceso. Inténtalo nuevamente.");
+    msg(friendly,"error");
   });
 }
 // API pública mínima para módulos auxiliares (proveedores, notificaciones y herramientas visuales).

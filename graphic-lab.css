@@ -1233,3 +1233,8 @@ body.sidebar-open{overflow:hidden}
 @keyframes notificationIn{from{opacity:0;transform:translateY(-8px) scale(.98)}to{opacity:1;transform:none}}
 @media(max-width:700px){.notification-panel{top:68px;right:12px;width:calc(100vw - 24px);border-radius:18px}}
 @media(prefers-reduced-motion:reduce){.notification-panel{animation:none}.notification-item{transition:none}}
+
+.notification-share{border:1px solid rgba(37,211,102,.35);background:rgba(37,211,102,.10);color:#128c4a;border-radius:10px;padding:7px 10px;font-weight:800;font-size:11px;cursor:pointer}
+.notification-share:hover{transform:translateY(-1px)}
+.notification-item .notification-go+.notification-share{margin-left:4px}
+[data-theme="dark"] .notification-share{color:#70e0a1;background:rgba(37,211,102,.12);border-color:rgba(112,224,161,.25)}

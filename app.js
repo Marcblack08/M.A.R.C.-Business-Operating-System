@@ -370,6 +370,116 @@ async function home(){
   $("#openQuotes").onclick=quotes;
   $$(".quick-modern-grid button",c).forEach(b=>b.onclick=()=>b.dataset.q==="client"?clientModal():b.dataset.q==="inventory"?inventoryModal():b.dataset.q==="quote"?quoteModal():b.dataset.q==="marketing"?marketing():b.dataset.q==="cash"?cash():openChat());
 }
+
+function modal(html){
+  const root=$("#modal");
+  if(!root)throw new Error("No existe el contenedor de modal.");
+  root.innerHTML=html;
+  root.classList.add("open");
+  document.body.classList.add("modal-open");
+  const close=()=>{
+    root.classList.remove("open");
+    root.innerHTML="";
+    document.body.classList.remove("modal-open");
+  };
+  const x=root.querySelector(".close");
+  if(x)x.onclick=close;
+  return close;
+}
+
+function clientModal(existing=null){
+  const isEdit=Boolean(existing?.id);
+  const close=modal(
+    '<div class="modal-head"><div><div class="eyebrow2">CLIENTE</div><h2>'+(isEdit?"Editar cliente":"Nuevo cliente")+'</h2><p>Guarda los datos que M.A.R.C. utilizará para cotizaciones, historial y seguimiento.</p></div><button class="close" id="clientClose" type="button">×</button></div>'+
+    '<form id="clientForm" class="form-grid">'+
+      '<label>Nombre o empresa<input name="name" required value="'+esc(existing?.name||"")+'" placeholder="Ej. Juan Pérez"></label>'+
+      '<label>Persona de contacto<input name="contact_name" value="'+esc(existing?.contact_name||"")+'" placeholder="Nombre del contacto"></label>'+
+      '<label>Documento<input name="document_number" value="'+esc(existing?.document_number||"")+'" placeholder="DNI / RUC"></label>'+
+      '<label>Teléfono<input name="phone" value="'+esc(existing?.phone||"")+'" placeholder="+51 999 999 999"></label>'+
+      '<label>Correo<input type="email" name="email" value="'+esc(existing?.email||"")+'" placeholder="cliente@correo.com"></label>'+
+      '<label>Dirección<input name="address" value="'+esc(existing?.address||"")+'" placeholder="Dirección"></label>'+
+      '<label style="grid-column:1/-1">Notas y condiciones<textarea name="notes" rows="4" placeholder="Condiciones, preferencias, acuerdos…">'+esc(existing?.notes||"")+'</textarea></label>'+
+      '<div class="modal-actions" style="grid-column:1/-1"><button type="button" class="secondary" id="clientCancel">Cancelar</button><button type="submit" class="primary" id="clientSave">'+(isEdit?"Guardar cambios":"Crear cliente")+'</button></div>'+
+    '</form>'
+  );
+  $("#clientClose").onclick=close;
+  $("#clientCancel").onclick=close;
+  $("#clientForm").onsubmit=async e=>{
+    e.preventDefault();
+    const b=$("#clientSave");b.disabled=true;
+    try{
+      const d=new FormData(e.currentTarget);
+      const payload={name:String(d.get("name")||"").trim(),contact_name:String(d.get("contact_name")||"").trim()||null,document_number:String(d.get("document_number")||"").trim()||null,phone:String(d.get("phone")||"").trim()||null,email:String(d.get("email")||"").trim()||null,address:String(d.get("address")||"").trim()||null,notes:String(d.get("notes")||"").trim()||null,updated_at:new Date().toISOString()};
+      if(!payload.name)throw new Error("Escribe el nombre del cliente.");
+      let result;
+      if(isEdit)result=await S.from("marc_clients").update(payload).eq("id",existing.id).eq("user_id",st.u.id);
+      else result=await S.from("marc_clients").insert({...payload,user_id:st.u.id});
+      if(result.error)throw result.error;
+      close();toast(isEdit?"Cliente actualizado":"Cliente creado","ok");await clients();
+    }catch(err){toast(err.message||"No se pudo guardar el cliente.","err");b.disabled=false}
+  };
+}
+
+function inventoryModal(existing=null){
+  const isEdit=Boolean(existing?.id);
+  const close=modal(
+    '<div class="modal-head"><div><div class="eyebrow2">INVENTARIO</div><h2>'+(isEdit?"Editar producto":"Nuevo producto")+'</h2><p>Completa los datos básicos. Puedes enriquecer la ficha después con fotos y análisis de M.A.R.C.</p></div><button class="close" id="inventoryClose" type="button">×</button></div>'+
+    '<form id="inventoryForm" class="form-grid">'+
+      '<label>Producto<input name="name" required value="'+esc(existing?.name||"")+'" placeholder="Ej. Cámara Hikvision 4MP"></label>'+
+      '<label>SKU<input name="sku" value="'+esc(existing?.sku||"")+'" placeholder="Código interno"></label>'+
+      '<label>Marca<input name="brand" value="'+esc(existing?.brand||"")+'" placeholder="Marca"></label>'+
+      '<label>Modelo<input name="model" value="'+esc(existing?.model||"")+'" placeholder="Modelo"></label>'+
+      '<label>Categoría<input name="category" value="'+esc(existing?.category||"")+'" placeholder="CCTV, redes, herramientas…"></label>'+
+      '<label>Unidad<select name="unit"><option value="UND">UND</option><option value="M">M</option><option value="SERV">SERV</option><option value="KIT">KIT</option><option value="PAR">PAR</option></select></label>'+
+      '<label>Precio de venta<input name="price" type="number" min="0" step="0.01" value="'+Number(existing?.price||0)+'"></label>'+
+      '<label>Costo<input name="cost" type="number" min="0" step="0.01" value="'+Number(existing?.cost||0)+'"></label>'+
+      '<label>Stock<input name="stock" type="number" min="0" step="1" value="'+Number(existing?.stock||0)+'"></label>'+
+      '<label>Stock mínimo<input name="min_stock" type="number" min="0" step="1" value="'+Number(existing?.min_stock||0)+'"></label>'+
+      '<label style="grid-column:1/-1">Descripción<textarea name="description" rows="4" placeholder="Descripción técnica o comercial">'+esc(existing?.description||"")+'</textarea></label>'+
+      '<div class="modal-actions" style="grid-column:1/-1"><button type="button" class="secondary" id="inventoryCancel">Cancelar</button><button type="submit" class="primary" id="inventorySave">'+(isEdit?"Guardar cambios":"Agregar producto")+'</button></div>'+
+    '</form>'
+  );
+  $("#inventoryClose").onclick=close;
+  $("#inventoryCancel").onclick=close;
+  $("#inventoryForm [name=unit]").value=existing?.unit||"UND";
+  $("#inventoryForm").onsubmit=async e=>{
+    e.preventDefault();
+    const b=$("#inventorySave");b.disabled=true;
+    try{
+      const d=new FormData(e.currentTarget);
+      const payload={name:String(d.get("name")||"").trim(),sku:String(d.get("sku")||"").trim()||null,brand:String(d.get("brand")||"").trim()||null,model:String(d.get("model")||"").trim()||null,category:String(d.get("category")||"").trim()||null,unit:String(d.get("unit")||"UND"),price:Number(d.get("price")||0),cost:Number(d.get("cost")||0),stock:Number(d.get("stock")||0),min_stock:Number(d.get("min_stock")||0),description:String(d.get("description")||"").trim()||null,updated_at:new Date().toISOString()};
+      if(!payload.name)throw new Error("Escribe el nombre del producto.");
+      let result;
+      if(isEdit)result=await S.from("marc_inventory").update(payload).eq("id",existing.id).eq("user_id",st.u.id);
+      else result=await S.from("marc_inventory").insert({...payload,user_id:st.u.id,active:true});
+      if(result.error)throw result.error;
+      close();toast(isEdit?"Producto actualizado":"Producto agregado","ok");await inventory();
+    }catch(err){toast(err.message||"No se pudo guardar el producto.","err");b.disabled=false}
+  };
+}
+
+function aiQuoteModal(){
+  const close=modal(
+    '<div class="modal-head"><div><div class="eyebrow2">M.A.R.C. IA</div><h2>Crear cotización con IA</h2><p>Escribe el pedido como lo dirías normalmente. M.A.R.C. preparará el contexto para la cotización.</p></div><button class="close" id="aiQuoteClose" type="button">×</button></div>'+
+    '<form id="aiQuoteForm">'+
+      '<label>Pedido del cliente<textarea id="aiQuoteText" rows="7" required placeholder="Ej.: Juan necesita 3 cámaras, instalación y configuración. El cliente pone el material."></textarea></label>'+
+      '<div class="ad-smart-note"><span>✦</span><div><b>Lenguaje natural</b><small>Puedes escribir “sin IGV”, “a todo costo”, cantidades, trabajos y condiciones.</small></div></div>'+
+      '<div class="modal-actions"><button type="button" class="secondary" id="aiQuoteCancel">Cancelar</button><button type="submit" class="primary" id="aiQuoteGo">Continuar con M.A.R.C.</button></div>'+
+    '</form>'
+  );
+  $("#aiQuoteClose").onclick=close;
+  $("#aiQuoteCancel").onclick=close;
+  $("#aiQuoteForm").onsubmit=e=>{
+    e.preventDefault();
+    const text=$("#aiQuoteText").value.trim();
+    if(!text)return;
+    close();
+    openChat();
+    const input=$("#chatInput");
+    if(input){input.value="Quiero crear una cotización: "+text;input.focus();input.dispatchEvent(new Event("input",{bubbles:true}));}
+  };
+}
+
 async function clients(){
   const {data,error}=await S.from("marc_clients").select("*").eq("user_id",st.u.id).order("name");
   if(error)return toast(error.message,"err");

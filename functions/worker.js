@@ -3652,6 +3652,46 @@ async function telegramUnlink(request,env){
   return json({ok:true},200,corsHeaders(request));
 }
 
+async function processOperationalAlerts(env){
+  const adminToken=env.SUPABASE_SERVICE_ROLE_KEY||env.SUPABASE_SECRET_KEY;
+  if(!adminToken)return {ok:false};
+  const users=await sb(env,adminToken,"auth.users?select=id&limit=1000").catch(()=>[]);
+  const out=[];
+  for(const u of Array.isArray(users)?users:[]){
+    const uid=u.id;
+    try{
+      const inv=await sb(env,adminToken,"marc_inventory?select=id,name,stock,min_stock&user_id=eq."+encodeURIComponent(uid)+"&active=eq.true&or=(stock.eq.0,min_stock.gt.0)&limit=100");
+      for(const item of Array.isArray(inv)?inv:[]){
+        const stock=Number(item.stock||0), min=Number(item.min_stock||0);
+        const level=stock<=0?"OUT":(min>0&&stock<=min?"LOW":"OK");
+        if(level==="OK")continue;
+        const key="STOCK:"+item.id+":"+level;
+        const old=(await sb(env,adminToken,"marc_alert_state?select=last_value&user_id=eq."+encodeURIComponent(uid)+"&alert_key=eq."+encodeURIComponent(key)+"&limit=1").catch(()=>[]))?.[0];
+        if(old?.last_value===String(stock))continue;
+        const title=level==="OUT"?"📦 Stock agotado":"📦 Stock bajo";
+        const body=level==="OUT"?"El producto "+item.name+" llegó a 0 unidades.":item.name+" tiene "+stock+" unidades. Su mínimo configurado es "+min+".";
+        await sb(env,adminToken,"marc_reminders",{method:"POST",body:{user_id:uid,title,body,due_at:new Date().toISOString(),status:"PENDING",channel:"BOTH",entity_type:"INVENTORY",entity_id:item.id,metadata:{alert:"STOCK",level,stock,min_stock:min}}});
+        const stateBody={user_id:uid,alert_key:key,last_value:String(stock),last_sent_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+        if(old)await sb(env,adminToken,"marc_alert_state?user_id=eq."+encodeURIComponent(uid)+"&alert_key=eq."+encodeURIComponent(key),{method:"PATCH",body:stateBody}).catch(()=>{});
+        else await sb(env,adminToken,"marc_alert_state",{method:"POST",body:stateBody}).catch(()=>{});
+        out.push({user_id:uid,key});
+      }
+      const quotes=await sb(env,adminToken,"marc_quotes?select=id,number,title,total,status,created_at,client_id&user_id=eq."+encodeURIComponent(uid)+"&deleted_at=is.null&status=eq.BORRADOR&created_at=lte."+encodeURIComponent(new Date(Date.now()-5*86400000).toISOString())+"&order=created_at.asc&limit=20").catch(()=>[]);
+      for(const q of Array.isArray(quotes)?quotes:[]){
+        const key="QUOTE_FOLLOWUP:"+q.id;
+        const old=(await sb(env,adminToken,"marc_alert_state?select=last_value&user_id=eq."+encodeURIComponent(uid)+"&alert_key=eq."+encodeURIComponent(key)+"&limit=1").catch(()=>[]))?.[0];
+        if(old)continue;
+        const title="🧾 Cotización sin seguimiento";
+        const body="La cotización "+(q.number||q.title||"pendiente")+" lleva más de 5 días en borrador. Conviene revisarla y contactar al cliente.";
+        await sb(env,adminToken,"marc_reminders",{method:"POST",body:{user_id:uid,title,body,due_at:new Date().toISOString(),status:"PENDING",channel:"BOTH",entity_type:"QUOTE",entity_id:q.id,metadata:{alert:"QUOTE_FOLLOWUP"}}});
+        await sb(env,adminToken,"marc_alert_state",{method:"POST",body:{user_id:uid,alert_key:key,last_value:"1",last_sent_at:new Date().toISOString(),updated_at:new Date().toISOString()}}).catch(()=>{});
+        out.push({user_id:uid,key});
+      }
+    }catch(e){}
+  }
+  return {ok:true,alerts:out.length,items:out};
+}
+
 async function processDueReminders(env){
   const adminToken=env.SUPABASE_SERVICE_ROLE_KEY||env.SUPABASE_SECRET_KEY;
   if(!adminToken)return {ok:false,error:"Falta la clave privada de Supabase."};
@@ -3709,7 +3749,7 @@ async function processDuePublicationJobs(env){
 
 export default{
   async scheduled(event,env,ctx){
-    ctx.waitUntil((async()=>{await processDueReminders(env).catch(()=>{});await processDuePublicationJobs(env).catch(()=>{});})());
+    ctx.waitUntil((async()=>{await processOperationalAlerts(env).catch(()=>{});await processDueReminders(env).catch(()=>{});await processDuePublicationJobs(env).catch(()=>{});})());
   },
   async fetch(request,env,ctx){
     const headers=corsHeaders(request);

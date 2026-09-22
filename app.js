@@ -2421,6 +2421,12 @@ async function marketing(){
   $p("adProductSearch").oninput=()=>{const q=$p("adProductSearch").value.toLowerCase().trim(),sel=$p("adProduct"),matches=list.filter(p=>[p.name,p.sku,p.brand,p.model].join(" ").toLowerCase().includes(q));sel.innerHTML=matches.length?matches.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+(p.sku?" · "+esc(p.sku):"")+'</option>').join(""):'<option value="">Sin coincidencias</option>';currentProduct=matches[0]||null;renderProductSummary();renderCanvas()};
   $p("adImage").onchange=e=>preparePhoto(e.target.files?.[0]);
   $p("adImageCamera").onchange=e=>preparePhoto(e.target.files?.[0]);
+  const photoDrop=$p("adPhotoDrop");
+  if(photoDrop){
+    ["dragenter","dragover"].forEach(ev=>photoDrop.addEventListener(ev,e=>{e.preventDefault();photoDrop.classList.add("dragging")}));
+    ["dragleave","drop"].forEach(ev=>photoDrop.addEventListener(ev,e=>{e.preventDefault();photoDrop.classList.remove("dragging")}));
+    photoDrop.addEventListener("drop",e=>preparePhoto(e.dataTransfer?.files?.[0]));
+  }
   $p("adFormat").onchange=renderCanvas;
   $p("adOffer").oninput=renderCanvas;
 
@@ -2442,6 +2448,7 @@ async function marketing(){
       const textR=await fetch("/api/marketing-ai",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify(payload())});
       const textJ=await textR.json();if(!textR.ok)throw new Error(textJ.message||textJ.error||"No se pudo crear el texto.");
       await setCampaign(textJ.campaign);
+      await saveMarketingCampaign(textJ.campaign,currentProduct,$p).catch(()=>{});
       setStatus("Texto listo. Ahora M.A.R.C. está creando la imagen…");
       const imageR=await fetch("/api/marketing-image",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({product:currentProduct,campaign:textJ.campaign,platform:"WHATSAPP",objective:$p("adObjective").value,details:$p("adDetails").value,format:$p("adFormat").value,template:"MODERN",variants:["PROFESSIONAL"],imageData:await readImage()})});
       const imageJ=await imageR.json();if(!imageR.ok)throw new Error(imageJ.message||imageJ.error||"No se pudo crear la imagen.");

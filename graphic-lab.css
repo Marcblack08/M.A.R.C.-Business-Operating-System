@@ -1256,3 +1256,27 @@ body.sidebar-open{overflow:hidden}
 [data-theme="dark"] .cash-quick-amount{background:#101a2a}. [data-theme="dark"] .cash-staff-row{border-color:#27364c}
 
 .cash-action{display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center}.cash-action-circle{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;font-size:34px;font-weight:800;border:2px solid currentColor}.cash-action b{font-size:21px}.cash-action small{font-size:12px}.cashier-mode .cash-action-circle{width:78px;height:78px;font-size:40px}.cashier-mode .cash-action{min-height:190px;border-radius:28px}
+
+/* ===== CASHIER ACCESS / POS LOGIN ===== */
+.cash-login-panel{margin-top:18px;padding:22px;border:1px solid var(--line);border-radius:24px;background:var(--panel);box-shadow:0 18px 48px rgba(18,49,81,.10)}
+.cash-login-panel.hidden{display:none!important}
+.cash-login-icon{width:54px;height:54px;border-radius:18px;display:grid;place-items:center;background:var(--blue);color:#fff;font-size:28px;font-weight:900;margin-bottom:14px}
+.cash-login-panel h2{margin:5px 0 7px;font-size:25px;letter-spacing:-.03em}
+.cash-login-panel p{margin:0 0 18px;color:var(--muted);font-size:13px;line-height:1.5}
+.cash-login-panel form{display:grid;gap:12px}
+.cash-login-panel label{display:grid;gap:7px;font-size:11px;font-weight:800;color:var(--muted);text-align:left}
+.cash-login-panel input{width:100%;min-height:48px;padding:0 14px;border:1px solid var(--line);border-radius:14px;background:var(--bg);color:var(--text);font:inherit;outline:none}
+.cash-login-panel input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(11,115,230,.10)}
+.password-field{position:relative}.password-field input{padding-right:50px}.password-field button{position:absolute;right:6px;top:6px;width:36px;height:36px;border:0;border-radius:10px;background:transparent;color:var(--muted);cursor:pointer}
+.cash-login-error{min-height:18px;color:#c62828;font-size:12px;font-weight:700}
+.cash-login-panel .primary{min-height:50px;display:flex;align-items:center;justify-content:center;gap:12px}
+.cash-login-panel .primary b{font-size:20px}
+.cashier-mode .top .brand-head strong{color:var(--blue)}
+.cashier-mode .content{padding-bottom:40px}
+.cashier-mode .cash-kpi.cash-total{border:2px solid var(--blue);box-shadow:0 12px 30px rgba(11,115,230,.10)}
+.cashier-mode .cash-kpi.cash-total strong{font-size:32px}
+.cashier-mode .cash-last-movement{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 18px;border:1px solid var(--line);border-radius:18px;background:var(--panel);margin-bottom:16px}
+.cashier-mode .cash-last-movement small{display:block;color:var(--muted);margin-top:3px}
+.cashier-mode .cash-last-movement strong{font-size:16px}
+.cashier-mode .cash-closed-empty .empty-state{padding:48px 20px}
+@media(max-width:700px){.cash-login-panel{padding:18px;border-radius:20px}.cashier-mode .cash-kpi.cash-total strong{font-size:28px}}

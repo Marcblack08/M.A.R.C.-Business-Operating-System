@@ -374,7 +374,7 @@ async function home(){
 function modal(html){
   const root=$("#modal");
   if(!root)throw new Error("No existe el contenedor de modal.");
-  root.innerHTML=html;
+  root.innerHTML='<div class="modal">'+html+'</div>';
   root.classList.add("open");
   document.body.classList.add("modal-open");
   const close=()=>{

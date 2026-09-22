@@ -2521,11 +2521,11 @@ async function cash(){
         </div>
       </section>
       <section class="cash-primary-actions">
-        ${open?"<button id=\"cashIncome\" class=\"cash-primary-action income\"><span>＋</span><b>Nuevo<br>ingreso</b></button>":"<button id=\"openCashTop\" class=\"cash-primary-action income\"><span>＋</span><b>Abrir<br>caja</b></button>"}
-        ${open?"<button id=\"cashExpense\" class=\"cash-primary-action expense\"><span>−</span><b>Nuevo<br>egreso</b></button>":"<button id=\"cashStaffLoginOpen\" class=\"cash-primary-action staff\"><span>↪</span><b>Entrar<br>como cajero</b></button>"}
-        ${open?"<button id=\"cashSaleQuick\" class=\"cash-primary-action sale\"><span>🛒</span><b>Nueva<br>venta</b></button>":"<button id=\"cashStaff\" class=\"cash-primary-action users\"><span>♟</span><b>Usuarios<br>de caja</b></button>"}
-        ${!isCashier?"<button id=\"cashStaffLoginOpen2\" class=\"cash-primary-action staff\"><span>♟</span><b>Entrar<br>como cajero</b></button>":"<button id=\"cashStaffLogout\" class=\"cash-primary-action staff\"><span>↩</span><b>Salir<br>de caja</b></button>"}
-        <button id="cashStaff2" class="cash-primary-action users"><span>⚙</span><b>Usuarios<br>de caja</b></button>
+        \${open?"<button id=\"cashIncome\" class=\"cash-primary-action income\"><span>＋</span><b>Nuevo<br>ingreso</b></button>":"<button id=\"openCashTop\" class=\"cash-primary-action income\"><span>＋</span><b>Abrir<br>caja</b></button>"}
+        \${open?"<button id=\"cashExpense\" class=\"cash-primary-action expense\"><span>−</span><b>Nuevo<br>egreso</b></button>":"<button id=\"cashStaffLoginOpen2\" class=\"cash-primary-action staff\"><span>↪</span><b>Entrar<br>como cajero</b></button>"}
+        \${open?"<button id=\"cashSaleQuick\" class=\"cash-primary-action sale\"><span>🛒</span><b>Nueva<br>venta</b></button>":""}
+        \${isCashier?"<button id=\"cashStaffLogout\" class=\"cash-primary-action staff\"><span>↩</span><b>Salir<br>de caja</b></button>":""}
+        \${!isCashier?"<button id=\"cashStaff2\" class=\"cash-primary-action users\"><span>⚙</span><b>Administrar<br>caja</b></button>":""}
       </section>
       ${!isCashier?"<section id=\"cashStaffPanel\" class=\"card panel cash-login-panel hidden\" aria-hidden=\"true\"><div class=\"eyebrow2\">PERSONAL DE CAJA</div><h3>Entrar a caja</h3><p>Usa el usuario y la contraseña que te asignó el administrador.</p><form id=\"cashStaffForm\" autocomplete=\"on\"><label>Usuario<input id=\"cashStaffUsername\" name=\"username\" autocomplete=\"username\" autocapitalize=\"none\" required placeholder=\"Ej. juan\"></label><label>Contraseña<div class=\"password-field\"><input id=\"cashStaffPassword\" name=\"password\" type=\"password\" autocomplete=\"current-password\" required placeholder=\"Tu contraseña\"><button id=\"cashStaffPasswordToggle\" type=\"button\">◉</button></div></label><div id=\"cashStaffError\" class=\"cash-login-error\" role=\"alert\"></div><div style=\"display:flex;gap:8px;flex-wrap:wrap\"><button id=\"cashStaffSubmit\" class=\"primary\" type=\"submit\">Entrar a caja →</button><button id=\"cashStaffBack\" class=\"secondary\" type=\"button\">Cancelar</button></div></form></section>":""}
 
@@ -2613,8 +2613,8 @@ async function cash(){
       }
     }catch(err){toast(err?.message||"No se pudo salir de la caja.","err")}
   };
-  if(open&&!isCashier)$("#closeCashTop").onclick=()=>closeCashModal(open,expected);
-  else if(!open&&!isCashier&&$("#openCashTop"))$("#openCashTop").onclick=()=>openCashModal();
+  if(open&&!isCashier)$("#closeCashTop").onclick=async()=>{if(await ensureCashMaster())closeCashModal(open,expected)};
+  else if(!open&&!isCashier&&$("#openCashTop"))$("#openCashTop").onclick=async()=>{if(await ensureCashMaster())openCashModal()};
   if(open){$("#cashIncome").onclick=()=>cashMovementModal(open,"INCOME");$("#cashExpense").onclick=()=>cashMovementModal(open,"EXPENSE");}
 }
 

@@ -20,13 +20,11 @@ function initTheme(){
 function authRateLimitMessage(e){const raw=String(e?.message||"").toLowerCase();return raw.includes("rate limit")||raw.includes("too many")||raw.includes("over_email_send_rate_limit")}
 function mode(m){authMode=m;const title=m==="login"?"Inicia sesión en M.A.R.C.":"Accede a M.A.R.C.";const sub=m==="login"?"Accede a M.A.R.C. de forma rápida y segura con tu cuenta de Google.":"Accede a M.A.R.C. con tu cuenta de Google.";if($("#authTitle"))$("#authTitle").textContent=title;if($("#authSub"))$("#authSub").textContent=sub;msg("")}
 function showCashStaffLogin(show=true){
-  const panel=$("#cashStaffPanel"), main=$("#googleLogin"), trigger=$("#cashStaffLogin"), foot=$(".auth-foot");
+  const panel=$("#cashStaffPanel");
   if(!panel)return;
-  panel.classList.toggle("hidden",!show); panel.setAttribute("aria-hidden",String(!show));
-  if(main)main.classList.toggle("hidden",show);
-  if(trigger)trigger.classList.toggle("hidden",show);
-  if(foot)foot.classList.toggle("hidden",show);
-  if(show){$("#cashStaffError").textContent="";setTimeout(()=>$("#cashStaffUsername")?.focus(),60)}
+  panel.classList.toggle("hidden",!show);
+  panel.setAttribute("aria-hidden",String(!show));
+  if(show){const e=$("#cashStaffError");if(e)e.textContent="";setTimeout(()=>$("#cashStaffUsername")?.focus(),60)}
 }
 function cashStaffError(t){const e=$("#cashStaffError");if(e)e.textContent=t||""}
 async function signInCashStaff(e){
@@ -77,13 +75,15 @@ async function enter(s){
   try{
     auth.classList.add("hidden");
     app.classList.add("hidden");
-    await ensure();
-    if(epoch!==st.authEpoch)return;
-    await trial();
-    if(epoch!==st.authEpoch)return;
-    await chatLoad();
-    if(epoch!==st.authEpoch)return;
     const cashCtx=await getCashStaffContext();
+    if(!cashCtx.isStaff){
+      await ensure();
+      if(epoch!==st.authEpoch)return;
+      await trial();
+      if(epoch!==st.authEpoch)return;
+      await chatLoad();
+      if(epoch!==st.authEpoch)return;
+    }
     applyCashierMode(!!cashCtx.isStaff);
     app.classList.remove("hidden");
     await loadBrandLogo();
@@ -2437,6 +2437,8 @@ async function cash(){
       <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center"><label class="cash-period-select">Informe <select id="cashReportMonths" class="secondary">${[2,3,4,5,6].map(n=>`<option value="${n}" ${n===reportMonthsCount?"selected":""}>${n} meses</option>`).join("")}</select></label><button id="downloadCashExcel" class="secondary">▣ Excel · ${reportMonthsCount} meses</button>${!isCashier?'<button id="cashStaff" class="secondary">👥 Personal</button>':`<button id="cashStaffLogout" class="secondary">↩ Salir de caja</button>`}${open&&!isCashier?'<button id="closeCashTop" class="primary">✓ Cerrar caja</button>':!open&&!isCashier?'<button id="openCashTop" class="primary">＋ Abrir caja</button>':""}</div>
     </div>
 
+    ${!isCashier?`<section id="cashStaffPanel" class="card panel cash-login-panel hidden" aria-hidden="true"><div class="eyebrow2">PERSONAL DE CAJA</div><h3>Entrar a caja</h3><p>Usa el usuario y la contraseña que te asignó el administrador.</p><form id="cashStaffForm" autocomplete="on"><label>Usuario<input id="cashStaffUsername" name="username" autocomplete="username" autocapitalize="none" required placeholder="Ej. juan"></label><label>Contraseña<div class="password-field"><input id="cashStaffPassword" name="password" type="password" autocomplete="current-password" required placeholder="Tu contraseña"><button id="cashStaffPasswordToggle" type="button">◉</button></div></label><div id="cashStaffError" class="cash-login-error" role="alert"></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button id="cashStaffSubmit" class="primary" type="submit">Entrar a caja →</button><button id="cashStaffBack" class="secondary" type="button">Cancelar</button></div></form></section>`:""}
+
     <section class="cash-kpis">
       <article class="card cash-kpi"><span>ESTADO</span><strong>${open?"ABIERTA":"CERRADA"}</strong><small>${open?(new Date(open.opened_at)).toLocaleString("es-PE"):"Abre una nueva caja para comenzar"}</small></article>
       <article class="card cash-kpi"><span>APERTURA</span><strong>${money(open?.opening_amount||0)}</strong><small>Efectivo inicial</small></article>
@@ -2482,6 +2484,10 @@ async function cash(){
   $("#cashReportMonths").onchange=e=>{const n=Math.min(6,Math.max(2,Number(e.target.value)||2));const u=new URL(location.href);u.searchParams.set("cashMonths",String(n));history.replaceState({},document.title,u.toString());cash()};
 
   if($("#cashStaff"))$("#cashStaff").onclick=()=>cashStaffModal();
+  if($("#cashStaffLoginOpen"))$("#cashStaffLoginOpen").onclick=()=>showCashStaffLogin(true);
+  if($("#cashStaffBack"))$("#cashStaffBack").onclick=()=>showCashStaffLogin(false);
+  if($("#cashStaffForm"))$("#cashStaffForm").onsubmit=signInCashStaff;
+  if($("#cashStaffPasswordToggle"))$("#cashStaffPasswordToggle").onclick=()=>{const p=$("#cashStaffPassword");if(p){p.type=p.type==="password"?"text":"password"}};
   if($("#cashStaffLogout"))$("#cashStaffLogout").onclick=async()=>{
     const ok=confirm("¿Salir de esta caja?");
     if(!ok)return;

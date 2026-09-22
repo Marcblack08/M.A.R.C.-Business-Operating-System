@@ -2341,57 +2341,97 @@ async function cashMovementModal(open,type){
     }catch(err){toast(err.message||"No se pudo registrar el movimiento.","err");b.disabled=false}
   };
 }
+async function cashMasterGate(){
+  const email=String(st.u?.email||"").trim();
+  if(!email)throw new Error("No se encontró el usuario maestro.");
+  const close=modal(\`<div class="modal-head"><div><div class="eyebrow2">SEGURIDAD MAESTRA</div><h2>🔐 Acceso de administrador</h2><p>Esta zona controla los cajeros y la configuración de Caja.</p></div><button class="close" id="x">×</button></div><form id="cashMasterForm"><label>Usuario maestro<input name="email" type="email" value="\${esc(email)}" readonly></label><label>Clave maestra<div class="password-field"><input name="password" type="password" minlength="6" required autofocus autocomplete="current-password" placeholder="Tu contraseña de M.A.R.C."><button type="button" id="showMasterPass">◉</button></div></label><div id="cashMasterError" class="cash-login-error"></div><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Entrar a administración →</button></div></form>\`);
+  $("#x").onclick=close;$("#cancel").onclick=close;
+  $("#showMasterPass").onclick=()=>{const p=$('#cashMasterForm input[name="password"]');if(p)p.type=p.type==="password"?"text":"password"};
+  return new Promise(resolve=>{
+    $("#cashMasterForm").onsubmit=async e=>{
+      e.preventDefault();
+      const b=e.currentTarget.querySelector("button.primary"),password=String(new FormData(e.currentTarget).get("password")||"");
+      b.disabled=true;
+      try{
+        const {error}=await S.auth.signInWithPassword({email,password});
+        if(error)throw error;
+        sessionStorage.setItem("marc_cash_master_verified_at",String(Date.now()));
+        close();toast("Acceso maestro autorizado","ok");resolve(true);
+      }catch(err){
+        const el=$("#cashMasterError");if(el)el.textContent=err?.message||"Clave maestra incorrecta.";
+        b.disabled=false;
+      }
+    };
+  });
+}
+function cashMasterVerified(){
+  const t=Number(sessionStorage.getItem("marc_cash_master_verified_at")||0);
+  return t>0 && Date.now()-t<10*60*1000;
+}
+async function ensureCashMaster(){
+  if(cashMasterVerified())return true;
+  const ok=await cashMasterGate();
+  return !!ok;
+}
+async function cashStaffAdminRequest(method,body){
+  const session=(await S.auth.getSession()).data?.session;
+  if(!session?.access_token)throw new Error("La sesión maestra expiró. Vuelve a autorizar Caja.");
+  const r=await fetch(\`\${SUPABASE_URL}/functions/v1/marc-cash-admin\`,{
+    method,
+    headers:{"Content-Type":"application/json",Authorization:"Bearer "+session.access_token},
+    body:JSON.stringify(body)
+  });
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(j.error||j.message||"No se pudo completar la operación.");
+  return j;
+}
 async function cashStaffModal(){
-  const ctx=await getCashStaffContext();
-  if(ctx.isStaff)return toast("Solo el administrador puede gestionar usuarios de caja.","err");
+  if(!(await ensureCashMaster()))return;
   const {data:staff,error}=await S.from("marc_cash_staff").select("id,username,display_name,employee_code,active,created_at").eq("owner_user_id",st.u.id).order("created_at");
   if(error)return toast(error.message,"err");
-  const rows=(staff||[]).map(x=>`<div class="cash-staff-row">
-    <div><b>${esc(x.display_name)}</b><small>${x.employee_code?`ID ${esc(x.employee_code)} · `:""}@${esc(x.username)} · ${x.active?"Activo":"Inactivo"}</small></div>
-    <div class="cash-staff-tools"><span>${x.active?"CAJERO":"PAUSADO"}</span><button type="button" class="secondary cash-staff-action" data-action="password" data-id="${esc(x.id)}">Clave</button><button type="button" class="secondary cash-staff-action" data-action="toggle" data-id="${esc(x.id)}">${x.active?"Desactivar":"Activar"}</button></div>
-  </div>`).join("")||'<div class="empty">Todavía no hay usuarios de caja.</div>';
-  const close=modal(`<div class="modal-head"><div><h2>👥 Personal de caja</h2><p>Cada empleado tiene su propio acceso. Solo el administrador abre y cierra la caja.</p></div><button class="close" id="x">×</button></div><div class="cash-staff-list">${rows}</div><form id="staffForm"><div class="form-grid"><label>Nombre del empleado<input name="display_name" required placeholder="Ej. Juan Pérez"></label><label>ID / código del empleado<input name="employee_code" required autocomplete="off" placeholder="Ej. CAJ-001 o DNI"></label><label>Nombre de usuario<input name="username" required autocomplete="off" autocapitalize="none" placeholder="Ej. juan"></label><label>Clave de acceso<input name="password" type="password" minlength="6" required placeholder="Mínimo 6 caracteres"></label></div><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cerrar</button><button class="primary">＋ Crear usuario</button></div></form>`);
+  const rows=(staff||[]).map(x=>\`<div class="cash-staff-row">
+    <div><b>\${esc(x.display_name)}</b><small>\${x.employee_code?\`ID \${esc(x.employee_code)} · \`:""}@\${esc(x.username)} · \${x.active?"Activo":"Inactivo"}</small></div>
+    <div class="cash-staff-tools"><span>\${x.active?"CAJERO":"PAUSADO"}</span><button type="button" class="secondary cash-staff-action" data-action="password" data-id="\${esc(x.id)}">Clave</button><button type="button" class="secondary cash-staff-action" data-action="toggle" data-id="\${esc(x.id)}">\${x.active?"Desactivar":"Activar"}</button></div>
+  </div>\`).join("")||'<div class="empty">Todavía no hay cajeros creados.</div>';
+  const close=modal(\`<div class="modal-head"><div><div class="eyebrow2">ADMINISTRACIÓN MAESTRA</div><h2>👥 Cajeros</h2><p>Crea y controla los accesos de las personas que trabajan en Caja.</p></div><button class="close" id="x">×</button></div><div class="cash-staff-list">\${rows}</div><form id="staffForm"><div class="form-grid"><label>Nombre del cajero<input name="display_name" required placeholder="Ej. Juan Pérez"></label><label>ID / código<input name="employee_code" required autocomplete="off" placeholder="Ej. CAJ-001"></label><label>Usuario de cajero<input name="username" required autocomplete="off" autocapitalize="none" placeholder="Ej. juan"></label><label>Clave del cajero<input name="password" type="password" minlength="6" required placeholder="Mínimo 6 caracteres"></label></div><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cerrar</button><button class="primary">＋ Crear cajero</button></div></form>\`);
   $("#x").onclick=close;$("#cancel").onclick=close;
   $$(".cash-staff-action",$("#modal")).forEach(btn=>btn.onclick=async()=>{
-    const id=btn.dataset.id,action=btn.dataset.action,item=(staff||[]).find(x=>x.id===id); if(!item)return;
+    const id=btn.dataset.id,action=btn.dataset.action,item=(staff||[]).find(x=>x.id===id);if(!item)return;
     try{
+      btn.disabled=true;
       if(action==="toggle"){
-        btn.disabled=true;
-        const r=await fetch("/api/cash-staff",{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({id,active:!item.active})});
-        const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||"No se pudo actualizar el usuario.");
-        toast(item.active?"Usuario desactivado":"Usuario activado","ok");close();await cashStaffModal();
+        await cashStaffAdminRequest("PATCH",{id,active:!item.active});
+        toast(item.active?"Cajero desactivado":"Cajero activado","ok");
       }else{
-        openCashPasswordModal(item);
+        await openCashPasswordModal(item);
       }
-    }catch(err){toast(err.message||"No se pudo actualizar el usuario.","err");btn.disabled=false}
+      close();await cashStaffModal();
+    }catch(err){toast(err.message||"No se pudo actualizar el cajero.","err");btn.disabled=false}
   });
   $("#staffForm").onsubmit=async e=>{
-    e.preventDefault();const b=e.currentTarget.querySelector("button.primary");b.disabled=true;const d=new FormData(e.currentTarget);
-    try{
-      const r=await fetch("/api/cash-staff",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({display_name:d.get("display_name"),employee_code:d.get("employee_code"),username:d.get("username"),password:d.get("password")})});
-      const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||j.message||"No se pudo crear el usuario.");
-      const employeeCode=String(d.get("employee_code")||"").trim();
-      if(employeeCode){
-        const patch=await S.from("marc_cash_staff").update({employee_code:employeeCode}).eq("owner_user_id",st.u.id).eq("username",String(d.get("username")||"").trim());
-        if(patch.error)throw patch.error;
-      }
-      close();toast("Usuario de caja creado correctamente","ok");await cash();
-    }catch(err){toast(err.message||"No se pudo crear el usuario.","err");b.disabled=false}
-  };
-}
-function openCashPasswordModal(item){
-  const close=modal(`<div class="modal-head"><div><div class="eyebrow2">SEGURIDAD</div><h2>🔐 Cambiar contraseña</h2><p>Actualiza la clave de <b>@${esc(item.username)}</b>.</p></div><button class="close" id="x">×</button></div><form id="cashPasswordForm"><label>Nueva contraseña<div class="password-field"><input name="password" type="password" minlength="6" required autofocus placeholder="Mínimo 6 caracteres"><button type="button" id="showCashPass">◉</button></div></label><label>Confirmar contraseña<input name="confirm" type="password" minlength="6" required placeholder="Repite la contraseña"></label><div id="cashPassError" class="cash-login-error"></div><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Guardar nueva clave</button></div></form>`);
-  $("#x").onclick=close;$("#cancel").onclick=close;$("#showCashPass").onclick=()=>{const i=$("#cashPasswordForm [name=password]");i.type=i.type==="password"?"text":"password"};
-  $("#cashPasswordForm").onsubmit=async e=>{
-    e.preventDefault();const d=new FormData(e.currentTarget),password=String(d.get("password")||""),confirm=String(d.get("confirm")||""),err=$("#cashPassError"),b=e.currentTarget.querySelector("button.primary");
-    err.textContent="";if(password.length<6)return err.textContent="La contraseña debe tener al menos 6 caracteres.";if(password!==confirm)return err.textContent="Las contraseñas no coinciden.";
+    e.preventDefault();
+    const b=e.currentTarget.querySelector("button.primary"),d=new FormData(e.currentTarget);
     b.disabled=true;
     try{
-      const r=await fetch("/api/cash-staff",{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({id:item.id,password})});
-      const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||"No se pudo cambiar la contraseña.");
-      close();toast("Contraseña actualizada correctamente","ok");
-    }catch(err2){err.textContent=err2.message||"No se pudo cambiar la contraseña.";b.disabled=false}
+      await cashStaffAdminRequest("POST",{action:"create",display_name:d.get("display_name"),employee_code:d.get("employee_code"),username:d.get("username"),password:d.get("password")});
+      close();toast("Cajero creado correctamente","ok");await cash();
+    }catch(err){toast(err.message||"No se pudo crear el cajero.","err");b.disabled=false}
   };
+}
+
+async function openCashPasswordModal(item){
+  const close=modal(\`<div class="modal-head"><div><div class="eyebrow2">SEGURIDAD MAESTRA</div><h2>🔐 Cambiar clave</h2><p>Actualiza la clave del cajero <b>@\${esc(item.username)}</b>.</p></div><button class="close" id="x">×</button></div><form id="cashPasswordForm"><label>Nueva clave<div class="password-field"><input name="password" type="password" minlength="6" required autofocus placeholder="Mínimo 6 caracteres"><button type="button" id="showCashPass">◉</button></div></label><label>Confirmar clave<input name="confirm" type="password" minlength="6" required placeholder="Repite la clave"></label><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Guardar clave</button></div></form>\`);
+  $("#x").onclick=close;$("#cancel").onclick=close;
+  $("#showCashPass").onclick=()=>{const p=$("#cashPasswordForm input[name=password]");if(p)p.type=p.type==="password"?"text":"password"};
+  return new Promise(resolve=>{
+    $("#cashPasswordForm").onsubmit=async e=>{
+      e.preventDefault();const d=new FormData(e.currentTarget),password=String(d.get("password")||""),confirm=String(d.get("confirm")||"");
+      if(password!==confirm)return toast("Las claves no coinciden.","err");
+      const b=e.currentTarget.querySelector("button.primary");b.disabled=true;
+      try{await cashStaffAdminRequest("PATCH",{id:item.id,password});close();toast("Clave del cajero actualizada","ok");resolve(true)}
+      catch(err){toast(err.message||"No se pudo cambiar la clave.","err");b.disabled=false}
+    };
+  });
 }
 
 async function cash(){

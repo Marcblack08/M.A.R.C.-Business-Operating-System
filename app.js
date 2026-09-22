@@ -251,15 +251,17 @@ async function view(x){
     if(x==="quotes")return quotes();if(x==="marketing")return marketing();if(x==="cash")return cash();return settings();
   };
   __viewBusy=true;
+  content?.classList.add("view-switching");
   try{
     if(document.startViewTransition){
       await document.startViewTransition(()=>run()).finished;
     }else{
-      content?.classList.add("view-switching");
       await run();
-      requestAnimationFrame(()=>content?.classList.remove("view-switching"));
     }
-  }finally{__viewBusy=false}
+  }finally{
+    requestAnimationFrame(()=>content?.classList.remove("view-switching"));
+    __viewBusy=false;
+  }
 }
 async function home(){
   const c=$("#content");
@@ -2340,13 +2342,13 @@ async function cashMovementModal(open,type){
 async function cashStaffModal(){
   const ctx=await getCashStaffContext();
   if(ctx.isStaff)return toast("Solo el administrador puede gestionar usuarios de caja.","err");
-  const {data:staff,error}=await S.from("marc_cash_staff").select("id,username,display_name,active,created_at").eq("owner_user_id",st.u.id).order("created_at");
+  const {data:staff,error}=await S.from("marc_cash_staff").select("id,username,display_name,employee_code,active,created_at").eq("owner_user_id",st.u.id).order("created_at");
   if(error)return toast(error.message,"err");
   const rows=(staff||[]).map(x=>`<div class="cash-staff-row">
-    <div><b>${esc(x.display_name)}</b><small>@${esc(x.username)} · ${x.active?"Activo":"Inactivo"}</small></div>
+    <div><b>${esc(x.display_name)}</b><small>${x.employee_code?`ID ${esc(x.employee_code)} · `:""}@${esc(x.username)} · ${x.active?"Activo":"Inactivo"}</small></div>
     <div class="cash-staff-tools"><span>${x.active?"CAJERO":"PAUSADO"}</span><button type="button" class="secondary cash-staff-action" data-action="password" data-id="${esc(x.id)}">Clave</button><button type="button" class="secondary cash-staff-action" data-action="toggle" data-id="${esc(x.id)}">${x.active?"Desactivar":"Activar"}</button></div>
   </div>`).join("")||'<div class="empty">Todavía no hay usuarios de caja.</div>';
-  const close=modal(`<div class="modal-head"><div><h2>👥 Personal de caja</h2><p>Cada empleado tiene su propio acceso. Solo el administrador abre y cierra la caja.</p></div><button class="close" id="x">×</button></div><div class="cash-staff-list">${rows}</div><form id="staffForm"><div class="form-grid"><label>Nombre del empleado<input name="display_name" required placeholder="Ej. Juan Pérez"></label><label>Usuario<input name="username" required autocomplete="off" autocapitalize="none" placeholder="Ej. juan"></label><label>Contraseña<input name="password" type="password" minlength="6" required placeholder="Mínimo 6 caracteres"></label></div><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cerrar</button><button class="primary">＋ Crear usuario</button></div></form>`);
+  const close=modal(`<div class="modal-head"><div><h2>👥 Personal de caja</h2><p>Cada empleado tiene su propio acceso. Solo el administrador abre y cierra la caja.</p></div><button class="close" id="x">×</button></div><div class="cash-staff-list">${rows}</div><form id="staffForm"><div class="form-grid"><label>Nombre del empleado<input name="display_name" required placeholder="Ej. Juan Pérez"></label><label>ID / código del empleado<input name="employee_code" required autocomplete="off" placeholder="Ej. CAJ-001 o DNI"></label><label>Nombre de usuario<input name="username" required autocomplete="off" autocapitalize="none" placeholder="Ej. juan"></label><label>Clave de acceso<input name="password" type="password" minlength="6" required placeholder="Mínimo 6 caracteres"></label></div><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cerrar</button><button class="primary">＋ Crear usuario</button></div></form>`);
   $("#x").onclick=close;$("#cancel").onclick=close;
   $$(".cash-staff-action",$("#modal")).forEach(btn=>btn.onclick=async()=>{
     const id=btn.dataset.id,action=btn.dataset.action,item=(staff||[]).find(x=>x.id===id); if(!item)return;
@@ -2364,8 +2366,13 @@ async function cashStaffModal(){
   $("#staffForm").onsubmit=async e=>{
     e.preventDefault();const b=e.currentTarget.querySelector("button.primary");b.disabled=true;const d=new FormData(e.currentTarget);
     try{
-      const r=await fetch("/api/cash-staff",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({display_name:d.get("display_name"),username:d.get("username"),password:d.get("password")})});
+      const r=await fetch("/api/cash-staff",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({display_name:d.get("display_name"),employee_code:d.get("employee_code"),username:d.get("username"),password:d.get("password")})});
       const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||j.message||"No se pudo crear el usuario.");
+      const employeeCode=String(d.get("employee_code")||"").trim();
+      if(employeeCode){
+        const patch=await S.from("marc_cash_staff").update({employee_code:employeeCode}).eq("owner_user_id",st.u.id).eq("username",String(d.get("username")||"").trim());
+        if(patch.error)throw patch.error;
+      }
       close();toast("Usuario de caja creado correctamente","ok");await cash();
     }catch(err){toast(err.message||"No se pudo crear el usuario.","err");b.disabled=false}
   };

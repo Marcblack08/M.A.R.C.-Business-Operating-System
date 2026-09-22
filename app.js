@@ -2274,36 +2274,24 @@ async function cashMovementModal(open,type){
 async function cashStaffModal(){
   const ctx=await getCashStaffContext();
   if(ctx.isStaff)return toast("Solo el administrador puede gestionar usuarios de caja.","err");
-  const load=async()=>{
-    const {data,error}=await S.from("marc_cash_staff").select("id,username,display_name,active,created_at").eq("owner_user_id",st.u.id).order("created_at");
-    if(error)throw error;
-    return data||[];
-  };
-  const staff=await load();
+  const {data:staff,error}=await S.from("marc_cash_staff").select("id,username,display_name,active,created_at").eq("owner_user_id",st.u.id).order("created_at");
+  if(error)return toast(error.message,"err");
   const rows=(staff||[]).map(x=>`<div class="cash-staff-row">
     <div><b>${esc(x.display_name)}</b><small>@${esc(x.username)} · ${x.active?"Activo":"Inactivo"}</small></div>
     <div class="cash-staff-tools"><span>${x.active?"CAJERO":"PAUSADO"}</span><button type="button" class="secondary cash-staff-action" data-action="password" data-id="${esc(x.id)}">Clave</button><button type="button" class="secondary cash-staff-action" data-action="toggle" data-id="${esc(x.id)}">${x.active?"Desactivar":"Activar"}</button></div>
   </div>`).join("")||'<div class="empty">Todavía no hay usuarios de caja.</div>';
-  const close=modal(`<div class="modal-head"><div><h2>👥 Personal de caja</h2><p>Cada empleado tiene su propio acceso. Puede ver quién registró cada movimiento; solo el administrador abre y cierra la caja.</p></div><button class="close" id="x">×</button></div><div class="cash-staff-list">${rows}</div><form id="staffForm"><div class="form-grid"><label>Nombre del empleado<input name="display_name" required placeholder="Ej. Juan Pérez"></label><label>Usuario<input name="username" required autocomplete="off" autocapitalize="none" placeholder="Ej. juan"></label><label>Contraseña<input name="password" type="password" minlength="6" required placeholder="Mínimo 6 caracteres"></label></div><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cerrar</button><button class="primary">＋ Crear usuario</button></div></form>`);
+  const close=modal(`<div class="modal-head"><div><h2>👥 Personal de caja</h2><p>Cada empleado tiene su propio acceso. Solo el administrador abre y cierra la caja.</p></div><button class="close" id="x">×</button></div><div class="cash-staff-list">${rows}</div><form id="staffForm"><div class="form-grid"><label>Nombre del empleado<input name="display_name" required placeholder="Ej. Juan Pérez"></label><label>Usuario<input name="username" required autocomplete="off" autocapitalize="none" placeholder="Ej. juan"></label><label>Contraseña<input name="password" type="password" minlength="6" required placeholder="Mínimo 6 caracteres"></label></div><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cerrar</button><button class="primary">＋ Crear usuario</button></div></form>`);
   $("#x").onclick=close;$("#cancel").onclick=close;
   $$(".cash-staff-action",$("#modal")).forEach(btn=>btn.onclick=async()=>{
-    const id=btn.dataset.id,action=btn.dataset.action;
+    const id=btn.dataset.id,action=btn.dataset.action,item=(staff||[]).find(x=>x.id===id); if(!item)return;
     try{
       if(action==="toggle"){
-        const item=staff.find(x=>x.id===id); if(!item)return;
         btn.disabled=true;
         const r=await fetch("/api/cash-staff",{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({id,active:!item.active})});
-        const j=await r.json().catch(()=>({})); if(!r.ok)throw new Error(j.error||"No se pudo actualizar el usuario.");
-        toast(item.active?"Usuario de caja desactivado":"Usuario de caja activado","ok"); close(); await cashStaffModal();
+        const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||"No se pudo actualizar el usuario.");
+        toast(item.active?"Usuario desactivado":"Usuario activado","ok");close();await cashStaffModal();
       }else{
-        const item=staff.find(x=>x.id===id); if(!item)return;
-        const next=prompt("Nueva contraseña para @"+item.username+":");
-        if(next===null)return;
-        if(String(next).length<6)return toast("La contraseña debe tener al menos 6 caracteres.","err");
-        btn.disabled=true;
-        const r=await fetch("/api/cash-staff",{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({id,password:String(next)})});
-        const j=await r.json().catch(()=>({})); if(!r.ok)throw new Error(j.error||"No se pudo cambiar la contraseña.");
-        toast("Contraseña actualizada","ok");
+        openCashPasswordModal(item);
       }
     }catch(err){toast(err.message||"No se pudo actualizar el usuario.","err");btn.disabled=false}
   });
@@ -2311,9 +2299,23 @@ async function cashStaffModal(){
     e.preventDefault();const b=e.currentTarget.querySelector("button.primary");b.disabled=true;const d=new FormData(e.currentTarget);
     try{
       const r=await fetch("/api/cash-staff",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({display_name:d.get("display_name"),username:d.get("username"),password:d.get("password")})});
-      const j=await r.json();if(!r.ok)throw new Error(j.error||j.message||"No se pudo crear el usuario.");
+      const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||j.message||"No se pudo crear el usuario.");
       close();toast("Usuario de caja creado correctamente","ok");await cash();
     }catch(err){toast(err.message||"No se pudo crear el usuario.","err");b.disabled=false}
+  };
+}
+function openCashPasswordModal(item){
+  const close=modal(`<div class="modal-head"><div><div class="eyebrow2">SEGURIDAD</div><h2>🔐 Cambiar contraseña</h2><p>Actualiza la clave de <b>@${esc(item.username)}</b>.</p></div><button class="close" id="x">×</button></div><form id="cashPasswordForm"><label>Nueva contraseña<div class="password-field"><input name="password" type="password" minlength="6" required autofocus placeholder="Mínimo 6 caracteres"><button type="button" id="showCashPass">◉</button></div></label><label>Confirmar contraseña<input name="confirm" type="password" minlength="6" required placeholder="Repite la contraseña"></label><div id="cashPassError" class="cash-login-error"></div><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Guardar nueva clave</button></div></form>`);
+  $("#x").onclick=close;$("#cancel").onclick=close;$("#showCashPass").onclick=()=>{const i=$("#cashPasswordForm [name=password]");i.type=i.type==="password"?"text":"password"};
+  $("#cashPasswordForm").onsubmit=async e=>{
+    e.preventDefault();const d=new FormData(e.currentTarget),password=String(d.get("password")||""),confirm=String(d.get("confirm")||""),err=$("#cashPassError"),b=e.currentTarget.querySelector("button.primary");
+    err.textContent="";if(password.length<6)return err.textContent="La contraseña debe tener al menos 6 caracteres.";if(password!==confirm)return err.textContent="Las contraseñas no coinciden.";
+    b.disabled=true;
+    try{
+      const r=await fetch("/api/cash-staff",{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({id:item.id,password})});
+      const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||"No se pudo cambiar la contraseña.");
+      close();toast("Contraseña actualizada correctamente","ok");
+    }catch(err2){err.textContent=err2.message||"No se pudo cambiar la contraseña.";b.disabled=false}
   };
 }
 

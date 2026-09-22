@@ -2487,41 +2487,30 @@ async function marketing(){
 
   const createComplete=async()=>{
     const btn=$p("generateAd");if(btn.disabled)return;
-    btn.disabled=true;btn.classList.add("loading");setStatus("M.A.R.C. está preparando el texto…");
+    btn.disabled=true;btn.classList.add("loading");setStatus("M.A.R.C. está analizando el producto y preparando la publicidad…");
     try{
       if(adSource==="new"){
         currentProduct={...(currentProduct||{}),id:null,name:$p("adNewName").value.trim()||"Nuevo producto",brand:$p("adNewBrand").value.trim()||null,model:$p("adNewModel").value.trim()||null,price:$p("adNewPrice").value.trim()||null,image_url:currentImage||null,stock:null};
         if(!currentImage)throw new Error("Toma o selecciona la foto principal del producto.");
-        if(currentReferenceImage && (!currentProduct.brand || !currentProduct.model)){
-          setStatus("M.A.R.C. está leyendo la foto de referencia…");
-          try{
-            const ref=await drawImage(currentReferenceImage,1400);
-            const rr=await fetch("/api/marketing-product-ai",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({imageBase64:await readImage(),referenceImageBase64:ref.split(",")[1]||"",mimeType:"image/jpeg",referenceMimeType:"image/jpeg",brief:$p("adDetails").value||""})});
-            const jj=await rr.json();if(rr.ok&&jj.product){
-              const rp=jj.product;
-              currentProduct={...currentProduct,name:currentProduct.name==="Nuevo producto"?(rp.name||currentProduct.name):currentProduct.name,brand:currentProduct.brand||rp.brand||null,model:currentProduct.model||rp.model||null,category:rp.category||null,description:rp.description||"",marketing_description:rp.marketing_description||"",key_points:rp.key_points||[]};
-              const d=[rp.marketing_description||rp.description,(rp.key_points||[]).length?"Puntos principales: "+rp.key_points.join(", "):""].filter(Boolean).join("\n");
-              if(d&&!$p("adDetails").value.trim())$p("adDetails").value=d;
-            }
-          }catch{}
-        }
       }
       if(!currentProduct)throw new Error("Elige un producto del inventario o crea un producto nuevo.");
-      const textR=await fetch("/api/marketing-ai",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify(await payload())});
-      const textJ=await textR.json();if(!textR.ok)throw new Error(textJ.message||textJ.error||"No se pudo crear el texto.");
+
+      // Una sola llamada de IA: Gemini analiza la foto principal + referencia y redacta todo.
+      // La pieza visual se compone localmente en Canvas usando la foto real, por lo que
+      // no dependemos de la generación de imágenes de pago ni esperamos un segundo modelo.
+      const textR=await fetch("/api/marketing-ai",{
+        method:"POST",
+        headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},
+        body:JSON.stringify(await payload())
+      });
+      const textJ=await textR.json();
+      if(!textR.ok)throw new Error(textJ.message||textJ.error||"No se pudo crear la publicidad.");
       await setCampaign(textJ.campaign);
       await saveMarketingCampaign(textJ.campaign,currentProduct,$p).catch(()=>{});
-      // La imagen sí se genera con IA aunque exista una foto.
-      // La foto original se entrega a Gemini como referencia para conservar el producto
-      // mientras mejora fondo, iluminación, composición y presentación comercial.
-      setStatus("Texto listo. Ahora M.A.R.C. está diseñando la pieza visual con IA…");
-      const imageR=await fetch("/api/marketing-image",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({product:currentProduct,campaign:textJ.campaign,platform:"WHATSAPP",objective:$p("adObjective").value,details:$p("adDetails").value,format:$p("adFormat").value,template:"MODERN",variants:["PROFESSIONAL"],imageData:await readImage(),referenceImageData:await readReferenceImage()})});
-      const imageJ=await imageR.json();if(!imageR.ok)throw new Error(imageJ.message||imageJ.error||"No se pudo crear la imagen.");
-      currentAiVariants=Array.isArray(imageJ.images)?imageJ.images:[];
-      if(currentAiVariants[0]?.data)currentAiImage="data:"+(currentAiVariants[0].mimeType||"image/png")+";base64,"+currentAiVariants[0].data;
-      await renderCanvas();
-      setStatus("Publicidad completa lista. Revisa, descarga o comparte.","ok");
-      const hint=$p("bannerHint");if(hint)hint.textContent="Tu logo y datos comerciales se aplicaron automáticamente.";
+      currentAiImage=null;
+      currentAiVariants=[];
+      setStatus("Publicidad lista. La imagen se compuso con tu foto real, logo y datos comerciales.","ok");
+      const hint=$p("bannerHint");if(hint)hint.textContent="Una sola llamada de IA · tu foto real se conserva · logo y composición se aplican localmente.";
       $p("adResult").scrollIntoView({behavior:"smooth",block:"start"});
     }catch(e){setStatus(e.message||"No se pudo crear la publicidad.","error")}
     finally{btn.disabled=false;btn.classList.remove("loading")}

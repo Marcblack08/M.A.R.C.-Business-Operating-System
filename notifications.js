@@ -1,12 +1,15 @@
 (()=>{
   const KEY="marc_notifications_v1";
   const REMINDERS="marc_reminders_v1";
+  const WATCHERS="marc_watchers_v1";
   const $=(s,r=document)=>r.querySelector(s);
   const esc=v=>String(v??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
   const read=k=>{try{return JSON.parse(localStorage.getItem(k)||"[]")}catch{return[]}};
   const write=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
   const uid=()=>crypto.randomUUID?.()||Date.now()+"-"+Math.random();
   function notifications(){return read(KEY)}
+  function watchers(){return read(WATCHERS)}
+  function saveWatchers(rows){write(WATCHERS,rows)}
   function addNotification(title,body,action="",meta={}){
     const rows=notifications();
     rows.unshift({id:uid(),title,body,action,meta,read:false,created_at:new Date().toISOString()});
@@ -80,15 +83,27 @@
     const actions=host.querySelector(".hero-actions,.panel-actions,.actions,.modal-actions")||host;
     actions.appendChild(b);
   }
+  function watchInventory(){
+    const rows=watchers(); if(!rows.length)return;
+    const seen=new Set();
+    document.querySelectorAll("[data-stock]").forEach(el=>{
+      const id=el.dataset.stockId||el.dataset.id;if(!id)return;
+      const stock=Number(el.dataset.stock); if(!Number.isFinite(stock))return;
+      const w=rows.find(x=>x.type==="STOCK"&&x.item_id===id&&!x.done);
+      if(w&&stock<=Number(w.threshold||0)){seen.add(w.id);w.done=true;notify("Stock agotado",w.message||("El producto "+(w.item_name||"") +" llegó al límite configurado."));}
+    });
+    if(seen.size)saveWatchers(rows);
+  }
   function checkReminders(){
     const now=Date.now();let changed=false;const rows=read(REMINDERS).map(r=>{
       if(!r.done&&new Date(r.when).getTime()<=now){r.done=true;changed=true;notify(r.title,r.body)}return r;
     });if(changed)write(REMINDERS,rows);
   }
-  window.MARCNotifications={notifications,add:addNotification,notify,open,share,reminder,check:checkReminders};
+  function addStockWatch(itemId,itemName,threshold=0,message=""){const rows=watchers();rows.push({id:uid(),type:"STOCK",item_id:String(itemId),item_name:itemName||"",threshold:Number(threshold)||0,message,done:false,created_at:new Date().toISOString()});saveWatchers(rows);return rows.at(-1)}
+  window.MARCNotifications={notifications,add:addNotification,notify,open,share,reminder,addStockWatch,check:()=>{checkReminders();watchInventory()}};
   document.addEventListener("DOMContentLoaded",()=>{
     $("#notificationBell")?.addEventListener("click",open);
-    renderCount();checkReminders();installMarketingShare();setInterval(checkReminders,30000);new MutationObserver(()=>installMarketingShare()).observe(document.body,{childList:true,subtree:true});
+    renderCount();checkReminders();watchInventory();installMarketingShare();setInterval(()=>{checkReminders();watchInventory()},30000);new MutationObserver(()=>installMarketingShare()).observe(document.body,{childList:true,subtree:true});
     if(!notifications().length)addNotification("Bienvenido a M.A.R.C.","Aquí aparecerán recordatorios, publicidad pendiente, cobros y tareas importantes.");
   });
 })();

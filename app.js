@@ -2373,21 +2373,94 @@ async function marketing(){
   const renderCanvas=async()=>{
     const canvas=$p("adCanvas");if(!canvas)return;
     const [w,h]=($p("adFormat").value||"1080x1080").split("x").map(Number);canvas.width=w;canvas.height=h;
-    const ctx=canvas.getContext("2d"),g=ctx.createLinearGradient(0,0,w,h);g.addColorStop(0,"#071a32");g.addColorStop(.58,"#0b4c91");g.addColorStop(1,"#18a5ee");ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
-    ctx.fillStyle="rgba(255,255,255,.08)";ctx.beginPath();ctx.arc(w*.86,h*.12,Math.min(w,h)*.24,0,Math.PI*2);ctx.fill();
-    if(company.logo_data){try{const logo=await new Promise((res,rej)=>{const im=new Image();im.onload=()=>res(im);im.onerror=rej;im.src=company.logo_data});const lh=Math.min(h*.075,w*.22),lw=lh*(logo.width/logo.height);ctx.drawImage(logo,w*.08,h*.045,lw,lh)}catch{}}
-    const src=currentAiImage||currentImage||currentProduct?.image_url;
-    if(src){try{const img=await new Promise((res,rej)=>{const im=new Image();im.crossOrigin="anonymous";im.onload=()=>res(im);im.onerror=rej;im.src=src});const boxW=w*.82,boxH=h*.40,scale=Math.min(boxW/img.width,boxH/img.height),iw=img.width*scale,ih=img.height*scale,x=(w-iw)/2,y=h*.14+(boxH-ih)/2;ctx.fillStyle="rgba(255,255,255,.96)";ctx.beginPath();if(ctx.roundRect)ctx.roundRect(x-18,y-18,iw+36,ih+36,28);else ctx.rect(x-18,y-18,iw+36,ih+36);ctx.fill();ctx.drawImage(img,x,y,iw,ih)}catch{}}
-    ctx.textAlign="left";ctx.fillStyle="#8ee4ff";ctx.font="800 "+Math.round(Math.min(w,h)*.026)+"px Inter";ctx.fillText("PUBLICIDAD · "+String(company.business_name||"M.A.R.C.").slice(0,28),w*.08,h*.59);
+    const ctx=canvas.getContext("2d");
+    const src=currentImage||currentProduct?.image_url||"";
+
+    // Fondo visual local: usa la propia foto desenfocada como ambiente y conserva
+    // una copia nítida del producto al frente. Esto evita otra llamada de generación de imagen.
+    ctx.clearRect(0,0,w,h);
+    const base=ctx.createLinearGradient(0,0,w,h);
+    base.addColorStop(0,"#06182e");base.addColorStop(.55,"#0a467f");base.addColorStop(1,"#13a6e8");
+    ctx.fillStyle=base;ctx.fillRect(0,0,w,h);
+
+    let img=null;
+    if(src){
+      try{
+        img=await new Promise((res,rej)=>{
+          const im=new Image();im.onload=()=>res(im);im.onerror=rej;im.src=src;
+        });
+      }catch{}
+    }
+
+    if(img){
+      ctx.save();
+      ctx.globalAlpha=.30;
+      ctx.filter="blur(18px) saturate(1.15)";
+      const cover=Math.max(w/img.width,h/img.height),bw=img.width*cover,bh=img.height*cover;
+      ctx.drawImage(img,(w-bw)/2,(h-bh)/2,bw,bh);
+      ctx.restore();
+      const shade=ctx.createLinearGradient(0,0,w,h);
+      shade.addColorStop(0,"rgba(3,17,34,.76)");shade.addColorStop(.48,"rgba(4,38,73,.55)");shade.addColorStop(1,"rgba(8,126,184,.72)");
+      ctx.fillStyle=shade;ctx.fillRect(0,0,w,h);
+    }
+
+    // Detalles gráficos discretos para dar aspecto publicitario sin alterar el producto.
+    ctx.fillStyle="rgba(255,255,255,.08)";ctx.beginPath();ctx.arc(w*.88,h*.16,Math.min(w,h)*.25,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle="rgba(142,228,255,.10)";ctx.beginPath();ctx.arc(w*.08,h*.72,Math.min(w,h)*.20,0,Math.PI*2);ctx.fill();
+
+    if(company.logo_data){
+      try{
+        const logo=await new Promise((res,rej)=>{const im=new Image();im.onload=()=>res(im);im.onerror=rej;im.src=company.logo_data});
+        const lh=Math.min(h*.075,w*.22),lw=lh*(logo.width/logo.height);
+        ctx.drawImage(logo,w*.08,h*.045,lw,lh);
+      }catch{}
+    }
+
+    if(img){
+      const boxW=w*.82,boxH=h*.39,scale=Math.min(boxW/img.width,boxH/img.height),iw=img.width*scale,ih=img.height*scale;
+      const x=(w-iw)/2,y=h*.13+(boxH-ih)/2;
+      ctx.save();
+      ctx.shadowColor="rgba(0,0,0,.38)";ctx.shadowBlur=28;ctx.shadowOffsetY=12;
+      ctx.fillStyle="rgba(255,255,255,.97)";
+      ctx.beginPath();if(ctx.roundRect)ctx.roundRect(x-20,y-20,iw+40,ih+40,30);else ctx.rect(x-20,y-20,iw+40,ih+40);ctx.fill();
+      ctx.restore();
+      ctx.drawImage(img,x,y,iw,ih);
+    }
+
+    ctx.textAlign="left";
+    ctx.fillStyle="#8ee4ff";ctx.font="800 "+Math.round(Math.min(w,h)*.026)+"px Inter";
+    ctx.fillText("PUBLICIDAD · "+String(company.business_name||"M.A.R.C.").slice(0,28),w*.08,h*.59);
+
     const banner=String(currentCampaign?.banner_text||currentCampaign?.headline||currentProduct?.name||"Tu producto").split(/\n/).slice(0,3);
-    ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*.062)+"px Inter";let y=h*.66;
-    banner.forEach(line=>{const words=line.split(" "),lines=[],max=w*.84;let row="";for(const word of words){const test=row?row+" "+word:word;if(ctx.measureText(test).width>max&&row){lines.push(row);row=word}else row=test}if(row)lines.push(row);lines.slice(0,3).forEach(t=>{ctx.fillText(t,w*.08,y);y+=Math.round(Math.min(w,h)*.071)})});
+    ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*.062)+"px Inter";
+    let y=h*.66;
+    banner.forEach(line=>{
+      const words=line.split(" "),lines=[],max=w*.84;let row="";
+      for(const word of words){const test=row?row+" "+word:word;if(ctx.measureText(test).width>max&&row){lines.push(row);row=word}else row=test}
+      if(row)lines.push(row);
+      lines.slice(0,3).forEach(t=>{ctx.fillText(t,w*.08,y);y+=Math.round(Math.min(w,h)*.071)});
+    });
+
     const offer=$p("adOffer")?.value.trim();
-    if(offer){ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*.034)+"px Inter";ctx.fillText(offer.slice(0,42),w*.08,h*.86)}
-    else if(currentProduct?.price!=null&&currentProduct.price!==""){ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*.038)+"px Inter";ctx.fillText(money(currentProduct.price),w*.08,h*.86)}
-    ctx.fillStyle="#d9efff";ctx.font="800 "+Math.round(Math.min(w,h)*.021)+"px Inter";ctx.fillText(String(company.business_name||"").slice(0,55),w*.08,h*.925);
-    if(company.phone){ctx.fillStyle="#9fd8ff";ctx.font="700 "+Math.round(Math.min(w,h)*.017)+"px Inter";ctx.fillText("WhatsApp · "+String(company.phone).slice(0,28),w*.08,h*.955)}
-    ctx.fillStyle="#fff";if(ctx.roundRect)ctx.roundRect(w*.67,h*.88,w*.25,h*.065,18);else ctx.fillRect(w*.67,h*.88,w*.25,h*.065);ctx.fillStyle="#0b4c91";ctx.font="900 "+Math.round(Math.min(w,h)*.019)+"px Inter";ctx.textAlign="center";ctx.fillText("Escríbenos",w*.795,h*.922);ctx.textAlign="left";
+    if(offer){
+      ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*.034)+"px Inter";
+      ctx.fillText(offer.slice(0,42),w*.08,h*.86);
+    }else if(currentProduct?.price!=null&&currentProduct.price!==""){
+      ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*.038)+"px Inter";
+      ctx.fillText(money(currentProduct.price),w*.08,h*.86);
+    }
+
+    ctx.fillStyle="#d9efff";ctx.font="800 "+Math.round(Math.min(w,h)*.021)+"px Inter";
+    ctx.fillText(String(company.business_name||"").slice(0,55),w*.08,h*.925);
+    if(company.phone){
+      ctx.fillStyle="#9fd8ff";ctx.font="700 "+Math.round(Math.min(w,h)*.017)+"px Inter";
+      ctx.fillText("WhatsApp · "+String(company.phone).slice(0,28),w*.08,h*.955);
+    }
+
+    ctx.fillStyle="#fff";
+    if(ctx.roundRect)ctx.roundRect(w*.67,h*.88,w*.25,h*.065,18);else ctx.fillRect(w*.67,h*.88,w*.25,h*.065);
+    ctx.fillStyle="#0b4c91";ctx.font="900 "+Math.round(Math.min(w,h)*.019)+"px Inter";ctx.textAlign="center";
+    ctx.fillText("Escríbenos",w*.795,h*.922);ctx.textAlign="left";
   };
 
   const setCampaign=async campaign=>{

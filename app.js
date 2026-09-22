@@ -2391,20 +2391,14 @@ async function ensureCashMaster(){
 async function cashStaffAdminRequest(method,body){
   const session=(await S.auth.getSession()).data?.session;
   if(!session?.access_token)throw new Error("La sesión maestra expiró. Vuelve a autorizar Caja.");
-  const {data,error}=await S.functions.invoke("marc-cash-admin",{method,body});
-  if(error){
-    let detail="";
-    try{
-      const ctx=error.context;
-      if(ctx?.json){
-        const j=await ctx.json();
-        detail=j?.error||j?.message||"";
-      }
-    }catch(_){}
-    throw new Error(detail||error.message||"No se pudo completar la operación.");
-  }
-  if(data?.error)throw new Error(data.error);
-  return data||{};
+  const r=await fetch("/api/cash-staff",{
+    method,
+    headers:{"Content-Type":"application/json",Authorization:"Bearer "+session.access_token},
+    body:JSON.stringify(body||{})
+  });
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(j.error||j.message||"No se pudo completar la operación.");
+  return j;
 }
 async function cashStaffModal(){
   if(!(await ensureCashMaster()))return;

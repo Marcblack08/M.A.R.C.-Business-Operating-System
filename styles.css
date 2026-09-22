@@ -3563,3 +3563,59 @@ html:not([data-theme="dark"]) .sidebar nav button.active{
   }
   input,select,textarea{min-height:44px}
 }
+
+/* ===== HERO SAFETY: company logo can never escape its visual frame ===== */
+.dashboard-hero .hero-visual,
+.dashboard-hero .hero-visual-logo{
+  overflow:hidden!important;
+}
+.dashboard-hero .hero-visual-logo{
+  box-sizing:border-box!important;
+}
+.dashboard-hero .hero-visual-logo img{
+  max-width:100%!important;
+  max-height:100%!important;
+  width:100%!important;
+  height:100%!important;
+  object-fit:contain!important;
+  object-position:center!important;
+  display:block!important;
+}
+@media(max-width:780px){
+  .dashboard-hero .hero-visual{
+    width:35%!important;
+    height:165px!important;
+    right:5px!important;
+    top:34px!important;
+  }
+  .dashboard-hero .hero-visual-ring{
+    width:128px!important;
+    height:128px!important;
+  }
+  .dashboard-hero .hero-visual-logo{
+    width:108px!important;
+    height:108px!important;
+    padding:8px!important;
+    border-radius:50%!important;
+  }
+}
+@media(min-width:781px) and (max-width:1100px){
+  .dashboard-hero .hero-visual{
+    width:205px!important;
+    height:205px!important;
+    right:20px!important;
+    top:46px!important;
+  }
+  .dashboard-hero .hero-visual-ring{width:185px!important;height:185px!important}
+  .dashboard-hero .hero-visual-logo{width:150px!important;height:150px!important;padding:10px!important}
+}
+@media(min-width:1101px){
+  .dashboard-hero .hero-visual{
+    width:235px!important;
+    height:235px!important;
+    right:40px!important;
+    top:48px!important;
+  }
+  .dashboard-hero .hero-visual-ring{width:215px!important;height:215px!important}
+  .dashboard-hero .hero-visual-logo{width:178px!important;height:178px!important;padding:12px!important}
+}

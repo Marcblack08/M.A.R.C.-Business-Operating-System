@@ -85,7 +85,7 @@ async function trial(){
   const end=new Date(t?.ends_at||Date.now()).getTime(),start=new Date(t?.started_at||Date.now()).getTime(),now=Date.now(),left=Math.max(0,end-now),days=Math.ceil(left/864e5);
   $("#trialDays").textContent=days+" días";
   $("#trialBar").style.width=Math.max(3,100-(left/Math.max(1,end-start)*100))+"%";
-  $("#usage").textContent=(c.count||0)+"/25 clientes · "+(i.count||0)+"/50 productos · "+(q.count||0)+"/5 cotizaciones";
+  $("#usage").textContent=(c.count||0)+" clientes · "+(i.count||0)+" productos · "+(q.count||0)+" cotizaciones";
 }
 async function chatLoad(){const box=$("#messages");box.innerHTML="";const {data}=await S.from("marc_messages").select("role,content").eq("conversation_id",st.cid).order("created_at",{ascending:true}).limit(60);if(!data?.length)addBubble("a","Hola. Soy M.A.R.C. Dime qué quieres hacer.");else data.forEach(x=>addBubble(x.role==="USER"?"u":"a",x.content))}
 function addBubble(type,text){const e=document.createElement("div");e.className="bubble "+type;e.textContent=text;$("#messages").appendChild(e);$("#messages").scrollTop=$("#messages").scrollHeight}
@@ -1292,10 +1292,10 @@ async function inventorySerialsModal(x){
 }
 
 async function inventory(){
-  S.from("marc_inventory").select("*").eq("user_id",st.u.id).eq("active",true).order("name").then(({data,error})=>{
+  S.from("marc_inventory").select("*",{count:"exact"}).eq("user_id",st.u.id).eq("active",true).order("name").then(({data,count,error})=>{
     if(error)return toast(error.message,"err");
     const c=$("#content");
-    const total=(data||[]).length,low=(data||[]).filter(x=>Number(x.stock)>0&&Number(x.stock)<=Number(x.min_stock)).length,out=(data||[]).filter(x=>Number(x.stock)<=0).length;
+    const total=Number.isFinite(count)?count:(data||[]).length,low=(data||[]).filter(x=>Number(x.stock)>0&&Number(x.stock)<=Number(x.min_stock)).length,out=(data||[]).filter(x=>Number(x.stock)<=0).length;
     c.innerHTML=`<div class="head"><div><div class="eyebrow2">INVENTARIO</div><h1>Productos + stock.</h1><p>Controla existencias, precios y unidades desde un solo lugar.</p></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button id="photos" class="secondary">📷 Subir por fotos</button><button id="importPdf" class="secondary">📄 Importar PDF</button><button id="new" class="primary">＋ Nuevo producto</button></div></div>
     <section class="inventory-summary"><div><span>PRODUCTOS</span><strong>${total}</strong><small>En inventario activo</small></div><div><span>STOCK BAJO</span><strong>${low}</strong><small>Requieren reposición</small></div><div><span>AGOTADOS</span><strong>${out}</strong><small>Sin unidades disponibles</small></div></section>
     <section class="card table inventory-browser"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar producto, SKU, marca o modelo…"></div><div class="inventory-toolbar-actions"><button id="selectAll" class="secondary" type="button">☐ Seleccionar</button><button id="bulkDelete" class="danger" type="button" disabled>Eliminar <span id="selectedCount">0</span></button><button id="ask" class="secondary">✦ Preguntar</button></div></div><div class="scroll inventory-desktop"><table class="data"><thead><tr><th style="width:42px;text-align:center"><input id="selectAllHead" type="checkbox" aria-label="Seleccionar todos los productos"></th><th>Producto</th><th>Marca/modelo</th><th>Stock</th><th>Precio</th><th>Estado</th><th></th></tr></thead><tbody id="rows"></tbody></table></div><div id="inventoryCards" class="inventory-cards"></div></section>`;
@@ -3170,70 +3170,98 @@ async function downloadQuotePdf(id){
   if(!q)throw new Error("No se encontró la cotización.");
   const ir=await S.from("marc_quote_items").select("*").eq("quote_id",id).eq("user_id",st.u.id).order("created_at");
   if(ir.error)throw new Error("No se pudieron leer las partidas: "+ir.error.message);
-  const items=ir.data||[];
-  const client=q.marc_clients||{};
-  const company=await getCompanyProfile();
-  const {jsPDF}=window.jspdf;
+  const items=ir.data||[],client=q.marc_clients||{},company=await getCompanyProfile(),{jsPDF}=window.jspdf;
   const doc=new jsPDF({unit:"mm",format:"a4"});
-  const pageW=210,margin=14;
-  let y=18;
-  if(company?.logo_data){try{doc.addImage(company.logo_data,"JPEG",margin,y-3,30,18,"logo","FAST")}catch{}}
-  const brandX=company?.logo_data?margin+35:margin;
-  doc.setFont("helvetica","bold");doc.setFontSize(18);doc.text(String(company?.business_name||"M.A.R.C."),brandX,y+2);
-  doc.setFont("helvetica","normal");doc.setFontSize(8);
-  const companyMeta=[company?.legal_name,company?.ruc?("RUC "+company.ruc):"",company?.phone,company?.email].filter(Boolean).join(" · ");
-  if(companyMeta)doc.text(doc.splitTextToSize(companyMeta,95),brandX,y+7);
-  if(company?.address)doc.text(doc.splitTextToSize(company.address,95),brandX,y+12);
-  doc.setFont("helvetica","bold");doc.setFontSize(16);doc.text(String(q.number||"COTIZACIÓN"),pageW-margin,y,{align:"right"});
-  doc.setFont("helvetica","normal");doc.setFontSize(9);doc.text(new Date(q.created_at).toLocaleDateString("es-PE"),pageW-margin,y+5,{align:"right"});
-  y+=23;doc.setDrawColor(210);doc.line(margin,y,pageW-margin,y);y+=9;
+  const pageW=210,pageH=297,margin=14,contentW=pageW-margin*2;
+  const hasLogo=Boolean(company?.logo_data),brandName=String(company?.business_name||"M.A.R.C.").trim();
+  const drawHeader=(pageNumber,totalPages)=>{
+    if(pageNumber>1){
+      doc.setFillColor(5,36,67);doc.rect(0,0,pageW,18,"F");
+      doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text(brandName.slice(0,46),margin,11);
+      doc.setFont("helvetica","normal");doc.setFontSize(8);doc.text(String(q.number||"COTIZACIÓN"),pageW-margin,11,{align:"right"});
+      doc.setTextColor(16,35,63);return 25;
+    }
+    doc.setFillColor(5,36,67);doc.roundedRect(margin,12,contentW,33,3,3,"F");
+    if(hasLogo){
+      try{
+        doc.addImage(company.logo_data,"JPEG",margin+5,16,24,24,"logo","FAST");
+      }catch{}
+    }
+    const bx=margin+(hasLogo?34:7);
+    doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(15);doc.text(brandName.slice(0,38),bx,22);
+    doc.setFont("helvetica","normal");doc.setFontSize(7.5);
+    const meta=[company?.legal_name,company?.ruc?("RUC "+company.ruc):"",company?.phone,company?.email].filter(Boolean).join(" · ");
+    if(meta)doc.text(doc.splitTextToSize(meta,102),bx,28);
+    if(company?.address)doc.text(doc.splitTextToSize(company.address,102),bx,34);
+    doc.setFont("helvetica","bold");doc.setFontSize(15);doc.text(String(q.number||"COTIZACIÓN"),pageW-margin-5,22,{align:"right"});
+    doc.setFont("helvetica","normal");doc.setFontSize(8);doc.text(new Date(q.created_at).toLocaleDateString("es-PE"),pageW-margin-5,28,{align:"right"});
+    return 53;
+  };
+  const drawFooter=(pageNumber,totalPages)=>{
+    doc.setDrawColor(214);doc.line(margin,pageH-18,pageW-margin,pageH-18);
+    doc.setFont("helvetica","normal");doc.setFontSize(7);doc.setTextColor(112);
+    doc.text(brandName.slice(0,55),margin,pageH-10);
+    doc.text("Página "+pageNumber+" de "+totalPages,pageW-margin,pageH-10,{align:"right"});
+    doc.setTextColor(16,35,63);
+  };
+  let y=drawHeader(1,1);
   const box=(x,yy,w,h,title,lines)=>{
-    doc.setDrawColor(225);doc.roundedRect(x,yy,w,h,3,3);
-    doc.setFont("helvetica","bold");doc.setFontSize(9);doc.text(title,x+4,yy+6);
-    doc.setFont("helvetica","normal");doc.setFontSize(8);
-    let ty=yy+12;for(const line of lines){const parts=doc.splitTextToSize(String(line||""),w-8);doc.text(parts,x+4,ty);ty+=4.2*parts.length;if(ty>yy+h-3)break}
+    doc.setFillColor(248,250,253);doc.setDrawColor(222);doc.roundedRect(x,yy,w,h,3,3,"FD");
+    doc.setTextColor(10,68,105);doc.setFont("helvetica","bold");doc.setFontSize(8);doc.text(title,x+4,yy+6);
+    doc.setTextColor(35,49,65);doc.setFont("helvetica","normal");doc.setFontSize(8);
+    let ty=yy+12;for(const line of lines){if(!line)continue;const parts=doc.splitTextToSize(String(line),w-8);doc.text(parts,x+4,ty);ty+=4.2*parts.length;if(ty>yy+h-3)break}
   };
   box(margin,y,88,30,"CLIENTE",[client.name||"Sin cliente",client.document_type&&client.document_number?client.document_type+" "+client.document_number:"",client.phone||"",client.email||"",client.address||""]);
-  box(108,y,88,30,"CONDICIONES",["Título: "+String(q.title||"Cotización"),"Moneda: "+String(q.currency||"PEN"),"IGV: "+(q.tax_enabled?String(q.tax_rate)+"%":"No incluido"),"Estado: "+String(q.status||"BORRADOR")]);
+  box(108,y,88,30,"COTIZACIÓN",["Título: "+String(q.title||"Cotización"),"Moneda: "+String(q.currency||"PEN"),"IGV: "+(q.tax_enabled?String(q.tax_rate)+"%":"No incluido"),"Estado: "+String(q.status||"BORRADOR")]);
   y+=38;
-  const drawTableHeader=()=>{doc.setFillColor(242,246,250);doc.rect(margin,y,pageW-margin*2,8,"F");doc.setFont("helvetica","bold");doc.setFontSize(8);doc.text("CONCEPTO",margin+2,y+5);doc.text("DESCRIPCIÓN",70,y+5);doc.text("CANT.",140,y+5);doc.text("PRECIO",158,y+5);doc.text("TOTAL",184,y+5);y+=12;doc.setFont("helvetica","normal")};drawTableHeader();
+
+  const ensureSpace=(h)=>{
+    if(y+h>pageH-25){doc.addPage();y=drawHeader(doc.getNumberOfPages(),0);return true}
+    return false;
+  };
+  const drawTableHeader=()=>{
+    doc.setFillColor(231,241,248);doc.roundedRect(margin,y,contentW,8,1.5,1.5,"F");
+    doc.setTextColor(10,68,105);doc.setFont("helvetica","bold");doc.setFontSize(7.5);
+    doc.text("CONCEPTO",margin+3,y+5);doc.text("DESCRIPCIÓN",70,y+5);doc.text("CANT.",140,y+5);doc.text("PRECIO",158,y+5);doc.text("TOTAL",184,y+5);
+    y+=12;doc.setTextColor(35,49,65);doc.setFont("helvetica","normal");
+  };
+  drawTableHeader();
+
   for(const it of items){
-    const desc=doc.splitTextToSize(String(it.description||""),64);
-    const name=doc.splitTextToSize(String(it.name||""),55);
-    const h=Math.max(7,4.2*Math.max(desc.length,name.length));
-    if(y+h>270){doc.addPage();y=18;drawTableHeader()}
-    doc.setFont("helvetica","bold");doc.text(name,margin+2,y);
+    const desc=doc.splitTextToSize(String(it.description||"—"),64);
+    const name=doc.splitTextToSize(String(it.name||it.description||"Partida"),55);
+    const rowH=Math.max(8,4.2*Math.max(desc.length,name.length));
+    ensureSpace(rowH+5);
+    doc.setFont("helvetica","bold");doc.setFontSize(8);doc.text(name,margin+3,y);
     doc.setFont("helvetica","normal");doc.text(desc,70,y);
     doc.text(String(it.quantity||1),142,y);
     doc.text(money(it.unit_price).replace("PEN","S/"),158,y);
     doc.text(money(it.line_total).replace("PEN","S/"),184,y);
-    y+=h+3;doc.setDrawColor(235);doc.line(margin,y-1,pageW-margin,y-1);
+    y+=rowH+3;doc.setDrawColor(235);doc.line(margin,y-1,pageW-margin,y-1);
   }
-  y+=5;
-  if(y>245){doc.addPage();y=18}
-  const totalsX=126;
-  doc.setFont("helvetica","normal");doc.text("Subtotal",totalsX,y);doc.text(money(q.subtotal).replace("PEN","S/"),pageW-margin,y,{align:"right"});y+=6;
-  doc.text("IGV",totalsX,y);doc.text(money(q.tax).replace("PEN","S/"),pageW-margin,y,{align:"right"});y+=7;
-  doc.setDrawColor(30);doc.line(totalsX,y-3,pageW-margin,y-3);
-  doc.setFont("helvetica","bold");doc.setFontSize(12);doc.text("TOTAL",totalsX,y+3);doc.text(money(q.total).replace("PEN","S/"),pageW-margin,y+3,{align:"right"});y+=12;
+
+  ensureSpace(55);
+  const totalsY=y+3,totalsX=126;
+  doc.setFont("helvetica","normal");doc.setFontSize(8.5);
+  doc.text("Subtotal",totalsX,totalsY);doc.text(money(q.subtotal).replace("PEN","S/"),pageW-margin,totalsY,{align:"right"});
+  doc.text("IGV",totalsX,totalsY+6);doc.text(money(q.tax).replace("PEN","S/"),pageW-margin,totalsY+6,{align:"right"});
+  doc.setFillColor(5,36,67);doc.roundedRect(totalsX,totalsY+10,pageW-margin-totalsX,12,2.5,2.5,"F");
+  doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(10.5);doc.text("TOTAL",totalsX+4,totalsY+18);doc.text(money(q.total).replace("PEN","S/"),pageW-margin-4,totalsY+18,{align:"right"});
+  doc.setTextColor(16,35,63);y=totalsY+30;
+
   if(q.notes){
-    if(y>255){doc.addPage();y=18}
-    doc.setFont("helvetica","bold");doc.setFontSize(9);doc.text("NOTAS",margin,y);y+=6;doc.setFont("helvetica","normal");doc.setFontSize(8);
-    const noteLines=doc.splitTextToSize(String(q.notes),pageW-margin*2);
-    doc.text(noteLines,margin,y);
+    ensureSpace(40);
+    doc.setFont("helvetica","bold");doc.setFontSize(8);doc.setTextColor(10,68,105);doc.text("NOTAS Y CONDICIONES",margin,y);y+=6;
+    doc.setFont("helvetica","normal");doc.setTextColor(45,55,68);doc.setFontSize(8);
+    const noteLines=doc.splitTextToSize(String(q.notes),contentW);for(const line of noteLines){ensureSpace(5);doc.text(line,margin,y);y+=4.3}
   }
-  const pageCount=doc.getNumberOfPages();
-  for(let page=1;page<=pageCount;page++){
-    doc.setPage(page);doc.setFont("helvetica","normal");doc.setFontSize(7);doc.setTextColor(120);
-    doc.text("M.A.R.C. · "+String(q.number||"Cotización"),margin,289);
-    doc.text("Página "+page+" de "+pageCount,pageW-margin,289,{align:"right"});
-  }
-  doc.setTextColor(0);
+
+  const totalPages=doc.getNumberOfPages();
+  for(let page=1;page<=totalPages;page++){doc.setPage(page);drawFooter(page,totalPages)}
   const filename=String(q.number||"cotizacion").replace(/[^\w.-]+/g,"_")+".pdf";
   doc.save(filename);
-  toast("PDF descargado","ok");
+  toast("PDF de cotización generado correctamente","ok");
 }
-
 const authBootSnapshot={
   searchKeys:[...new URLSearchParams(location.search).keys()],
   hashKeys:[...new URLSearchParams(String(location.hash||"").replace(/^#/,"")).keys()]

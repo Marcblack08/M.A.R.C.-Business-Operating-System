@@ -2210,823 +2210,260 @@ function downloadCashExcel(report){
 }
 
 async function marketing(){
-  const [{data:products,error},{data:companyData},{data:clientsData}]=await Promise.all([S.from("marc_inventory").select("id,name,sku,brand,model,category,price,stock,image_url").eq("user_id",st.u.id).eq("active",true).order("name").limit(1000),S.from("marc_company_profiles").select("business_name,legal_name,ruc,address,phone,email,logo_data").eq("user_id",st.u.id).maybeSingle(),S.from("marc_clients").select("id,name,contact_name,phone,email").eq("user_id",st.u.id).order("name").limit(1000)]);
+  const [{data:products,error},{data:companyData}]=await Promise.all([
+    S.from("marc_inventory").select("id,name,sku,brand,model,category,price,stock,image_url,description,marketing_description").eq("user_id",st.u.id).eq("active",true).order("name").limit(1000),
+    S.from("marc_company_profiles").select("business_name,legal_name,ruc,address,phone,email,logo_data").eq("user_id",st.u.id).maybeSingle()
+  ]);
   if(error){toast(error.message,"err");return}
-  const list=products||[],clientsList=clientsData||[];
+  const list=products||[],company=companyData||{};
   const saved=JSON.parse(localStorage.getItem("marc_marketing_last")||"null");
-  $("#content").innerHTML=`
-    <div class="head marketing-hero"><div><div class="eyebrow2">PUBLICIDAD</div><h1>Crea tu anuncio</h1><p>Elige el producto, cuéntame qué quieres publicar y M.A.R.C. prepara el anuncio por ti.</p></div><button class="secondary" id="marketingClear">＋ Nueva publicidad</button></div>
-    <div class="marketing-quick-start">
-      <div class="marketing-quick-title"><span>⚡</span><div><b>¿Qué quieres lograr?</b><small>Elige una opción o deja que M.A.R.C. lo decida.</small></div></div>
-      <div class="marketing-quick-grid">
-        <button type="button" class="marketing-quick-choice active" data-quick-objective="VENDER"><b>🛍️ Vender</b><small>Mostrar beneficios y precio</small></button>
-        <button type="button" class="marketing-quick-choice" data-quick-objective="GENERAR CONSULTAS"><b>💬 Conseguir clientes</b><small>Invitar a escribirte</small></button>
-        <button type="button" class="marketing-quick-choice" data-quick-objective="PROMOCIONAR PRODUCTO"><b>✨ Promocionar</b><small>Presentar el producto</small></button>
-      </div>
-    </div>
-    <div class="marketing-hidden-tools" aria-hidden="true"><select id="adClient"><option value="">Publicidad general</option></select></div>
-    <div class="marketing-layout marketing-layout-v2">
-      <section class="card panel marketing-form-card">
-        <div class="marketing-step-title"><span>1</span><div><b>Producto o foto</b><small>Elige un producto del inventario o toma una foto. M.A.R.C. hará el resto.</small></div><button class="secondary" id="marketingPhotoClear" type="button">Limpiar foto</button></div>
-        <div class="marketing-photo-picker"><div class="marketing-photo-preview" id="adPhotoPreview"><span>📦</span><b>Sin foto</b><small>La IA puede crear la escena desde cero.</small></div><div class="marketing-photo-actions"><label class="marketing-camera-btn"><span>📷</span><b>Tomar foto</b><small>Abre la cámara del teléfono</small><input id="adImageCamera" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden></label><label class="marketing-camera-btn secondary"><span>🖼️</span><b>Subir de galería</b><small>JPG, PNG o WEBP · máx. 6 MB</small><input id="adImage" type="file" accept="image/jpeg,image/png,image/webp" hidden></label></div></div>
-        <div class="marketing-photo-analysis" id="adPhotoAnalysis" hidden><div><b>La foto está lista para analizar</b><small>M.A.R.C. puede identificar el producto y mejorar la descripción.</small></div><button class="primary" id="analyzeAdPhoto" type="button">✦ Analizar y mejorar con IA</button></div>
-        <div class="marketing-ai-product-card" id="adAiProductCard" hidden>
-          <div class="marketing-ai-product-head"><div><b>Producto detectado por M.A.R.C.</b><small>Revisa y corrige los datos antes de crear la publicidad.</small></div><span id="adAiConfidence">IA</span></div>
-          <div class="marketing-ai-product-grid"><label>Nombre<input id="adAiName"></label><label>Marca<input id="adAiBrand"></label><label>Modelo<input id="adAiModel"></label><label>SKU / código<input id="adAiSku"></label><label>Categoría<input id="adAiCategory"></label><label>Descripción<textarea id="adAiDescription" rows="3"></textarea></label></div>
-          <label class="marketing-ai-full">Descripción comercial<textarea id="adAiMarketing" rows="4"></textarea></label>
-          <div><b class="marketing-ai-points-title">Puntos detectados</b><div id="adAiPoints" class="marketing-ai-points"></div></div>
-          <div class="marketing-ai-product-actions"><button type="button" class="secondary" id="adAiReset">Restaurar datos detectados</button><button type="button" class="primary" id="adAiApply">✓ Aplicar a la publicidad</button></div>
-        </div>
-        <div class="marketing-inventory-row"><label><b>Producto del inventario</b><select id="adProduct">${list.length?list.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+(p.sku?" · "+esc(p.sku):"")+'</option>').join(""):'<option value="">Puedes trabajar solo con la foto</option>'}</select></label><label><b>Buscar</b><input id="adProductSearch" placeholder="Nombre, marca o modelo…"></label></div>
-        <div class="marketing-step-title"><span>2</span><div><b>¿Qué quieres decir?</b><small>Escríbelo con tus palabras. También puedes dejarlo vacío y M.A.R.C. propondrá el contenido.</small></div></div>
-        <label><textarea id="adDetails" rows="6" placeholder="Ejemplo: Quiero promocionar esta cámara para casas y pequeños negocios. Que se vea moderna y confiable. Quiero que me contacten por WhatsApp."></textarea></label>
 
-        <select id="adPlatform" class="marketing-hidden-control"><option value="WHATSAPP">WhatsApp</option></select>
-        <div class="marketing-step-title"><span>3</span><div><b>Formato</b><small>Elige cómo quieres que se vea el anuncio. Si dudas, usa Cuadrado.</small></div></div>
-        <div class="marketing-formats"><button type="button" class="marketing-format active" data-format="1080x1080"><b>□</b><span>Cuadrado</span><small>1:1</small></button><button type="button" class="marketing-format" data-format="1080x1350"><b>▯</b><span>Vertical</span><small>4:5</small></button><button type="button" class="marketing-format" data-format="1080x1920"><b>▯</b><span>Historia</span><small>9:16</small></button></div>
-        <select id="adFormat" class="marketing-hidden-control"><option value="1080x1080">Cuadrado · 1:1</option><option value="1080x1350">Post vertical · 4:5</option><option value="1080x1920">Historia · 9:16</option></select>
-        <div class="marketing-simple-options">
-          <label><span>Oferta o precio <small>(opcional)</small></span><input id="adOffer" placeholder="Ej. S/ 149"></label>
+  $("#content").innerHTML=`
+    <div class="ad-studio">
+      <header class="ad-studio-hero">
+        <div>
+          <div class="eyebrow2">M.A.R.C. · PUBLICIDAD INTELIGENTE</div>
+          <h1>Crea una publicidad sin complicarte.</h1>
+          <p>Elige un producto o una foto, dime qué quieres comunicar y M.A.R.C. se encarga del texto, la composición visual, tu logo y tus datos comerciales.</p>
         </div>
-        <select id="adObjective" class="marketing-hidden-control"><option>VENDER</option><option>GENERAR CONSULTAS</option><option>PROMOCIONAR PRODUCTO</option><option>REACTIVAR CLIENTES</option></select>
-        <select id="adTone" class="marketing-hidden-control"><option>PROFESIONAL</option></select>
-        <input id="adAudience" class="marketing-hidden-control" value="">
-        <input id="adCta" class="marketing-hidden-control" value="Escríbenos para cotizar">
-        <select id="adTemplate" class="marketing-hidden-control"><option value="MODERN">Moderno</option></select>
-        <div class="marketing-generate-box"><div><b>Todo listo</b><small>M.A.R.C. creará el texto y el banner automáticamente.</small></div><div class="modal-actions marketing-generate-actions"><button class="primary marketing-main-generate" id="generateAd">✦ Crear publicidad</button></div></div><div id="adStatus" class="msg"></div>
-      </section>
-      <section class="card panel marketing-preview-card">
-        <div class="marketing-step-title"><span>4</span><div><b>Vista previa del banner</b><small>M.A.R.C. aplica tu logo y datos de contacto automáticamente.</small></div></div>
-        <div class="marketing-company-strip"><span class="marketing-company-logo" id="adCompanyLogo"></span><div><b id="adCompanyName">${esc(companyData?.business_name||"Tu empresa")}</b><small id="adCompanyContact">${esc([companyData?.phone,companyData?.email].filter(Boolean).join(" · ")||"Datos de contacto del perfil")}</small></div><span>✓ Datos automáticos</span></div>
-        <div class="marketing-canvas-wrap"><canvas id="adCanvas" width="1080" height="1080"></canvas></div><div id="adVariants" class="marketing-variants" aria-live="polite"></div><div class="marketing-banner-actions"><button class="primary" id="downloadAd" disabled>↓ Descargar PNG</button><button class="secondary" id="shareAd">Compartir</button></div><small id="bannerHint" class="muted-small">Sube una foto y cuéntale a M.A.R.C. qué quieres publicar.</small>
+        <div class="ad-brand-auto">
+          <div class="ad-brand-logo" id="adAutoLogo"></div>
+          <div><b id="adAutoName">${esc(company.business_name||"Tu empresa")}</b><small>Branding aplicado automáticamente</small></div>
+          <span>✓ Automático</span>
+        </div>
+      </header>
+
+      <div class="ad-flow">
+        <section class="ad-card ad-source-card">
+          <div class="ad-section-head"><span class="ad-step">1</span><div><b>Elige qué vamos a anunciar</b><small>Producto del inventario o una foto nueva.</small></div></div>
+          <div class="ad-source-tabs">
+            <button type="button" class="ad-source-tab active" data-source="inventory">▣ Inventario</button>
+            <button type="button" class="ad-source-tab" data-source="photo">📷 Foto</button>
+          </div>
+
+          <div id="adInventorySource" class="ad-source-panel">
+            <label class="ad-field"><span>Producto</span><select id="adProduct">${list.length?list.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+(p.sku?" · "+esc(p.sku):"")+'</option>').join(""):'<option value="">No hay productos activos</option>'}</select></label>
+            <label class="ad-field"><span>Buscar producto</span><input id="adProductSearch" placeholder="Nombre, marca o modelo…"></label>
+            <div class="ad-product-summary" id="adProductSummary"></div>
+          </div>
+
+          <div id="adPhotoSource" class="ad-source-panel hidden">
+            <div class="ad-photo-drop" id="adPhotoDrop">
+              <div class="ad-photo-preview" id="adPhotoPreview"><span>📷</span><b>Toma o selecciona una foto</b><small>JPG, PNG o WEBP · M.A.R.C. la optimiza automáticamente.</small></div>
+              <div class="ad-photo-actions">
+                <label class="ad-photo-action primary"><span>📷</span><b>Cámara</b><small>Tomar ahora</small><input id="adImageCamera" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden></label>
+                <label class="ad-photo-action"><span>🖼️</span><b>Galería</b><small>Elegir imagen</small><input id="adImage" type="file" accept="image/jpeg,image/png,image/webp" hidden></label>
+              </div>
+            </div>
+            <div id="adPhotoState" class="ad-photo-state">Al seleccionar una foto, M.A.R.C. la analizará automáticamente y completará la información del producto.</div>
+          </div>
+        </section>
+
+        <section class="ad-card ad-message-card">
+          <div class="ad-section-head"><span class="ad-step">2</span><div><b>¿Qué quieres comunicar?</b><small>No necesitas saber de publicidad. Escríbelo como se lo dirías a M.A.R.C.</small></div></div>
+          <div class="ad-objectives">
+            <button type="button" class="ad-objective active" data-objective="VENDER"><strong>🛍️ Vender</strong><span>Enfocar beneficios y acción.</span></button>
+            <button type="button" class="ad-objective" data-objective="GENERAR CONSULTAS"><strong>💬 Conseguir clientes</strong><span>Invitar a contactarte.</span></button>
+            <button type="button" class="ad-objective" data-objective="PROMOCIONAR PRODUCTO"><strong>✨ Promocionar</strong><span>Presentar el producto.</span></button>
+          </div>
+          <label class="ad-field ad-brief"><span>Tu idea <em>opcional</em></span><textarea id="adDetails" rows="5" placeholder="Ej.: Quiero promocionar esta cámara para casas y pequeños negocios, que se vea profesional y que me contacten por WhatsApp."></textarea></label>
+          <div class="ad-mini-row">
+            <label class="ad-field"><span>Oferta o precio <em>opcional</em></span><input id="adOffer" placeholder="Ej. S/ 149"></label>
+            <label class="ad-field"><span>Formato</span><select id="adFormat"><option value="1080x1080">Cuadrado · 1:1</option><option value="1080x1350">Vertical · 4:5</option><option value="1080x1920">Historia · 9:16</option></select></label>
+          </div>
+          <div class="ad-smart-note"><span>✦</span><div><b>M.A.R.C. decide lo demás</b><small>El tono, público, composición y llamada a la acción se completan automáticamente sin llenar más formularios.</small></div></div>
+          <select id="adPlatform" class="marketing-hidden-control"><option value="WHATSAPP">WhatsApp</option></select>
+          <select id="adTone" class="marketing-hidden-control"><option>PROFESIONAL</option></select>
+          <input id="adAudience" class="marketing-hidden-control" value="">
+          <input id="adCta" class="marketing-hidden-control" value="Escríbenos para cotizar">
+          <select id="adTemplate" class="marketing-hidden-control"><option value="MODERN">Moderno</option></select>
+          <button class="ad-create-button" id="generateAd" type="button">✦ Crear publicidad completa <span>Texto + imagen + logo</span></button>
+          <div id="adStatus" class="msg"></div>
+        </section>
+      </div>
+
+      <section class="ad-result" id="adResult">
+        <div class="ad-result-head">
+          <div><div class="eyebrow2">3 · RESULTADO</div><h2>Tu publicidad</h2><p>M.A.R.C. genera una propuesta lista para revisar, descargar o compartir.</p></div>
+          <div class="ad-result-badge" id="adResultBadge">Esperando contenido</div>
+        </div>
+        <div class="ad-result-grid">
+          <div class="ad-visual-panel">
+            <div class="ad-canvas-wrap"><canvas id="adCanvas" width="1080" height="1080"></canvas></div>
+            <div id="adVariants" class="marketing-variants"></div>
+            <div class="ad-result-actions">
+              <button class="primary" id="downloadAd" disabled>↓ Descargar imagen</button>
+              <button class="secondary" id="shareAd">Compartir</button>
+            </div>
+            <small id="bannerHint" class="muted-small">La publicidad aparecerá aquí cuando pulses “Crear publicidad completa”.</small>
+          </div>
+          <div class="ad-copy-panel">
+            <div class="ad-copy-card"><div><b>Texto principal</b><button class="secondary" data-copy="primary_text">Copiar</button></div><p id="adPrimary">—</p></div>
+            <div class="ad-copy-card"><div><b>WhatsApp</b><button class="secondary" data-copy="whatsapp_text">Copiar</button></div><p id="adWhatsapp">—</p></div>
+            <div class="ad-copy-card"><div><b>Texto corto</b><button class="secondary" data-copy="short_text">Copiar</button></div><p id="adShort">—</p></div>
+            <div class="ad-copy-card"><div><b>Hashtags</b><button class="secondary" data-copy="hashtags">Copiar</button></div><p id="adHashtags">—</p></div>
+          </div>
+        </div>
       </section>
     </div>
-    <section class="card panel marketing-copy-card"><div class="eyebrow2">5 · PROPUESTAS DE TEXTO</div><div class="marketing-copy-grid"><article><div class="marketing-copy-head"><b>Texto principal</b><button class="secondary" data-copy="primary_text">Copiar</button></div><p id="adPrimary">—</p></article><article><div class="marketing-copy-head"><b>WhatsApp</b><button class="secondary" data-copy="whatsapp_text">Copiar</button></div><p id="adWhatsapp">—</p></article><article><div class="marketing-copy-head"><b>Texto corto</b><button class="secondary" data-copy="short_text">Copiar</button></div><p id="adShort">—</p></article><article><div class="marketing-copy-head"><b>Hashtags</b><button class="secondary" data-copy="hashtags">Copiar</button></div><p id="adHashtags">—</p></article></div></section>
-    <div id="marketingPublishStatus" class="msg marketing-hidden-tools"></div>
   `;
 
-  let currentPublicationId=null,currentCampaign=saved?.campaign||null,currentProduct=list.find(p=>p.id===saved?.productId)||list[0]||null,currentClient=clientsList.find(x=>x.id===saved?.clientId)||null,currentImage=null,currentImageFile=null,currentAiImage=null,currentAiVariants=[],currentAiVariantIndex=0,company=companyData||{};
+  let currentProduct=list.find(p=>p.id===saved?.productId)||list[0]||null;
+  let currentCampaign=saved?.campaign||null;
+  let currentImage=null,currentImageFile=null,currentAiImage=null,currentAiVariants=[];
   const $p=id=>document.getElementById(id);
-  const companyLogo=$p("adCompanyLogo");if(companyLogo&&company.logo_data)companyLogo.style.backgroundImage='url("'+company.logo_data.replace(/"/g,'&quot;')+'")';
-  if($p("adCompanyName"))$p("adCompanyName").textContent=company.business_name||"Tu empresa";
-  if($p("adCompanyContact"))$p("adCompanyContact").textContent=[company.phone,company.email].filter(Boolean).join(" · ")||"Datos de contacto del perfil";
-  const renderCanvas=async()=>{
-    const canvas=$p("adCanvas");if(!canvas||!currentProduct)return;
-    const [w,h]=($p("adFormat").value||"1080x1080").split("x").map(Number);canvas.width=w;canvas.height=h;
-    const ctx=canvas.getContext("2d"),tpl=$p("adTemplate")?.value||"MODERN";
-    const palette=tpl==="OFFER"?["#15100a","#8a4b08","#f59e0b"]:tpl==="CORPORATE"?["#071827","#123b5b","#2d78b7"]:["#071a32","#0b4c91","#18a5ee"];
-    const g=ctx.createLinearGradient(0,0,w,h);g.addColorStop(0,palette[0]);g.addColorStop(.58,palette[1]);g.addColorStop(1,palette[2]);ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
-    ctx.fillStyle="rgba(255,255,255,.08)";ctx.beginPath();ctx.arc(w*.86,h*.12,Math.min(w,h)*.24,0,Math.PI*2);ctx.fill();
-    if(company.logo_data){try{const logo=await new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=reject;im.src=company.logo_data});const lh=Math.min(h*.07,w*.22),lw=lh*(logo.width/logo.height);ctx.drawImage(logo,w*.08,h*.045,lw,lh)}catch{}}
-    let img=null;const src=currentAiImage||currentImage||currentProduct.image_url;
-    if(src){try{img=await new Promise((resolve,reject)=>{const im=new Image();im.crossOrigin="anonymous";im.onload=()=>resolve(im);im.onerror=reject;im.src=src})}catch{}}
-    if(img){
-      const boxW=w*.82,boxH=h*.40,scale=Math.min(boxW/img.width,boxH/img.height),iw=img.width*scale,ih=img.height*scale,x=(w-iw)/2,y=h*.13+(boxH-ih)/2;
-      ctx.fillStyle="rgba(255,255,255,.96)";ctx.beginPath();ctx.roundRect?.(x-18,y-18,iw+36,ih+36,28);if(!ctx.roundRect)ctx.fillRect(x-18,y-18,iw+36,ih+36);ctx.fill();ctx.drawImage(img,x,y,iw,ih);
-    }
-    ctx.textAlign="left";ctx.fillStyle=tpl==="OFFER"?"#ffd166":"#8ee4ff";ctx.font="800 "+Math.round(Math.min(w,h)*.026)+"px Inter";ctx.fillText(tpl==="OFFER"?"OFERTA · M.A.R.C.":"PUBLICIDAD · "+String(company.business_name||"M.A.R.C.").slice(0,28),w*.08,h*.59);
-    const banner=String(currentCampaign?.banner_text||currentCampaign?.headline||currentProduct.name||"Tu producto").split(/\n/).slice(0,3);
-    ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*.062)+"px Inter";
-    let y=h*.66;banner.forEach(line=>{const words=line.split(" "),lines=[];let row="";const max=w*.84;for(const word of words){const test=row?row+" "+word:word;if(ctx.measureText(test).width>max&&row){lines.push(row);row=word}else row=test}if(row)lines.push(row);lines.slice(0,3).forEach(t=>{ctx.fillText(t,w*.08,y);y+=Math.round(Math.min(w,h)*.071)})});
-    if($p("adOffer").value.trim()){ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*.034)+"px Inter";ctx.fillText($p("adOffer").value.trim().slice(0,42),w*.08,h*.86)}
-    else if(currentProduct.price!=null&&currentProduct.price!==""){ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*.038)+"px Inter";ctx.fillText(money(currentProduct.price),w*.08,h*.86)}
-    ctx.fillStyle="#d9efff";ctx.font="800 "+Math.round(Math.min(w,h)*.021)+"px Inter";ctx.fillText(String(company.business_name||currentProduct.name).slice(0,55),w*.08,h*.925);if(company.phone){ctx.fillStyle="#9fd8ff";ctx.font="700 "+Math.round(Math.min(w,h)*.017)+"px Inter";ctx.fillText("WhatsApp · "+String(company.phone).slice(0,28),w*.08,h*.955)}
-    ctx.fillStyle="#fff";ctx.beginPath();ctx.roundRect?.(w*.67,h*.88,w*.25,h*.065,18);if(!ctx.roundRect)ctx.fillRect(w*.67,h*.88,w*.25,h*.065);ctx.fillStyle=palette[1];ctx.font="900 "+Math.round(Math.min(w,h)*.019)+"px Inter";ctx.textAlign="center";ctx.fillText(String($p("adCta").value||"Escríbenos").slice(0,24),w*.795,h*.922);ctx.textAlign="left";
+
+  const setStatus=(text,type="")=>{const el=$p("adStatus");if(el){el.className="msg "+type;el.textContent=text}};
+  const setResultState=(ready=false)=>{
+    const b=$p("adResultBadge");if(b){b.textContent=ready?"Lista para usar":"Esperando contenido";b.className="ad-result-badge "+(ready?"ready":"")}
   };
-  const renderVariants=async()=>{
-    const box=$p("adVariants");if(!box)return;
-    if(!currentAiVariants.length){
-      box.innerHTML="";
-      return;
-    }
-    const labels={COMMERCIAL:"Comercial",PROFESSIONAL:"Profesional",PREMIUM:"Premium"};
-    box.innerHTML='<div class="marketing-variants-head"><div><b>Elige la propuesta visual</b><small>M.A.R.C. creó '+currentAiVariants.length+' opciones del mismo anuncio.</small></div><span>Propuesta '+(currentAiVariantIndex+1)+' de '+currentAiVariants.length+'</span></div><div class="marketing-variants-grid">'+currentAiVariants.map((v,i)=>'<button type="button" class="marketing-variant '+(i===currentAiVariantIndex?"active":"")+'" data-variant-index="'+i+'"><img src="data:'+(v.mimeType||"image/png")+';base64,'+v.data+'" alt="'+esc(labels[v.variant]||v.variant||"Propuesta")+'"><strong>'+esc(labels[v.variant]||v.variant||"Propuesta")+'</strong><small>Usar esta</small></button>').join("")+'</div>';
-    $$(".marketing-variant",box).forEach(btn=>btn.onclick=async()=>{
-      const i=Number(btn.dataset.variantIndex);if(!Number.isInteger(i)||!currentAiVariants[i])return;
-      currentAiVariantIndex=i;currentAiImage="data:"+(currentAiVariants[i].mimeType||"image/png")+";base64,"+currentAiVariants[i].data;
-      await renderVariants();await renderCanvas();
-      const hint=$p("bannerHint");if(hint)hint.textContent="Propuesta "+(i+1)+" seleccionada. Puedes descargarla o compartirla.";
+
+  const applyLogo=()=>{
+    const el=$p("adAutoLogo");
+    if(!el)return;
+    if(company.logo_data)el.style.backgroundImage='url("'+String(company.logo_data).replace(/"/g,'&quot;')+'")';
+    else el.textContent=initials(company.business_name||"M.A.R.C.");
+  };
+
+  const renderProductSummary=()=>{
+    const p=currentProduct,box=$p("adProductSummary");if(!box)return;
+    if(!p){box.innerHTML='<span>Selecciona un producto o cambia a Foto.</span>';return}
+    box.innerHTML='<div class="ad-product-thumb">'+(p.image_url?'<img src="'+esc(p.image_url)+'" alt="">':'<span>▣</span>')+'</div><div><b>'+esc(p.name||"Producto")+'</b><small>'+esc([p.brand,p.model,p.category].filter(Boolean).join(" · ")||"Información del inventario")+'</small></div><strong>'+((p.price!=null&&p.price!=="")?money(p.price):"Sin precio")+'</strong>';
+  };
+
+  const drawImage=async(src,maxW=1400)=>{
+    if(!src)return "";
+    return new Promise((resolve,reject)=>{
+      const im=new Image();im.onload=()=>{
+        const scale=Math.min(1,maxW/Math.max(im.width,im.height));
+        const c=document.createElement("canvas"),w=Math.max(1,Math.round(im.width*scale)),h=Math.max(1,Math.round(im.height*scale));
+        c.width=w;c.height=h;c.getContext("2d").drawImage(im,0,0,w,h);
+        resolve(c.toDataURL("image/jpeg",.82));
+      };im.onerror=reject;im.src=src;
     });
+  };
+
+  const renderCanvas=async()=>{
+    const canvas=$p("adCanvas");if(!canvas)return;
+    const [w,h]=($p("adFormat").value||"1080x1080").split("x").map(Number);canvas.width=w;canvas.height=h;
+    const ctx=canvas.getContext("2d"),g=ctx.createLinearGradient(0,0,w,h);g.addColorStop(0,"#071a32");g.addColorStop(.58,"#0b4c91");g.addColorStop(1,"#18a5ee");ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
+    ctx.fillStyle="rgba(255,255,255,.08)";ctx.beginPath();ctx.arc(w*.86,h*.12,Math.min(w,h)*.24,0,Math.PI*2);ctx.fill();
+    if(company.logo_data){try{const logo=await new Promise((res,rej)=>{const im=new Image();im.onload=()=>res(im);im.onerror=rej;im.src=company.logo_data});const lh=Math.min(h*.075,w*.22),lw=lh*(logo.width/logo.height);ctx.drawImage(logo,w*.08,h*.045,lw,lh)}catch{}}
+    const src=currentAiImage||currentImage||currentProduct?.image_url;
+    if(src){try{const img=await new Promise((res,rej)=>{const im=new Image();im.crossOrigin="anonymous";im.onload=()=>res(im);im.onerror=rej;im.src=src});const boxW=w*.82,boxH=h*.40,scale=Math.min(boxW/img.width,boxH/img.height),iw=img.width*scale,ih=img.height*scale,x=(w-iw)/2,y=h*.14+(boxH-ih)/2;ctx.fillStyle="rgba(255,255,255,.96)";ctx.beginPath();if(ctx.roundRect)ctx.roundRect(x-18,y-18,iw+36,ih+36,28);else ctx.rect(x-18,y-18,iw+36,ih+36);ctx.fill();ctx.drawImage(img,x,y,iw,ih)}catch{}}
+    ctx.textAlign="left";ctx.fillStyle="#8ee4ff";ctx.font="800 "+Math.round(Math.min(w,h)*.026)+"px Inter";ctx.fillText("PUBLICIDAD · "+String(company.business_name||"M.A.R.C.").slice(0,28),w*.08,h*.59);
+    const banner=String(currentCampaign?.banner_text||currentCampaign?.headline||currentProduct?.name||"Tu producto").split(/\n/).slice(0,3);
+    ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*.062)+"px Inter";let y=h*.66;
+    banner.forEach(line=>{const words=line.split(" "),lines=[],max=w*.84;let row="";for(const word of words){const test=row?row+" "+word:word;if(ctx.measureText(test).width>max&&row){lines.push(row);row=word}else row=test}if(row)lines.push(row);lines.slice(0,3).forEach(t=>{ctx.fillText(t,w*.08,y);y+=Math.round(Math.min(w,h)*.071)})});
+    const offer=$p("adOffer")?.value.trim();
+    if(offer){ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*.034)+"px Inter";ctx.fillText(offer.slice(0,42),w*.08,h*.86)}
+    else if(currentProduct?.price!=null&&currentProduct.price!==""){ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*.038)+"px Inter";ctx.fillText(money(currentProduct.price),w*.08,h*.86)}
+    ctx.fillStyle="#d9efff";ctx.font="800 "+Math.round(Math.min(w,h)*.021)+"px Inter";ctx.fillText(String(company.business_name||"").slice(0,55),w*.08,h*.925);
+    if(company.phone){ctx.fillStyle="#9fd8ff";ctx.font="700 "+Math.round(Math.min(w,h)*.017)+"px Inter";ctx.fillText("WhatsApp · "+String(company.phone).slice(0,28),w*.08,h*.955)}
+    ctx.fillStyle="#fff";if(ctx.roundRect)ctx.roundRect(w*.67,h*.88,w*.25,h*.065,18);else ctx.fillRect(w*.67,h*.88,w*.25,h*.065);ctx.fillStyle="#0b4c91";ctx.font="900 "+Math.round(Math.min(w,h)*.019)+"px Inter";ctx.textAlign="center";ctx.fillText("Escríbenos",w*.795,h*.922);ctx.textAlign="left";
   };
 
   const setCampaign=async campaign=>{
     currentCampaign=campaign||null;
-    $p("adPrimary").textContent=campaign?.primary_text||"—";$p("adWhatsapp").textContent=campaign?.whatsapp_text||"—";$p("adShort").textContent=campaign?.short_text||"—";$p("adHashtags").textContent=(campaign?.hashtags||[]).join(" ");
-    await renderCanvas();$p("downloadAd").disabled=!campaign;
-    if(campaign)localStorage.setItem("marc_marketing_last",JSON.stringify({campaign,productId:currentProduct?.id}));
+    $p("adPrimary").textContent=campaign?.primary_text||"—";
+    $p("adWhatsapp").textContent=campaign?.whatsapp_text||"—";
+    $p("adShort").textContent=campaign?.short_text||"—";
+    $p("adHashtags").textContent=(campaign?.hashtags||[]).join(" ")||"—";
+    if(campaign){localStorage.setItem("marc_marketing_last",JSON.stringify({campaign,productId:currentProduct?.id}));setResultState(true)}
+    await renderCanvas();
+    $p("downloadAd").disabled=!campaign;
   };
-  const syncPhotoPreview=()=>{
-    const box=$p("adPhotoPreview"),analysis=$p("adPhotoAnalysis");
-    if(!box)return;
-    if(!currentImage){
-      box.innerHTML='<span>📦</span><b>Sin foto</b><small>La IA puede crear la escena desde cero.</small>';
-      if(analysis)analysis.hidden=true;
-      return;
-    }
-    box.innerHTML='<img src="'+currentImage+'" alt="Foto del producto"><button type="button" class="marketing-photo-remove" id="adPhotoRemove">×</button>';
-    if(analysis)analysis.hidden=false;
-    const remove=$p("adPhotoRemove");if(remove)remove.onclick=()=>clearAdPhoto();
-  };
-  const clearAdPhoto=()=>{
-    currentImage=null;currentImageFile=null;currentAiImage=null;currentAiVariants=[];currentAiVariantIndex=0;
-    const a=$p("adImage"),cam=$p("adImageCamera");if(a)a.value="";if(cam)cam.value="";
-    const n=$p("adImageName");if(n)n.textContent="Opcional: la IA puede crear la escena visual desde cero.";
-    syncPhotoPreview();renderVariants();renderCanvas();
-  };
-  const setAdImageFile=async f=>{
-    if(!f)return;
-    if(!/^image\/(jpeg|png|webp)$/.test(f.type))return toast("Usa una imagen JPG, PNG o WEBP.","err");
-    if(f.size>6*1024*1024)return toast("La foto debe pesar menos de 6 MB.","err");
-    currentImageFile=f;currentImage=URL.createObjectURL(f);currentAiImage=null;currentAiVariants=[];currentAiVariantIndex=0;
-    const n=$p("adImageName");if(n)n.textContent=f.name;
-    syncPhotoPreview();await renderVariants();await renderCanvas();
-  };
-  const analyzeAdPhoto=async()=>{
-    if(!currentImageFile)return toast("Primero toma o sube una foto del producto.","err");
-    const btn=$p("analyzeAdPhoto"),status=$p("adStatus");if(btn)btn.disabled=true;
-    status.className="msg";status.textContent="M.A.R.C. está leyendo la foto y mejorando la información del producto…";
-    try{
-      const dataUrl=await readFileData(),parts=dataUrl.split(","),mime=currentImageFile.type||"image/jpeg";
-      const r=await fetch("/api/marketing-product-ai",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({imageBase64:parts[1]||"",mimeType:mime,brief:$p("adDetails").value})});
-      const j=await r.json();if(!r.ok)throw new Error(j.message||j.error||"No se pudo analizar la foto.");
-      const p=j.product||{},detected={...p};
-      const aiCard=$p("adAiProductCard");if(aiCard)aiCard.hidden=false;
-      const fill=(id,v)=>{const el=$p(id);if(el)el.value=v==null?"":String(v)};
-      fill("adAiName",p.name);fill("adAiBrand",p.brand);fill("adAiModel",p.model);fill("adAiSku",p.sku);fill("adAiCategory",p.category);fill("adAiDescription",p.description);fill("adAiMarketing",p.marketing_description);
-      const conf=$p("adAiConfidence");if(conf)conf.textContent="Confianza "+Math.round(Number(p.confidence||0)*100)+"%";
-      const points=$p("adAiPoints");if(points)points.innerHTML=(p.key_points||[]).map(x=>"<span>"+esc(x)+"</span>").join("")||"<small>Sin puntos adicionales detectados.</small>";
-      const applyAiProduct=()=>{const get=id=>String($p(id)?.value||"").trim();currentProduct={...(currentProduct||{}),name:get("adAiName")||"Producto",sku:get("adAiSku")||null,brand:get("adAiBrand")||null,model:get("adAiModel")||null,category:get("adAiCategory"),description:get("adAiDescription"),marketing_description:get("adAiMarketing"),key_points:Array.from(document.querySelectorAll("#adAiPoints span")).map(x=>x.textContent),image_url:currentImage,price:currentProduct?.price??null,stock:currentProduct?.stock??null};const detail=[currentProduct.marketing_description||currentProduct.description,currentProduct.key_points.length?"Puntos principales: "+currentProduct.key_points.join(", "):""].filter(Boolean).join("\n");if(detail)$p("adDetails").value=detail;if($p("adProductSearch"))$p("adProductSearch").value=currentProduct.name;const hint=$p("bannerHint");if(hint)hint.textContent="Datos revisados y aplicados. M.A.R.C. usará esta información para crear el anuncio.";renderCanvas()};
-      $p("adAiApply").onclick=applyAiProduct;
-      $p("adAiReset").onclick=()=>{fill("adAiName",detected.name);fill("adAiBrand",detected.brand);fill("adAiModel",detected.model);fill("adAiSku",detected.sku);fill("adAiCategory",detected.category);fill("adAiDescription",detected.description);fill("adAiMarketing",detected.marketing_description)};
-      applyAiProduct();
-      const detail=[p.marketing_description||p.description,(p.key_points||[]).length?"Puntos identificados: "+p.key_points.join(", "):""].filter(Boolean).join("\\n");
-      if(detail)$p("adDetails").value=detail;
-      if($p("adProductSearch"))$p("adProductSearch").value=p.name||"";
-      const hint=$p("bannerHint");if(hint)hint.textContent="Producto analizado. M.A.R.C. mejoró la descripción y usará la foto como referencia.";
-      status.className="msg ok";status.textContent="Producto identificado y descripción mejorada con IA. Revisa el texto y luego genera el banner.";
-      await renderCanvas();
-    }catch(e){status.className="msg error";status.textContent=e.message||"No se pudo analizar la foto."}
-    finally{if(btn)btn.disabled=false}
-  };
-  const syncClientSelection=()=>{const id=$p("adClient")?.value||"";currentClient=clientsList.find(x=>x.id===id)||null;const info=$p("adClientInfo");if(info)info.innerHTML=currentClient?"<b>"+esc(currentClient.name)+"</b><small>"+esc([currentClient.contact_name,currentClient.phone,currentClient.email].filter(Boolean).join(" · ")||"Sin datos de contacto")+" · Se guardará en su historia</small>":"<b>Publicidad general</b><small>No se añadirá a la historia de un cliente.</small>"};
-  $p("adClient").onchange=syncClientSelection;
-  syncClientSelection();
-  $p("adProduct").onchange=async()=>{currentProduct=list.find(p=>p.id===$p("adProduct").value)||list[0]||currentProduct;currentImage=null;currentImageFile=null;currentAiImage=null;currentAiVariants=[];currentAiVariantIndex=0;syncPhotoPreview();await renderVariants();await renderCanvas()};
-  $p("adProductSearch").oninput=()=>{const q=$p("adProductSearch").value.toLowerCase().trim();const sel=$p("adProduct"),matches=list.filter(p=>!q||[p.name,p.sku,p.brand,p.model].join(" ").toLowerCase().includes(q));sel.innerHTML=matches.length?matches.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+(p.sku?" · "+esc(p.sku):"")+'</option>').join(""):'<option value="">Sin coincidencias</option>';if(matches.length){currentProduct=matches[0];renderCanvas()}};
-  $p("adTemplate").onchange=renderCanvas;
-  $p("adFormat").onchange=renderCanvas;
-  $$(".marketing-platform").forEach(btn=>btn.onclick=()=>{const v=btn.dataset.platform;$p("adPlatform").value=v;$$(".marketing-platform").forEach(x=>x.classList.toggle("active",x===btn));renderCanvas()});
-  $$(".marketing-format").forEach(btn=>btn.onclick=()=>{const v=btn.dataset.format;$p("adFormat").value=v;$$(".marketing-format").forEach(x=>x.classList.toggle("active",x===btn));renderCanvas()});
-  $p("adImage").onchange=async e=>{await setAdImageFile(e.target.files?.[0])};
-  $p("adImageCamera").onchange=async e=>{await setAdImageFile(e.target.files?.[0])};
-  $p("analyzeAdPhoto").onclick=analyzeAdPhoto;
-  $p("marketingPhotoClear").onclick=clearAdPhoto;
-  const publicationText=()=>{const body=[currentCampaign?.headline,currentCampaign?.primary_text,currentCampaign?.short_text,(currentCampaign?.hashtags||[]).join(" ")].filter(Boolean).join("\n\n");return currentClient?"Hola "+(currentClient.contact_name||currentClient.name)+",\n\n"+body:body};
-  const recordClientShare=async(publicationId,target)=>{if(!currentClient)return;const h=await S.from("marc_client_history").insert({user_id:st.u.id,client_id:currentClient.id,event_type:"PUBLICIDAD",title:"Publicidad compartida",description:"Se compartió una publicidad de "+(currentProduct?.name||"un producto")+" con "+currentClient.name+".",metadata:{publication_id:publicationId||null,platform:target||"SHARE",product_id:currentProduct?.id||null,product_name:currentProduct?.name||null},visible_to_client:true});if(h.error)console.warn("No se pudo registrar el historial del cliente",h.error)};
-  const ensurePublicationRecord=async(target)=>{if(currentPublicationId)return currentPublicationId;if(!currentCampaign)return null;const platform=target==="SHARE"?"WHATSAPP":target||"WHATSAPP";const r=await S.from("marc_publications").insert({user_id:st.u.id,inventory_id:currentProduct?.id||null,client_id:currentClient?.id||null,platform,status:"DRAFT",title:currentCampaign.title||currentProduct?.name,headline:currentCampaign.headline,body:currentCampaign.primary_text,short_text:currentCampaign.short_text,hashtags:currentCampaign.hashtags||[],media_url:currentAiImage||currentImage||currentProduct?.image_url||null,media_type:"IMAGE"}).select("id").single();if(r.error)throw r.error;currentPublicationId=r.data.id;return r.data.id};
-  const sharePublication=async(target="SHARE")=>{if(!currentCampaign)return toast("Primero genera la publicidad con IA.","err");const title=currentCampaign.title||currentProduct?.name||"Publicidad de M.A.R.C.",text=publicationText();try{const publicationId=await ensurePublicationRecord(target),imageDataUrl=currentAiImage||currentImage||currentProduct?.image_url||"";if(window.MARCNotifications?.share)await window.MARCNotifications.share({title,text,url:location.href,imageDataUrl,fileName:"publicidad-marc-"+Date.now()+".png"});else if(navigator.share)await navigator.share({title,text,url:location.href});else{await navigator.clipboard?.writeText(text);toast("Texto copiado para compartir.","ok")}await recordClientShare(publicationId,target);setShareStatus(currentClient?"Compartida con "+currentClient.name+". Quedó registrada en su historia.":"Publicidad lista para compartir.");}catch(e){if(e?.name!=="AbortError")toast(e.message||"No se pudo abrir el menú de compartir.","err")}};
-  const savePublicationDraft=async()=>{
-    if(!currentCampaign)return toast("Primero genera la publicidad con IA.","err");
-    const platform=$p("adPlatform").value||"WHATSAPP";
-    const r=await S.from("marc_publications").insert({
-      user_id:st.u.id,inventory_id:currentProduct?.id||null,client_id:currentClient?.id||null,platform,status:"DRAFT",
-      title:currentCampaign.title||currentProduct?.name,headline:currentCampaign.headline,
-      body:currentCampaign.primary_text,short_text:currentCampaign.short_text,
-      hashtags:currentCampaign.hashtags||[],media_url:currentAiImage||currentImage||currentProduct?.image_url||null,media_type:"IMAGE"
-    }).select().single();
-    if(r.error)return toast(r.error.message,"err");
-    currentPublicationId=r.data.id;
-    toast("Publicidad guardada en el historial.","ok");
-    const status=$p("marketingPublishStatus");if(status){status.className="msg ok";status.textContent="Guardada. Cuando quieras, pulsa Compartir ahora y elige la aplicación de tu teléfono."}
-    await loadMarketingHistory();
-  };
-  const setShareStatus=(message)=>{
-    const status=$p("marketingPublishStatus");if(status){status.className="msg ok";status.textContent=message}
-  };
-  const remindToShare=()=>{
-    if(!currentCampaign)return toast("Primero genera la publicidad con IA.","err");
-    const raw=prompt("¿Cuándo quieres que M.A.R.C. te recuerde compartir esta publicidad?\nEjemplo: 2026-09-21 18:30","");
-    if(!raw)return;
-    const when=new Date(raw.replace(" ","T")+":00");
-    if(Number.isNaN(when.getTime()))return toast("Fecha y hora no válidas.","err");
-    if(window.MARCNotifications?.reminder){
-      window.MARCNotifications.reminder("Compartir publicidad","Recuerda compartir la publicidad de "+(currentProduct?.name||"tu producto")+" por WhatsApp o tus redes.",when);
-      setShareStatus("Recordatorio creado para "+when.toLocaleString("es-PE")+".");
-    }
-  };
-  setShareStatus("Listo para compartir desde tu teléfono.");
 
-  $p("adCta").oninput=renderCanvas;$p("adOffer").oninput=renderCanvas;
-  $(".marketing-quick-choice").forEach(btn=>btn.onclick=()=>{
-    const objective=btn.dataset.quickObjective||"VENDER";
-    const objectiveEl=$p("adObjective");if(objectiveEl)objectiveEl.value=objective;
-    $(".marketing-quick-choice").forEach(x=>x.classList.toggle("active",x===btn));
-    const details=$p("adDetails");
-    const hints={
-      "VENDER":"Quiero vender este producto destacando sus beneficios y una llamada a la acción clara.",
-      "GENERAR CONSULTAS":"Quiero generar consultas y que los clientes me contacten por WhatsApp.",
-      "PROMOCIONAR PRODUCTO":"Quiero presentar este producto de forma profesional y atractiva.",
-      "REACTIVAR CLIENTES":"Quiero volver a contactar a clientes anteriores con una oferta atractiva."
-    };
-    if(details&&!String(details.value||"").trim())details.value=hints[objective]||hints.VENDER;
+  const updatePhotoPreview=()=>{
+    const box=$p("adPhotoPreview");if(!box)return;
+    if(!currentImage){box.innerHTML='<span>📷</span><b>Toma o selecciona una foto</b><small>JPG, PNG o WEBP · M.A.R.C. la optimiza automáticamente.</small>';return}
+    box.innerHTML='<img src="'+currentImage+'" alt="Producto"><button type="button" class="ad-photo-remove" id="adPhotoRemove">×</button>';
+    $p("adPhotoRemove").onclick=()=>{currentImage=null;currentImageFile=null;currentAiImage=null;updatePhotoPreview();renderCanvas()};
+  };
+
+  const preparePhoto=async file=>{
+    if(!file)return;
+    if(!/^image\/(jpeg|png|webp)$/.test(file.type))return toast("Usa una imagen JPG, PNG o WEBP.","err");
+    if(file.size>10*1024*1024)return toast("La imagen debe pesar menos de 10 MB.","err");
+    currentImageFile=file;
+    currentImage=URL.createObjectURL(file);
+    currentAiImage=null;
+    updatePhotoPreview();
+    setStatus("Optimizando y analizando la foto…");
+    try{
+      const optimized=await drawImage(currentImage,1600);
+      const raw=optimized.split(",")[1]||"";
+      const r=await fetch("/api/marketing-product-ai",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({imageBase64:raw,mimeType:"image/jpeg",brief:$p("adDetails").value||""})});
+      const j=await r.json();if(!r.ok)throw new Error(j.message||j.error||"No se pudo analizar la foto.");
+      const p=j.product||{};
+      currentProduct={...(currentProduct||{}),id:null,name:p.name||"Producto desde foto",sku:p.sku||null,brand:p.brand||null,model:p.model||null,category:p.category||null,description:p.description||"",marketing_description:p.marketing_description||"",key_points:p.key_points||[],image_url:currentImage,price:currentProduct?.price??null,stock:null};
+      const detail=[p.marketing_description||p.description,(p.key_points||[]).length?"Puntos principales: "+p.key_points.join(", "):""].filter(Boolean).join("\n");
+      if(detail)$p("adDetails").value=detail;
+      const state=$p("adPhotoState");if(state)state.innerHTML='<b>✓ Foto analizada</b><small>'+(p.name?esc(p.name):"Producto identificado")+' · Confianza '+Math.round(Number(p.confidence||0)*100)+'%</small>';
+      renderProductSummary();
+      setStatus("Foto lista. M.A.R.C. ya incorporó la información detectada.","ok");
+    }catch(e){
+      const state=$p("adPhotoState");if(state)state.textContent="La foto quedó disponible como referencia. Puedes crear la publicidad aunque la lectura automática no haya sido concluyente.";
+      setStatus(e.message||"No se pudo analizar la foto.", "error");
+    }
+    await renderCanvas();
+  };
+
+  const switchSource=source=>{
+    $$(".ad-source-tab").forEach(b=>b.classList.toggle("active",b.dataset.source===source));
+    $p("adInventorySource").classList.toggle("hidden",source!=="inventory");
+    $p("adPhotoSource").classList.toggle("hidden",source!=="photo");
+    if(source==="inventory"&&currentProduct){renderProductSummary();renderCanvas()}
+  };
+
+  $$(".ad-source-tab").forEach(b=>b.onclick=()=>switchSource(b.dataset.source));
+  $p("adProduct").onchange=async()=>{currentProduct=list.find(p=>p.id===$p("adProduct").value)||null;currentImage=null;currentImageFile=null;currentAiImage=null;renderProductSummary();await renderCanvas()};
+  $p("adProductSearch").oninput=()=>{const q=$p("adProductSearch").value.toLowerCase().trim(),sel=$p("adProduct"),matches=list.filter(p=>[p.name,p.sku,p.brand,p.model].join(" ").toLowerCase().includes(q));sel.innerHTML=matches.length?matches.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+(p.sku?" · "+esc(p.sku):"")+'</option>').join(""):'<option value="">Sin coincidencias</option>';currentProduct=matches[0]||null;renderProductSummary();renderCanvas()};
+  $p("adImage").onchange=e=>preparePhoto(e.target.files?.[0]);
+  $p("adImageCamera").onchange=e=>preparePhoto(e.target.files?.[0]);
+  $p("adFormat").onchange=renderCanvas;
+  $p("adOffer").oninput=renderCanvas;
+
+  $$(".ad-objective").forEach(btn=>btn.onclick=()=>{
+    $$(".ad-objective").forEach(x=>x.classList.toggle("active",x===btn));
+    $p("adObjective").value=btn.dataset.objective;
+    const presets={VENDER:"Quiero vender este producto destacando sus beneficios y una llamada a la acción clara.","GENERAR CONSULTAS":"Quiero generar consultas y que los clientes me contacten por WhatsApp.","PROMOCIONAR PRODUCTO":"Quiero presentar este producto de forma profesional y atractiva."};
+    if(!$p("adDetails").value.trim())$p("adDetails").value=presets[btn.dataset.objective]||"";
   });
 
-  const readFileData=()=>currentImageFile?new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>resolve(fr.result);fr.onerror=reject;fr.readAsDataURL(currentImageFile)}):Promise.resolve("");
-  const campaignPayload=()=>({client:currentClient?{name:currentClient.name,contact_name:currentClient.contact_name,phone:currentClient.phone,email:currentClient.email}:null,product:currentProduct,platform:$p("adPlatform").value,objective:$p("adObjective")?.value||"VENDER",tone:$p("adTone")?.value||"PROFESIONAL",audience:$p("adAudience")?.value||"",offer:$p("adOffer")?.value||"",details:$p("adDetails").value,cta:$p("adCta")?.value||"Escríbenos para cotizar"});
-  const generateText=async()=>{
-    const status=$p("adStatus"),btn=$p("generateTextAd");if(btn)btn.disabled=true;status.className="msg";status.textContent="M.A.R.C. está entendiendo tu idea y creando los textos…";
+  const readImage=async()=>currentImage?await drawImage(currentImage,1600):"";
+  const payload=()=>({client:null,product:currentProduct||{name:"Producto"},platform:"WHATSAPP",objective:$p("adObjective").value||"VENDER",tone:"PROFESIONAL",audience:"",offer:$p("adOffer").value.trim(),details:$p("adDetails").value.trim(),cta:"Escríbenos para cotizar"});
+
+  const createComplete=async()=>{
+    const btn=$p("generateAd");if(btn.disabled)return;
+    btn.disabled=true;btn.classList.add("loading");setStatus("M.A.R.C. está preparando el texto…");
     try{
-      if(!currentImageFile)currentProduct=list.find(p=>p.id===$p("adProduct").value)||list[0]||currentProduct;
-      const r=await fetch("/api/marketing-ai",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify(campaignPayload())});
-      const j=await r.json();if(!r.ok)throw new Error(j.message||j.error||"No se pudo crear la publicidad.");
-      await setCampaign(j.campaign);await saveMarketingCampaign(j.campaign,currentProduct,$p);
-      status.className="msg ok";status.textContent="Textos creados. Puedes generar el banner con IA.";
-    }catch(e){status.className="msg error";status.textContent=e.message||"No se pudo generar."}finally{if(btn)btn.disabled=false}
+      if(!currentProduct)throw new Error("Elige un producto o selecciona una foto.");
+      const textR=await fetch("/api/marketing-ai",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify(payload())});
+      const textJ=await textR.json();if(!textR.ok)throw new Error(textJ.message||textJ.error||"No se pudo crear el texto.");
+      await setCampaign(textJ.campaign);
+      setStatus("Texto listo. Ahora M.A.R.C. está creando la imagen…");
+      const imageR=await fetch("/api/marketing-image",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({product:currentProduct,campaign:textJ.campaign,platform:"WHATSAPP",objective:$p("adObjective").value,details:$p("adDetails").value,format:$p("adFormat").value,template:"MODERN",variants:["PROFESSIONAL"],imageData:await readImage()})});
+      const imageJ=await imageR.json();if(!imageR.ok)throw new Error(imageJ.message||imageJ.error||"No se pudo crear la imagen.");
+      currentAiVariants=Array.isArray(imageJ.images)?imageJ.images:[];
+      if(currentAiVariants[0]?.data)currentAiImage="data:"+(currentAiVariants[0].mimeType||"image/png")+";base64,"+currentAiVariants[0].data;
+      await renderCanvas();
+      setStatus("Publicidad completa lista. Revisa, descarga o comparte.","ok");
+      const hint=$p("bannerHint");if(hint)hint.textContent="Tu logo y datos comerciales se aplicaron automáticamente.";
+      $p("adResult").scrollIntoView({behavior:"smooth",block:"start"});
+    }catch(e){setStatus(e.message||"No se pudo crear la publicidad.","error")}
+    finally{btn.disabled=false;btn.classList.remove("loading")}
   };
-  const generateAiBanner=async()=>{
-    const status=$p("adStatus"),btn=$p("generateAd");btn.disabled=true;status.className="msg";status.textContent="M.A.R.C. está creando 2 propuestas visuales con IA…";
-    try{
-      if(!currentCampaign){await generateText();if(!currentCampaign)throw new Error("Primero necesito crear la campaña.");}
-      const r=await fetch("/api/marketing-image",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({product:currentProduct,campaign:currentCampaign,platform:$p("adPlatform").value,objective:$p("adObjective")?.value||"VENDER",details:$p("adDetails").value,format:$p("adFormat").value,template:$p("adTemplate")?.value||"MODERN",variants:["COMMERCIAL","PROFESSIONAL"],imageData:await readFileData()})});
-      const j=await r.json();if(!r.ok)throw new Error(j.message||j.error||"No se pudo generar el banner con IA.");
-      currentAiVariants=Array.isArray(j.images)&&j.images.length?j.images:(j.image?.data?[{variant:"MODERN",mimeType:j.image.mimeType||"image/png",data:j.image.data}]:[]);
-      if(!currentAiVariants.length)throw new Error("La IA no devolvió propuestas visuales.");
-      currentAiVariantIndex=0;currentAiImage="data:"+(currentAiVariants[0].mimeType||"image/png")+";base64,"+currentAiVariants[0].data;await renderVariants();await renderCanvas();
-      localStorage.setItem("marc_marketing_last",JSON.stringify({campaign:currentCampaign,productId:currentProduct?.id,clientId:currentClient?.id||null}));
-      status.className="msg ok";status.textContent="M.A.R.C. creó 2 propuestas visuales. Elige una y úsala para compartir.";const hint=$p("bannerHint");if(hint)hint.textContent="Elige una propuesta visual. Los datos, precio y CTA se colocan de forma consistente sobre la imagen.";
-    }catch(e){status.className="msg error";status.textContent=e.message||"No se pudo generar el banner."}finally{btn.disabled=false}
-  };
-  $p("generateAd").onclick=generateAiBanner;
+
+  $p("generateAd").onclick=createComplete;
   $p("downloadAd").onclick=()=>{if(!currentCampaign)return;const a=document.createElement("a");a.href=$p("adCanvas").toDataURL("image/png");a.download="MARC_Publicidad_"+String(currentProduct?.name||"producto").replace(/[^a-z0-9áéíóúñü]+/gi,"-").slice(0,50)+".png";a.click()};
-  $p("shareAd").onclick=async()=>{if(!$p("adCanvas")||!currentCampaign)return toast("Primero genera una publicidad.","err");try{const blob=await new Promise(r=>$p("adCanvas").toBlob(r,"image/png"));const file=new File([blob],"MARC_Publicidad.png",{type:"image/png"});if(navigator.share&&navigator.canShare?.({files:[file]})){await navigator.share({title:currentCampaign.title||currentProduct.name,text:currentCampaign.short_text||"",files:[file]})}else{await navigator.clipboard?.writeText(currentCampaign.whatsapp_text||currentCampaign.primary_text||"");toast("Tu dispositivo no permite compartir la imagen directamente; el texto quedó copiado.","ok")}}catch(e){if(e?.name!=="AbortError")toast("No se pudo compartir.","err")}};
+  $p("shareAd").onclick=async()=>{if(!$p("adCanvas")||!currentCampaign)return toast("Primero crea la publicidad.","err");try{const blob=await new Promise(r=>$p("adCanvas").toBlob(r,"image/png"));const file=new File([blob],"MARC_Publicidad.png",{type:"image/png"});if(navigator.share&&navigator.canShare?.({files:[file]})){await navigator.share({title:currentCampaign.title||currentProduct?.name||"Publicidad",text:currentCampaign.short_text||"",files:[file]})}else{await navigator.clipboard?.writeText(currentCampaign.whatsapp_text||currentCampaign.primary_text||"");toast("El dispositivo no permite compartir la imagen directamente; el texto quedó copiado.","ok")}}catch(e){if(e?.name!=="AbortError")toast("No se pudo compartir.","err")}};
   $("[data-copy]").forEach(b=>b.onclick=async()=>{const key=b.dataset.copy,val=key==="hashtags"?(currentCampaign?.hashtags||[]).join(" "):currentCampaign?.[key]||"";if(!val)return toast("No hay texto para copiar.","err");await navigator.clipboard?.writeText(val);toast("Texto copiado","ok")});
-  $p("marketingClear").onclick=()=>{currentClient=null;if($p("adClient"))$p("adClient").value="";syncClientSelection();currentAiImage=null;currentAiVariants=[];currentAiVariantIndex=0;currentImage=null;currentImageFile=null;localStorage.removeItem("marc_marketing_last");renderVariants();setCampaign(null)};
-  if(currentProduct){$p("adProduct").value=currentProduct.id;await renderCanvas()}
+
+  applyLogo();
+  if(currentProduct){$p("adProduct").value=currentProduct.id;renderProductSummary();await renderCanvas()}
   if(saved?.campaign)setCampaign(saved.campaign);
 }
-async function saveMarketingCampaign(campaign,product,$p){
-  const row={user_id:st.u.id,inventory_id:product?.id||null,product_name:product?.name||"Producto",platform:$p("adPlatform").value,objective:$p("adObjective").value,tone:$p("adTone").value,audience:$p("adAudience").value,offer:$p("adOffer").value,details:$p("adDetails").value,cta:$p("adCta").value,title:campaign.title,headline:campaign.headline,primary_text:campaign.primary_text,short_text:campaign.short_text,whatsapp_text:campaign.whatsapp_text,banner_text:campaign.banner_text,hashtags:JSON.stringify(campaign.hashtags||[])};
-  const {error}=await S.from("marc_ad_campaigns").insert(row);if(error)toast("La campaña se creó, pero no se pudo guardar el historial.","err");
-}
-async function renderMarketingHistory(){
-  const box=$("#marketingHistory");if(!box)return;
-  const {data,error}=await S.from("marc_ad_campaigns").select("id,product_name,platform,title,created_at").eq("user_id",st.u.id).order("created_at",{ascending:false}).limit(10);
-  if(error){box.innerHTML='<span class="muted-small">No se pudo cargar el historial.</span>';return}
-  box.innerHTML=data?.length?data.map(x=>'<div class="marketing-history-row"><div><b>'+esc(x.title||x.product_name)+'</b><small>'+esc(x.product_name)+' · '+esc(x.platform)+' · '+new Date(x.created_at).toLocaleString("es-PE")+'</small></div></div>').join(""):'<span class="muted-small">Aún no hay campañas.</span>';
-}
-
-async function settings(){
-  const {data:a}=await S.from("marc_accounts").select("*").eq("id",st.u.id).single();
-  const {data:master}=await S.from("marc_user_roles").select("role,active").eq("user_id",st.u.id).eq("role","MASTER").eq("active",true).maybeSingle();
-  const {data:sub}=await S.from("marc_subscriptions").select("plan,status,current_period_end,provider").eq("user_id",st.u.id).eq("status","active").order("current_period_end",{ascending:false}).limit(1).maybeSingle();
-  $("#content").innerHTML=`<div class="head"><div><div class="eyebrow2">CONFIGURACIÓN</div><h1>Cuenta y conexiones.</h1><p>La suscripción pertenece a tu cuenta M.A.R.C.; los canales solo la utilizan.</p></div></div>
-  <div class="settings"><div class="settings-company-card card panel" style="grid-column:1/-1"><div class="eyebrow2">EMPRESA</div><h3 style="margin:0">Marca y datos para cotizaciones.</h3><p>Configura tu logo y los datos que aparecerán en tus PDF.</p><button class="primary" id="companyProfileBtn">Configurar empresa</button></div>
-
-    <section class="card panel">
-      <div class="eyebrow2">SUSCRIPCIÓN</div>
-      <h3 style="font-size:17px;margin:0">${master?"M.A.R.C. MASTER":sub?"M.A.R.C. "+esc(sub.plan):"Prueba gratuita"}</h3>
-      <p>${master?"Cuenta de pruebas con acceso administrativo y sin límites.":sub?"Suscripción activa · "+esc(sub.provider||"Proveedor"):"Web + chat + clientes + inventario + cotizaciones."}</p>
-      <div class="quick">
-        <div class="card panel"><b style="font-size:9px">${master?"MASTER":sub?"ACTIVA":"7 DÍAS"}</b><small>${master?"Sin límites":sub?"Mismo acceso en Web y Telegram":"Prueba"}</small></div>
-        <div class="card panel"><b style="font-size:9px">Telegram</b><small id="telegramMini">${sub?"Disponible al conectar":"Disponible al conectar"}</small></div>
-      </div>
-      <button class="primary" id="plans">Ver planes</button>
-    </section>
-    <section class="card panel">
-      <div class="eyebrow2">TELEGRAM</div>
-      <h3 style="margin:0">Una cuenta, dos canales.</h3>
-      <p>Compra en la web una sola vez. Después de vincular Telegram, M.A.R.C. reconoce la misma suscripción, clientes, inventario, cotizaciones y límites de IA.</p>
-      <div id="telegramState" class="list" style="margin:12px 0"></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="primary" id="connectTelegram">Conectar Telegram</button>
-        <button class="secondary hidden" id="unlinkTelegram">Desconectar</button>
-        <button class="secondary" id="refreshTelegram">Actualizar estado</button>
-      </div>
-    </section>
-    <section class="card panel">
-      <div class="eyebrow2">CUENTA</div>
-      <h3 style="margin:0">${esc(a?.display_name||"Usuario")}</h3>
-      <p>${esc(st.u.email||"")}</p>
-      <button id="out2" class="secondary">Cerrar sesión</button>
-    </section>
-  </div>`;
-  $("#out2").onclick=()=>S.auth.signOut();
-  $("#plans").onclick=()=>toast("El checkout se conecta después de validar precios y proveedor de pago.","");
-  $("#companyProfileBtn").onclick=companySettings;
-  $("#connectTelegram").onclick=connectTelegram;
-  $("#unlinkTelegram").onclick=unlinkTelegram;
-  $("#refreshTelegram").onclick=refreshTelegramSettings;
-  await refreshTelegramSettings();
-}
-function modal(html){const root=$("#modal");root.innerHTML='<div class="modal">'+html+"</div>";document.body.classList.add("modal-open");const close=()=>{root.innerHTML="";document.body.classList.remove("modal-open")};return close}
-function clientModal(x=null){const close=modal(`<div class="modal-head"><div><h2>${x?"Editar":"Nuevo"} cliente</h2><p>Disponible para el contexto de M.A.R.C.</p></div><button class="close" id="x">×</button></div><form id="f"><div class="form-grid"><label>Nombre / razón social<input name="name" required value="${esc(x?.name)}"></label><label>Documento<input name="document_number" value="${esc(x?.document_number)}"></label><label>Contacto<input name="contact_name" value="${esc(x?.contact_name)}"></label><label>Teléfono<input name="phone" value="${esc(x?.phone)}"></label><label>Correo<input name="email" type="email" value="${esc(x?.email)}"></label><label>Dirección<input name="address" value="${esc(x?.address)}"></label><label style="grid-column:1/-1">Notas<textarea name="notes" rows="3">${esc(x?.notes)}</textarea></label></div><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Guardar</button></div></form>`);$("#x").onclick=close;$("#cancel").onclick=close;$("#f").onsubmit=async e=>{e.preventDefault();const d=new FormData(e.currentTarget),p={user_id:st.u.id,name:d.get("name").trim(),document_type:"OTRO",document_number:d.get("document_number")||null,contact_name:d.get("contact_name")||null,phone:d.get("phone")||null,email:d.get("email")||null,address:d.get("address")||null,notes:d.get("notes")||null,updated_at:new Date().toISOString()};const r=x?await S.from("marc_clients").update(p).eq("id",x.id).eq("user_id",st.u.id):await S.from("marc_clients").insert(p);if(r.error)return toast(r.error.message,"err");close();toast("Cliente guardado","ok");await trial();clients()}}
-async function optimizeProductImage(file){
-  if(!file)return null;
-  if(!["image/jpeg","image/png","image/webp"].includes(file.type))throw new Error("La foto debe ser JPG, PNG o WEBP.");
-  if(file.size>5*1024*1024)throw new Error("La foto supera el límite de 5 MB.");
-  const bitmap=await createImageBitmap(file);
-  const max=1400;
-  const scale=Math.min(1,max/Math.max(bitmap.width,bitmap.height));
-  const canvas=document.createElement("canvas");
-  canvas.width=Math.max(1,Math.round(bitmap.width*scale));
-  canvas.height=Math.max(1,Math.round(bitmap.height*scale));
-  const ctx=canvas.getContext("2d",{alpha:false});
-  ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);
-  bitmap.close();
-  const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/jpeg",0.82));
-  if(!blob)throw new Error("No se pudo preparar la foto.");
-  return blob;
-}
-function inventoryPublicImageUrl(path){
-  return S.storage.from("inventory-images").getPublicUrl(path).data.publicUrl;
-}
-async function uploadInventoryPhoto(file,productId,oldUrl){
-  const blob=await optimizeProductImage(file);
-  if(!blob)return {url:oldUrl||null,path:null};
-  const path=st.u.id+"/"+productId+"-"+Date.now()+".jpg";
-  const up=await S.storage.from("inventory-images").upload(path,blob,{
-    contentType:"image/jpeg",
-    upsert:false,
-    cacheControl:"31536000"
-  });
-  if(up.error)throw up.error;
-  const url=inventoryPublicImageUrl(path);
-  if(oldUrl&&oldUrl.includes("/storage/v1/object/public/inventory-images/")){
-    const oldPath=oldUrl.split("/storage/v1/object/public/inventory-images/")[1];
-    if(oldPath)await S.storage.from("inventory-images").remove([decodeURIComponent(oldPath)]);
-  }
-  return {url,path};
-}
-async function analyzeProductBoxPhoto(file,statusEl){
-  if(!file)throw new Error("Selecciona o toma una foto de la caja.");
-  const blob=await optimizeProductImage(file);
-  const reader=new FileReader();
-  const dataUrl=await new Promise((resolve,reject)=>{reader.onload=()=>resolve(String(reader.result||""));reader.onerror=()=>reject(new Error("No se pudo preparar la imagen para la IA."));reader.readAsDataURL(blob)});
-  statusEl.className="msg";statusEl.textContent="Gemini está leyendo la caja…";
-  const response=await fetch("/api/inventory/analyze-photo",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({imageBase64:dataUrl,mimeType:"image/jpeg"})});
-  const data=await response.json().catch(()=>({}));
-  if(!response.ok)throw new Error(data.message||data.error||"No se pudo analizar la foto.");
-  return data.product||{};
-}
-function inventoryModal(x=null){
-  const close=modal(
-    '<div class="modal-head"><div><h2>'+(x?"Editar":"Nuevo")+' producto</h2><p>Productos + inventario, ahora también con foto.</p></div><button class="close" id="x">×</button></div>'+
-    '<form id="f">'+
-      '<div class="inventory-photo-box">'+
-        '<div class="inventory-photo-preview" id="productPhotoPreview">'+(x?.image_url?'<img src="'+esc(x.image_url)+'" alt="Foto del producto">':'<span>📷</span>')+'</div>'+
-        '<div style="display:flex;flex-direction:column;gap:7px;min-width:0;flex:1">'+
-          '<label>Foto del producto<input id="productPhoto" name="image" type="file" accept="image/jpeg,image/png,image/webp" capture="environment"></label>'+
-          '<button type="button" class="secondary" id="analyzeProductPhoto">✦ Analizar caja con IA</button>'+
-          '<small>Fotografía la caja. Gemini leerá nombre, SKU, marca y modelo. El precio lo colocas tú.</small>'+
-        '</div>'+
-      '</div>'+
-      '<div class="form-grid">'+
-        '<label>Nombre<input name="name" required value="'+esc(x?.name||"")+'"></label>'+
-        '<label>Código / SKU<input name="sku" value="'+esc(x?.sku||"")+'"></label>'+
-        '<label>Marca<input name="brand" value="'+esc(x?.brand||"")+'"></label>'+
-        '<label>Modelo<input name="model" value="'+esc(x?.model||"")+'"></label>'+
-        '<label>Categoría<input name="category" value="'+esc(x?.category||"")+'"></label>'+
-        '<label>Unidad<input name="unit" value="'+esc(x?.unit||"UND")+'"></label>'+
-        '<label>Costo<input name="cost" type="number" min="0" step="0.01" value="'+(x?.cost??0)+'"></label>'+
-        '<label>Precio de venta<input name="price" type="number" min="0" step="0.01" placeholder="Coloca el precio" value="'+(x?.price??0)+'"></label>'+
-        '<label>Stock<input name="stock" type="number" min="0" step="0.01" value="'+(x?.stock??0)+'"></label>'+
-        '<label>Mínimo<input name="min_stock" type="number" min="0" step="0.01" value="'+(x?.min_stock??0)+'"></label>'+
-      '</div>'+
-      '<div id="photoMsg" class="msg"></div>'+
-      '<div class="modal-actions">'+
-        (x?'<button type="button" class="danger" id="deleteProduct">Eliminar producto</button>':'')+
-        '<button type="button" class="secondary" id="cancel">Cancelar</button>'+
-        '<button class="primary" id="saveProduct">Guardar</button>'+
-      '</div>'+
-    '</form>'
-  );
-  $("#x").onclick=close;
-  $("#cancel").onclick=close;
-
-  const photo=$("#productPhoto"), preview=$("#productPhotoPreview"), msg=$("#photoMsg"), analyzePhoto=$("#analyzeProductPhoto");
-  if(analyzePhoto)analyzePhoto.onclick=async()=>{const f=photo.files?.[0];if(!f)return toast("Primero toma o selecciona una foto de la caja.","err");analyzePhoto.disabled=true;try{const p=await analyzeProductBoxPhoto(f,msg);if(p.name)$("[name=name]").value=p.name;if(p.sku)$("[name=sku]").value=p.sku;if(p.brand)$("[name=brand]").value=p.brand;if(p.model)$("[name=model]").value=p.model;if(p.category)$("[name=category]").value=p.category;const confidence=Math.round(Number(p.confidence||0)*100);msg.className="msg";msg.textContent=confidence?("Caja analizada. Confianza aproximada: "+confidence+"%. Revisa los datos y coloca tu precio de venta."):("Caja analizada. Revisa los datos y coloca tu precio de venta.")}catch(err){msg.className="msg error";msg.textContent=err.message||"No se pudo analizar la caja."}finally{analyzePhoto.disabled=false}};
-  photo.onchange=()=>{
-    const f=photo.files?.[0];
-    if(!f)return;
-    if(!["image/jpeg","image/png","image/webp"].includes(f.type))return toast("Usa JPG, PNG o WEBP.","err");
-    if(f.size>5*1024*1024)return toast("La foto supera 5 MB.","err");
-    const url=URL.createObjectURL(f);
-    preview.innerHTML='<img src="'+url+'" alt="Vista previa">';
-  };
-
-  if(x){
-    $("#deleteProduct").onclick=async function(){
-      const ok=confirm("¿Eliminar «"+x.name+"» del inventario?\n\nEl producto dejará de aparecer del inventario activo, pero se conservará el registro para el historial.");
-      if(!ok)return;
-      const b=$("#deleteProduct");b.disabled=true;
-      try{
-        const {error}=await S.from("marc_inventory").update({active:false,updated_at:new Date().toISOString()}).eq("id",x.id).eq("user_id",st.u.id);
-        if(error)throw error;
-        close();toast("Producto eliminado del inventario","ok");await inventory();
-      }catch(err){toast(err.message||"No se pudo eliminar el producto.","err");b.disabled=false}
-    };
-  }
-
-  $("#f").onsubmit=async e=>{
-    e.preventDefault();
-    const b=$("#saveProduct");b.disabled=true;
-    const d=new FormData(e.currentTarget);
-    const p={user_id:st.u.id,name:String(d.get("name")||"").trim(),sku:d.get("sku")||null,brand:d.get("brand")||null,model:d.get("model")||null,category:d.get("category")||null,unit:d.get("unit")||"UND",cost:Number(d.get("cost")||0),price:Number(d.get("price")||0),stock:Number(d.get("stock")||0),min_stock:Number(d.get("min_stock")||0),updated_at:new Date().toISOString()};
-    try{
-      let productId=x?.id||null;
-      let imageUrl=x?.image_url||null;
-      if(x){
-        const r=await S.from("marc_inventory").update(p).eq("id",x.id).eq("user_id",st.u.id).select("id,image_url").single();
-        if(r.error)throw r.error;
-        productId=r.data.id;imageUrl=r.data.image_url;
-      }else{
-        const r=await S.from("marc_inventory").insert(p).select("id,image_url").single();
-        if(r.error)throw r.error;
-        productId=r.data.id;imageUrl=r.data.image_url||null;
-      }
-      const photoFile=photo.files?.[0];
-      if(photoFile){
-        msg.className="msg";msg.textContent="Subiendo y optimizando la foto…";
-        const uploaded=await uploadInventoryPhoto(photoFile,productId,imageUrl);
-        const u=await S.from("marc_inventory").update({image_url:uploaded.url,updated_at:new Date().toISOString()}).eq("id",productId).eq("user_id",st.u.id);
-        if(u.error)throw u.error;
-      }
-      close();toast(photoFile?"Producto guardado con foto":"Producto guardado","ok");await trial();await inventory();
-    }catch(err){
-      msg.className="msg error";msg.textContent=err.message||"No se pudo guardar el producto.";
-      b.disabled=false;
-    }
-  };
-}
-async function aiQuoteModal(){
-  const cls=(await S.from("marc_clients").select("id,name").eq("user_id",st.u.id).order("name")).data||[];
-  const close=modal(
-    '<div class="modal-head"><div><h2>✦ Crear cotización con IA</h2><p>Describe el trabajo y M.A.R.C. prepara la cotización.</p></div><button class="close" id="x">×</button></div>'+
-    '<form id="aiQuoteForm">'+
-    '<label>Cliente<select name="client_id"><option value="">Sin cliente</option>'+cls.map(x=>'<option value="'+x.id+'">'+esc(x.name)+'</option>').join("")+'</select></label>'+
-    '<label>Descripción del trabajo<textarea id="aiDescription" name="description" rows="7" required placeholder="Escribe el trabajo tal como lo tengas. Ej.: Podar árbol de pino de 15 m, retirarlo desde la raíz, retirar residuos y dejar el jardín limpio. A todo costo S/ 500.00"></textarea></label>'+
-    '<div class="ai-description-actions"><button type="button" class="secondary" id="improveDescription">✦ Mejorar descripción con IA</button><span>La IA ordenará y profesionalizará el texto sin inventar datos.</span></div>'+
-    '<label style="display:flex;align-items:center;gap:8px"><input name="all_cost" type="checkbox" checked style="width:auto"> A todo costo · una sola partida de trabajo</label>'+
-    '<div class="ai-hint">Primero puedes mejorar la descripción y después generar la cotización. Los precios y datos técnicos no se inventan.</div>'+
-    '<div id="aiQuoteMsg" class="msg"></div>'+
-    '<div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary" id="generateAi">✦ Generar cotización</button></div>'+
-    '</form>'
-  );
-  $("#x").onclick=close;$("#cancel").onclick=close;
-  $("#improveDescription").onclick=async()=>{
-    const btn=$("#improveDescription"),box=$("#aiDescription"),msgBox=$("#aiQuoteMsg");
-    const description=String(box.value||"").trim();
-    if(!description)return toast("Escribe primero la descripción del trabajo.","err");
-    btn.disabled=true;msgBox.className="msg";msgBox.textContent="M.A.R.C. está mejorando la descripción…";
-    try{
-      const r=await fetch("/api/quote-ai",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({description,improveOnly:true})});
-      const j=await r.json(); if(!r.ok)throw new Error(j.message||j.error||"No se pudo mejorar la descripción.");
-      if(j.improved?.description)box.value=j.improved.description;
-      msgBox.className="msg ok";msgBox.textContent=j.improved?.title?"Título sugerido: "+j.improved.title:"Descripción mejorada.";
-    }catch(err){msgBox.className="msg error";msgBox.textContent=err.message||"No se pudo mejorar."}
-    finally{btn.disabled=false}
-  };
-  $("#aiQuoteForm").onsubmit=async e=>{
-    e.preventDefault();
-    const d=new FormData(e.currentTarget);
-    const btn=$("#generateAi"),msgBox=$("#aiQuoteMsg");
-    const description=String(d.get("description")||"").trim(),clientId=d.get("client_id")||"",allCost=d.get("all_cost")==="on";
-    if(!description)return;
-    btn.disabled=true;msgBox.className="msg";msgBox.textContent="M.A.R.C. está preparando la cotización…";
-    try{
-      const selected=cls.find(x=>x.id===clientId);
-      const r=await fetch("/api/quote-ai",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({description,allCost,clientQuery:selected?.name||""})});
-      const j=await r.json();
-      if(!r.ok)throw new Error(j.message||j.error||"No se pudo generar la cotización.");
-      const draft=j.draft||{};
-      draft.client_id=clientId;
-      draft.items=(draft.items||[]).map(x=>({type:x.type||"TRABAJO",name:x.name||"Trabajo",description:x.description||description,qty:Number(x.quantity||1),price:x.unit_price==null?0:Number(x.unit_price),cost:0,unit:"UND"}));
-      close();
-      await quoteModal(null,draft);
-      toast("Cotización preparada por IA. Revísala antes de guardar.","ok");
-    }catch(err){
-      msgBox.className="msg error";msgBox.textContent=err.message||"No se pudo generar.";
-    }finally{btn.disabled=false}
-  };
-}
-async function quoteModal(existing=null,preset=null){
-  const cls=(await S.from("marc_clients").select("id,name").eq("user_id",st.u.id).order("name")).data||[];
-  const inv=(await S.from("marc_inventory").select("id,name,brand,model,price,cost,unit,stock").eq("user_id",st.u.id).eq("active",true).order("name")).data||[];
-  let lines=[];
-  const quote=existing;
-
-  if(existing){
-    const {data}=await S.from("marc_quote_items").select("*").eq("quote_id",existing.id).eq("user_id",st.u.id).order("created_at");
-    lines=(data||[]).map(x=>({
-      id:x.id,
-      type:x.item_type,
-      inventory_id:x.inventory_id||"",
-      name:x.name||"",
-      description:x.description||"",
-      qty:Number(x.quantity||1),
-      price:Number(x.unit_price||0),
-      cost:Number(x.cost||0),
-      unit:x.unit||"UND",
-      material_provider:x.material_provider|| (x.item_type==="PRODUCTO"?"MARC":"CLIENT"),
-      transport:Number(x.transport_cost||0),
-      labor:Number(x.labor_cost||0),
-      other:Number(x.other_cost||0)
-    }));
-  }else if(preset){
-    lines=(preset.items||[]).map(x=>({
-      type:x.type||"TRABAJO",
-      inventory_id:x.inventory_id||"",
-      name:x.name||"",
-      description:x.description||"",
-      qty:Number(x.qty||1),
-      price:Number(x.price||0),
-      cost:Number(x.cost||0),
-      unit:x.unit||"UND",
-      material_provider:x.material_provider||(x.type==="PRODUCTO"?"MARC":"CLIENT"),
-      transport:Number(x.transport||x.transport_cost||0),
-      labor:Number(x.labor||x.labor_cost||0),
-      other:Number(x.other||x.other_cost||0)
-    }));
-  }
-
-  const defaultLine=()=>({type:"TRABAJO",inventory_id:"",name:"",description:"",qty:1,price:0,cost:0,unit:"UND",material_provider:"CLIENT",transport:0,labor:0,other:0});
-  const close=modal(
-    '<div class="modal-head"><div><h2>'+(quote?"Cotización "+esc(quote.number):"Nueva cotización")+'</h2><p>Controla precio, material, transporte, tiempo y ganancia.</p></div><button class="close" id="x">×</button></div>'+
-    '<form id="f">'+
-      '<div class="form-grid">'+
-        '<label>Cliente<select name="client_id"><option value="">Sin cliente</option>'+cls.map(x=>'<option value="'+x.id+'" '+((quote?.client_id||preset?.client_id)===x.id?"selected":"")+'>'+esc(x.name)+'</option>').join("")+'</select></label>'+
-        '<label>Título<input name="title" required value="'+esc(quote?.title||preset?.title||"Nueva cotización")+'"></label>'+
-        '<label>IGV <select name="tax_enabled"><option value="false" '+(!quote?.tax_enabled?"selected":"")+'>No incluir</option><option value="true" '+(quote?.tax_enabled?"selected":"")+'>Incluir</option></select></label>'+
-        '<label>% IGV<input name="tax_rate" type="number" min="0" max="100" step="0.01" value="'+(quote?.tax_rate??18)+'"></label>'+
-        '<label>Estado<select name="status"><option value="BORRADOR" '+((quote?.status||"BORRADOR")==="BORRADOR"?"selected":"")+'>Borrador</option><option value="ENVIADA" '+((quote?.status||"BORRADOR")==="ENVIADA"?"selected":"")+'>Enviada</option><option value="ACEPTADA" '+((quote?.status||"BORRADOR")==="ACEPTADA"?"selected":"")+'>Aceptada</option><option value="RECHAZADA" '+((quote?.status||"BORRADOR")==="RECHAZADA"?"selected":"")+'>Rechazada</option><option value="ANULADA" '+((quote?.status||"BORRADOR")==="ANULADA"?"selected":"")+'>Anulada</option><option value="COBRADA" '+((quote?.status||"BORRADOR")==="COBRADA"?"selected":"")+'>Cobrada</option></select></label>'+
-      '</div>'+
-      '<div class="quote-finance-hint"><b>¿Quién proporciona los materiales?</b><span>Cliente = no cuenta como costo de material para M.A.R.C.</span></div>'+
-      '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin:10px 0 5px"><b style="font-size:9px">PARTIDAS</b><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><button type="button" id="improveAllQuote" class="secondary">✦ Mejorar descripciones</button><button type="button" id="add" class="secondary">＋ Línea</button></div></div>'+
-      '<div id="lines"></div>'+
-      '<label>Notas<textarea name="notes" rows="3">'+esc(quote?.notes||"")+'</textarea></label>'+
-      '<div id="summary" class="quote-summary"></div>'+
-      '<div class="modal-actions">'+(quote?'<button type="button" class="danger" id="deleteQuote">Eliminar cotización</button>':'')+'<button type="button" class="secondary" id="cancel">Cerrar</button><button type="button" class="secondary" id="print">Imprimir</button><button type="button" class="secondary" id="pdf">Descargar PDF</button><button type="button" class="secondary" id="reviewQuote">✦ Revisar con IA</button><button class="primary">'+(quote?"Guardar cambios":"Guardar cotización")+'</button></div>'+
-    '</form>'
-  );
-
-  $("#x").onclick=close;$("#cancel").onclick=close;
-  if(quote&&$("#deleteQuote")){
-    $("#deleteQuote").onclick=async()=>{
-      if(quote.status==="COBRADA")return toast("Una cotización cobrada no puede eliminarse. Usa ANULADA.","err");
-      if(!confirm("¿Eliminar la cotización "+quote.number+"?\n\nDesaparecerá del listado, pero se conservará el historial."))return;
-      const b=$("#deleteQuote");b.disabled=true;
-      try{
-        const result=await S.from("marc_quotes").update({deleted_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq("id",quote.id).eq("user_id",st.u.id);
-        if(result.error)throw result.error;
-        close();toast("Cotización eliminada","ok");await quotes();
-      }catch(err){toast(err.message||"No se pudo eliminar la cotización.","err");b.disabled=false}
-    };
-  }
-
-  const box=$("#lines");
-  if(!lines.length)lines=[defaultLine()];
-
-  const providerOptions=(value)=>[
-    ["CLIENT","Cliente — pone el material"],
-    ["MARC","M.A.R.C. — material propio / todo costo"],
-    ["MIXTO","Mixto — parte del material"]
-  ].map(o=>'<option value="'+o[0]+'" '+(value===o[0]?"selected":"")+'>'+o[1]+'</option>').join("");
-
-  const productOptions=(selected)=>'<option value="">Seleccionar producto…</option>'+inv.map(x=>'<option value="'+x.id+'" '+(selected===x.id?"selected":"")+'>'+esc(x.name+(x.brand?" · "+x.brand:"")+(x.model?" · "+x.model:""))+' — '+money(x.price)+' · stock '+x.stock+'</option>').join("");
-
-  const updateSummary=()=>{
-    const sub=lines.reduce((a,x)=>a+Number(x.qty||0)*Number(x.price||0),0);
-    const internalCost=lines.reduce((a,x)=>a+(Number(x.qty||0)*Number(x.cost||0))+Number(x.transport||0)+Number(x.labor||0)+Number(x.other||0),0);
-    const profit=sub-internalCost;
-    const margin=sub>0?(profit/sub)*100:0;
-    const enabled=$("#f [name=tax_enabled]").value==="true";
-    const rate=Number($("#f [name=tax_rate]").value||18);
-    const tax=enabled?sub*rate/100:0;
-    const total=sub+tax;
-    $("#summary").innerHTML=
-      '<div><span>Subtotal</span><b>'+money(sub)+'</b></div>'+
-      '<div><span>Costo interno</span><b>'+money(internalCost)+'</b></div>'+
-      '<div><span>Ganancia bruta</span><b class="'+(profit<0?"profit-negative":"profit-positive")+'">'+money(profit)+'</b></div>'+
-      '<div><span>Margen</span><b>'+margin.toFixed(1)+'%</b></div>'+
-      '<div><span>IGV ('+rate+'%)</span><b>'+money(tax)+'</b></div>'+
-      '<div class="grand"><span>Total cliente</span><b>'+money(total)+'</b></div>';
-  };
-
-  const draw=()=>{
-    box.innerHTML=lines.map((x,i)=>{
-      const isP=x.type==="PRODUCTO";
-      const clientMaterial=x.material_provider==="CLIENT";
-      return '<div class="quote-line financial-line" data-line="'+i+'">'+
-        '<div class="quote-line-top"><select data-i="'+i+'" data-k="type"><option value="PRODUCTO" '+(isP?"selected":"")+'>Producto</option><option value="TRABAJO" '+(!isP?"selected":"")+'>Trabajo</option></select>'+
-        (isP?'<select data-i="'+i+'" data-k="inventory_id">'+productOptions(x.inventory_id)+'</select>':'<input data-i="'+i+'" data-k="name" placeholder="Descripción del trabajo" value="'+esc(x.name)+'">')+
-        '<button type="button" data-r="'+i+'" class="close">×</button></div>'+
-        '<div class="quote-line-fields">'+
-          '<input data-i="'+i+'" data-k="qty" type="number" min="0.01" step="0.01" value="'+x.qty+'" placeholder="Cant.">'+
-          '<input data-i="'+i+'" data-k="price" type="number" min="0" step="0.01" value="'+x.price+'" placeholder="Precio unitario">'+
-          '<div class="quote-description-wrap"><input data-i="'+i+'" data-k="description" placeholder="Descripción (opcional)" value="'+esc(x.description)+'"><button type="button" class="secondary quote-ai-line" data-ai-line="'+i+'" title="Mejorar esta descripción con IA">✦ Mejorar</button></div></div>'+
-        '<div class="quote-cost-grid">'+
-          '<label>Material<select data-i="'+i+'" data-k="material_provider">'+providerOptions(x.material_provider)+'</select></label>'+
-          '<label>Costo material<input data-i="'+i+'" data-k="cost" type="number" min="0" step="0.01" value="'+(clientMaterial?0:Number(x.cost||0))+'" '+(clientMaterial?"disabled":"")+'></label>'+
-          '<label>Transporte<input data-i="'+i+'" data-k="transport" type="number" min="0" step="0.01" value="'+Number(x.transport||0)+'"></label>'+
-          '<label>Tiempo / mano de obra<input data-i="'+i+'" data-k="labor" type="number" min="0" step="0.01" value="'+Number(x.labor||0)+'"></label>'+
-          '<label>Otros costos<input data-i="'+i+'" data-k="other" type="number" min="0" step="0.01" value="'+Number(x.other||0)+'"></label>'+
-        '</div>'+
-        '<div class="quote-line-total">Costo interno de esta línea: <b>'+money((Number(x.qty||0)*Number(x.cost||0))+Number(x.transport||0)+Number(x.labor||0)+Number(x.other||0))+'</b></div>'+
-      '</div>';
-    }).join("");
-    updateSummary();
-  };
-
-  box.onchange=e=>{
-    const i=e.target.dataset.i;
-    if(i==null)return;
-    const k=e.target.dataset.k;
-
-    if(k==="type"){
-      lines[i].type=e.target.value;
-      lines[i].inventory_id=e.target.value==="TRABAJO"?"":"";
-      lines[i].material_provider=e.target.value==="PRODUCTO"?"MARC":"CLIENT";
-      lines[i].cost=0;
-      draw();
-      return;
-    }
-
-    lines[i][k]=e.target.value;
-
-    if(k==="inventory_id"){
-      const p=inv.find(x=>x.id===e.target.value);
-      if(p){
-        lines[i].name=p.name;
-        lines[i].price=Number(p.price||0);
-        lines[i].cost=Number(p.cost||0);
-        lines[i].unit=p.unit||"UND";
-        if(!lines[i].material_provider)lines[i].material_provider="MARC";
-      }
-    }
-
-    if(k==="material_provider"){
-      if(e.target.value==="CLIENT")lines[i].cost=0;
-      if(e.target.value==="MARC" && lines[i].type==="PRODUCTO"){
-        const p=inv.find(x=>x.id===lines[i].inventory_id);
-        if(p)lines[i].cost=Number(p.cost||0);
-      }
-      draw();
-      return;
-    }
-
-    updateSummary();
-  };
-
-  box.oninput=e=>{
-    const i=e.target.dataset.i;
-    if(i==null)return;
-    const k=e.target.dataset.k;
-    lines[i][k]=(k==="description"||k==="name")?e.target.value:Number(e.target.value||0);
-    updateSummary();
-    const row=e.target.closest(".quote-line");
-    if(row){
-      const costLine=row.querySelector(".quote-line-total");
-      if(costLine){
-        const x=lines[i];
-        costLine.innerHTML='Costo interno de esta línea: <b>'+money((Number(x.qty||0)*Number(x.cost||0))+Number(x.transport||0)+Number(x.labor||0)+Number(x.other||0))+'</b>';
-      }
-    }
-  };
-
-  box.onclick=async e=>{
-    if(e.target.dataset.r!=null){
-      lines.splice(Number(e.target.dataset.r),1);
-      if(!lines.length)lines.push(defaultLine());
-      draw();
-      return;
-    }
-    const aiLine=e.target.closest(".quote-ai-line");
-    if(!aiLine)return;
-    const i=Number(aiLine.dataset.aiLine);
-    const line=lines[i];
-    if(!line)return;
-    const original=String(line.description||"").trim();
-    if(!original)return toast("Escribe primero la descripción de esta partida.","err");
-    aiLine.disabled=true;
-    const previous=aiLine.textContent;
-    aiLine.textContent="✦ Mejorando…";
-    try{
-      const r=await fetch("/api/quote-ai",{
-        method:"POST",
-        headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},
-        body:JSON.stringify({description:original,improveOnly:true})
-      });
-      const j=await r.json();
-      if(!r.ok)throw new Error(j.message||j.error||"No se pudo mejorar la descripción.");
-      if(j.improved?.description)line.description=String(j.improved.description).trim();
-      if(j.improved?.title && line.type==="TRABAJO" && (!String(line.name||"").trim() || /^trabajo$/i.test(String(line.name||"").trim())))line.name=String(j.improved.title).trim();
-      draw();
-      toast("Descripción mejorada por IA.","ok");
-    }catch(err){
-      toast(err.message||"No se pudo mejorar la descripción.","err");
-      aiLine.disabled=false;
-      aiLine.textContent=previous;
-    }
-  };
-
-  $("#reviewQuote").onclick=async()=>{
-    const btn=$("#reviewQuote");
-    const valid=lines.filter(x=>x.type==="PRODUCTO"?!!x.inventory_id:!!String(x.name||"").trim());
-    if(!valid.length)return toast("Agrega al menos una partida antes de revisar.","err");
-    const payload=valid.map((x,i)=>({index:i,type:x.type,name:x.name||"",description:x.description||"",quantity:Number(x.qty||0),unit_price:Number(x.price||0),cost:Number(x.cost||0),transport:Number(x.transport||0),labor:Number(x.labor||0),other:Number(x.other||0),material_provider:x.material_provider||"CLIENT"}));
-    btn.disabled=true;const prev=btn.textContent;btn.textContent="✦ Revisando…";
-    try{
-      const r=await fetch("/api/quote-ai",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({reviewQuote:true,items:payload,taxEnabled:$("#f [name=tax_enabled]").value==="true",taxRate:Number($("#f [name=tax_rate]").value||18),title:$("#f [name=title]").value||"Cotización",notes:$("#f [name=notes]").value||""})});
-      const j=await r.json();if(!r.ok)throw new Error(j.message||j.error||"No se pudo revisar la cotización.");
-      const issues=Array.isArray(j.review?.issues)?j.review.issues:[], positives=Array.isArray(j.review?.positives)?j.review.positives:[];
-      const body=(issues.length?'<div class="ai-review-section"><b>Revisar antes de guardar</b>'+issues.map(x=>'<div class="ai-review-item issue"><strong>⚠ '+esc(x.title||"Observación")+'</strong><span>'+esc(x.detail||"")+'</span></div>').join("")+"</div>":'<div class="ai-review-section"><b>Revisión técnica</b><div class="ai-review-item good"><strong>✓ Sin observaciones importantes</strong><span>No se detectaron problemas relevantes con los datos proporcionados.</span></div></div>')+(positives.length?'<div class="ai-review-section"><b>Correcto</b>'+positives.map(x=>'<div class="ai-review-item good"><strong>✓ '+esc(x.title||"Correcto")+'</strong><span>'+esc(x.detail||"")+'</span></div>').join("")+"</div>":"");
-      const close=modal('<div class="modal-head"><div><h2>✦ Revisión de M.A.R.C.</h2><p>Análisis previo al guardado. No modifica la cotización.</p></div><button class="close" id="closeReview">×</button></div><div class="ai-review-grid">'+body+'</div><div class="modal-actions"><button type="button" class="primary" id="closeReview2">Continuar con la cotización</button></div>');
-      $("#closeReview").onclick=close;$("#closeReview2").onclick=close;
-    }catch(err){toast(err.message||"No se pudo revisar la cotización.","err")}finally{btn.disabled=false;btn.textContent=prev}
-  };
-  $("#add").onclick=()=>{lines.push(defaultLine());draw();};
-  $("#improveAllQuote").onclick=async()=>{
-    const btn=$("#improveAllQuote");
-    const items=lines.map((x,i)=>({index:i,type:x.type,name:x.name||"",description:String(x.description||"").trim()})).filter(x=>x.description);
-    if(!items.length)return toast("Escribe al menos una descripción para mejorar.","err");
-    btn.disabled=true;const previous=btn.textContent;btn.textContent="✦ Mejorando…";
-    try{
-      const r=await fetch("/api/quote-ai",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({improveLines:true,items})});
-      const j=await r.json();if(!r.ok)throw new Error(j.message||j.error||"No se pudieron mejorar las descripciones.");
-      const improved=Array.isArray(j.improvedLines)?j.improvedLines:[];let changed=0;
-      improved.forEach(x=>{const i=Number(x.index);if(!Number.isInteger(i)||!lines[i])return;if(x.description){lines[i].description=String(x.description).trim();changed++}if(x.title&&lines[i].type==="TRABAJO"&&(!String(lines[i].name||"").trim()||/^trabajo$/i.test(String(lines[i].name||"").trim())))lines[i].name=String(x.title).trim()});
-      draw();toast(changed?changed+" descripción"+(changed===1?"":"es")+" mejorada"+(changed===1?"":"s")+" por IA.":"No hubo cambios.","ok");
-    }catch(err){toast(err.message||"No se pudieron mejorar las descripciones.","err")}finally{btn.disabled=false;btn.textContent=previous}
-  };
-  $("#f [name=tax_enabled]").onchange=updateSummary;
-  $("#f [name=tax_rate]").oninput=updateSummary;
-  $("#print").onclick=async()=>{const b=$("#print");b.disabled=true;try{await printQuote(existing?.id)}catch(err){toast(err?.message||"No se pudo preparar la impresión.","err")}finally{b.disabled=false}};
-  $("#pdf").onclick=async()=>{const b=$("#pdf");b.disabled=true;const prev=b.textContent;b.textContent="Preparando PDF…";try{await downloadQuotePdf(existing?.id)}catch(err){toast(err?.message||"No se pudo generar el PDF.","err")}finally{b.disabled=false;b.textContent=prev}};
-  draw();
-
-  $("#f").onsubmit=async e=>{
-    e.preventDefault();
-    const d=new FormData(e.currentTarget);
-    const valid=lines.filter(x=>x.type==="PRODUCTO"?!!x.inventory_id:!!String(x.name||"").trim());
-    if(!valid.length)return toast("Agrega al menos una partida.","err");
-    if(valid.some(x=>Number(x.qty)<=0||Number(x.price)<0))return toast("Revisa cantidades y precios.","err");
-    if(valid.some(x=>x.type==="TRABAJO"&&!Number(x.price)))return toast("Cada trabajo debe tener precio.","err");
-    if(valid.some(x=>Number(x.cost||0)<0||Number(x.transport||0)<0||Number(x.labor||0)<0||Number(x.other||0)<0))return toast("Los costos no pueden ser negativos.","err");
-    const localWarnings=[];
-    valid.forEach((x,i)=>{
-      if(!String(x.description||"").trim())localWarnings.push("Partida "+(i+1)+": falta una descripción.");
-      if(x.type==="TRABAJO" && !Number(x.labor||0) && !Number(x.transport||0) && !Number(x.other||0) && x.material_provider!=="CLIENT")localWarnings.push("Partida "+(i+1)+": no tiene costos internos registrados.");
-    });
-    if(localWarnings.length){
-      const proceed=confirm("M.A.R.C. detectó estas observaciones antes de guardar:\n\n• "+localWarnings.join("\n• ")+"\n\n¿Deseas guardar de todas formas?");
-      if(!proceed)return;
-    }
-
-    const taxEnabled=d.get("tax_enabled")==="true";
-    const taxRate=Number(d.get("tax_rate")||18);
-    const status=d.get("status")||"BORRADOR";
-
-    const items=valid.map(x=>({
-      inventory_id:x.type==="PRODUCTO"?x.inventory_id:null,
-      item_type:x.type,
-      name:x.name,
-      description:x.description||null,
-      quantity:Number(x.qty),
-      unit:x.unit||"UND",
-      unit_price:Number(x.price),
-      cost:Number(x.cost||0),
-      material_provider:x.material_provider||"CLIENT",
-      transport_cost:Number(x.transport||0),
-      labor_cost:Number(x.labor||0),
-      other_cost:Number(x.other||0)
-    }));
-
-    const {data,error}=await S.rpc("marc_save_quote",{
-      p_quote_id:quote?.id||null,
-      p_client_id:d.get("client_id")||null,
-      p_title:d.get("title")||"Cotización",
-      p_status:status,
-      p_tax_enabled:taxEnabled,
-      p_tax_rate:taxRate,
-      p_notes:d.get("notes")||null,
-      p_items:items,
-      p_source:"WEB"
-    });
-
-    if(error){
-      const msg=String(error.message||"");
-      if(msg.includes("TRIAL_QUOTE_LIMIT"))return toast("Llegaste al límite de 5 cotizaciones de la prueba.","err");
-      if(msg.includes("TRIAL_EXPIRED"))return toast("Tu prueba terminó. Activa un plan para continuar.","err");
-      return toast(error.message,"err");
-    }
-
-    close();
-    toast(quote?"Cotización actualizada":"Cotización guardada","ok");
-    await trial();
-    quotes();
-  };
-}
-
 async function printQuote(id){
   if(!id){toast("Guarda la cotización antes de imprimir.","err");return;}
   const q=(await S.from("marc_quotes").select("*,marc_clients(name,document_type,document_number,email,phone,address)").eq("id",id).eq("user_id",st.u.id).single()).data;

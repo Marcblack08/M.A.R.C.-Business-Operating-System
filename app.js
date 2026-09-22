@@ -36,6 +36,8 @@ async function signInCashStaff(e){
   if(!username||password.length<6)return cashStaffError("Escribe tu usuario y una contraseña válida.");
   if(b)b.disabled=true;
   try{
+    const ownerSession=(await S.auth.getSession()).data?.session;
+    if(ownerSession)sessionStorage.setItem("marc_cash_owner_session",JSON.stringify(ownerSession));
     const r=await fetch("/api/cash-staff/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username,password})});
     const j=await r.json().catch(()=>({}));
     if(!r.ok)throw new Error(j.error||"Usuario o contraseña incorrectos.");
@@ -2522,7 +2524,20 @@ async function cash(){
   if($("#cashStaffLogout"))$("#cashStaffLogout").onclick=async()=>{
     const ok=confirm("¿Salir de esta caja?");
     if(!ok)return;
-    try{await S.auth.signOut();toast("Sesión de caja cerrada","ok")}catch(err){toast(err?.message||"No se pudo salir de la caja.","err")}
+    try{
+      const raw=sessionStorage.getItem("marc_cash_owner_session");
+      const owner=raw?JSON.parse(raw):null;
+      sessionStorage.removeItem("marc_cash_owner_session");
+      if(owner?.access_token&&owner?.refresh_token){
+        const restored=await S.auth.setSession({access_token:owner.access_token,refresh_token:owner.refresh_token});
+        if(restored.error)throw restored.error;
+        await enter(restored.data.session);
+        toast("Sesión de caja cerrada · regresaste al administrador","ok");
+      }else{
+        await S.auth.signOut();
+        toast("Sesión de caja cerrada","ok");
+      }
+    }catch(err){toast(err?.message||"No se pudo salir de la caja.","err")}
   };
   if(open&&!isCashier)$("#closeCashTop").onclick=()=>closeCashModal(open,expected);
   else if(!open&&!isCashier&&$("#openCashTop"))$("#openCashTop").onclick=()=>openCashModal();
@@ -2559,10 +2574,11 @@ function downloadCashExcel(report){
 
   const regMap=new Map(report.registers.map(x=>[x.id,x]));
   const movRows=[
-    ["Fecha","Caja","Tipo","Concepto","Referencia","Monto"],
+    ["Fecha","Caja","Usuario","Tipo","Concepto","Referencia","Monto"],
     ...report.movements.map(x=>[
       fmtDate(x.created_at),
       regMap.get(x.cash_register_id)?.closed_at?new Date(regMap.get(x.cash_register_id).closed_at).toLocaleDateString("es-PE"):"",
+      x.created_by_name||"",
       x.type==="INCOME"?"Ingreso":"Egreso",
       x.concept||"",
       x.reference||"",
@@ -2570,8 +2586,8 @@ function downloadCashExcel(report){
     ])
   ];
   const wsMov=XLSX.utils.aoa_to_sheet(movRows);
-  wsMov["!cols"]=[{wch:21},{wch:14},{wch:12},{wch:38},{wch:25},{wch:14}];
-  if(movRows.length>1)wsMov["!autofilter"]={ref:"A1:F"+movRows.length};
+  wsMov["!cols"]=[{wch:21},{wch:14},{wch:24},{wch:12},{wch:38},{wch:25},{wch:14}];
+  if(movRows.length>1)wsMov["!autofilter"]={ref:"A1:G"+movRows.length};
   XLSX.utils.book_append_sheet(wb,wsMov,"Movimientos");
 
   // Hojas adicionales para un informe de auditoría detallado.

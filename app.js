@@ -2265,9 +2265,10 @@ async function closeCashModal(open,expected){
       const closing=Number(new FormData(e.currentTarget).get("amount")||0);
       if(closing<0)throw new Error("El efectivo contado no puede ser negativo.");
       const notes=String(new FormData(e.currentTarget).get("notes")||"").trim()||null;
-      const difference=closing-Number(expected||0);
-      const {error}=await S.from("marc_cash_registers").update({status:"CLOSED",closing_amount:closing,expected_amount:Number(expected||0),difference,closed_at:new Date().toISOString(),closed_by:st.u.id,notes}).eq("id",open.id).eq("user_id",st.u.id).eq("status","OPEN");
-      if(error)throw error;close();toast("Caja cerrada correctamente","ok");await cash();
+      const {data:closed,error}=await S.rpc("marc_cash_close",{p_closing_amount:closing,p_notes:notes});
+      if(error)throw error;
+      if(!closed)throw new Error("Supabase no devolvió el cierre de caja.");
+      close();toast("Caja cerrada correctamente · Diferencia "+money(closing-Number(expected||0)),"ok");await cash();
     }catch(err){toast(err.message||"No se pudo cerrar la caja.","err");b.disabled=false}
   };
 }
@@ -2319,7 +2320,13 @@ async function cashMovementModal(open,type){
       if(amountValue<=0)throw new Error("Ingresa un monto válido.");
       const concept=String(d.get("concept")||"").trim(),reference=String(d.get("reference")||"").trim();
       if(income&&selected){
-        const quantity=Math.max(1,Number(d.get("quantity")||1));
+        const quantity=Number(d.get("quantity")||1);
+        const available=Number(selected.stock||0);
+        if(!Number.isInteger(quantity)||quantity<=0)throw new Error("La cantidad debe ser un número entero mayor que cero.");
+        if(available<=0)throw new Error("Este producto está agotado.");
+        if(quantity>available)throw new Error("Stock insuficiente. Disponible: "+available+" unidad"+(available===1?"":"es")+".");
+        const unitPrice=Number(selected.price||0);
+        if(unitPrice<=0)throw new Error("El producto seleccionado no tiene un precio de venta válido.");
         const {error}=await S.rpc("marc_register_product_sale",{p_cash_register_id:open.id,p_product_id:selected.id,p_quantity:quantity,p_amount:amountValue,p_concept:concept,p_reference:reference,p_created_by_name:ctx.staff?.display_name||st.u.email||"Usuario"});
         if(error)throw error;
       }else{

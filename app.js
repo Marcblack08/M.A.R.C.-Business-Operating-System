@@ -1,4 +1,4 @@
-(()=>{const C=window.MARC_CONFIG,S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"implicit"}});const st={u:null,session:null,view:"home",cid:null,authEpoch:0};let authListenerSession=null,authTimer=null,authEnteredSessionId=null;S.auth.onAuthStateChange((ev,s)=>{authListenerSession=s||null;console.info("[M.A.R.C. auth]",ev,!!s,s?.user?.id||"");if(s?.user){clearTimeout(authTimer);authTimer=setTimeout(()=>handleAuthSession(s),0)}else if(ev==="SIGNED_OUT"){clearTimeout(authTimer);authTimer=setTimeout(()=>resetUiToLogin(),0)}});const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)],esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])),money=v=>new Intl.NumberFormat("es-PE",{style:"currency",currency:"PEN"}).format(Number(v||0)),toast=(t,c="")=>{const e=document.createElement("div");e.className="toast "+c;e.textContent=t;$("#toast").appendChild(e);setTimeout(()=>e.remove(),2600)},initials=n=>String(n||"M").split(/\s+/).slice(0,2).map(x=>x[0]?.toUpperCase()).join("");let authMode="login",recoveryMode=new URLSearchParams(location.search).get("recovery")==="1"||/type=recovery/i.test(location.hash);
+(()=>{const C=window.MARC_CONFIG,S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"pkce"}});const st={u:null,session:null,view:"home",cid:null,authEpoch:0};let authListenerSession=null,authTimer=null,authEnteredSessionId=null;S.auth.onAuthStateChange((ev,s)=>{authListenerSession=s||null;console.info("[M.A.R.C. auth]",ev,!!s,s?.user?.id||"");if(s?.user){clearTimeout(authTimer);authTimer=setTimeout(()=>handleAuthSession(s),0)}else if(ev==="SIGNED_OUT"){clearTimeout(authTimer);authTimer=setTimeout(()=>resetUiToLogin(),0)}});const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)],esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])),money=v=>new Intl.NumberFormat("es-PE",{style:"currency",currency:"PEN"}).format(Number(v||0)),toast=(t,c="")=>{const e=document.createElement("div");e.className="toast "+c;e.textContent=t;$("#toast").appendChild(e);setTimeout(()=>e.remove(),2600)},initials=n=>String(n||"M").split(/\s+/).slice(0,2).map(x=>x[0]?.toUpperCase()).join("");let authMode="login",recoveryMode=new URLSearchParams(location.search).get("recovery")==="1"||/type=recovery/i.test(location.hash);
 function msg(t,c=""){const e=$("#authMsg");e.textContent=t;e.className="msg "+c}
 const THEME_KEY="marc_theme";
 function applyTheme(theme,save=true){
@@ -44,24 +44,41 @@ async function signInCashStaff(e){
     if(error)throw error;
   }catch(err){cashStaffError(err?.message||"No se pudo iniciar el acceso de caja.");if(b)b.disabled=false}
 }
-async function signInGoogle(){
+async function signInGoogle(e){
+  e?.preventDefault();
+  e?.stopPropagation();
   const b=$("#googleLogin");
+  if(!b)return;
   try{
-    if(b)b.disabled=true;
-    msg("Conectando con Google…");
+    b.disabled=true;
+    b.setAttribute("aria-busy","true");
+    const label=b.querySelector("span:last-child");
+    if(label)label.textContent="Conectando…";
+    msg("Abriendo acceso con Google…");
     sessionStorage.setItem("marc_google_oauth_pending","1");
-    const redirectUrl=new URL(location.origin+location.pathname);
+    const redirectUrl=new URL(location.href);
     redirectUrl.search="";
     redirectUrl.hash="";
-    const {error}=await S.auth.signInWithOAuth({
+    const redirectTo=redirectUrl.toString();
+    console.info("[M.A.R.C. OAuth] redirectTo:",redirectTo);
+    const {data,error}=await S.auth.signInWithOAuth({
       provider:"google",
-      options:{redirectTo:redirectUrl.toString()}
+      options:{
+        redirectTo,
+        queryParams:{prompt:"select_account"}
+      }
     });
     if(error)throw error;
+    if(!data?.url)throw new Error("Google no devolvió la URL de inicio de sesión.");
+    window.location.assign(data.url);
   }catch(e){
     sessionStorage.removeItem("marc_google_oauth_pending");
+    console.error("[M.A.R.C. Google login]",e);
     msg(e?.message||"No se pudo iniciar sesión con Google.","error");
-    if(b)b.disabled=false;
+    b.disabled=false;
+    b.removeAttribute("aria-busy");
+    const label=b.querySelector("span:last-child");
+    if(label)label.textContent="Continuar con Google";
   }
 }
 async function handleAuthSession(s){if(!s?.user)return;const id=s.user.id;if(authEnteredSessionId===id && st.u?.id===id && !$("#app").classList.contains("hidden"))return;authEnteredSessionId=id;try{await enter(s)}catch(e){authEnteredSessionId=null;throw e}}function resetUiToLogin(message="",type=""){st.authEpoch++;st.u=null;st.session=null;st.cid=null;try{applyCashierMode(false)}catch{}$("#app").classList.add("hidden");$("#auth").classList.remove("hidden");mode("login");if(message)msg(message,type)}
@@ -3420,7 +3437,7 @@ function wire(){
   $("#themeToggle").onclick=toggleTheme;
   $("#authThemeToggle").onclick=toggleTheme;
   mode("login");
-  $("#googleLogin").onclick=signInGoogle;
+  if($("#googleLogin")){ $("#googleLogin").type="button"; $("#googleLogin").onclick=signInGoogle; }
   $("#authForm").onsubmit=submit;
   $("#passwordToggle").onclick=()=>{const i=$("#password"),b=$("#passwordToggle");if(!i)return;i.type=i.type==="password"?"text":"password";b.textContent=i.type==="password"?"◉":"◎"};
   $("#signupMode").onclick=()=>{mode(authMode==="signup"?"login":"signup");$("#signupMode").textContent=authMode==="signup"?"Volver a iniciar sesión":"Crear cuenta";$("#authForm")?.reset()};

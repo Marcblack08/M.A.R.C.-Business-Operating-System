@@ -1984,3 +1984,28 @@ html:not([data-theme="dark"]):not([data-theme="color"]) .hero-visual-logo.is-mar
   .dashboard-hero .hero-visual-logo.is-marc-brand{width:50px!important;height:50px!important}
   .dashboard-hero h1{font-size:23px!important}
 }
+
+/* ===== HOTFIX 12 — real M.A.R.C. brand asset ===== */
+.hero-visual-logo.is-marc-brand{
+  padding:0!important;
+  background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+  overflow:visible!important;
+}
+.hero-visual-logo.is-marc-brand img{
+  display:block!important;
+  width:100%!important;
+  height:100%!important;
+  object-fit:contain!important;
+  filter:drop-shadow(0 0 24px rgba(20,157,255,.34))!important;
+}
+[data-theme="dark"] .hero-visual-logo.is-marc-brand img{
+  filter:drop-shadow(0 0 28px rgba(20,157,255,.42))!important;
+}
+html:not([data-theme="dark"]):not([data-theme="color"]) .hero-visual-logo.is-marc-brand img{
+  filter:drop-shadow(0 0 20px rgba(20,157,255,.22))!important;
+}
+@media(max-width:780px){
+  .dashboard-hero .hero-visual-logo.is-marc-brand img{width:62px!important;height:62px!important}
+}

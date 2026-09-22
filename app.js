@@ -3457,15 +3457,20 @@ function wire(){
   $("#mobileScrim").onclick=()=>$("#sidebar").classList.remove("open");
   // Navegación robusta para escritorio y móvil: delegación de eventos para que
   // los botones sigan funcionando aunque el contenido se redibuje dinámicamente.
-  document.querySelectorAll(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>{
+  document.querySelectorAll(".sidebar nav button").forEach(b=>{
     b.type="button";
-    b.onclick=(e)=>{e.preventDefault();e.stopPropagation();if(b.dataset.view==="suppliers"&&typeof window.marcSupplierCenter==="function")return window.marcSupplierCenter();return view(b.dataset.view)};
+    b.onclick=(e)=>{e.preventDefault();e.stopPropagation();
+      if(b.dataset.view==="suppliers"&&typeof window.marcSupplierCenter==="function")return window.marcSupplierCenter();
+      if(b.dataset.view==="settings")return companySettings();
+      return view(b.dataset.view);
+    };
   });
   document.addEventListener("click",e=>{
-    const b=e.target.closest?.(".sidebar nav button[data-view],#mobileNav button[data-view]");
+    const b=e.target.closest?.(".sidebar nav button[data-view]");
     if(!b)return;
     e.preventDefault();
     if(b.dataset.view==="suppliers"&&typeof window.marcSupplierCenter==="function")return window.marcSupplierCenter();
+    if(b.dataset.view==="settings")return companySettings();
     view(b.dataset.view);
   },true);
   $("#chatForm").onsubmit=e=>{e.preventDefault();const v=$("#chatInput").value.trim();if(v){$("#chatInput").value="";chatSend(v)}};

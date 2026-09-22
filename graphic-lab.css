@@ -1,0 +1,208 @@
+/* M.A.R.C. GRAPHIC LAB — desktop visual system
+   Branch: graphic-lab
+   Purpose: premium desktop polish, motion, interaction states and theme cohesion.
+*/
+:root{
+  --motion-fast:140ms;
+  --motion:220ms;
+  --motion-slow:360ms;
+  --ease:cubic-bezier(.2,.8,.2,1);
+  --focus:0 0 0 3px color-mix(in srgb,var(--blue) 20%,transparent);
+}
+html{scroll-behavior:smooth}
+body{
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+button,a,input,select,textarea{ -webkit-tap-highlight-color:transparent }
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{
+  outline:none;
+  box-shadow:var(--focus)!important;
+}
+
+/* Desktop shell */
+@media(min-width:1061px){
+  #app.app{
+    grid-template-columns:248px minmax(720px,1fr) 368px;
+  }
+  #app.app.chat-closed{
+    grid-template-columns:248px minmax(0,1fr);
+  }
+  .sidebar{
+    padding:24px 15px;
+    position:sticky;
+    top:0;
+    height:100svh;
+    align-self:start;
+  }
+  .main{min-width:0}
+  .top{
+    height:78px;
+    padding:0 32px;
+  }
+  .content{
+    width:100%;
+    max-width:1480px;
+    padding:32px 34px 48px;
+  }
+  .chat{position:sticky;top:0;height:100svh}
+}
+
+/* Sidebar interaction */
+.sidebar nav button{
+  isolation:isolate;
+  transition:
+    transform var(--motion) var(--ease),
+    background var(--motion) var(--ease),
+    color var(--motion) var(--ease),
+    box-shadow var(--motion) var(--ease);
+}
+.sidebar nav button:active{transform:scale(.985)}
+.sidebar nav button.active{transform:none}
+.sidebar nav button span{opacity:.92;transition:transform var(--motion) var(--ease)}
+.sidebar nav button:hover span{transform:translateX(2px)}
+.brand .logo{transition:transform .5s var(--ease),box-shadow .3s ease}
+.brand:hover .logo{transform:rotate(-3deg) scale(1.035)}
+
+/* Top bar */
+.top{
+  transition:background var(--motion) ease,border-color var(--motion) ease,box-shadow var(--motion) ease;
+}
+.theme-toggle,.notification-bell,.ask,.icon,.secondary,.primary,.hero-secondary,.hero-primary{
+  transition:
+    transform var(--motion-fast) var(--ease),
+    box-shadow var(--motion) ease,
+    background var(--motion) ease,
+    border-color var(--motion) ease,
+    color var(--motion) ease;
+}
+.theme-toggle:hover,.notification-bell:hover,.ask:hover,.icon:hover,.secondary:hover{
+  transform:translateY(-1px);
+}
+.theme-toggle:active,.notification-bell:active,.ask:active,.icon:active,.secondary:active,.primary:active{
+  transform:translateY(1px) scale(.985);
+}
+
+/* Dashboard hierarchy */
+.dashboard-hero{
+  isolation:isolate;
+  transform:translateZ(0);
+  transition:transform var(--motion-slow) var(--ease),box-shadow var(--motion) ease;
+}
+.dashboard-hero:hover{
+  transform:translateY(-2px);
+  box-shadow:0 30px 70px rgba(18,62,112,.22);
+}
+.dashboard-hero:before{animation:marcGlow 10s ease-in-out infinite alternate}
+.dashboard-hero:after{animation:marcOrbit 18s linear infinite}
+@keyframes marcGlow{from{transform:translate3d(-2%,0,0) scale(1)}to{transform:translate3d(4%,2%,0) scale(1.08)}}
+@keyframes marcOrbit{to{transform:rotate(360deg)}}
+
+.kpi-modern{
+  transform:translateZ(0);
+  transition:
+    transform var(--motion) var(--ease),
+    box-shadow var(--motion) ease,
+    border-color var(--motion) ease,
+    background var(--motion) ease;
+}
+.kpi-modern:hover{
+  transform:translateY(-4px);
+  box-shadow:0 18px 40px rgba(24,67,110,.13);
+}
+.kpi-icon{transition:transform var(--motion) var(--ease)}
+.kpi-modern:hover .kpi-icon{transform:scale(1.06) rotate(-2deg)}
+
+.dashboard-panel,.card,.table,.finance-dashboard{
+  transition:box-shadow var(--motion) ease,border-color var(--motion) ease,transform var(--motion) var(--ease);
+}
+.dashboard-panel:hover,.card:hover{
+  border-color:#cfdae7;
+}
+.quick-modern-grid button{
+  position:relative;
+  overflow:hidden;
+  transition:transform var(--motion) var(--ease),border-color var(--motion) ease,background var(--motion) ease,box-shadow var(--motion) ease;
+}
+.quick-modern-grid button:after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.5),transparent 65%);
+  transform:translateX(-120%);
+  transition:transform .55s var(--ease);
+  pointer-events:none;
+}
+.quick-modern-grid button:hover:after{transform:translateX(120%)}
+
+/* Lists and tables feel interactive without being noisy */
+.data tbody tr,.activity-row,.critical-row{
+  transition:background var(--motion-fast) ease;
+}
+.data tbody tr:hover{background:#f6faff}
+.activity-row:hover,.critical-row:hover{background:rgba(20,120,234,.035)}
+.badge,.status-pill{transition:transform var(--motion-fast) var(--ease)}
+.badge:hover,.status-pill:hover{transform:translateY(-1px)}
+
+/* Chat */
+.chat{
+  transition:background var(--motion) ease,border-color var(--motion) ease,box-shadow var(--motion) ease;
+}
+.chat header{position:relative}
+.chat header b i{box-shadow:0 0 0 4px rgba(40,169,96,.10);animation:marcPulse 2.2s ease-in-out infinite}
+@keyframes marcPulse{50%{box-shadow:0 0 0 7px rgba(40,169,96,.02)}}
+.bubble{animation:messageIn .22s var(--ease) both}
+@keyframes messageIn{from{opacity:0;transform:translateY(5px) scale(.985)}to{opacity:1;transform:none}}
+.chat textarea{transition:border-color var(--motion) ease,box-shadow var(--motion) ease,background var(--motion) ease}
+.chat textarea:focus{border-color:#78b9ef}
+
+/* Modal / toast */
+.modal-root{animation:modalBackdrop .18s ease both}
+.modal{animation:modalIn .26s var(--ease) both}
+@keyframes modalBackdrop{from{opacity:0}to{opacity:1}}
+@keyframes modalIn{from{opacity:0;transform:translateY(12px) scale(.985)}to{opacity:1;transform:none}}
+.toast{animation:toastIn .25s var(--ease) both}
+@keyframes toastIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* Loading affordance for disabled/action states */
+button:disabled{cursor:wait!important;opacity:.65}
+.primary:disabled{box-shadow:none;transform:none}
+.loading,.is-loading{cursor:wait!important}
+
+/* Dark mode: richer surfaces, clearer depth */
+[data-theme="dark"]{
+  --line:#213750;
+}
+[data-theme="dark"] .top{box-shadow:0 12px 30px rgba(0,0,0,.24)}
+[data-theme="dark"] .dashboard-hero:hover{box-shadow:0 30px 75px rgba(0,0,0,.35)}
+[data-theme="dark"] .dashboard-panel:hover,
+[data-theme="dark"] .card:hover{border-color:#2e4b67}
+[data-theme="dark"] .data tbody tr:hover{background:#112236}
+[data-theme="dark"] .activity-row:hover,
+[data-theme="dark"] .critical-row:hover{background:rgba(60,162,255,.055)}
+[data-theme="dark"] .quick-modern-grid button:after{background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.08),transparent 65%)}
+[data-theme="dark"] .modal-root{backdrop-filter:blur(10px)}
+[data-theme="dark"] .kpi-modern:hover{box-shadow:0 18px 42px rgba(0,0,0,.28)}
+[data-theme="dark"] .theme-toggle:hover,
+[data-theme="dark"] .notification-bell:hover,
+[data-theme="dark"] .ask:hover{box-shadow:0 8px 24px rgba(0,0,0,.24)}
+
+/* Keep motion elegant and accessible */
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{
+    animation-duration:.001ms!important;
+    animation-iteration-count:1!important;
+    transition-duration:.001ms!important;
+    scroll-behavior:auto!important;
+  }
+}
+
+/* Desktop density adjustments */
+@media(min-width:1280px){
+  .dashboard-kpis{gap:14px}
+  .dashboard-main-grid{gap:20px}
+  .quick-modern-grid{gap:11px}
+  .quick-modern-grid button{padding:13px}
+  .dashboard-panel{border-radius:20px}
+}

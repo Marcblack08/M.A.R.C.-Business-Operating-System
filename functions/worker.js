@@ -2400,7 +2400,7 @@ function bytesToBase64(bytes){
 async function geminiGeneratePdf(env,pdfBytes,prompt,options={}){
   const apiKeys=[env.GEMINI_API_KEY,env.GEMINI_API_KEY2].filter((x,i,a)=>x&&a.indexOf(x)===i);
   if(!apiKeys.length)throw Object.assign(new Error("GEMINI_API_KEY no está configurada en el Worker."),{status:503});
-  const models=[env.GEMINI_MODEL||GEMINI_MODEL_DEFAULT,env.GEMINI_MODEL_FALLBACK||"gemini-3.7-flash",env.GEMINI_MODEL_FALLBACK2||"gemini-3.6-flash"].filter((x,i,a)=>x&&a.indexOf(x)===i);
+  const models=(Array.isArray(options.models)&&options.models.length?options.models:[env.GEMINI_MODEL||GEMINI_MODEL_DEFAULT,env.GEMINI_MODEL_FALLBACK||"gemini-3.7-flash",env.GEMINI_MODEL_FALLBACK2||"gemini-3.6-flash"]).filter((x,i,a)=>x&&a.indexOf(x)===i);
   const data=bytesToBase64(new Uint8Array(pdfBytes));
   let last=null;
   for(const model of models){
@@ -3316,7 +3316,7 @@ async function marketingAi(request,env){
     if(imageData){
       const parts=[{text:systemText+"\n\n"+userText+"\n\nAnaliza primero la foto principal para identificar el producto real."},{inlineData:{mimeType:imageData[1]==="image/jpg"?"image/jpeg":imageData[1],data:imageData[2]}}];
       if(referenceData){parts.push({text:"FOTO DE REFERENCIA: úsala solo para confirmar marca, modelo o detalles visibles."});parts.push({inlineData:{mimeType:referenceData[1]==="image/jpg"?"image/jpeg":referenceData[1],data:referenceData[2]}})}
-      out=await geminiGenerateImage(env,parts,systemText,{json:true,maxTokens:1300});
+      out=await geminiGenerateImage(env,parts,systemText,{json:true,maxTokens:1100,models:[env.GEMINI_MARKETING_MODEL||"gemini-3.1-flash-lite",env.GEMINI_MODEL_FALLBACK||"gemini-3.7-flash"]});
     }else{
       out=await geminiGenerate(env,{messages:[{role:"system",content:systemText},{role:"user",content:userText}]},{json:true,maxTokens:1300});
     }

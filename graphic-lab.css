@@ -284,3 +284,52 @@ button:disabled{cursor:wait!important;opacity:.65}
 .content>.head{animation-delay:0ms}.content>.grid4,.content>.client-summary,.content>.inventory-summary{animation-delay:35ms}.content>.cols,.content>.commgrid,.content>.settings{animation-delay:55ms}.content>.table{animation-delay:70ms}
 @keyframes pageIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:reduce){.content>*{animation:none!important}}
+
+/* ===== PHASE 3 — navigation + interaction polish ===== */
+.view-progress{
+  position:fixed;left:0;right:0;top:0;height:3px;z-index:9999;
+  opacity:0;pointer-events:none;overflow:hidden;transition:opacity .16s ease;
+  background:transparent;
+}
+.view-progress.on{opacity:1}
+.view-progress i{
+  display:block;width:0;height:100%;border-radius:0 99px 99px 0;
+  background:linear-gradient(90deg,#20b7ff,#1478ea,#7a66ee);
+  box-shadow:0 0 12px rgba(20,120,234,.4);
+  transition:width .34s var(--ease);
+}
+.content.view-refresh{animation:contentRefresh .34s var(--ease) both}
+@keyframes contentRefresh{from{opacity:.72;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+button,.secondary,.primary,.theme-toggle,.notification-bell,.ask,.sidebar nav button,.quick-modern-grid button,.hero-secondary,.hero-primary,.cash-action,.ad-source-tab,.ad-objective{
+  position:relative;overflow:hidden;
+}
+.marc-ripple{
+  position:absolute;border-radius:50%;pointer-events:none;
+  background:rgba(255,255,255,.34);
+  transform:scale(0);opacity:.9;
+  animation:marcRipple .52s ease-out forwards;
+}
+@keyframes marcRipple{to{transform:scale(1);opacity:0}}
+[data-theme="dark"] .marc-ripple{background:rgba(255,255,255,.12)}
+
+.action-touched{animation:actionTouched .55s var(--ease)}
+@keyframes actionTouched{0%{transform:scale(1)}35%{transform:scale(.985)}100%{transform:scale(1)}}
+
+body.sidebar-open{overflow:hidden}
+@media(min-width:781px){body.sidebar-open{overflow:auto}}
+
+/* Desktop navigation feels anchored while content moves. */
+@media(min-width:1061px){
+  .sidebar{backdrop-filter:blur(12px)}
+  .sidebar nav button{min-height:44px}
+  .top{box-shadow:0 8px 28px rgba(18,49,81,.035)}
+}
+
+/* Prevent visual jump while a new view is loading. */
+#content[aria-busy="true"]{cursor:progress}
+#content[aria-busy="true"] .view-refresh{opacity:.96}
+
+@media(prefers-reduced-motion:reduce){
+  .view-progress,.marc-ripple,.action-touched{animation:none!important;transition:none!important}
+}

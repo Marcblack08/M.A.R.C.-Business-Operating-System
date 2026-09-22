@@ -899,3 +899,148 @@ body.sidebar-open{overflow:hidden}
   #modal .quote-summary{grid-template-columns:repeat(3,minmax(0,1fr))}
   #modal .quote-summary .grand{grid-column:span 1}
 }
+
+/* ===== PHASE 6 — M.A.R.C. assistant + app navigation ===== */
+@media(min-width:1061px){
+  #chat{
+    transition:width .32s var(--ease),opacity .22s ease,transform .32s var(--ease),box-shadow .32s ease;
+    box-shadow:0 0 0 1px rgba(20,70,110,.04),-16px 0 45px rgba(16,52,88,.07);
+  }
+  #chat.closed{
+    transform:translateX(10px);
+    opacity:.98;
+  }
+  #chat.open{
+    transform:translateX(0);
+  }
+  #chat .chat-head{
+    min-height:74px;
+    padding:15px 17px;
+    border-bottom:1px solid var(--line);
+    background:linear-gradient(135deg,var(--panel),#f6fbff);
+  }
+  #chat .chat-head .avatar,
+  #chat .chat-head .chat-avatar{
+    box-shadow:0 0 0 5px rgba(11,115,230,.07),0 7px 18px rgba(11,115,230,.16);
+  }
+  #chat .messages{
+    padding:18px 15px;
+    scroll-behavior:smooth;
+    background:
+      radial-gradient(circle at 85% 8%,rgba(11,115,230,.055),transparent 24%),
+      linear-gradient(180deg,#fbfdff,#f6f9fc);
+  }
+  #chat .bubble{
+    max-width:88%;
+    border-radius:15px;
+    padding:10px 12px;
+    line-height:1.48;
+    box-shadow:0 4px 12px rgba(20,60,100,.045);
+  }
+  #chat .bubble.a{
+    border-top-left-radius:5px;
+    background:#fff;
+    border:1px solid #e0eaf3;
+  }
+  #chat .bubble.u{
+    border-top-right-radius:5px;
+    box-shadow:0 7px 16px rgba(11,115,230,.14);
+  }
+  #chat .bubble.a.typing{
+    display:flex;
+    align-items:center;
+    gap:4px;
+    min-width:56px;
+  }
+  #chat .bubble.a.typing i{
+    width:5px;height:5px;border-radius:50%;
+    background:#7d91a8;
+    animation:marcTyping 1s infinite ease-in-out;
+  }
+  #chat .bubble.a.typing i:nth-child(2){animation-delay:.14s}
+  #chat .bubble.a.typing i:nth-child(3){animation-delay:.28s}
+  @keyframes marcTyping{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-3px);opacity:1}}
+  #chat .chips{
+    padding:8px 12px 4px;
+    gap:6px;
+  }
+  #chat .chips button{
+    border:1px solid #dce8f2;
+    background:#fff;
+    transition:transform var(--motion-fast) ease,border-color var(--motion-fast) ease,box-shadow var(--motion-fast) ease;
+  }
+  #chat .chips button:hover{
+    transform:translateY(-1px);
+    border-color:#9fc6e8;
+    box-shadow:0 5px 13px rgba(20,70,110,.08);
+  }
+  #chat .chat-input,
+  #chat textarea{
+    border:1px solid #d8e5f0;
+    background:#fff;
+    transition:border-color var(--motion) ease,box-shadow var(--motion) ease,background var(--motion) ease;
+  }
+  #chat .chat-input:focus,
+  #chat textarea:focus{
+    border-color:#72afe0;
+    box-shadow:0 0 0 4px rgba(11,115,230,.08);
+  }
+  #chat .chat-send{
+    transition:transform var(--motion-fast) var(--ease),box-shadow var(--motion-fast) ease;
+  }
+  #chat .chat-send:hover{
+    transform:translateY(-1px);
+    box-shadow:0 8px 18px rgba(11,115,230,.18);
+  }
+
+  /* Navigation active state is deliberately restrained: clear, not noisy. */
+  .sidebar nav button{
+    border:1px solid transparent;
+    transition:background var(--motion-fast) ease,color var(--motion-fast) ease,border-color var(--motion-fast) ease,transform var(--motion-fast) var(--ease);
+  }
+  .sidebar nav button:hover{
+    transform:translateX(2px);
+  }
+  .sidebar nav button.active{
+    border-color:rgba(11,115,230,.13);
+    box-shadow:inset 3px 0 0 var(--blue),0 5px 16px rgba(11,115,230,.06);
+  }
+  .sidebar .section-label{
+    opacity:.7;
+  }
+  #app .top{
+    transition:box-shadow .28s ease,background .28s ease;
+  }
+  #app .top.scrolled{
+    box-shadow:0 10px 30px rgba(20,55,90,.08);
+    background:color-mix(in srgb,var(--panel) 94%,transparent);
+    backdrop-filter:blur(12px);
+  }
+
+  [data-theme="dark"] #chat .chat-head{
+    background:linear-gradient(135deg,#0d1b2b,#102235);
+  }
+  [data-theme="dark"] #chat .messages{
+    background:linear-gradient(180deg,#0b1725,#0d1b2b);
+  }
+  [data-theme="dark"] #chat .bubble.a,
+  [data-theme="dark"] #chat .chips button,
+  [data-theme="dark"] #chat .chat-input,
+  [data-theme="dark"] #chat textarea{
+    background:#102235;
+    border-color:#29435e;
+  }
+  [data-theme="dark"] #chat .chips button:hover{border-color:#38678f}
+}
+
+/* Shared chat polish on tablet/mobile without changing layout dimensions. */
+#chat .bubble{
+  animation:bubbleIn .22s var(--ease) both;
+}
+@keyframes bubbleIn{
+  from{opacity:0;transform:translateY(4px) scale(.99)}
+  to{opacity:1;transform:none}
+}
+@media(prefers-reduced-motion:reduce){
+  #chat .bubble,#chat .bubble.a.typing i{animation:none!important}
+}

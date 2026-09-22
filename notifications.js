@@ -169,7 +169,7 @@
   window.MARCNotifications={notifications,add:addNotification,notify,open,share,reminder,addStockWatch,check:()=>{checkReminders();watchInventory()}};
   document.addEventListener("DOMContentLoaded",()=>{
     $("#notificationBell")?.addEventListener("click",open);
-    renderCount();checkReminders();watchInventory();installMarketingShare();syncServer();setInterval(()=>{checkReminders();watchInventory();syncServer()},30000);new MutationObserver(()=>installMarketingShare()).observe(document.body,{childList:true,subtree:true});
+    renderCount();checkReminders();watchInventory();installMarketingShare();syncServer();setInterval(()=>{checkReminders();watchInventory();syncServer()},30000);const contentRoot=document.querySelector("#content");if(contentRoot)new MutationObserver(()=>installMarketingShare()).observe(contentRoot,{childList:true,subtree:true});
     if(!notifications().length)addNotification("Bienvenido a M.A.R.C.","Aquí aparecerán recordatorios, publicidad pendiente, cobros y tareas importantes.");
   });
 })();

@@ -3811,11 +3811,13 @@ html[data-theme="dark"]{color-scheme:dark}
    a comprimir el contenido o a reservar una columna fantasma.
 */
 @media (min-width:1061px){
+  /* Geometría única de escritorio: sidebar + contenido + chat. */
   #app.app{
     display:grid!important;
     grid-template-columns:248px minmax(0,1fr) 368px!important;
     width:100%!important;
     min-width:0!important;
+    overflow:hidden!important;
   }
   #app.app.chat-closed{
     grid-template-columns:248px minmax(0,1fr)!important;
@@ -3824,6 +3826,7 @@ html[data-theme="dark"]{color-scheme:dark}
   #app.app>.main,
   #app.app>.chat{min-width:0}
   #app.app>.sidebar{width:auto!important}
+  #app.app>.main{overflow-x:hidden!important}
   #app.app>.chat{width:auto!important;position:sticky;top:0;height:100svh}
 }
 @media (min-width:781px) and (max-width:1060px){

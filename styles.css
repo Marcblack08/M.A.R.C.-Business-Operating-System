@@ -3302,7 +3302,7 @@ html[data-theme="dark"] #scModalOverlay [style*="background:rgba(127,127,127,.08
 
 /* ===== DESKTOP WEB OPTIMIZATION — preserve mobile layout ===== */
 @media (min-width:1101px){
-  /* El ancho del shell desktop lo controla graphic-lab.css para evitar cascadas contradictorias. */
+  /* Geometría desktop complementaria: el grid principal vive en graphic-lab.css. */
   .sidebar{
     width:230px!important;
     padding:22px 14px!important;

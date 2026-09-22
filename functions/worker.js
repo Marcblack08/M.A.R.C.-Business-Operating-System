@@ -3772,6 +3772,25 @@ export default{
     const headers=corsHeaders(request);
     if(request.method==="OPTIONS")return new Response(null,{status:204,headers});
     const url=new URL(request.url);
+    if(url.pathname==="/api/auth/signup"){
+      if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);
+      try{
+        const body=await request.json().catch(()=>({}));
+        const email=String(body?.email||"").trim().toLowerCase();
+        const password=String(body?.password||"");
+        if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)||password.length<6)return json({error:"Correo o contraseña inválidos"},400,headers);
+        const adminToken=env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY;
+        if(!adminToken)return json({error:"El servidor de autenticación no está configurado."},503,headers);
+        const ar=await fetch(env.SUPABASE_URL+"/auth/v1/admin/users",{method:"POST",headers:{"content-type":"application/json",apikey:adminToken,Authorization:"Bearer "+adminToken},body:JSON.stringify({email,password,email_confirm:true})});
+        const ad=await ar.json().catch(()=>null);
+        if(!ar.ok){
+          const msg=String(ad?.msg||ad?.message||ad?.error_description||"No se pudo crear la cuenta.");
+          if(ar.status===422&&/already|exists|registered|duplicate/i.test(msg))return json({error:"Ya existe una cuenta con ese correo. Inicia sesión o usa recuperación de contraseña."},409,headers);
+          return json({error:msg},ar.status||400,headers);
+        }
+        return json({ok:true,user:{id:ad?.id,email:ad?.email}},200,headers);
+      }catch(err){return json({error:err?.message||"No se pudo crear la cuenta."},500,headers)}
+    }
     if(url.pathname==="/api/cash-staff/login"){
       if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);
       try{

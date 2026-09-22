@@ -237,7 +237,7 @@ function closeChat(){
   $("#chat").classList.add("closed");
   $("#app").classList.add("chat-closed");
 }
-function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",suppliers:"Proveedores",quotes:"Cotizaciones",marketing:"Publicidad",settings:"Configuración",cash:"Cierre de caja"}[x]||"Inicio";$$$(".sidebar nav button, #mobileNav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
+function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",suppliers:"Proveedores",quotes:"Cotizaciones",marketing:"Publicidad",settings:"Configuración",cash:"Cierre de caja"}[x]||"Inicio";$(".sidebar nav button, #mobileNav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
 let __viewBusy=false;
 async function view(x){
   if(__viewBusy&&st.view===x)return;
@@ -2876,7 +2876,7 @@ async function marketing(){
     }
   };
 
-  $$$(".ad-source-tab").forEach(b=>b.onclick=()=>switchSource(b.dataset.source));
+  $(".ad-source-tab").forEach(b=>b.onclick=()=>switchSource(b.dataset.source));
   $p("adProduct").onchange=async()=>{currentProduct=list.find(p=>p.id===$p("adProduct").value)||null;currentImage=null;currentImageFile=null;currentAiImage=null;renderProductSummary();await renderCanvas()};
   $p("adProductSearch").oninput=()=>{const q=$p("adProductSearch").value.toLowerCase().trim(),sel=$p("adProduct"),matches=list.filter(p=>[p.name,p.sku,p.brand,p.model].join(" ").toLowerCase().includes(q));sel.innerHTML=matches.length?matches.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+(p.sku?" · "+esc(p.sku):"")+'</option>').join(""):'<option value="">Sin coincidencias</option>';currentProduct=matches[0]||null;renderProductSummary();renderCanvas()};
   $p("adImage").onchange=e=>preparePhoto(e.target.files?.[0]);
@@ -2907,8 +2907,8 @@ async function marketing(){
     renderCanvas();
   }));
 
-  $$$(".ad-objective").forEach(btn=>btn.onclick=()=>{
-    $$$(".ad-objective").forEach(x=>x.classList.toggle("active",x===btn));
+  $(".ad-objective").forEach(btn=>btn.onclick=()=>{
+    $(".ad-objective").forEach(x=>x.classList.toggle("active",x===btn));
     $p("adObjective").value=btn.dataset.objective;
     const presets={VENDER:"Quiero vender este producto destacando sus beneficios y una llamada a la acción clara.","GENERAR CONSULTAS":"Quiero generar consultas y que los clientes me contacten por WhatsApp.","PROMOCIONAR PRODUCTO":"Quiero presentar este producto de forma profesional y atractiva."};
     if(!$p("adDetails").value.trim())$p("adDetails").value=presets[btn.dataset.objective]||"";

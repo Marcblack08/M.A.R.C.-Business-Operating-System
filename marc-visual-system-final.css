@@ -2009,3 +2009,52 @@ html:not([data-theme="dark"]):not([data-theme="color"]) .hero-visual-logo.is-mar
 @media(max-width:780px){
   .dashboard-hero .hero-visual-logo.is-marc-brand img{width:62px!important;height:62px!important}
 }
+
+/* ===== HOTFIX 13 — consistent brand logo placement ===== */
+.brand-image{
+  display:grid!important;
+  place-items:center!important;
+  overflow:hidden!important;
+}
+.brand-image img{
+  display:block!important;
+  width:100%!important;
+  height:100%!important;
+  object-fit:contain!important;
+}
+.auth-visual-brand .brand-image{
+  width:54px!important;height:54px!important;
+  flex:0 0 54px!important;
+  border-radius:14px!important;
+  background:#020b18!important;
+}
+.auth-card-top .auth-mark.brand-image{
+  width:58px!important;height:58px!important;
+  border-radius:16px!important;
+}
+.sidebar .brand-image{
+  width:44px!important;height:44px!important;
+  flex:0 0 44px!important;
+  border-radius:12px!important;
+  background:#020b18!important;
+}
+.top .brand-logo.brand-image{
+  width:40px!important;height:40px!important;
+  border-radius:12px!important;
+  background:#020b18!important;
+}
+[data-theme="dark"] .brand-image{
+  border:1px solid #2cbcff!important;
+  box-shadow:0 0 18px rgba(20,157,255,.20)!important;
+}
+html:not([data-theme="dark"]):not([data-theme="color"]) .brand-image{
+  border:1px solid #83cfee!important;
+  background:#f2fbff!important;
+  box-shadow:0 0 16px rgba(20,157,255,.12)!important;
+}
+@media(max-width:780px){
+  .auth-visual-brand .brand-image{width:46px!important;height:46px!important;flex-basis:46px!important}
+  .auth-card-top .auth-mark.brand-image{width:50px!important;height:50px!important}
+  .sidebar .brand-image{width:40px!important;height:40px!important;flex-basis:40px!important}
+  .top .brand-logo.brand-image{width:36px!important;height:36px!important}
+}

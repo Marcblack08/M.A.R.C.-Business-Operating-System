@@ -3241,16 +3241,6 @@ function wire(){
   $("#exitConversation").onclick=closeChat;
   $("#menu").onclick=()=>$("#sidebar").classList.toggle("open");
   $("#mobileScrim").onclick=()=>$("#sidebar").classList.remove("open");
-  // Navegación robusta para escritorio y móvil: delegación de eventos para que
-  // los botones sigan funcionando aunque el contenido se redibuje dinámicamente.
-  document.querySelectorAll(".sidebar nav button").forEach(b=>{
-    b.type="button";
-    b.onclick=(e)=>{e.preventDefault();e.stopPropagation();
-      if(b.dataset.view==="suppliers"&&typeof window.marcSupplierCenter==="function")return window.marcSupplierCenter();
-      if(b.dataset.view==="settings")return companySettings();
-      return view(b.dataset.view);
-    };
-  });
   document.addEventListener("click",e=>{
     const b=e.target.closest?.(".sidebar nav button[data-view]");
     if(!b)return;

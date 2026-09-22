@@ -3655,10 +3655,14 @@ async function telegramUnlink(request,env){
 async function processOperationalAlerts(env){
   const adminToken=env.SUPABASE_SERVICE_ROLE_KEY||env.SUPABASE_SECRET_KEY;
   if(!adminToken)return {ok:false};
-  const users=await sb(env,adminToken,"auth.users?select=id&limit=1000").catch(()=>[]);
+  const [a,b,cash]=await Promise.all([
+    sb(env,adminToken,"marc_inventory?select=user_id&limit=1000").catch(()=>[]),
+    sb(env,adminToken,"marc_quotes?select=user_id&limit=1000").catch(()=>[]),
+    sb(env,adminToken,"marc_cash_registers?select=user_id&limit=1000").catch(()=>[])
+  ]);
+  const userIds=[...new Set([...a,...b,...cash].map(x=>x?.user_id).filter(Boolean))];
   const out=[];
-  for(const u of Array.isArray(users)?users:[]){
-    const uid=u.id;
+  for(const uid of userIds){
     try{
       const inv=await sb(env,adminToken,"marc_inventory?select=id,name,stock,min_stock&user_id=eq."+encodeURIComponent(uid)+"&active=eq.true&or=(stock.eq.0,min_stock.gt.0)&limit=100");
       for(const item of Array.isArray(inv)?inv:[]){
@@ -3675,6 +3679,17 @@ async function processOperationalAlerts(env){
         if(old)await sb(env,adminToken,"marc_alert_state?user_id=eq."+encodeURIComponent(uid)+"&alert_key=eq."+encodeURIComponent(key),{method:"PATCH",body:stateBody}).catch(()=>{});
         else await sb(env,adminToken,"marc_alert_state",{method:"POST",body:stateBody}).catch(()=>{});
         out.push({user_id:uid,key});
+      }
+      const cashRows=await sb(env,adminToken,"marc_cash_registers?select=id,opened_at&user_id=eq."+encodeURIComponent(uid)+"&status=eq.OPEN&opened_at=lte."+encodeURIComponent(new Date(Date.now()-24*86400000).toISOString())+"&limit=1").catch(()=>[]);
+      const openCash=cashRows?.[0];
+      if(openCash){
+        const key="CASH_OPEN:"+openCash.id;
+        const oldCash=(await sb(env,adminToken,"marc_alert_state?select=last_value&user_id=eq."+encodeURIComponent(uid)+"&alert_key=eq."+encodeURIComponent(key)+"&limit=1").catch(()=>[]))?.[0];
+        if(!oldCash){
+          await sb(env,adminToken,"marc_reminders",{method:"POST",body:{user_id:uid,title:"💰 Caja pendiente de cierre",body:"La caja lleva más de 24 horas abierta. Revisa los movimientos y realiza el cierre cuando corresponda.",due_at:new Date().toISOString(),status:"PENDING",channel:"BOTH",entity_type:"CASH",entity_id:openCash.id,metadata:{alert:"CASH_OPEN"}}});
+          await sb(env,adminToken,"marc_alert_state",{method:"POST",body:{user_id:uid,alert_key:key,last_value:"1",last_sent_at:new Date().toISOString(),updated_at:new Date().toISOString()}}).catch(()=>{});
+          out.push({user_id:uid,key});
+        }
       }
       const quotes=await sb(env,adminToken,"marc_quotes?select=id,number,title,total,status,created_at,client_id&user_id=eq."+encodeURIComponent(uid)+"&deleted_at=is.null&status=eq.BORRADOR&created_at=lte."+encodeURIComponent(new Date(Date.now()-5*86400000).toISOString())+"&order=created_at.asc&limit=20").catch(()=>[]);
       for(const q of Array.isArray(quotes)?quotes:[]){

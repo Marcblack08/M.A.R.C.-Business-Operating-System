@@ -609,3 +609,37 @@ button[data-ops-lock="1"]{cursor:wait}
   .cash-primary-action span{font-size:17px!important}
   .cash-primary-action b{font-size:8px!important}
 }
+
+
+/* ===== Mobile hard-fit: prevent horizontal import/overflow ===== */
+@media(max-width:760px){
+  html,body,#app,.app,.main,.content{max-width:100%!important;width:100%!important;overflow-x:hidden!important}
+  .content{box-sizing:border-box!important;padding-top:24px!important}
+  .cash-mobile-center{display:grid!important;width:100%!important;max-width:100%!important;min-width:0!important;overflow:hidden!important}
+  .cash-hero,.cash-primary-actions,.cash-current-card,.cash-day-summary,.cash-quick-section,.cash-report-mobile,.cash-movements{
+    width:100%!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important
+  }
+  .cash-hero{margin-top:0!important}
+  .cash-hero-copy{min-width:0!important}
+  .cash-hero h1,.cash-hero p{overflow-wrap:anywhere!important}
+  .cash-primary-actions{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    grid-auto-columns:minmax(0,1fr)!important;
+    width:100%!important;
+    min-width:0!important;
+  }
+  .cash-primary-action{
+    width:100%!important;min-width:0!important;max-width:100%!important;
+    box-sizing:border-box!important;overflow:hidden!important;
+  }
+  .cash-primary-action b{max-width:100%!important;overflow-wrap:anywhere!important}
+  .cash-current-card>*{min-width:0!important}
+  .cash-current-balance{min-width:0!important}
+  .cash-current-balance strong{max-width:100%!important;overflow:hidden!important}
+}
+@media(max-width:390px){
+  .content{padding-top:20px!important;padding-left:8px!important;padding-right:8px!important}
+  .cash-hero{min-height:230px!important}
+  .cash-primary-actions{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}

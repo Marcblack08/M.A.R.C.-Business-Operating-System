@@ -815,3 +815,187 @@ button,input,select,textarea{font-family:Inter,system-ui,sans-serif}
   min-width:0!important;
   max-width:100%!important;
 }
+
+/* HOTFIX 04 — internal pages: desktop-first density + mobile cards */
+@media(min-width:781px){
+  #app .head{
+    display:flex!important;
+    align-items:flex-end!important;
+    justify-content:space-between!important;
+    gap:24px!important;
+    padding-bottom:18px!important;
+    border-bottom:1px solid #173650!important;
+  }
+  #app .head h1{font-size:28px!important;letter-spacing:-.5px!important}
+  #app .head p{font-size:12px!important;max-width:680px!important}
+  #app .head .actions{display:flex!important;gap:8px!important;flex-wrap:wrap!important}
+  #app .card.table{
+    overflow:hidden!important;
+    border-radius:18px!important;
+  }
+  #app .toolbar{
+    min-height:62px!important;
+    padding:11px 14px!important;
+    display:flex!important;
+    align-items:center!important;
+    gap:9px!important;
+  }
+  #app .toolbar input{min-height:40px!important}
+  #app .data th{
+    height:42px!important;
+    padding:10px 14px!important;
+    background:#0b243c!important;
+    font-size:10px!important;
+    letter-spacing:.35px!important;
+    text-transform:uppercase!important;
+  }
+  #app .data td{
+    padding:13px 14px!important;
+    font-size:12px!important;
+  }
+  #app .data tbody tr:hover{background:#0c2943!important}
+}
+@media(max-width:780px){
+  #app .head{
+    display:block!important;
+    padding-bottom:11px!important;
+    border-bottom:1px solid #173650!important;
+  }
+  #app .head h1{font-size:22px!important;line-height:1.12!important}
+  #app .head p{font-size:8px!important;line-height:1.45!important;margin-top:4px!important}
+  #app .head .actions{
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+    gap:6px!important;
+    margin-top:10px!important;
+  }
+  #app .head .actions button{
+    min-height:39px!important;
+    font-size:8px!important;
+    padding:0 8px!important;
+  }
+
+  /* Tables remain fully usable: horizontal scroll belongs to the table only,
+     never to the entire application viewport. */
+  #app .table{
+    width:100%!important;
+    max-width:100%!important;
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
+    -webkit-overflow-scrolling:touch!important;
+    border-radius:15px!important;
+  }
+  #app .toolbar{
+    min-height:52px!important;
+    padding:8px!important;
+    display:flex!important;
+    gap:6px!important;
+  }
+  #app .toolbar .search{flex:1 1 auto!important;min-width:0!important}
+  #app .toolbar input{height:38px!important;min-width:0!important;font-size:10px!important}
+  #app .toolbar button{height:38px!important;white-space:nowrap!important;font-size:8px!important;padding:0 10px!important}
+  #app .data th{
+    padding:9px 10px!important;
+    font-size:8px!important;
+    white-space:nowrap!important;
+    background:#0b243c!important;
+  }
+  #app .data td{
+    padding:10px!important;
+    font-size:9px!important;
+    white-space:nowrap!important;
+  }
+
+  /* Cards used by clients/suppliers and inventory auxiliary panels. */
+  #app .client-card,
+  #app .supplier-card-v2,
+  #app .inventory-card,
+  #app .product-card{
+    border-radius:15px!important;
+    background:#091f35!important;
+    border:1px solid #193a56!important;
+    box-shadow:none!important;
+  }
+  #app .client-card:hover,
+  #app .supplier-card-v2:hover,
+  #app .inventory-card:hover,
+  #app .product-card:hover{
+    transform:none!important;
+    border-color:#2a6388!important;
+  }
+
+  /* Form grids become true single-column mobile forms. */
+  #app .form-grid{
+    grid-template-columns:1fr!important;
+    gap:9px!important;
+  }
+  #app .form-grid label[style*="grid-column"]{
+    grid-column:auto!important;
+  }
+  #app .form-grid input,
+  #app .form-grid select,
+  #app .form-grid textarea{
+    min-height:43px!important;
+    font-size:13px!important;
+  }
+  #app .form-grid textarea{min-height:92px!important;padding-top:11px!important}
+  #app .modal-actions{
+    grid-column:auto!important;
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+    gap:7px!important;
+    padding-top:9px!important;
+  }
+  #app .modal-actions button{
+    min-height:43px!important;
+    font-size:10px!important;
+  }
+
+  /* Inventory-specific dense information stays readable. */
+  #app .inventory-ops-header{
+    margin:8px 0!important;
+    padding:11px!important;
+    border-radius:14px!important;
+    background:#0a2239!important;
+    border:1px solid #1a3d59!important;
+  }
+  #app .inventory-filter-chips{
+    display:flex!important;
+    gap:5px!important;
+    overflow-x:auto!important;
+    padding:7px!important;
+    scrollbar-width:none!important;
+  }
+  #app .inventory-filter-chip{
+    flex:0 0 auto!important;
+    min-height:31px!important;
+    padding:0 10px!important;
+    border-radius:999px!important;
+    font-size:8px!important;
+  }
+
+  /* Supplier workspace */
+  #app .supplier-ops-toolbar{
+    display:grid!important;
+    grid-template-columns:1fr auto!important;
+    gap:6px!important;
+    padding:8px!important;
+    background:#0a1e33!important;
+    border:1px solid #193750!important;
+    border-radius:14px!important;
+  }
+  #app .supplier-ops-toolbar .supplier-ops-search{grid-column:1/-1!important}
+  #app .supplier-ops-toolbar button{min-height:38px!important;font-size:8px!important}
+
+  /* Quote editor: prevent desktop-width panels from squeezing the page. */
+  #app .quote-line{
+    border-radius:12px!important;
+    padding:10px!important;
+  }
+  #app .quote-line input,
+  #app .quote-line select{min-height:39px!important;font-size:11px!important}
+  #app .quote-summary{
+    border-radius:14px!important;
+    padding:12px!important;
+  }
+}

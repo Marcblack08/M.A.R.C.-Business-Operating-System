@@ -2453,13 +2453,23 @@ async function marketing(){
       const textJ=await textR.json();if(!textR.ok)throw new Error(textJ.message||textJ.error||"No se pudo crear el texto.");
       await setCampaign(textJ.campaign);
       await saveMarketingCampaign(textJ.campaign,currentProduct,$p).catch(()=>{});
-      setStatus("Texto listo. Ahora M.A.R.C. está creando la imagen…");
-      const imageR=await fetch("/api/marketing-image",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({product:currentProduct,campaign:textJ.campaign,platform:"WHATSAPP",objective:$p("adObjective").value,details:$p("adDetails").value,format:$p("adFormat").value,template:"MODERN",variants:["PROFESSIONAL"],imageData:await readImage()})});
-      const imageJ=await imageR.json();if(!imageR.ok)throw new Error(imageJ.message||imageJ.error||"No se pudo crear la imagen.");
-      currentAiVariants=Array.isArray(imageJ.images)?imageJ.images:[];
-      if(currentAiVariants[0]?.data)currentAiImage="data:"+(currentAiVariants[0].mimeType||"image/png")+";base64,"+currentAiVariants[0].data;
-      await renderCanvas();
-      setStatus("Publicidad completa lista. Revisa, descarga o comparte.","ok");
+      // Criterio rápido: si ya existe una foto del producto, no generamos otra imagen con IA.
+      // La foto se usa como referencia visual y M.A.R.C. compone el anuncio localmente.
+      const productImage=currentImage||currentProduct?.image_url||"";
+      if(productImage){
+        currentAiVariants=[];
+        currentAiImage=null;
+        await renderCanvas();
+        setStatus("Publicidad lista. Se reutilizó la foto del producto para evitar una espera innecesaria.","ok");
+      }else{
+        setStatus("No hay foto del producto. M.A.R.C. está creando una imagen visual…");
+        const imageR=await fetch("/api/marketing-image",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({product:currentProduct,campaign:textJ.campaign,platform:"WHATSAPP",objective:$p("adObjective").value,details:$p("adDetails").value,format:$p("adFormat").value,template:"MODERN",variants:["PROFESSIONAL"],imageData:""})});
+        const imageJ=await imageR.json();if(!imageR.ok)throw new Error(imageJ.message||imageJ.error||"No se pudo crear la imagen.");
+        currentAiVariants=Array.isArray(imageJ.images)?imageJ.images:[];
+        if(currentAiVariants[0]?.data)currentAiImage="data:"+(currentAiVariants[0].mimeType||"image/png")+";base64,"+currentAiVariants[0].data;
+        await renderCanvas();
+        setStatus("Publicidad completa lista. Revisa, descarga o comparte.","ok");
+      }
       const hint=$p("bannerHint");if(hint)hint.textContent="Tu logo y datos comerciales se aplicaron automáticamente.";
       $p("adResult").scrollIntoView({behavior:"smooth",block:"start"});
     }catch(e){setStatus(e.message||"No se pudo crear la publicidad.","error")}

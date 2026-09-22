@@ -3783,8 +3783,15 @@ export default{
           "marc_cash_staff?select=owner_user_id,auth_user_id,username,display_name,role,active&username=eq."+encodeURIComponent(username)+"&limit=1");
         const staff=lookup?.[0];
         if(!staff||!staff.active)return json({error:"Usuario de caja no disponible"},401,headers);
+        const adminToken=env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY;
+        let loginEmail=username+"@cash.marc.local";
+        if(adminToken&&staff.auth_user_id){
+          const ur=await fetch(env.SUPABASE_URL+"/auth/v1/admin/users/"+encodeURIComponent(staff.auth_user_id),{headers:{apikey:adminToken,Authorization:"Bearer "+adminToken}});
+          const ud=await ur.json().catch(()=>null);
+          if(ur.ok&&ud?.email)loginEmail=String(ud.email).toLowerCase();
+        }
         const tokenUrl=env.SUPABASE_URL+"/auth/v1/token?grant_type=password";
-        const tr=await fetch(tokenUrl,{method:"POST",headers:{"content-type":"application/json",apikey:env.SUPABASE_PUBLISHABLE_KEY},body:JSON.stringify({email:username+"@cash.marc.local",password})});
+        const tr=await fetch(tokenUrl,{method:"POST",headers:{"content-type":"application/json",apikey:env.SUPABASE_PUBLISHABLE_KEY},body:JSON.stringify({email:loginEmail,password})});
         const td=await tr.json().catch(()=>null);
         if(!tr.ok)return json({error:"Usuario o contraseña incorrectos"},401,headers);
         return json({session:td,staff},200,headers);

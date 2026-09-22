@@ -2258,17 +2258,51 @@ async function cashMovementModal(open,type){
   const ctx=await getCashStaffContext();
   if(!ctx.ownerId)return;
   const income=type==="INCOME",title=income?"＋ Registrar ingreso":"− Registrar egreso";
-  const close=modal('<div class="modal-head"><div><h2>'+title+'</h2><p>Registro rápido de caja. Quedará asociado a '+esc(ctx.staff?.display_name||"tu usuario")+'.</p></div><button class="close" id="x">×</button></div><form id="cashMoveForm"><div class="cash-quick-amount"><span>S/</span><input name="amount" inputmode="decimal" type="number" min="0.01" step="0.01" required placeholder="0.00" autofocus></div><div class="cash-quick-grid"><button type="button" class="secondary cash-preset" data-v="10">S/ 10</button><button type="button" class="secondary cash-preset" data-v="20">S/ 20</button><button type="button" class="secondary cash-preset" data-v="50">S/ 50</button><button type="button" class="secondary cash-preset" data-v="100">S/ 100</button></div><label>Concepto<input name="concept" required placeholder="'+(income?"Venta, cobro, servicio…":"Compra, transporte, gasto…")+'"></label><label>Referencia opcional<input name="reference" placeholder="Boleta, factura, cliente, nota…"></label><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">'+(income?"Registrar ingreso":"Registrar egreso")+'</button></div></form>');
+  let products=[];
+  if(income){
+    const {data,error}=await S.from("marc_inventory").select("id,name,sku,brand,model,category,unit,price,stock,image_url,description").eq("user_id",ctx.ownerId).eq("active",true).order("name").limit(1000);
+    if(error)return toast(error.message,"err");
+    products=data||[];
+  }
+  const productOptions=products.length?'<div class="cash-product-picker"><div class="cash-product-head"><b>¿Qué producto estás vendiendo?</b><small>Busca por nombre, marca, modelo o SKU.</small></div><input id="cashProductSearch" class="cash-product-search" placeholder="🔎 Buscar producto…"><div id="cashProductList" class="cash-product-list"></div><div id="cashProductSelected" class="cash-product-selected"></div></div>':'';
+  const close=modal('<div class="modal-head"><div><h2>'+title+'</h2><p>Registro rápido de caja. Quedará asociado a '+esc(ctx.staff?.display_name||"tu usuario")+'.</p></div><button class="close" id="x">×</button></div><form id="cashMoveForm">'+productOptions+'<div class="cash-quick-amount"><span>S/</span><input name="amount" inputmode="decimal" type="number" min="0.01" step="0.01" required placeholder="0.00" autofocus></div><div id="cashProductQtyWrap" class="cash-product-qty hidden"><label>Cantidad<input id="cashProductQty" name="quantity" type="number" min="1" step="1" value="1"></label><span id="cashProductTotal"></span></div><div class="cash-quick-grid"><button type="button" class="secondary cash-preset" data-v="10">S/ 10</button><button type="button" class="secondary cash-preset" data-v="20">S/ 20</button><button type="button" class="secondary cash-preset" data-v="50">S/ 50</button><button type="button" class="secondary cash-preset" data-v="100">S/ 100</button></div><label>Concepto<input name="concept" required placeholder="'+(income?"Venta, cobro, servicio…":"Compra, transporte, gasto…")+'"></label><label>Referencia opcional<input name="reference" placeholder="Boleta, factura, cliente, nota…"></label><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">'+(income?"Registrar ingreso":"Registrar egreso")+'</button></div></form>');
   $("#x").onclick=close;$("#cancel").onclick=close;
-  $(".cash-preset",$("#cashMoveForm")).forEach(b=>b.onclick=()=>$("#cashMoveForm [name=amount]").value=b.dataset.v);
+  let selected=null;
+  const amount=$("#cashMoveForm [name=amount]"),qty=$("#cashProductQty"),qtyWrap=$("#cashProductQtyWrap"),total=$("#cashProductTotal"),list=$("#cashProductList"),search=$("#cashProductSearch"),selectedBox=$("#cashProductSelected");
+  const renderProducts=()=>{
+    if(!list)return;
+    const q=String(search?.value||"").trim().toLowerCase();
+    const filtered=products.filter(p=>[p.name,p.sku,p.brand,p.model,p.category].some(v=>String(v||"").toLowerCase().includes(q))).slice(0,30);
+    list.innerHTML=filtered.map(p=>'<button type="button" class="cash-product-item" data-id="'+esc(p.id)+'">'+(p.image_url?'<img src="'+esc(p.image_url)+'" alt="">':'<span class="cash-product-thumb">▦</span>')+'<span><b>'+esc(p.name)+'</b><small>'+esc([p.brand,p.model,p.sku].filter(Boolean).join(" · ")||"Sin código")+'</small><small>'+esc(p.description||p.category||"Producto")+' · Stock: '+Number(p.stock||0)+'</small></span><strong>'+money(p.price||0)+'</strong></button>').join("")||'<div class="empty">No encontré productos con esa búsqueda.</div>';
+    $$(".cash-product-item",list).forEach(b=>b.onclick=()=>selectProduct(products.find(p=>p.id===b.dataset.id)));
+  };
+  const updateProductTotal=()=>{
+    if(!selected)return;
+    const n=Math.max(1,Number(qty?.value||1)),v=Number(selected.price||0)*n;
+    amount.value=v.toFixed(2);
+    if(total)total.textContent=n+" × "+money(selected.price||0)+" = "+money(v);
+  };
+  const selectProduct=p=>{
+    if(!p)return;
+    selected=p; if(qtyWrap)qtyWrap.classList.remove("hidden");
+    if(selectedBox)selectedBox.innerHTML='<div><b>✓ '+esc(p.name)+'</b><small>'+esc([p.brand,p.model,p.unit].filter(Boolean).join(" · ")||"Producto seleccionado")+'</small></div><button type="button" id="cashProductClear">Cambiar</button>';
+    if($("#cashProductClear"))$("#cashProductClear").onclick=()=>{selected=null;selectedBox.innerHTML="";qtyWrap?.classList.add("hidden");amount.value="";renderProducts()};
+    $("#cashMoveForm [name=concept]").value="Venta · "+p.name+(p.model?" · "+p.model:"");
+    $("#cashMoveForm [name=reference]").value=p.sku||"";
+    qty.value="1";updateProductTotal();
+  };
+  search?.addEventListener("input",renderProducts);
+  qty?.addEventListener("input",updateProductTotal);
+  renderProducts();
+  $(".cash-preset",$("#cashMoveForm")).forEach(b=>b.onclick=()=>{selected=null;selectedBox&&(selectedBox.innerHTML="");qtyWrap?.classList.add("hidden");amount.value=b.dataset.v});
   $("#cashMoveForm").onsubmit=async e=>{
     e.preventDefault();const b=e.currentTarget.querySelector("button.primary");b.disabled=true;
     try{
-      const d=new FormData(e.currentTarget),amount=Number(d.get("amount")||0);
-      if(amount<=0)throw new Error("Ingresa un monto válido.");
-      const row={user_id:ctx.ownerId,cash_register_id:open.id,type,amount,concept:String(d.get("concept")||"").trim(),reference:String(d.get("reference")||"").trim()||null,created_by:st.u.id,created_by_name:ctx.staff?.display_name||st.u.email||"Usuario"};
+      const d=new FormData(e.currentTarget),amountValue=Number(d.get("amount")||0);
+      if(amountValue<=0)throw new Error("Ingresa un monto válido.");
+      const row={user_id:ctx.ownerId,cash_register_id:open.id,type,amount:amountValue,concept:String(d.get("concept")||"").trim(),reference:String(d.get("reference")||"").trim()||null,created_by:st.u.id,created_by_name:ctx.staff?.display_name||st.u.email||"Usuario"};
       const {error}=await S.from("marc_cash_movements").insert(row);if(error)throw error;
-      close();toast(income?"Ingreso registrado":"Egreso registrado","ok");await cash();
+      close();toast(income?(selected?"Venta registrada · "+selected.name:"Ingreso registrado"):"Egreso registrado","ok");await cash();
     }catch(err){toast(err.message||"No se pudo registrar el movimiento.","err");b.disabled=false}
   };
 }

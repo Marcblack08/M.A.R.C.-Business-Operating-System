@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<defs>
+ <radialGradient id="bg" cx="50%" cy="36%" r="72%"><stop offset="0" stop-color="#123b61"/><stop offset=".62" stop-color="#041426"/><stop offset="1" stop-color="#010812"/></radialGradient>
+ <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#53ddff"/><stop offset=".48" stop-color="#168dff"/><stop offset="1" stop-color="#0754e8"/></linearGradient>
+ <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffffff"/><stop offset=".45" stop-color="#cbd8e7"/><stop offset="1" stop-color="#71869d"/></linearGradient>
+ <filter id="glow"><feGaussianBlur stdDeviation="7" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<circle cx="256" cy="256" r="242" fill="#00050b" stroke="url(#ring)" stroke-width="14" filter="url(#glow)"/>
+<circle cx="256" cy="256" r="214" fill="url(#bg)" stroke="#2bbcff" stroke-opacity=".25"/>
+<!-- antenna -->
+<path d="M256 92v-25" stroke="#dff7ff" stroke-width="8" stroke-linecap="round"/><circle cx="256" cy="57" r="7" fill="#42d8ff" filter="url(#glow)"/>
+<!-- robot head -->
+<rect x="123" y="112" width="266" height="185" rx="54" fill="url(#metal)" stroke="#effaff" stroke-width="6"/>
+<rect x="143" y="132" width="226" height="145" rx="40" fill="#02070e" stroke="#6adfff" stroke-width="3"/>
+<path d="M191 203q24-31 48 0M273 203q24-31 48 0" fill="none" stroke="#49d5ff" stroke-width="13" stroke-linecap="round" filter="url(#glow)"/>
+<circle cx="119" cy="205" r="30" fill="#0a2036" stroke="#42ccff" stroke-width="6"/><text x="119" y="216" text-anchor="middle" font-family="Arial,sans-serif" font-size="27" font-weight="700" fill="#eafaff">M</text>
+<!-- torso -->
+<path d="M151 310h210l42 150H109z" fill="#101a28" stroke="#a9c7dd" stroke-width="5"/>
+<path d="M151 310l105 92 105-92" fill="#f5f8fc"/>
+<path d="M256 402v58" stroke="#172337" stroke-width="5"/>
+<path d="M228 319l28 37 28-37" fill="#0b1421"/>
+<path d="M228 323h56" stroke="#0b1421" stroke-width="8"/>
+<circle cx="256" cy="382" r="7" fill="#42cfff"/><circle cx="256" cy="417" r="7" fill="#42cfff"/>
+<!-- bow tie -->
+<path d="M226 348l-36-22 7 45 29-13 29 13 29-13 7 13-29-45z" fill="#05080d" opacity=".95"/>
+<text x="256" y="493" text-anchor="middle" font-family="Arial,sans-serif" font-size="28" font-weight="800" letter-spacing="7" fill="#eefaff">M.A.R.C.</text>
+</svg>

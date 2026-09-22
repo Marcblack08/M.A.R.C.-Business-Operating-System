@@ -89,9 +89,10 @@ async function trial(){
 }
 async function chatLoad(){const box=$("#messages");box.innerHTML="";const {data}=await S.from("marc_messages").select("role,content").eq("conversation_id",st.cid).order("created_at",{ascending:true}).limit(60);if(!data?.length)addBubble("a","Hola. Soy M.A.R.C. Dime qué quieres hacer.");else data.forEach(x=>addBubble(x.role==="USER"?"u":"a",x.content))}
 function addBubble(type,text){const e=document.createElement("div");e.className="bubble "+type;e.textContent=text;$("#messages").appendChild(e);$("#messages").scrollTop=$("#messages").scrollHeight}
+let __chatBusy=false;
 async function chatSend(text){
   const raw=String(text||"").trim();
-  if(!raw)return;
+  if(!raw||__chatBusy)return;
 
   const normalized=raw.toLowerCase()
     .normalize("NFD")
@@ -118,6 +119,9 @@ async function chatSend(text){
   }
 
   addBubble("u",raw);
+  __chatBusy=true;
+  const sendBtn=$("#chatForm button[type="submit"]");
+  if(sendBtn){sendBtn.disabled=true;sendBtn.classList.add("is-busy");}
   const inserted=await S.from("marc_messages").insert({
     conversation_id:st.cid,
     user_id:st.u.id,
@@ -129,6 +133,8 @@ async function chatSend(text){
     loading.className="bubble a";
     loading.textContent="No pude registrar el mensaje. Inténtalo nuevamente.";
     $("#messages").appendChild(loading);
+    __chatBusy=false;
+    if(sendBtn){sendBtn.disabled=false;sendBtn.classList.remove("is-busy");}
     return;
   }
 
@@ -158,6 +164,9 @@ async function chatSend(text){
     });
   }catch(e){
     loading.textContent="No pude conectar con el núcleo de IA. La plataforma sigue disponible.";
+  }finally{
+    __chatBusy=false;
+    if(sendBtn){sendBtn.disabled=false;sendBtn.classList.remove("is-busy");}
   }
 }
 function openChat(){
@@ -172,7 +181,29 @@ function closeChat(){
   $("#app").classList.add("chat-closed");
 }
 function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",suppliers:"Proveedores",quotes:"Cotizaciones",marketing:"Publicidad",settings:"Configuración",cash:"Cierre de caja"}[x]||"Inicio";$$(".sidebar nav button, #mobileNav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
-async function view(x){st.view=x;title(x);$("#sidebar").classList.remove("open");document.body.style.overflow="";if(window.innerWidth<=780)window.scrollTo(0,0);$$(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x));if(x==="home")return home();if(x==="clients")return clients();if(x==="inventory")return inventory();if(x==="suppliers"){if(window.marcSupplierCenter)return window.marcSupplierCenter();let tries=0;const wait=()=>{if(window.marcSupplierCenter)return window.marcSupplierCenter();if(++tries<30)return setTimeout(wait,100);return toast("No se pudo cargar el Centro de Proveedores. Recarga la aplicación.","err")};return wait();}if(x==="quotes")return quotes();if(x==="marketing")return marketing();if(x==="cash")return cash();return settings()}
+let __viewBusy=false;
+async function view(x){
+  if(__viewBusy&&st.view===x)return;
+  const content=$("#content");
+  const run=async()=>{
+    st.view=x;title(x);$("#sidebar").classList.remove("open");document.body.style.overflow="";
+    if(window.innerWidth<=780)window.scrollTo(0,0);
+    $(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x));
+    if(x==="home")return home();if(x==="clients")return clients();if(x==="inventory")return inventory();
+    if(x==="suppliers"){if(window.marcSupplierCenter)return window.marcSupplierCenter();let tries=0;const wait=()=>{if(window.marcSupplierCenter)return window.marcSupplierCenter();if(++tries<30)return setTimeout(wait,100);return toast("No se pudo cargar el Centro de Proveedores. Recarga la aplicación.","err")};return wait();}
+    if(x==="quotes")return quotes();if(x==="marketing")return marketing();if(x==="cash")return cash();return settings();
+  };
+  __viewBusy=true;
+  try{
+    if(document.startViewTransition){
+      await document.startViewTransition(()=>run()).finished;
+    }else{
+      content?.classList.add("view-switching");
+      await run();
+      requestAnimationFrame(()=>content?.classList.remove("view-switching"));
+    }
+  }finally{__viewBusy=false}
+}
 async function home(){
   const c=$("#content");
   const [cl,iv,qt]=await Promise.all([

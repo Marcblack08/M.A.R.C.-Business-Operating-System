@@ -1158,7 +1158,7 @@ body.sidebar-open{overflow:hidden}
   .ad-create-button,.ad-canvas-wrap,.ad-source-tab,.ad-objective,.ad-copy-card{transition:none!important;animation:none!important}
 }
 [data-theme="dark"] .ad-studio-hero{background:linear-gradient(135deg,#0e1d2c,#10283c);border-color:#294258}
-[data-theme="dark"] .ad-brand-auto,.[data-theme="dark"] .ad-card,.[data-theme="dark"] .ad-result{border-color:#294258;background:#0e1d2c}
+[data-theme="dark"] .ad-brand-auto,[data-theme="dark"] .ad-card,[data-theme="dark"] .ad-result{border-color:#294258;background:#0e1d2c}
 [data-theme="dark"] .ad-source-tab,[data-theme="dark"] .ad-objective,[data-theme="dark"] .ad-photo-box,[data-theme="dark"] .ad-photo-drop,[data-theme="dark"] .ad-photo-action,[data-theme="dark"] .ad-product-summary,[data-theme="dark"] .ad-copy-card{background:#102235;border-color:#294258}
 [data-theme="dark"] .ad-field input,[data-theme="dark"] .ad-field select,[data-theme="dark"] .ad-field textarea{background:#0d1c2b;border-color:#294258;color:#eaf4ff}
 [data-theme="dark"] .ad-source-tab.active,[data-theme="dark"] .ad-objective.active{background:#102e49;border-color:#326c9a}

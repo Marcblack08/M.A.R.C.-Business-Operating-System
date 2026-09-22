@@ -580,3 +580,20 @@ button,input,select,textarea{font-family:Inter,system-ui,sans-serif}
 #app #brandLogo span{position:static!important;display:grid!important;place-items:center!important;width:100%!important;height:100%!important;font-size:16px!important;line-height:1!important;font-weight:900!important;color:#fff!important}
 @media(max-width:780px){#app #brandLogo{width:34px!important;height:34px!important;min-width:34px!important;min-height:34px!important;max-width:34px!important;max-height:34px!important;flex-basis:34px!important;border-radius:9px!important}#app #brandLogo img{width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important}#app #brandLogo span{font-size:15px!important}}
 #app #content > img{position:relative!important;inset:auto!important;z-index:1!important}
+
+
+/* HOTFIX 02 — dashboard integrity on mobile/desktop */
+/* A company-brand image is not part of the dashboard hero. Never allow an injected
+   image to sit between the header and the hero card. */
+#app .dashboard-shell > img,
+#app .dashboard-shell > a > img{display:none!important}
+#app .dashboard-hero .hero-visual{pointer-events:none!important}
+@media(max-width:780px){
+  #app .dashboard-hero .hero-visual{display:none!important}
+  #app .dashboard-hero{min-height:0!important;height:auto!important}
+  #app .dashboard-hero .hero-copy{max-width:100%!important}
+  #app .dashboard-hero h1{max-width:100%!important;font-size:26px!important}
+  #app .dashboard-hero p{max-width:100%!important}
+  #app .dashboard-kpis{margin-top:0!important}
+  #app .dashboard-main-grid{margin-top:0!important}
+}

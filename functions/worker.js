@@ -3840,8 +3840,10 @@ export default{
           const email=username+"@cash.marc.pe";
           const ar=await fetch(env.SUPABASE_URL+"/auth/v1/admin/users",{method:"POST",headers:{"content-type":"application/json",apikey:adminToken,Authorization:"Bearer "+adminToken},body:JSON.stringify({email,password,email_confirm:true,user_metadata:{cash_username:username,cash_owner_id:user.id}})});
           const ad=await ar.json().catch(()=>null);
-          if(!ar.ok)throw Object.assign(new Error(ad?.msg||ad?.message||ad?.error_description||"No se pudo crear el usuario de caja."),{status:ar.status});
-          const rows=await sb(env,adminToken,"marc_cash_staff",{method:"POST",body:{owner_user_id:user.id,auth_user_id:ad.user.id,username,display_name:displayName,employee_code:String(body?.employee_code||"").trim().slice(0,60),role:"CASHIER",active:true}});
+          if(!ar.ok)throw Object.assign(new Error(ad?.msg||ad?.message||ad?.error_description||ad?.error||"No se pudo crear el usuario de caja."),{status:ar.status,details:ad});
+          const authUserId=ad?.user?.id||ad?.id;
+          if(!authUserId)throw Object.assign(new Error("Supabase no devolvió el ID del usuario de caja."),{status:502,details:ad});
+          const rows=await sb(env,adminToken,"marc_cash_staff",{method:"POST",body:{owner_user_id:user.id,auth_user_id:authUserId,username,display_name:displayName,employee_code:String(body?.employee_code||"").trim().slice(0,60),role:"CASHIER",active:true}});
           return json({staff:rows?.[0]||null},201,headers);
         }
 

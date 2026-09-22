@@ -2440,7 +2440,12 @@ async function cash(){
   $("#downloadCashExcel2").onclick=exportExcel;
   $("#cashReportMonths").onchange=e=>{const n=Math.min(6,Math.max(2,Number(e.target.value)||2));const u=new URL(location.href);u.searchParams.set("cashMonths",String(n));history.replaceState({},document.title,u.toString());cash()};
 
-  if($("#cashStaff"))$("#cashStaff").onclick=()=>cashStaffModal();\n  if($("#cashStaffLogout"))$("#cashStaffLogout").onclick=async()=>{\n    const ok=confirm("¿Salir de esta caja?");\n    if(!ok)return;\n    try{await S.auth.signOut();toast("Sesión de caja cerrada","ok")}catch(err){toast(err?.message||"No se pudo salir de la caja.","err")}\n  };
+  if($("#cashStaff"))$("#cashStaff").onclick=()=>cashStaffModal();
+  if($("#cashStaffLogout"))$("#cashStaffLogout").onclick=async()=>{
+    const ok=confirm("¿Salir de esta caja?");
+    if(!ok)return;
+    try{await S.auth.signOut();toast("Sesión de caja cerrada","ok")}catch(err){toast(err?.message||"No se pudo salir de la caja.","err")}
+  };
   if(open&&!isCashier)$("#closeCashTop").onclick=()=>closeCashModal(open,expected);
   else if(!open&&!isCashier&&$("#openCashTop"))$("#openCashTop").onclick=()=>openCashModal();
   if(open){$("#cashIncome").onclick=()=>cashMovementModal(open,"INCOME");$("#cashExpense").onclick=()=>cashMovementModal(open,"EXPENSE");}

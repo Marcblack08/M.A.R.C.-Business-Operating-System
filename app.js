@@ -2477,7 +2477,13 @@ async function marketing(){
   });
 
   const readImage=async()=>currentImage?await drawImage(currentImage,1600):"";
-  const payload=()=>({client:null,product:currentProduct||{name:"Producto"},platform:"WHATSAPP",objective:$p("adObjective").value||"VENDER",tone:"PROFESIONAL",audience:"",offer:$p("adOffer").value.trim()||$p("adNewPrice")?.value.trim()||"",details:$p("adDetails").value.trim(),cta:"Escríbenos para cotizar"});
+  const readReferenceImage=async()=>currentReferenceImage?await drawImage(currentReferenceImage,1400):"";
+  const payload=async()=>{
+    const base={client:null,product:currentProduct||{name:"Producto"},platform:"WHATSAPP",objective:$p("adObjective").value||"VENDER",tone:"PROFESIONAL",audience:"",offer:$p("adOffer").value.trim()||$p("adNewPrice")?.value.trim()||"",details:$p("adDetails").value.trim(),cta:"Escríbenos para cotizar"};
+    base.imageData=await readImage();
+    base.referenceImageData=await readReferenceImage();
+    return base;
+  };
 
   const createComplete=async()=>{
     const btn=$p("generateAd");if(btn.disabled)return;
@@ -2501,7 +2507,7 @@ async function marketing(){
         }
       }
       if(!currentProduct)throw new Error("Elige un producto del inventario o crea un producto nuevo.");
-      const textR=await fetch("/api/marketing-ai",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify(payload())});
+      const textR=await fetch("/api/marketing-ai",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify(await payload())});
       const textJ=await textR.json();if(!textR.ok)throw new Error(textJ.message||textJ.error||"No se pudo crear el texto.");
       await setCampaign(textJ.campaign);
       await saveMarketingCampaign(textJ.campaign,currentProduct,$p).catch(()=>{});
@@ -2509,7 +2515,7 @@ async function marketing(){
       // La foto original se entrega a Gemini como referencia para conservar el producto
       // mientras mejora fondo, iluminación, composición y presentación comercial.
       setStatus("Texto listo. Ahora M.A.R.C. está diseñando la pieza visual con IA…");
-      const imageR=await fetch("/api/marketing-image",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({product:currentProduct,campaign:textJ.campaign,platform:"WHATSAPP",objective:$p("adObjective").value,details:$p("adDetails").value,format:$p("adFormat").value,template:"MODERN",variants:["PROFESSIONAL"],imageData:await readImage()})});
+      const imageR=await fetch("/api/marketing-image",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({product:currentProduct,campaign:textJ.campaign,platform:"WHATSAPP",objective:$p("adObjective").value,details:$p("adDetails").value,format:$p("adFormat").value,template:"MODERN",variants:["PROFESSIONAL"],imageData:await readImage(),referenceImageData:await readReferenceImage()})});
       const imageJ=await imageR.json();if(!imageR.ok)throw new Error(imageJ.message||imageJ.error||"No se pudo crear la imagen.");
       currentAiVariants=Array.isArray(imageJ.images)?imageJ.images:[];
       if(currentAiVariants[0]?.data)currentAiImage="data:"+(currentAiVariants[0].mimeType||"image/png")+";base64,"+currentAiVariants[0].data;

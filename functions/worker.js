@@ -830,7 +830,7 @@ async function executePlan(env,token,user,pl,source="AI_AGENT"){
     const items=quoteIds.length?await sb(env,token,"marc_quote_items?select=quote_id,item_type,name,quantity,unit,unit_price,line_total&user_id=eq."+encodeURIComponent(user.id)+"&quote_id=in.("+quoteIds.join(",")+")&order=created_at.asc").catch(()=>[]):[];
     return {action,result:{status:"FOUND",client,quotes:quotes||[],reports:reports||[],history:history||[],items}};
   }
-  if(action==="SCHEDULE_REMINDER")return {action,result:{status:"REMINDER_READY",title:p.title,body:p.body,when:p.when}};
+  if(action==="SCHEDULE_REMINDER")return {action,result:{status:"REMINDER_READY",title:p.title,body:p.body,when:p.when,channel:p.channel||"BOTH"}};
   if(action==="CREATE_CLIENT")return {action,result:{status:"CONFIRMATION_REQUIRED",params:p}};
   if(action==="CREATE_QUOTE"||action==="UPDATE_QUOTE")return {action,result:{status:"CONFIRMATION_REQUIRED",params:p}};
   if(action==="ADJUST_INVENTORY")return {action,result:{status:"CONFIRMATION_REQUIRED",params:p}};
@@ -3652,6 +3652,31 @@ async function telegramUnlink(request,env){
   return json({ok:true},200,corsHeaders(request));
 }
 
+async function processDueReminders(env){
+  const adminToken=env.SUPABASE_SERVICE_ROLE_KEY||env.SUPABASE_SECRET_KEY;
+  if(!adminToken)return {ok:false,error:"Falta la clave privada de Supabase."};
+  const now=new Date().toISOString();
+  const rows=await sb(env,adminToken,"marc_reminders?select=id,user_id,title,body,due_at,channel,status&status=eq.PENDING&due_at=lte."+encodeURIComponent(now)+"&order=due_at.asc&limit=50");
+  const results=[];
+  for(const r of Array.isArray(rows)?rows:[]){
+    try{
+      let sent=false;
+      if(["TELEGRAM","BOTH"].includes(String(r.channel||"").toUpperCase())&&env.TELEGRAM_BOT_TOKEN){
+        const ids=await sb(env,adminToken,"marc_channel_identities?select=chat_id,status&user_id=eq."+encodeURIComponent(r.user_id)+"&channel=eq.TELEGRAM&status=eq.LINKED&limit=5").catch(()=>[]);
+        for(const id of Array.isArray(ids)?ids:[]){
+          if(id.chat_id){await sendTelegram(env,id.chat_id,"🔔 M.A.R.C. · Recordatorio\n\n"+String(r.title||"Recordatorio")+"\n"+String(r.body||""));sent=true;}
+        }
+      }
+      await sb(env,adminToken,"marc_reminders?id=eq."+encodeURIComponent(r.id),{method:"PATCH",body:{status:sent||String(r.channel||"").toUpperCase()==="IN_APP"?"SENT":"FAILED",sent_at:sent?new Date().toISOString():null}});
+      if(sent)results.push({id:r.id,status:"SENT"});else results.push({id:r.id,status:"PENDING_WEB"});
+    }catch(err){
+      await sb(env,adminToken,"marc_reminders?id=eq."+encodeURIComponent(r.id),{method:"PATCH",body:{status:"FAILED",metadata:{error:String(err?.message||"Error enviando recordatorio")}}}).catch(()=>{});
+      results.push({id:r.id,status:"FAILED",error:String(err?.message||"Error")});
+    }
+  }
+  return {ok:true,processed:results.length,results};
+}
+
 async function processDuePublicationJobs(env){
   const adminToken=env.SUPABASE_SERVICE_ROLE_KEY||env.SUPABASE_SECRET_KEY;
   if(!adminToken)return {ok:false,error:"Falta la clave privada de Supabase."};
@@ -3682,6 +3707,9 @@ async function processDuePublicationJobs(env){
 }
 
 export default{
+  async scheduled(event,env,ctx){
+    ctx.waitUntil((async()=>{await processDueReminders(env).catch(()=>{});await processDuePublicationJobs(env).catch(()=>{});})());
+  },
   async fetch(request,env,ctx){
     const headers=corsHeaders(request);
     if(request.method==="OPTIONS")return new Response(null,{status:204,headers});
@@ -3744,6 +3772,15 @@ export default{
 
         const pl=await plan(env,message,history,context,token,user.id);
         const executed=await executePlan(env,token,user,pl,"AI_AGENT");
+        if(executed.action==="SCHEDULE_REMINDER"&&executed.result?.status==="REMINDER_READY"){
+          const rr=executed.result;
+          const rows=await sb(env,token,"marc_reminders",{method:"POST",body:{
+            user_id:user.id,title:String(rr.title||"Recordatorio de M.A.R.C.").slice(0,120),
+            body:String(rr.body||rr.title||"Recordatorio pendiente.").slice(0,1000),
+            due_at:new Date(rr.when).toISOString(),status:"PENDING",channel:String(rr.channel||"BOTH").toUpperCase()
+          }});
+          executed.result={...rr,reminder:rows?.[0]||null,status:"SCHEDULED"};
+        }
         await incrementAiUsage(env,token,user.id,access);
         if(["CREATE_CLIENT","CREATE_QUOTE","UPDATE_QUOTE","ADJUST_INVENTORY"].includes(String(executed.action||"")) && executed.result?.status==="CONFIRMATION_REQUIRED"){
           await saveConversationContext(env,token,user.id,conversationId,{...context,pending_action:{action:executed.action,params:executed.result.params||pl.params||{}}});

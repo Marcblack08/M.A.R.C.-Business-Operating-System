@@ -1216,3 +1216,95 @@ button,input,select,textarea{font-family:Inter,system-ui,sans-serif}
   #app .content{padding-bottom:calc(94px + env(safe-area-inset-bottom))!important}
   .mobile-bottom-nav{padding-bottom:max(5px,env(safe-area-inset-bottom))!important;height:calc(72px + env(safe-area-inset-bottom))!important}
 }
+
+/* HOTFIX 07 — shell, chat and navigation polish */
+#app .chat{
+  background:#081b30!important;
+  border-left:1px solid #1c3b57!important;
+  box-shadow:-18px 0 55px rgba(0,0,0,.28)!important;
+}
+#app .chat header{
+  background:#0a2239!important;
+  border-bottom:1px solid #1b3b57!important;
+}
+#app .chat header b{color:#eef8ff!important}
+#app .chat header small{color:#7896ad!important}
+#app .chat .messages{background:#06172a!important}
+#app .chat .chips{
+  background:#081b30!important;
+  border-top:1px solid #183852!important;
+}
+#app .chat .chips button{
+  background:#0d2944!important;
+  border:1px solid #20506c!important;
+  color:#cfe4f1!important;
+}
+#app .chat .chips button:hover{
+  background:#123451!important;
+  border-color:#2b7299!important;
+}
+#app #chatForm{
+  background:#081b30!important;
+  border-top:1px solid #183852!important;
+}
+#app #chatInput{
+  background:#06172a!important;
+  border-color:#1d405c!important;
+  color:#edf7ff!important;
+}
+#app .chat-exit{
+  background:#0b243c!important;
+  border:1px solid #1c405d!important;
+  color:#9db6c9!important;
+}
+#app .mobile-scrim{
+  background:rgba(1,8,18,.62)!important;
+  backdrop-filter:blur(2px);
+}
+@media(min-width:1061px){
+  #app .chat{
+    width:360px!important;
+    max-width:360px!important;
+  }
+}
+@media(max-width:780px){
+  #app .chat{
+    position:fixed!important;
+    left:8px!important;
+    right:8px!important;
+    bottom:8px!important;
+    width:auto!important;
+    max-width:none!important;
+    height:min(76svh,620px)!important;
+    max-height:calc(100svh - 90px)!important;
+    border:1px solid #21445f!important;
+    border-radius:20px!important;
+    overflow:hidden!important;
+    box-shadow:0 25px 80px rgba(0,0,0,.5)!important;
+    z-index:310!important;
+  }
+  #app .chat header{min-height:56px!important;padding:10px 12px!important}
+  #app .chat .messages{padding:11px!important}
+  #app .chat .chips{padding:7px!important;gap:5px!important}
+  #app .chat .chips button{min-height:34px!important;font-size:8px!important}
+  #app .chat-exit-wrap{padding:5px 9px!important}
+  #app .chat-exit{min-height:34px!important;font-size:8px!important}
+  #app #chatForm{padding:8px!important}
+  #app #chatInput{min-height:45px!important;font-size:13px!important}
+  #app #chatForm button{width:40px!important;height:40px!important}
+  #app .mobile-bottom-nav{z-index:190!important}
+  #app .sidebar{box-shadow:18px 0 50px rgba(0,0,0,.4)!important}
+}
+
+/* Navigation labels should never collapse or clip on desktop. */
+@media(min-width:781px){
+  #app .sidebar nav button{
+    display:flex!important;
+    align-items:center!important;
+    gap:10px!important;
+  }
+  #app .sidebar nav button span{
+    min-width:0!important;
+    white-space:nowrap!important;
+  }
+}

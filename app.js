@@ -2358,7 +2358,7 @@ async function cash(){
       <article class="card cash-kpi"><span>APERTURA</span><strong>${money(open?.opening_amount||0)}</strong><small>Efectivo inicial</small></article>
       <article class="card cash-kpi"><span>INGRESOS</span><strong class="cash-in">${money(income)}</strong><small>${movements.filter(x=>x.type==="INCOME").length} movimientos</small></article>
       <article class="card cash-kpi"><span>EGRESOS</span><strong class="cash-out">${money(expense)}</strong><small>${movements.filter(x=>x.type==="EXPENSE").length} movimientos</small></article>
-      <article class="card cash-kpi cash-total"><span>EFECTIVO ESPERADO</span><strong>${money(expected)}</strong><small>Apertura + ingresos − egresos</small></article>
+      <article class="card cash-kpi cash-total"><span>EFECTIVO EN CAJA</span><strong>${money(expected)}</strong><small>Última actualización: ${movements[0]?new Date(movements[0].created_at).toLocaleTimeString("es-PE",{hour:"2-digit",minute:"2-digit"}):new Date(open?.opened_at||Date.now()).toLocaleTimeString("es-PE",{hour:"2-digit",minute:"2-digit"})}</small></article>
     </section>
 
     <section class="card panel cash-report-panel">
@@ -2375,7 +2375,7 @@ async function cash(){
 
     ${open?`
       <section class="card panel cash-actions"><div class="panel-title-row"><div><div class="eyebrow2">MOVIMIENTOS · ${isCashier?"MODO RÁPIDO":"ADMINISTRACIÓN"}</div><h3>${isCashier?"Registrar en 2 toques":"Registrar operación"}</h3></div></div>
-        <div class="cash-action-grid"><button id="cashIncome" class="cash-action income">＋ Ingreso de efectivo<small>Venta, cobro u otro ingreso</small></button><button id="cashExpense" class="cash-action expense">− Egreso de efectivo<small>Compra, transporte, gasto u otro</small></button></div>
+        <div class="cash-action-grid"><button id="cashIncome" class="cash-action income"><span class="cash-action-circle">＋</span><b>Ingreso</b><small>Venta · cobro · servicio</small></button><button id="cashExpense" class="cash-action expense"><span class="cash-action-circle">−</span><b>Egreso</b><small>Compra · transporte · gasto</small></button></div>
       </section>
       <section class="card panel cash-movements"><div class="panel-title-row"><div><div class="eyebrow2">MOVIMIENTOS DE HOY</div><h3>Detalle de caja</h3></div></div>
       <div class="scroll"><table class="data"><thead><tr><th>Hora</th><th>Usuario</th><th>Tipo</th><th>Concepto</th><th>Referencia</th><th>Monto</th></tr></thead><tbody>

@@ -3,21 +3,10 @@
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)],later=(fn,ms=50)=>setTimeout(fn,ms);
 let lastView="",bound=false;
 function activeView(){return $(".sidebar nav button.active")?.dataset.view||""}
-function toggleMore(force){
-  let panel=$(".ops-mobile-more"),back=$(".ops-mobile-more-backdrop");
-  if(force===false){panel?.remove();back?.remove();return}
-  if(panel){panel.remove();back?.remove();return}
-  back=document.createElement("div");back.className="ops-mobile-more-backdrop";back.onclick=()=>toggleMore(false);
-  panel=document.createElement("div");panel.className="ops-mobile-more";
-  const items=[["clients","♙","Clientes"],["suppliers","🏭","Proveedores"],["marketing","✦","Publicidad"],["settings","⚙","Configuración"]];
-  panel.innerHTML=items.map(x=>'<button type="button" data-more-view="'+x[0]+'"><span>'+x[1]+'</span><span>'+x[2]+'</span></button>').join("");
-  panel.onclick=e=>{const b=e.target.closest("[data-more-view]");if(!b)return;toggleMore(false);document.querySelector('.sidebar nav button[data-view="'+b.dataset.moreView+'"]')?.click()};
-  document.body.append(back,panel);
-}
+function toggleMore(){return;}
 function addMobileMore(){
-  const nav=$("#mobileNav");if(!nav||nav.querySelector(".mobile-more-trigger"))return;
-  const b=document.createElement("button");b.type="button";b.className="mobile-more-trigger";b.innerHTML="<span>☰</span><b>Más</b>";
-  b.onclick=e=>{e.preventDefault();e.stopPropagation();toggleMore()};nav.appendChild(b);
+  const nav=$("#mobileNav");
+  if(nav)nav.remove();
 }
 function enhanceInventory(){
   const root=$("#content");if(!root||!root.querySelector("#rows")||!root.querySelector("#importPdf"))return;

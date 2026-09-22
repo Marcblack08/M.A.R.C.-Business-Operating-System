@@ -38,7 +38,7 @@ async function signInCashStaff(e){
   try{
     const ownerSession=(await S.auth.getSession()).data?.session;
     if(ownerSession)sessionStorage.setItem("marc_cash_owner_session",JSON.stringify(ownerSession));
-    const {error}=await S.auth.signInWithPassword({email:username+"@cash.marc.local",password});
+    const {error}=await S.auth.signInWithPassword({email:username+"@cash.marc.pe",password});
     if(error)throw error;
   }catch(err){
     cashStaffError(err?.message||"Usuario o contraseña incorrectos.");

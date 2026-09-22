@@ -1867,3 +1867,120 @@ html:not([data-theme="dark"]):not([data-theme="color"]) .hero-visual-logo.is-mar
   .hero-visual-logo.is-marc-brand .marc-bot-face{border-width:2px!important}
   [data-theme="dark"] .dashboard-hero h1{font-size:32px!important}
 }
+
+/* ===== HOTFIX 11 — make the brand character visible and intentional ===== */
+.hero-visual{
+  min-width:330px!important;
+}
+.hero-visual-ring{
+  animation:marcRingPulse 5s ease-in-out infinite!important;
+}
+@keyframes marcRingPulse{
+  0%,100%{transform:scale(1);opacity:.92}
+  50%{transform:scale(1.025);opacity:1}
+}
+.hero-visual-logo.is-marc-brand{
+  width:190px!important;
+  height:190px!important;
+  border-radius:50%!important;
+}
+.hero-visual-logo.is-marc-brand::before{
+  content:""!important;
+  position:absolute!important;
+  width:7px!important;
+  height:7px!important;
+  top:18%!important;
+  left:50%!important;
+  transform:translateX(-50%)!important;
+  border-radius:50%!important;
+  background:#fff!important;
+  box-shadow:0 0 16px #4bd2ff!important;
+}
+[data-theme="dark"] .hero-visual-logo.is-marc-brand{
+  background:
+    radial-gradient(circle at 50% 30%,rgba(67,210,255,.18),transparent 24%),
+    radial-gradient(circle at 50% 50%,#0c2b49,#020b17 73%)!important;
+}
+[data-theme="dark"] .hero-visual-logo.is-marc-brand .marc-bot-face{
+  border-color:#d8f5ff!important;
+  box-shadow:0 0 20px rgba(67,210,255,.15),inset 0 0 25px rgba(67,210,255,.08)!important;
+}
+[data-theme="dark"] .hero-visual-logo.is-marc-brand .marc-bot-face::before,
+[data-theme="dark"] .hero-visual-logo.is-marc-brand .marc-bot-face::after{
+  background:#48d5ff!important;
+}
+html:not([data-theme="dark"]):not([data-theme="color"]) .hero-visual-logo.is-marc-brand{
+  background:
+    radial-gradient(circle at 50% 30%,#fff,transparent 24%),
+    radial-gradient(circle at 50% 50%,#f6fdff,#d8f3ff 73%)!important;
+}
+.hero-visual-caption{
+  font-weight:800!important;
+  letter-spacing:.13em!important;
+  text-transform:uppercase!important;
+}
+.brand .logo.sm{
+  border-radius:12px!important;
+}
+.auth-mark.logo{
+  border-radius:16px!important;
+}
+
+/* The logo is part of the identity, so mobile gets a compact version instead of
+   removing the brand visual entirely. */
+@media(max-width:780px){
+  .dashboard-hero{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) 94px!important;
+    column-gap:8px!important;
+    align-items:center!important;
+  }
+  .dashboard-hero .hero-copy{min-width:0!important}
+  .dashboard-hero .hero-visual{
+    display:flex!important;
+    min-width:0!important;
+    width:94px!important;
+    height:94px!important;
+    justify-content:center!important;
+    align-items:center!important;
+    position:relative!important;
+  }
+  .dashboard-hero .hero-visual-ring{
+    width:86px!important;
+    height:86px!important;
+  }
+  .dashboard-hero .hero-visual-logo.is-marc-brand{
+    width:62px!important;
+    height:62px!important;
+  }
+  .dashboard-hero .hero-visual-logo.is-marc-brand .marc-bot-face{
+    border-width:1.5px!important;
+  }
+  .dashboard-hero .hero-visual-logo.is-marc-brand .marc-bot-face::before,
+  .dashboard-hero .hero-visual-logo.is-marc-brand .marc-bot-face::after{
+    width:6px!important;
+    height:4px!important;
+  }
+  .dashboard-hero .hero-visual-logo.is-marc-brand .marc-bot-face i{
+    width:3px!important;
+    height:7px!important;
+  }
+  .dashboard-hero .hero-visual-logo.is-marc-brand>b{
+    font-size:13px!important;
+  }
+  .dashboard-hero .hero-visual-caption{
+    display:none!important;
+  }
+  .dashboard-hero h1{font-size:25px!important}
+  .dashboard-hero p{font-size:9px!important}
+}
+@media(max-width:360px){
+  .dashboard-hero{
+    grid-template-columns:minmax(0,1fr) 76px!important;
+    padding:17px 13px!important;
+  }
+  .dashboard-hero .hero-visual{width:76px!important;height:76px!important}
+  .dashboard-hero .hero-visual-ring{width:70px!important;height:70px!important}
+  .dashboard-hero .hero-visual-logo.is-marc-brand{width:50px!important;height:50px!important}
+  .dashboard-hero h1{font-size:23px!important}
+}

@@ -1955,22 +1955,25 @@ body,
   .dashboard-hero h1{font-size:35px!important;max-width:58%!important}
   .dashboard-hero p{max-width:62%!important;font-size:11px!important}
   .hero-visual{
-    position:absolute!important;right:5px!important;top:34px!important;width:43%!important;
+    position:absolute!important;right:10px!important;top:34px!important;width:40%!important;
     height:215px!important;display:grid!important;place-items:center!important;z-index:1!important;
     pointer-events:none!important
   }
   .hero-visual-ring{
-    position:absolute!important;width:170px!important;height:170px!important;border-radius:50%!important;
+    position:absolute!important;width:180px!important;height:180px!important;border-radius:50%!important;
     border:2px solid #19a8ff!important;box-shadow:0 0 18px #078cff80,0 0 0 7px #078cff16,0 0 0 16px #078cff0d!important
   }
   .hero-visual-logo{
-    position:relative!important;width:150px!important;height:150px!important;border-radius:50%!important;
+    position:relative!important;width:132px!important;height:132px!important;border-radius:50%!important;
     overflow:hidden!important;display:grid!important;place-items:center!important;
     background:#031b35!important;border:2px solid #159eff!important;
     box-shadow:0 0 24px #008cff66!important
   }
-  .hero-visual-logo img{width:100%!important;height:100%!important;object-fit:cover!important;display:block!important}
-  .hero-visual-logo span{font-size:58px!important;font-weight:900!important;color:#fff!important}
+  .hero-visual-logo img{
+    width:78%!important;height:78%!important;max-width:78%!important;max-height:78%!important;
+    object-fit:contain!important;display:block!important;border-radius:12px!important
+  }
+  .hero-visual-logo span{font-size:52px!important;font-weight:900!important;color:#fff!important}
   .hero-visual-caption{
     position:absolute!important;bottom:0!important;right:0!important;
     font-size:6px!important;letter-spacing:1.2px!important;color:#b7ddf6!important;
@@ -1983,9 +1986,9 @@ body,
 @media(min-width:781px){
   .hero-visual{position:absolute;right:28px;top:25px;width:310px;height:310px;display:grid;place-items:center;z-index:1;pointer-events:none}
   .hero-visual-ring{position:absolute;width:285px;height:285px;border-radius:50%;border:2px solid #18a8ff;box-shadow:0 0 30px #008cff70,0 0 0 12px #078cff12,0 0 0 28px #078cff09}
-  .hero-visual-logo{position:relative;width:255px;height:255px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:#031b35;border:2px solid #159eff;box-shadow:0 0 30px #008cff66}
-  .hero-visual-logo img{width:100%;height:100%;object-fit:cover;display:block}
-  .hero-visual-logo span{font-size:90px;font-weight:900;color:#fff}
+  .hero-visual-logo{position:relative;width:180px;height:180px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:#031b35;border:2px solid #159eff;box-shadow:0 0 30px #008cff66}
+  .hero-visual-logo img{width:76%;height:76%;max-width:76%;max-height:76%;object-fit:contain;display:block;border-radius:14px}
+  .hero-visual-logo span{font-size:72px;font-weight:900;color:#fff}
   .hero-visual-caption{position:absolute;bottom:0;right:5px;font-size:8px;letter-spacing:1.6px;color:#b7ddf6;white-space:nowrap}
   .dashboard-hero .hero-copy{max-width:58%;position:relative;z-index:3}
 }

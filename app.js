@@ -2253,15 +2253,18 @@ async function cashStaffModal(){
 
 async function cash(){
   const c=$("#content");
-  const {data:open,error:openError}=await S.from("marc_cash_registers").select("*").eq("user_id",st.u.id).eq("status","OPEN").order("opened_at",{ascending:false}).limit(1).maybeSingle();
+  const cashCtx=await getCashStaffContext();
+  const cashOwnerId=cashCtx.ownerId||st.u.id;
+  const isCashier=!!cashCtx.isStaff;
+  const {data:open,error:openError}=await S.from("marc_cash_registers").select("*").eq("user_id",cashOwnerId).eq("status","OPEN").order("opened_at",{ascending:false}).limit(1).maybeSingle();
   if(openError)return toast(openError.message,"err");
 
-  const {data:closed,error:closedError}=await S.from("marc_cash_registers").select("*").eq("user_id",st.u.id).eq("status","CLOSED").order("closed_at",{ascending:false}).limit(100);
+  const {data:closed,error:closedError}=await S.from("marc_cash_registers").select("*").eq("user_id",cashOwnerId).eq("status","CLOSED").order("closed_at",{ascending:false}).limit(100);
   if(closedError)return toast(closedError.message,"err");
 
   let movements=[];
   if(open){
-    const r=await S.from("marc_cash_movements").select("*").eq("user_id",st.u.id).eq("cash_register_id",open.id).order("created_at",{ascending:false});
+    const r=await S.from("marc_cash_movements").select("*").eq("user_id",cashOwnerId).eq("cash_register_id",open.id).order("created_at",{ascending:false});
     if(r.error)return toast(r.error.message,"err");
     movements=r.data||[];
   }
@@ -2282,7 +2285,7 @@ async function cash(){
   const registerIds=closedTwoMonths.map(x=>x.id).filter(Boolean);
   let reportMovements=[];
   if(registerIds.length){
-    const rm=await S.from("marc_cash_movements").select("*").eq("user_id",st.u.id).in("cash_register_id",registerIds).order("created_at",{ascending:true});
+    const rm=await S.from("marc_cash_movements").select("*").eq("user_id",cashOwnerId).in("cash_register_id",registerIds).order("created_at",{ascending:true});
     if(rm.error)return toast(rm.error.message,"err");
     reportMovements=rm.data||[];
   }
@@ -2320,8 +2323,8 @@ async function cash(){
   }).join("");
 
   c.innerHTML=`
-    <div class="head"><div><div class="eyebrow2">CAJA</div><h1>Cierre de caja.</h1><p>Controla efectivo, ingresos, egresos, diferencias e informes con un máximo de 6 meses.</p></div>
-      <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center"><label class="cash-period-select">Informe <select id="cashReportMonths" class="secondary">${[2,3,4,5,6].map(n=>`<option value="${n}" ${n===reportMonthsCount?"selected":""}>${n} meses</option>`).join("")}</select></label><button id="downloadCashExcel" class="secondary">▣ Excel · ${reportMonthsCount} meses</button>${open?'<button id="closeCashTop" class="primary">✓ Cerrar caja</button>':'<button id="openCashTop" class="primary">＋ Abrir caja</button>'}</div>
+    <div class="head"><div><div class="eyebrow2">CAJA · ${isCashier?"TURNO":"ADMINISTRACIÓN"}</div><h1>${isCashier?"Caja rápida.":"Cierre de caja."}</h1><p>${isCashier?"Registra ventas y gastos en segundos. Cada movimiento queda identificado con tu usuario.":"Controla efectivo, turnos, usuarios, diferencias e informes con un máximo de 6 meses."}</p></div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center"><label class="cash-period-select">Informe <select id="cashReportMonths" class="secondary">${[2,3,4,5,6].map(n=>`<option value="${n}" ${n===reportMonthsCount?"selected":""}>${n} meses</option>`).join("")}</select></label><button id="downloadCashExcel" class="secondary">▣ Excel · ${reportMonthsCount} meses</button>${!isCashier?'<button id="cashStaff" class="secondary">👥 Personal</button>':""}${open&&!isCashier?'<button id="closeCashTop" class="primary">✓ Cerrar caja</button>':!open&&!isCashier?'<button id="openCashTop" class="primary">＋ Abrir caja</button>':""}</div>
     </div>
 
     <section class="cash-kpis">
@@ -2345,12 +2348,12 @@ async function cash(){
     </section>
 
     ${open?`
-      <section class="card panel cash-actions"><div class="panel-title-row"><div><div class="eyebrow2">MOVIMIENTOS</div><h3>Registrar operación</h3></div></div>
+      <section class="card panel cash-actions"><div class="panel-title-row"><div><div class="eyebrow2">MOVIMIENTOS · ${isCashier?"MODO RÁPIDO":"ADMINISTRACIÓN"}</div><h3>${isCashier?"Registrar en 2 toques":"Registrar operación"}</h3></div></div>
         <div class="cash-action-grid"><button id="cashIncome" class="cash-action income">＋ Ingreso de efectivo<small>Venta, cobro u otro ingreso</small></button><button id="cashExpense" class="cash-action expense">− Egreso de efectivo<small>Compra, transporte, gasto u otro</small></button></div>
       </section>
       <section class="card panel cash-movements"><div class="panel-title-row"><div><div class="eyebrow2">MOVIMIENTOS DE HOY</div><h3>Detalle de caja</h3></div></div>
-      <div class="scroll"><table class="data"><thead><tr><th>Hora</th><th>Tipo</th><th>Concepto</th><th>Referencia</th><th>Monto</th></tr></thead><tbody>
-      ${movements.map(x=>`<tr><td>${new Date(x.created_at).toLocaleTimeString("es-PE",{hour:"2-digit",minute:"2-digit"})}</td><td><span class="cash-type ${x.type==="INCOME"?"in":"out"}">${x.type==="INCOME"?"Ingreso":"Egreso"}</span></td><td><b>${esc(x.concept)}</b></td><td>${esc(x.reference||"—")}</td><td class="${x.type==="INCOME"?"cash-in":"cash-out"}"><b>${x.type==="INCOME"?"+":"−"} ${money(x.amount)}</b></td></tr>`).join("")||'<tr><td colspan="5" class="empty">Aún no hay movimientos.</td></tr>'}
+      <div class="scroll"><table class="data"><thead><tr><th>Hora</th><th>Usuario</th><th>Tipo</th><th>Concepto</th><th>Referencia</th><th>Monto</th></tr></thead><tbody>
+      ${movements.map(x=>`<tr><td>${new Date(x.created_at).toLocaleTimeString("es-PE",{hour:"2-digit",minute:"2-digit"})}</td><td>${esc(x.created_by_name||"Administrador")}</td><td><span class="cash-type ${x.type==="INCOME"?"in":"out"}">${x.type==="INCOME"?"Ingreso":"Egreso"}</span></td><td><b>${esc(x.concept)}</b></td><td>${esc(x.reference||"—")}</td><td class="${x.type==="INCOME"?"cash-in":"cash-out"}"><b>${x.type==="INCOME"?"+":"−"} ${money(x.amount)}</b></td></tr>`).join("")||'<tr><td colspan="6" class="empty">Aún no hay movimientos.</td></tr>'}
       </tbody></table></div></section>
     `:'<section class="card panel cash-closed-empty"><div class="empty-state"><span>▣</span><b>No hay una caja abierta</b><small>Abre una nueva caja indicando el efectivo inicial para comenzar.</small></div></section>'}
 
@@ -2366,8 +2369,9 @@ async function cash(){
   $("#downloadCashExcel2").onclick=exportExcel;
   $("#cashReportMonths").onchange=e=>{const n=Math.min(6,Math.max(2,Number(e.target.value)||2));const u=new URL(location.href);u.searchParams.set("cashMonths",String(n));history.replaceState({},document.title,u.toString());cash()};
 
-  if(open)$("#closeCashTop").onclick=()=>closeCashModal(open,expected);
-  else $("#openCashTop").onclick=()=>openCashModal();
+  if($("#cashStaff"))$("#cashStaff").onclick=()=>cashStaffModal();
+  if(open&&!isCashier)$("#closeCashTop").onclick=()=>closeCashModal(open,expected);
+  else if(!open&&!isCashier&&$("#openCashTop"))$("#openCashTop").onclick=()=>openCashModal();
   if(open){$("#cashIncome").onclick=()=>cashMovementModal(open,"INCOME");$("#cashExpense").onclick=()=>cashMovementModal(open,"EXPENSE");}
 }
 

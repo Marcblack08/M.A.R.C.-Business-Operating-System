@@ -1238,3 +1238,19 @@ body.sidebar-open{overflow:hidden}
 .notification-share:hover{transform:translateY(-1px)}
 .notification-item .notification-go+.notification-share{margin-left:4px}
 [data-theme="dark"] .notification-share{color:#70e0a1;background:rgba(37,211,102,.12);border-color:rgba(112,224,161,.25)}
+
+
+/* Caja multiusuario · modo cajero rápido */
+.cashier-hidden{display:none!important}
+.cashier-mode .cash-kpi{min-height:118px}
+.cashier-mode .cash-action-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.cashier-mode .cash-action{min-height:150px;border-radius:24px;font-size:20px;box-shadow:0 12px 30px rgba(16,35,63,.08);transition:transform .18s ease,box-shadow .18s ease}
+.cashier-mode .cash-action:hover{transform:translateY(-3px);box-shadow:0 18px 38px rgba(16,35,63,.13)}
+.cash-quick-amount{display:flex;align-items:center;gap:10px;border:2px solid var(--blue);border-radius:22px;padding:12px 18px;background:var(--panel)}
+.cash-quick-amount span{font-size:20px;font-weight:800}.cash-quick-amount input{border:0!important;background:transparent!important;font-size:34px!important;font-weight:800!important;outline:0!important;width:100%}
+.cash-quick-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0 16px}.cash-preset{min-height:44px;font-weight:800}
+.cash-close-focus{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-radius:18px;background:var(--bg);margin-bottom:14px}.cash-close-focus span{font-size:11px;font-weight:800;color:var(--muted)}.cash-close-focus strong{font-size:26px}
+.cash-close-diff{display:flex;justify-content:space-between;padding:12px 14px;border-radius:14px;background:var(--bg);margin-top:10px;font-weight:700}
+.cash-staff-list{display:grid;gap:8px;margin-bottom:16px}.cash-staff-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:14px}.cash-staff-row small{display:block;color:var(--muted);margin-top:3px}.cash-staff-row>span{font-size:10px;font-weight:800;color:var(--blue)}
+@media(max-width:700px){.cashier-mode .cash-action-grid{grid-template-columns:1fr}.cash-quick-grid{grid-template-columns:repeat(2,1fr)}.cash-quick-amount input{font-size:28px!important}}
+[data-theme="dark"] .cash-quick-amount{background:#101a2a}. [data-theme="dark"] .cash-staff-row{border-color:#27364c}

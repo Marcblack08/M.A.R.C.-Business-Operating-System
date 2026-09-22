@@ -442,6 +442,35 @@ function recoverQuoteDraft(responseText,description,clientQuery,allCost){
   };
 }
 
+function parseReminderRequest(message){
+  const raw=String(message||"").trim();
+  const s=raw.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim();
+  if(!/\b(recu[eé]rdame|recordarme|av[ií]same|avisame|no olvides|programa(?:me)?|ponme un recordatorio)\b/.test(s))return null;
+  const relative=s.match(/\b(en\s+)(\d+)\s*(minutos?|mins?|horas?|d[ií]as?|semanas?)\b/);
+  const tomorrow=s.match(/\b(ma[nñ]ana)\b/);
+  const time=s.match(/\b(?:a\s+las?\s*)(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/i);
+  let when=new Date();
+  if(relative){
+    const n=Number(relative[2]);const unit=relative[3];
+    if(/^min/i.test(unit))when.setMinutes(when.getMinutes()+n);
+    else if(/^hora/i.test(unit))when.setHours(when.getHours()+n);
+    else if(/^d[ií]a/i.test(unit))when.setDate(when.getDate()+n);
+    else when.setDate(when.getDate()+n*7);
+  }else{
+    if(tomorrow)when.setDate(when.getDate()+1);
+    if(time){
+      let h=Number(time[1]);const ap=String(time[3]||"").toLowerCase();
+      if(ap==="pm"&&h<12)h+=12;if(ap==="am"&&h===12)h=0;
+      when.setHours(h,Number(time[2]||0),0,0);
+      if(!tomorrow&&when.getTime()<=Date.now())when.setDate(when.getDate()+1);
+    }else if(!tomorrow)return {needs_time:true};
+  }
+  const title=raw.replace(/\b(recu[eé]rdame|recordarme|av[ií]same|avisame|no olvides|programa(?:me)?|ponme un recordatorio)\b/ig,"")
+    .replace(/\b(en\s+\d+\s*(?:minutos?|mins?|horas?|d[ií]as?|semanas?)|ma[nñ]ana|a\s+las?\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\b/ig,"")
+    .replace(/^[\s,:-]+|[\s,:-]+$/g,"").trim();
+  return {title:title.slice(0,120)||"Recordatorio de M.A.R.C.",body:title.slice(0,500)||"Tienes un recordatorio pendiente.",when:when.toISOString()};
+}
+
 function deterministicIntent(message){
   const s=String(message||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim();
   const readOnly=/\b(agrega|agregar|ingresa|ingresar|suma|sumar|resta|restar|ajusta|ajustar|crea|crear|registra|registrar|elimina|eliminar|abre|abrir|cierra|cerrar|paga|pagar)\b/.test(s);
@@ -460,6 +489,10 @@ function deterministicIntent(message){
   return null;
 }
 async function plan(env,message,history,entityContext={},contextToken="",contextUserId=""){
+  const reminder=parseReminderRequest(message);
+  if(reminder&&!reminder.needs_time)return {action:"SCHEDULE_REMINDER",execute:false,params:reminder};
+  if(reminder?.needs_time)return {action:"CHAT",execute:false,params:{clarification:"Claro. ¿Cuándo quieres que te lo recuerde? Por ejemplo: «mañana a las 9» o «en 2 horas».",reminder_pending:true}};
+
   const reference=resolveEntityReference(message,entityContext);
   const s=String(message||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim();
   if(reference?.status==="AMBIGUOUS")return {action:"CHAT",execute:false,params:{clarification:"¿A cuál resultado te refieres? Indícame el número o el nombre."}};
@@ -797,6 +830,7 @@ async function executePlan(env,token,user,pl,source="AI_AGENT"){
     const items=quoteIds.length?await sb(env,token,"marc_quote_items?select=quote_id,item_type,name,quantity,unit,unit_price,line_total&user_id=eq."+encodeURIComponent(user.id)+"&quote_id=in.("+quoteIds.join(",")+")&order=created_at.asc").catch(()=>[]):[];
     return {action,result:{status:"FOUND",client,quotes:quotes||[],reports:reports||[],history:history||[],items}};
   }
+  if(action==="SCHEDULE_REMINDER")return {action,result:{status:"REMINDER_READY",title:p.title,body:p.body,when:p.when}};
   if(action==="CREATE_CLIENT")return {action,result:{status:"CONFIRMATION_REQUIRED",params:p}};
   if(action==="CREATE_QUOTE"||action==="UPDATE_QUOTE")return {action,result:{status:"CONFIRMATION_REQUIRED",params:p}};
   if(action==="ADJUST_INVENTORY")return {action,result:{status:"CONFIRMATION_REQUIRED",params:p}};

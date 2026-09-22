@@ -137,7 +137,7 @@ async function trial(){
 async function chatLoad(){const box=$("#messages");box.innerHTML="";const {data}=await S.from("marc_messages").select("role,content").eq("conversation_id",st.cid).order("created_at",{ascending:true}).limit(60);if(!data?.length)addBubble("a","Hola. Soy M.A.R.C. Dime qué quieres hacer.");else data.forEach(x=>addBubble(x.role==="USER"?"u":"a",x.content))}
 function applyCashierMode(isCashier){
   document.body.classList.toggle("cashier-mode",!!isCashier);
-  $$("#sidebar nav button,#mobileNav button").forEach(b=>{b.style.display=(!isCashier||b.dataset.view==="cash")?"":"none"});
+  $$$("#sidebar nav button,#mobileNav button").forEach(b=>{b.style.display=(!isCashier||b.dataset.view==="cash")?"":"none"});
   if($("#askTop"))$("#askTop").style.display=isCashier?"none":"";
   if($("#notificationBell"))$("#notificationBell").style.display=isCashier?"none":"";
   if($("#chat"))$("#chat").classList.toggle("cashier-hidden",!!isCashier);
@@ -237,7 +237,7 @@ function closeChat(){
   $("#chat").classList.add("closed");
   $("#app").classList.add("chat-closed");
 }
-function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",suppliers:"Proveedores",quotes:"Cotizaciones",marketing:"Publicidad",settings:"Configuración",cash:"Cierre de caja"}[x]||"Inicio";$$(".sidebar nav button, #mobileNav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
+function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",suppliers:"Proveedores",quotes:"Cotizaciones",marketing:"Publicidad",settings:"Configuración",cash:"Cierre de caja"}[x]||"Inicio";$$$(".sidebar nav button, #mobileNav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
 let __viewBusy=false;
 async function view(x){
   if(__viewBusy&&st.view===x)return;
@@ -245,7 +245,7 @@ async function view(x){
   const run=async()=>{
     st.view=x;title(x);$("#sidebar").classList.remove("open");document.body.style.overflow="";
     if(window.innerWidth<=780)window.scrollTo(0,0);
-    $$(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x));
+    $$$(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x));
     if(x==="home")return home();if(x==="clients")return clients();if(x==="inventory")return inventory();
     if(x==="suppliers"){if(window.marcSupplierCenter)return window.marcSupplierCenter();let tries=0;const wait=()=>{if(window.marcSupplierCenter)return window.marcSupplierCenter();if(++tries<30)return setTimeout(wait,100);return toast("No se pudo cargar el Centro de Proveedores. Recarga la aplicación.","err")};return wait();}
     if(x==="quotes")return quotes();if(x==="marketing")return marketing();if(x==="cash")return cash();return settings();
@@ -422,7 +422,7 @@ async function home(){
   $("#heroQuote").onclick=quoteModal;
   $("#openInventory").onclick=inventory;
   $("#openQuotes").onclick=quotes;
-  $$(".quick-modern-grid button",c).forEach(b=>b.onclick=()=>b.dataset.q==="client"?clientModal():b.dataset.q==="inventory"?inventoryModal():b.dataset.q==="quote"?quoteModal():b.dataset.q==="marketing"?marketing():b.dataset.q==="cash"?cash():openChat());
+  $$$(".quick-modern-grid button",c).forEach(b=>b.onclick=()=>b.dataset.q==="client"?clientModal():b.dataset.q==="inventory"?inventoryModal():b.dataset.q==="quote"?quoteModal():b.dataset.q==="marketing"?marketing():b.dataset.q==="cash"?cash():openChat());
 }
 
 function modal(html){
@@ -2291,7 +2291,7 @@ async function cashMovementModal(open,type){
     const q=String(search?.value||"").trim().toLowerCase();
     const filtered=products.filter(p=>[p.name,p.sku,p.brand,p.model,p.category].some(v=>String(v||"").toLowerCase().includes(q))).slice(0,30);
     list.innerHTML=filtered.map(p=>'<button type="button" class="cash-product-item" data-id="'+esc(p.id)+'">'+(p.image_url?'<img src="'+esc(p.image_url)+'" alt="">':'<span class="cash-product-thumb">▦</span>')+'<span><b>'+esc(p.name)+'</b><small>'+esc([p.brand,p.model,p.sku].filter(Boolean).join(" · ")||"Sin código")+'</small><small>'+esc(p.description||p.category||"Producto")+' · Stock: '+Number(p.stock||0)+'</small></span><strong>'+money(p.price||0)+'</strong></button>').join("")||'<div class="empty">No encontré productos con esa búsqueda.</div>';
-    $$(".cash-product-item",list).forEach(b=>b.onclick=()=>selectProduct(products.find(p=>p.id===b.dataset.id)));
+    $$$(".cash-product-item",list).forEach(b=>b.onclick=()=>selectProduct(products.find(p=>p.id===b.dataset.id)));
   };
   const updateProductTotal=()=>{
     if(!selected)return;
@@ -2864,7 +2864,7 @@ async function marketing(){
 
   const switchSource=source=>{
     adSource=source;
-    $$$(".ad-source-tab").forEach(b=>b.classList.toggle("active",b.dataset.source===source));
+    $$$$(".ad-source-tab").forEach(b=>b.classList.toggle("active",b.dataset.source===source));
     $p("adNewSource").classList.toggle("hidden",source!=="new");
     $p("adInventorySource").classList.toggle("hidden",source!=="inventory");
     if(source==="inventory"){
@@ -2876,7 +2876,7 @@ async function marketing(){
     }
   };
 
-  $$(".ad-source-tab").forEach(b=>b.onclick=()=>switchSource(b.dataset.source));
+  $$$(".ad-source-tab").forEach(b=>b.onclick=()=>switchSource(b.dataset.source));
   $p("adProduct").onchange=async()=>{currentProduct=list.find(p=>p.id===$p("adProduct").value)||null;currentImage=null;currentImageFile=null;currentAiImage=null;renderProductSummary();await renderCanvas()};
   $p("adProductSearch").oninput=()=>{const q=$p("adProductSearch").value.toLowerCase().trim(),sel=$p("adProduct"),matches=list.filter(p=>[p.name,p.sku,p.brand,p.model].join(" ").toLowerCase().includes(q));sel.innerHTML=matches.length?matches.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+(p.sku?" · "+esc(p.sku):"")+'</option>').join(""):'<option value="">Sin coincidencias</option>';currentProduct=matches[0]||null;renderProductSummary();renderCanvas()};
   $p("adImage").onchange=e=>preparePhoto(e.target.files?.[0]);
@@ -2907,8 +2907,8 @@ async function marketing(){
     renderCanvas();
   }));
 
-  $$(".ad-objective").forEach(btn=>btn.onclick=()=>{
-    $$(".ad-objective").forEach(x=>x.classList.toggle("active",x===btn));
+  $$$(".ad-objective").forEach(btn=>btn.onclick=()=>{
+    $$$(".ad-objective").forEach(x=>x.classList.toggle("active",x===btn));
     $p("adObjective").value=btn.dataset.objective;
     const presets={VENDER:"Quiero vender este producto destacando sus beneficios y una llamada a la acción clara.","GENERAR CONSULTAS":"Quiero generar consultas y que los clientes me contacten por WhatsApp.","PROMOCIONAR PRODUCTO":"Quiero presentar este producto de forma profesional y atractiva."};
     if(!$p("adDetails").value.trim())$p("adDetails").value=presets[btn.dataset.objective]||"";
@@ -2957,7 +2957,7 @@ async function marketing(){
   $p("generateAd").onclick=createComplete;
   $p("downloadAd").onclick=()=>{if(!currentCampaign)return;const a=document.createElement("a");a.href=$p("adCanvas").toDataURL("image/png");a.download="MARC_Publicidad_"+String(currentProduct?.name||"producto").replace(/[^a-z0-9áéíóúñü]+/gi,"-").slice(0,50)+".png";a.click()};
   $p("shareAd").onclick=async()=>{if(!$p("adCanvas")||!currentCampaign)return toast("Primero crea la publicidad.","err");try{const blob=await new Promise(r=>$p("adCanvas").toBlob(r,"image/png"));const file=new File([blob],"MARC_Publicidad.png",{type:"image/png"});if(navigator.share&&navigator.canShare?.({files:[file]})){await navigator.share({title:currentCampaign.title||currentProduct?.name||"Publicidad",text:currentCampaign.short_text||"",files:[file]})}else{await navigator.clipboard?.writeText(currentCampaign.whatsapp_text||currentCampaign.primary_text||"");toast("El dispositivo no permite compartir la imagen directamente; el texto quedó copiado.","ok")}}catch(e){if(e?.name!=="AbortError")toast("No se pudo compartir.","err")}};
-  $$("[data-copy]").forEach(b=>b.onclick=async()=>{const key=b.dataset.copy,val=key==="hashtags"?(currentCampaign?.hashtags||[]).join(" "):currentCampaign?.[key]||"";if(!val)return toast("No hay texto para copiar.","err");await navigator.clipboard?.writeText(val);toast("Texto copiado","ok")});
+  $$$("[data-copy]").forEach(b=>b.onclick=async()=>{const key=b.dataset.copy,val=key==="hashtags"?(currentCampaign?.hashtags||[]).join(" "):currentCampaign?.[key]||"";if(!val)return toast("No hay texto para copiar.","err");await navigator.clipboard?.writeText(val);toast("Texto copiado","ok")});
 
   applyLogo();
   if(currentProduct){$p("adProduct").value=currentProduct.id;renderProductSummary();await renderCanvas()}
@@ -3463,7 +3463,7 @@ function wire(){
   },true);
   $("#chatForm").onsubmit=e=>{e.preventDefault();const v=$("#chatInput").value.trim();if(v){$("#chatInput").value="";chatSend(v)}};
   $("#chatInput").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("#chatForm").requestSubmit()}};
-  $$(".chips button").forEach(b=>b.onclick=()=>{$("#chatInput").value=b.dataset.q;$("#chatInput").focus()});
+  $$$(".chips button").forEach(b=>b.onclick=()=>{$("#chatInput").value=b.dataset.q;$("#chatInput").focus()});
 
   const bootAuth=async()=>{
     const {search,hash}=authCallbackParams();

@@ -3803,7 +3803,7 @@ export default{
         const staff=lookup?.[0];
         if(!staff||!staff.active)return json({error:"Usuario de caja no disponible"},401,headers);
         const adminToken=env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY;
-        let loginEmail=username+"@cash.marc.local";
+        let loginEmail=username+"@cash.marc.pe";
         if(adminToken&&staff.auth_user_id){
           const ur=await fetch(env.SUPABASE_URL+"/auth/v1/admin/users/"+encodeURIComponent(staff.auth_user_id),{headers:{apikey:adminToken,Authorization:"Bearer "+adminToken}});
           const ud=await ur.json().catch(()=>null);

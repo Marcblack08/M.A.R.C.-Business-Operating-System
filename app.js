@@ -18,7 +18,7 @@ function initTheme(){
   applyTheme(preferred,false);
 }
 function authRateLimitMessage(e){const raw=String(e?.message||"").toLowerCase();return raw.includes("rate limit")||raw.includes("too many")||raw.includes("over_email_send_rate_limit")}
-function mode(m){authMode=m;const title=m==="login"?"Inicia sesión en M.A.R.C.":"Accede a M.A.R.C.";const sub=m==="login"?"Accede a M.A.R.C. de forma rápida y segura con tu cuenta de Google.":"Accede a M.A.R.C. con tu cuenta de Google.";if($("#authTitle"))$("#authTitle").textContent=title;if($("#authSub"))$("#authSub").textContent=sub;msg("")}
+function mode(m){authMode=m;const title=m==="login"?"Inicia sesión en M.A.R.C.":m==="signup"?"Crea tu cuenta en M.A.R.C.":"Recupera tu contraseña";const sub=m==="login"?"Accede con Google o con tu correo y contraseña.":m==="signup"?"Crea tu cuenta para comenzar.":"Te enviaremos un enlace para crear una nueva contraseña.";if($("#authTitle"))$("#authTitle").textContent=title;if($("#authSub"))$("#authSub").textContent=sub;$("#password")?.closest("label")?.classList.toggle("hidden",m==="reset");$("#password").required=m!=="reset";$("#confirmWrap")?.classList.toggle("hidden",m!=="signup");$("#authSubmit").textContent=m==="signup"?"Crear cuenta":m==="reset"?"Enviar enlace de recuperación":"Iniciar sesión";msg("")}
 function showCashStaffLogin(show=true){
   const panel=$("#cashStaffPanel");
   if(!panel)return;
@@ -3423,8 +3423,8 @@ function wire(){
   $("#googleLogin").onclick=signInGoogle;
   $("#authForm").onsubmit=submit;
   $("#passwordToggle").onclick=()=>{const i=$("#password"),b=$("#passwordToggle");if(!i)return;i.type=i.type==="password"?"text":"password";b.textContent=i.type==="password"?"◉":"◎"};
-  $("#signupMode").onclick=()=>{mode("signup");$("#authSubmit").textContent="Crear cuenta";$("#confirm")?.focus()};
-  $("#forgotPassword").onclick=()=>{mode("reset");$("#authSubmit").textContent="Enviar enlace de recuperación";$("#password").required=false;$("#password").closest("label")?.classList.add("hidden");$("#signupMode").textContent="Volver a iniciar sesión";$("#signupMode").onclick=()=>{mode("login");location.reload()}};
+  $("#signupMode").onclick=()=>{mode(authMode==="signup"?"login":"signup");$("#signupMode").textContent=authMode==="signup"?"Volver a iniciar sesión":"Crear cuenta";$("#authForm")?.reset()};
+  $("#forgotPassword").onclick=()=>{mode("reset");$("#signupMode").textContent="Volver a iniciar sesión"};
   $("#logout").onclick=async()=>{resetUiToLogin();await S.auth.signOut();};
   $("#askTop").onclick=openChat;
   $("#closeChat").onclick=closeChat;

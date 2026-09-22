@@ -3666,6 +3666,11 @@ export default{
         const history=await recentMessages(env,token,user.id,conversationId);
         const context=await getConversationContext(env,token,user.id,conversationId);
         const normalized=message.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").trim();
+        const preferredName=extractPreferredName(message);
+        if(preferredName){
+          await saveTelegramPreferredName(env,env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY,user.id,preferredName).catch(()=>{});
+          return json({text:"✨ Entendido, "+preferredName+". Queda anotado. A partir de ahora me dirigiré a usted como "+preferredName+". ¿En qué puedo asistirle?",action:"PROFILE_UPDATED",result:{preferred_name:preferredName}},200,headers);
+        }
 
         // El chat web comparte el mismo flujo de confirmación que Telegram.
         // Nunca ejecutamos una modificación sensible sin una confirmación explícita.

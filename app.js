@@ -154,6 +154,9 @@ async function chatSend(text){
     });
     const j=await r.json();
     const reply=r.ok?(j.text||"No pude responder."):j.message||j.error||"El núcleo de IA no está disponible.";
+    if(r.ok&&j.action==="SCHEDULE_REMINDER"&&j.result?.status==="REMINDER_READY"&&window.MARCNotifications){
+      window.MARCNotifications.reminder(j.result.title,j.result.body,j.result.when);
+    }
     loading.textContent=reply;
     await S.from("marc_messages").insert({
       conversation_id:st.cid,

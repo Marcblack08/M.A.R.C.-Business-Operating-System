@@ -3696,9 +3696,11 @@ async function processOperationalAlerts(env){
         const key="QUOTE_FOLLOWUP:"+q.id;
         const old=(await sb(env,adminToken,"marc_alert_state?select=last_value&user_id=eq."+encodeURIComponent(uid)+"&alert_key=eq."+encodeURIComponent(key)+"&limit=1").catch(()=>[]))?.[0];
         if(old)continue;
+        const client=(await sb(env,adminToken,"marc_clients?select=id,name,phone&user_id=eq."+encodeURIComponent(uid)+"&id=eq."+encodeURIComponent(q.client_id||"")+"&limit=1").catch(()=>[]))?.[0]||{};
         const title="🧾 Cotización sin seguimiento";
         const body="La cotización "+(q.number||q.title||"pendiente")+" lleva más de 5 días en borrador. Conviene revisarla y contactar al cliente.";
-        await sb(env,adminToken,"marc_reminders",{method:"POST",body:{user_id:uid,title,body,due_at:new Date().toISOString(),status:"PENDING",channel:"BOTH",entity_type:"QUOTE",entity_id:q.id,metadata:{alert:"QUOTE_FOLLOWUP"}}});
+        const followup="Hola "+(client.name||"")+" , le escribo para consultar si pudo revisar la cotización "+(q.number||q.title||"")+" por "+(Number(q.total||0).toLocaleString("es-PE",{style:"currency",currency:"PEN"}))+". Quedo atento a cualquier consulta o ajuste que necesite.";
+        await sb(env,adminToken,"marc_reminders",{method:"POST",body:{user_id:uid,title,body,due_at:new Date().toISOString(),status:"PENDING",channel:"BOTH",entity_type:"QUOTE",entity_id:q.id,metadata:{alert:"QUOTE_FOLLOWUP",quote_id:q.id,quote_number:q.number||"",client_id:q.client_id||null,client_name:client.name||"",client_phone:client.phone||"",quote_total:Number(q.total||0),followup_message:followup}}});
         await sb(env,adminToken,"marc_alert_state",{method:"POST",body:{user_id:uid,alert_key:key,last_value:"1",last_sent_at:new Date().toISOString(),updated_at:new Date().toISOString()}}).catch(()=>{});
         out.push({user_id:uid,key});
       }

@@ -1254,3 +1254,5 @@ body.sidebar-open{overflow:hidden}
 .cash-staff-list{display:grid;gap:8px;margin-bottom:16px}.cash-staff-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:14px}.cash-staff-row small{display:block;color:var(--muted);margin-top:3px}.cash-staff-row>span{font-size:10px;font-weight:800;color:var(--blue)}
 @media(max-width:700px){.cashier-mode .cash-action-grid{grid-template-columns:1fr}.cash-quick-grid{grid-template-columns:repeat(2,1fr)}.cash-quick-amount input{font-size:28px!important}}
 [data-theme="dark"] .cash-quick-amount{background:#101a2a}. [data-theme="dark"] .cash-staff-row{border-color:#27364c}
+
+.cash-action{display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center}.cash-action-circle{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;font-size:34px;font-weight:800;border:2px solid currentColor}.cash-action b{font-size:21px}.cash-action small{font-size:12px}.cashier-mode .cash-action-circle{width:78px;height:78px;font-size:40px}.cashier-mode .cash-action{min-height:190px;border-radius:28px}

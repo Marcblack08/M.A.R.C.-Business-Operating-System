@@ -237,7 +237,7 @@ function closeChat(){
   $("#chat").classList.add("closed");
   $("#app").classList.add("chat-closed");
 }
-function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",suppliers:"Proveedores",quotes:"Cotizaciones",marketing:"Publicidad",settings:"Configuración",cash:"Cierre de caja"}[x]||"Inicio";$(".sidebar nav button, #mobileNav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
+function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",suppliers:"Proveedores",quotes:"Cotizaciones",marketing:"Publicidad",settings:"Configuración",cash:"Cierre de caja"}[x]||"Inicio";$$(".sidebar nav button, #mobileNav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
 let __viewBusy=false;
 async function view(x){
   if(__viewBusy&&st.view===x)return;

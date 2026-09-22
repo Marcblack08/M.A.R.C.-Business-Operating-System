@@ -3803,3 +3803,54 @@ img{max-width:100%}
 /* Theme-aware browser controls. */
 html:not([data-theme="dark"]){color-scheme:light}
 html[data-theme="dark"]{color-scheme:dark}
+
+
+/* ===== LAYOUT CONTRACT v1 =====
+   Última capa de layout: define una única geometría por breakpoint.
+   No cambia componentes; evita que módulos visuales posteriores vuelvan
+   a comprimir el contenido o a reservar una columna fantasma.
+*/
+@media (min-width:1061px){
+  #app.app{
+    display:grid!important;
+    grid-template-columns:248px minmax(0,1fr) 368px!important;
+    width:100%!important;
+    min-width:0!important;
+  }
+  #app.app.chat-closed{
+    grid-template-columns:248px minmax(0,1fr)!important;
+  }
+  #app.app>.sidebar,
+  #app.app>.main,
+  #app.app>.chat{min-width:0}
+  #app.app>.sidebar{width:auto!important}
+  #app.app>.chat{width:auto!important;position:sticky;top:0;height:100svh}
+}
+@media (min-width:781px) and (max-width:1060px){
+  #app.app{
+    display:grid!important;
+    grid-template-columns:220px minmax(0,1fr)!important;
+    width:100%!important;
+    min-width:0!important;
+  }
+  #app.app>.sidebar{width:220px!important}
+  #app.app>.main{min-width:0!important}
+  #app.app>.chat{
+    position:fixed!important;
+    right:0!important;
+    top:0!important;
+    bottom:0!important;
+    width:min(400px,92vw)!important;
+  }
+}
+@media (max-width:780px){
+  #app.app{
+    display:block!important;
+    width:100%!important;
+    min-width:0!important;
+    overflow-x:hidden!important;
+  }
+  #app.app>.main{width:100%!important;min-width:0!important}
+  #app.app>.chat{width:min(100vw,400px)!important;max-width:100vw!important}
+  #app.app>.sidebar{width:min(290px,86vw)!important;max-width:86vw!important}
+}

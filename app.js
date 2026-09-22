@@ -2592,8 +2592,7 @@ async function cash(){
     start:reportStart,end:new Date(reportEnd.getTime()-86400000),months:monthly,registers:closedTwoMonths,movements:reportMovements
   };
   const exportExcel=()=>downloadCashExcel(report);
-  $("#downloadCashExcel").onclick=exportExcel;
-  $("#downloadCashExcel2").onclick=exportExcel;
+  if($("#downloadCashExcel"))$("#downloadCashExcel").onclick=exportExcel;
   $("#cashReportMonths").onchange=e=>{const n=Math.min(6,Math.max(2,Number(e.target.value)||2));const u=new URL(location.href);u.searchParams.set("cashMonths",String(n));history.replaceState({},document.title,u.toString());cash()};
 
   if($("#cashStaff"))$("#cashStaff").onclick=()=>cashStaffModal();

@@ -2616,11 +2616,9 @@ async function geminiGenerateImage(env,imageBase64,prompt,options={}){
   if(!apiKeys.length)throw Object.assign(new Error("GEMINI_API_KEY no está configurada en el Worker."),{status:503});
   const models=[env.GEMINI_MODEL||GEMINI_MODEL_DEFAULT,env.GEMINI_MODEL_FALLBACK||"gemini-3.7-flash",env.GEMINI_MODEL_FALLBACK2||"gemini-3.6-flash"].filter((x,i,a)=>x&&a.indexOf(x)===i);
   const clean=String(imageBase64||"").replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/,"");
+  const parts=Array.isArray(imageBase64)?imageBase64:[{inlineData:{mimeType:options.mimeType||"image/jpeg",data:clean}},{text:String(prompt)}];
   const body={
-    contents:[{parts:[
-      {inlineData:{mimeType:options.mimeType||"image/jpeg",data:clean}},
-      {text:String(prompt)}
-    ]}],
+    contents:[{parts}],
     generationConfig:{maxOutputTokens:options.maxTokens||3200,...(options.json?{responseMimeType:"application/json"}:{})}
   };
   const transient=[429,500,502,503,504,529];
@@ -2675,7 +2673,15 @@ async function marketingProductAi(request,env){
     "confidence: número entre 0 y 1.",
     "BRIEF DEL USUARIO: "+brief
   ].join("\n");
-  const out=await geminiGenerateImage(env,image,prompt,{maxTokens:1000,json:true});
+  const analysisParts=[
+    {text:prompt},
+    {inlineData:{mimeType,data:image}}
+  ];
+  if(referenceImage){
+    analysisParts.push({text:"FOTO DE REFERENCIA ADICIONAL: úsala para identificar marca, modelo, etiqueta, caja, especificaciones visibles o detalles que no sean legibles en la foto principal. No confundas la foto de referencia con el producto anunciado."});
+    analysisParts.push({inlineData:{mimeType:referenceMime,data:referenceImage}});
+  }
+  const out=await geminiGenerateImage(env,analysisParts,prompt,{maxTokens:1000,json:true});
   const text=out?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("")||"";
   if(!text)throw Object.assign(new Error("Gemini no devolvió datos del producto."),{status:502});
   let parsed;try{parsed=extractJson(text)}catch{throw Object.assign(new Error("Gemini no devolvió un JSON válido para el producto."),{status:502})}

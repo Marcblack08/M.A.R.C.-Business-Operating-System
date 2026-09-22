@@ -3421,6 +3421,10 @@ function wire(){
   $("#authThemeToggle").onclick=toggleTheme;
   mode("login");
   $("#googleLogin").onclick=signInGoogle;
+  $("#authForm").onsubmit=submit;
+  $("#passwordToggle").onclick=()=>{const i=$("#password"),b=$("#passwordToggle");if(!i)return;i.type=i.type==="password"?"text":"password";b.textContent=i.type==="password"?"◉":"◎"};
+  $("#signupMode").onclick=()=>{mode("signup");$("#authSubmit").textContent="Crear cuenta";$("#confirm")?.focus()};
+  $("#forgotPassword").onclick=()=>{mode("reset");$("#authSubmit").textContent="Enviar enlace de recuperación";$("#password").required=false;$("#password").closest("label")?.classList.add("hidden");$("#signupMode").textContent="Volver a iniciar sesión";$("#signupMode").onclick=()=>{mode("login");location.reload()}};
   $("#logout").onclick=async()=>{resetUiToLogin();await S.auth.signOut();};
   $("#askTop").onclick=openChat;
   $("#closeChat").onclick=closeChat;

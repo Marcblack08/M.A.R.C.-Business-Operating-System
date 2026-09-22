@@ -316,8 +316,8 @@ async function home(){
       <section class="dashboard-hero">
         <div class="hero-copy">
           <div class="hero-eyebrow">CENTRO DE OPERACIONES</div>
-          <h1>Tu negocio, más claro.<br><span>M.A.R.C. se encarga.</span></h1>
-          <p>Clientes, inventario, cotizaciones, resultados y rentabilidad reunidos en un solo lugar para que puedas actuar rápido.</p>
+          <h1>¡Buenos días!<br><span>M.A.R.C. se encarga.</span></h1>
+          <p>Tu negocio, tus clientes y tus ventas bajo el control de tu mayordomo digital.</p>
           <div class="hero-actions">
             <button id="askHome" class="primary hero-primary">✦ Hablar con M.A.R.C.</button>
             <button id="heroQuote" class="hero-secondary">＋ Nueva cotización</button>
@@ -325,7 +325,7 @@ async function home(){
         </div>
         <div class="hero-visual" aria-hidden="true">
           <div class="hero-visual-ring"></div>
-          <div class="hero-visual-logo" id="heroBrandLogo"><span>M</span></div>
+          <div class="hero-visual-logo is-marc-brand" id="heroBrandLogo"><span class="marc-bot-face"><i></i><i></i></span><b>M</b></div>
           <div class="hero-visual-caption">M.A.R.C. · TU MAYORDOMO DIGITAL</div>
         </div>
       </section>
@@ -429,7 +429,7 @@ async function home(){
   if(heroLogo){
     // El hero pertenece a M.A.R.C.; el logo de la empresa queda reservado para
     // Configuración, cotizaciones, PDF y publicidad. Nunca debe dominar el dashboard.
-    heroLogo.innerHTML='<span>M</span>';
+    heroLogo.innerHTML='<span class="marc-bot-face"><i></i><i></i></span><b>M</b>';
     heroLogo.classList.remove("has-company-logo");
     heroLogo.classList.add("is-marc-brand");
   }

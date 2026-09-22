@@ -137,3 +137,190 @@ button[data-ops-lock="1"]{cursor:wait}
   .inventory-filter-chips{overflow-x:auto;flex-wrap:nowrap;padding-bottom:3px}
   .inventory-filter-chip{white-space:nowrap}
 }
+
+
+/* ===== M.A.R.C. · Mobile reference style =====
+   Navigation is intentionally reduced to the top hamburger.
+   The dashboard uses the visual language of the approved mobile reference.
+*/
+#mobileNav,.mobile-bottom-nav,.ops-mobile-more,.ops-mobile-more-backdrop{display:none!important}
+
+@media(max-width:780px){
+  body{background:#03182d!important}
+  .app{background:#03182d!important}
+  .main{background:linear-gradient(180deg,#f7fbff 0 88px,#03182d 88px 100%)!important;min-width:0}
+  .main .top{
+    height:88px!important;
+    min-height:88px!important;
+    padding:0 12px!important;
+    background:rgba(255,255,255,.98)!important;
+    border-bottom:1px solid #dbe7f1!important;
+    box-shadow:0 5px 18px rgba(4,31,56,.10)!important;
+    backdrop-filter:blur(18px)!important;
+  }
+  .main .top #menu{
+    display:grid!important;
+    place-items:center!important;
+    width:56px!important;height:56px!important;min-width:56px!important;
+    border:0!important;border-radius:18px!important;
+    background:#062744!important;color:#fff!important;
+    font-size:29px!important;line-height:1!important;
+    box-shadow:0 9px 22px rgba(3,30,53,.20)!important;
+  }
+  .main .top #menu:hover{background:#0a3b64!important}
+  .main .top .brand-head{
+    min-width:0!important;flex:1!important;gap:9px!important;
+    overflow:hidden!important;
+  }
+  .main .top .brand-head>div:last-child{min-width:0!important}
+  .main .top .brand-head>div:last-child>span{
+    color:#10253b!important;font-size:20px!important;font-weight:900!important;
+    letter-spacing:-.04em!important;
+  }
+  .main .top .brand-head>div:last-child>b{display:none!important}
+  .main .top .brand-head>div:last-child>small{
+    color:#7c9bb4!important;font-size:9px!important;margin-top:4px!important;
+    white-space:nowrap!important;
+  }
+  .main .top .brand-logo{
+    width:48px!important;height:48px!important;min-width:48px!important;
+    border-radius:15px!important;background:#fff!important;
+    border:1px solid #c8dceb!important;
+    box-shadow:0 5px 14px rgba(8,78,130,.12)!important;
+  }
+  .main .top .topright{gap:7px!important;margin-left:5px!important}
+  .main .top .theme-toggle{
+    width:48px!important;height:48px!important;min-width:48px!important;
+    padding:0!important;border-radius:15px!important;
+    background:#062744!important;color:#fff!important;border:0!important;
+    font-size:19px!important;
+  }
+  .main .top .theme-toggle #themeLabel{display:none!important}
+  .main .top .notification-bell{
+    width:48px!important;height:48px!important;min-width:48px!important;
+    border-radius:15px!important;background:#fff!important;
+    box-shadow:0 4px 13px rgba(10,44,72,.08)!important;
+    font-size:20px!important;
+  }
+  .main .top .notification-bell b{right:1px!important;top:-2px!important}
+  .main .top .ask{display:none!important}
+  .main .top .person>span{display:none!important}
+  .main .top .person>div{
+    width:48px!important;height:48px!important;
+    border-radius:50%!important;background:#1189eb!important;color:#fff!important;
+    font-size:15px!important;box-shadow:0 5px 15px rgba(17,137,235,.24)!important;
+  }
+
+  .content{
+    max-width:none!important;
+    padding:24px 12px 34px!important;
+    background:#03182d!important;
+  }
+  .dashboard-shell{display:grid!important;gap:14px!important}
+  .dashboard-hero{
+    min-height:535px!important;
+    padding:28px 20px 18px!important;
+    border-radius:28px!important;
+    background:linear-gradient(145deg,#071d39 0%,#075da8 53%,#0b8bea 115%)!important;
+    border:1px solid rgba(50,183,255,.55)!important;
+    box-shadow:0 18px 48px rgba(0,111,220,.28)!important;
+  }
+  .dashboard-hero:before{
+    inset:-20% -25% -10% 25%!important;
+    background:radial-gradient(circle,rgba(77,198,255,.34) 0,transparent 65%)!important;
+  }
+  .dashboard-hero:after{
+    width:390px!important;height:390px!important;right:-190px!important;top:-80px!important;
+    border-color:rgba(255,255,255,.12)!important;
+    box-shadow:0 0 0 70px rgba(255,255,255,.045),0 0 0 140px rgba(255,255,255,.025)!important;
+  }
+  .dashboard-hero .hero-copy{max-width:none!important;position:relative!important;z-index:3!important}
+  .dashboard-hero .hero-eyebrow{
+    font-size:9px!important;letter-spacing:.24em!important;color:#72d9ff!important;
+    margin-bottom:13px!important;
+  }
+  .dashboard-hero h1{
+    max-width:60%!important;font-size:36px!important;line-height:1.02!important;
+    letter-spacing:-.06em!important;
+  }
+  .dashboard-hero h1 span{color:#08c7ff!important}
+  .dashboard-hero p{
+    max-width:60%!important;margin-top:15px!important;
+    color:#c5ddf2!important;font-size:11px!important;line-height:1.55!important;
+  }
+  .hero-visual{
+    top:48px!important;right:-2px!important;width:48%!important;height:225px!important;
+    opacity:1!important;z-index:2!important;
+  }
+  .hero-visual-ring{
+    width:184px!important;height:184px!important;
+    border:2px solid #0fb5ff!important;
+    box-shadow:0 0 24px rgba(0,144,255,.62),0 0 0 8px rgba(0,144,255,.09),0 0 0 18px rgba(0,144,255,.05)!important;
+  }
+  .hero-visual-logo{
+    width:162px!important;height:162px!important;
+    border:2px solid #18a9ff!important;
+    box-shadow:0 0 28px rgba(0,140,255,.50)!important;
+  }
+  .hero-visual-caption{
+    bottom:-2px!important;right:0!important;font-size:5.5px!important;
+    color:#c2e8ff!important;letter-spacing:1.15px!important;
+  }
+  .hero-actions{
+    left:20px!important;right:20px!important;bottom:18px!important;
+    width:auto!important;display:grid!important;gap:10px!important;
+  }
+  .hero-primary,.hero-secondary{
+    min-height:52px!important;width:100%!important;
+    border-radius:16px!important;font-size:12px!important;
+  }
+  .hero-primary{
+    background:#128ff1!important;color:#fff!important;
+    border:1px solid rgba(100,220,255,.55)!important;
+    box-shadow:0 10px 25px rgba(0,91,178,.32)!important;
+  }
+  .hero-secondary{
+    background:rgba(3,51,96,.76)!important;color:#fff!important;
+    border:1px solid rgba(92,191,255,.22)!important;
+  }
+
+  .dashboard-kpis{grid-template-columns:1fr 1fr!important;gap:9px!important}
+  .kpi-modern{
+    min-width:0!important;padding:14px 11px!important;
+    border-radius:18px!important;background:#082642!important;
+    border:1px solid rgba(56,151,218,.18)!important;color:#fff!important;
+    box-shadow:none!important;
+  }
+  .kpi-modern span{color:#8fb0c9!important}.kpi-modern strong{color:#fff!important}
+  .kpi-modern small{color:#7898b2!important}
+  .kpi-arrow{color:#68c9ff!important}
+  .dashboard-panel,.finance-dashboard .dashboard-panel,.activity-panel{
+    background:#082642!important;border-color:rgba(56,151,218,.18)!important;
+    color:#fff!important;box-shadow:none!important;
+  }
+  .panel-eyebrow{color:#55cfff!important}.panel-title-row h3{color:#fff!important}
+  .panel-live{background:rgba(38,187,124,.14)!important;color:#4de0a2!important}
+  .quick-modern-grid{grid-template-columns:1fr 1fr!important}
+  .quick-modern-grid button{
+    background:#0a3151!important;border-color:rgba(83,170,225,.16)!important;color:#fff!important;
+  }
+  .quick-modern-grid small,.critical-copy small{color:#7898b2!important}
+  .quick-modern-grid em{color:#66c8ff!important}
+  .finance-heading h2,.finance-heading p,.finance-subtitle,.finance-summary strong,.finance-summary span,.finance-summary small{color:#fff!important}
+}
+@media(max-width:430px){
+  .main .top{padding:0 9px!important}
+  .main .top .brand-head{gap:6px!important}
+  .main .top .brand-logo{width:44px!important;height:44px!important;min-width:44px!important}
+  .main .top #menu{width:52px!important;height:52px!important;min-width:52px!important}
+  .main .top .theme-toggle,.main .top .notification-bell,.main .top .person>div{
+    width:44px!important;height:44px!important;min-width:44px!important
+  }
+  .dashboard-hero{min-height:525px!important;padding-left:18px!important;padding-right:18px!important}
+  .dashboard-hero h1{font-size:33px!important}
+  .dashboard-hero p{max-width:58%!important}
+  .hero-visual{right:-16px!important;width:51%!important}
+  .hero-visual-ring{width:172px!important;height:172px!important}
+  .hero-visual-logo{width:152px!important;height:152px!important}
+  .hero-actions{left:18px!important;right:18px!important}
+}

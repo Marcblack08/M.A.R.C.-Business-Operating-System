@@ -66,10 +66,12 @@
     alertAction(x);
   }
   function shareFollowup(x){
-    const text=String(x?.body||"").replace(/^La cotización[^.]*\.\s*/i,"");
-    const message=text||"Hola, le escribo para consultar si pudo revisar nuestra cotización. Quedo atento a cualquier consulta.";
-    const url="https://wa.me/?text="+encodeURIComponent(message);
-    window.open(url,"_blank","noopener,noreferrer");
+    const meta=x?.meta?.metadata||{};
+    const message=String(meta.followup_message||x?.body||"Hola, le escribo para consultar si pudo revisar nuestra cotización. Quedo atento a cualquier consulta.");
+    let phone=String(meta.client_phone||"").replace(/\D/g,"");
+    if(phone.length===9&&phone.startsWith("9"))phone="51"+phone;
+    const target=phone?"https://wa.me/"+phone+"?text="+encodeURIComponent(message):"https://wa.me/?text="+encodeURIComponent(message);
+    window.open(target,"_blank","noopener,noreferrer");
   }
   function open(){
     let root=$("#notificationPanel");

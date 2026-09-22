@@ -52,11 +52,14 @@
   function runSmartAction(x){
     const t=String(x?.meta?.entity_type||"").toUpperCase();
     if(t==="QUOTE"){
+      const m=x?.meta?.metadata||{};
+      const q=m.quote_number||"esta cotización";
+      const client=m.client_name?(" del cliente "+m.client_name):"";
       try{
         window.openChat?.();
         const input=$("#chatInput");
         if(input){
-          input.value="Prepara un mensaje de seguimiento para esta cotización.";
+          input.value="Prepara un mensaje de seguimiento para la cotización "+q+client+".";
           input.focus();
           input.dispatchEvent(new Event("input",{bubbles:true}));
         }
@@ -88,7 +91,7 @@
     });
     root.querySelectorAll("[data-notification-go]").forEach(b=>b.onclick=()=>{
       const x=notifications()[Number(b.dataset.notificationGo)];
-      if(x){x.read=true;write(KEY,notifications());renderCount();root.remove();alertAction(x);}
+      if(x){x.read=true;write(KEY,notifications());renderCount();root.remove();runSmartAction(x);}
     });
     $("#closeNotifications").onclick=()=>root.remove();
     $("#markNotificationsRead").onclick=()=>{const rows=notifications().map(x=>({...x,read:true}));write(KEY,rows);renderCount();open()};

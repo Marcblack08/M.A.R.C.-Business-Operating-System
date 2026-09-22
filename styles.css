@@ -3276,3 +3276,17 @@ html[data-theme="dark"] #scModalOverlay [style*="background:rgba(127,127,127,.08
   .ad-result-head h2{font-size:19px}
   .ad-copy-card p{max-height:110px}
 }
+
+
+/* M.A.R.C. · Publicidad — nuevo producto sin inventario */
+.ad-photo-dual{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.ad-photo-box{min-width:0;padding:10px;border:1px solid rgba(83,150,208,.22);border-radius:16px;background:rgba(7,26,50,.32)}
+.ad-photo-box-head{display:grid;gap:3px;margin-bottom:9px}
+.ad-photo-box-head b{font-size:12px}
+.ad-photo-box-head small{font-size:9px;opacity:.7;line-height:1.35}
+.ad-photo-drop.compact{min-height:0}
+.ad-photo-drop.compact .ad-photo-preview{min-height:130px}
+.ad-new-product-fields{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:9px;margin-top:11px}
+.ad-new-product-fields .ad-field{min-width:0}
+@media(max-width:900px){.ad-photo-dual{grid-template-columns:1fr 1fr}.ad-new-product-fields{grid-template-columns:1fr 1fr}}
+@media(max-width:620px){.ad-photo-dual{grid-template-columns:1fr;gap:9px}.ad-photo-box{padding:8px}.ad-photo-box-head b{font-size:10px}.ad-photo-box-head small{font-size:8px}.ad-photo-drop.compact .ad-photo-preview{min-height:115px}.ad-new-product-fields{grid-template-columns:1fr 1fr}.ad-new-product-fields .ad-field:first-child{grid-column:1/-1}}

@@ -2408,7 +2408,7 @@ async function cashStaffModal(){
     <div><b>${esc(x.display_name)}</b><small>${x.employee_code?`ID ${esc(x.employee_code)} · `:""}@${esc(x.username)} · ${x.active?"Activo":"Inactivo"}</small></div>
     <div class="cash-staff-tools"><span>${x.active?"CAJERO":"PAUSADO"}</span><button type="button" class="secondary cash-staff-action" data-action="password" data-id="${esc(x.id)}">Clave</button><button type="button" class="secondary cash-staff-action" data-action="toggle" data-id="${esc(x.id)}">${x.active?"Desactivar":"Activar"}</button></div>
   </div>`).join("")||'<div class="empty">Todavía no hay cajeros creados.</div>';
-  const close=modal(`<div class="modal-head"><div><div class="eyebrow2">ADMINISTRACIÓN MAESTRA</div><h2>👥 Cajeros</h2><p>Crea y controla los accesos de las personas que trabajan en Caja.</p></div><button class="close" id="x">×</button></div><div class="cash-staff-create-card"><div class="eyebrow2">NUEVO CAJERO</div><h3>Crear acceso de cajero</h3><p>Registra aquí el nombre, código, usuario y contraseña del cajero.</p></div><form id="staffForm"><div class="form-grid"><label>Nombre del cajero<input name="display_name" required placeholder="Ej. Juan Pérez"></label><label>ID / código<input name="employee_code" required autocomplete="off" placeholder="Ej. CAJ-001"></label><label>Usuario de cajero<input name="username" required autocomplete="off" autocapitalize="none" placeholder="Ej. juan"></label><label>Clave del cajero<input name="password" type="password" minlength="6" required placeholder="Mínimo 6 caracteres"></label></div><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cerrar</button><button class="primary">＋ Crear cajero</button></div></form><div class="cash-staff-existing"><div class="eyebrow2">CAJEROS REGISTRADOS</div>${rows}</div>`);
+  const close=modal(`<div class="modal-head"><div><div class="eyebrow2">ADMINISTRACIÓN MAESTRA</div><h2>👥 Cajeros</h2><p>Crea y controla los accesos de las personas que trabajan en Caja.</p></div><button class="close" id="x">×</button></div><div class="cash-staff-create-card"><div class="eyebrow2">NUEVO CAJERO</div><h3>Crear acceso de cajero</h3><p>Registra aquí el nombre, código, usuario y contraseña del cajero.</p></div><form id="staffForm"><div class="form-grid"><label>Nombre del cajero<input name="display_name" required placeholder="Ej. Juan Pérez"></label><label>ID / código<input name="employee_code" required autocomplete="off" placeholder="Ej. CAJ-001"></label><label>Usuario de cajero<input name="username" required autocomplete="off" autocapitalize="none" placeholder="Ej. juan"></label><label>Clave del cajero<input name="password" type="password" minlength="6" required placeholder="Mínimo 6 caracteres"></label></div><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cerrar</button><button type="button" class="primary" id="createCashStaffBtn">＋ Crear cajero</button></div><div id="staffCreateError" class="form-error" role="alert" aria-live="polite"></div></form><div class="cash-staff-existing"><div class="eyebrow2">CAJEROS REGISTRADOS</div>${rows}</div>`);
   $("#x").onclick=close;$("#cancel").onclick=close;
   $$(".cash-staff-action",$("#modal")).forEach(btn=>btn.onclick=async()=>{
     const id=btn.dataset.id,action=btn.dataset.action,item=(staff||[]).find(x=>x.id===id);if(!item)return;
@@ -2423,15 +2423,33 @@ async function cashStaffModal(){
       close();await cashStaffModal();
     }catch(err){toast(err.message||"No se pudo actualizar el cajero.","err");btn.disabled=false}
   });
-  $("#staffForm").onsubmit=async e=>{
-    e.preventDefault();
-    const b=e.currentTarget.querySelector("button.primary"),d=new FormData(e.currentTarget);
+  const createStaff=async()=>{
+    const form=$("#staffForm"),b=$("#createCashStaffBtn"),errorBox=$("#staffCreateError");
+    if(!form||!b)return;
+    const d=new FormData(form);
+    const displayName=String(d.get("display_name")||"").trim();
+    const employeeCode=String(d.get("employee_code")||"").trim();
+    const username=String(d.get("username")||"").trim().toLowerCase();
+    const password=String(d.get("password")||"");
+    if(!displayName||!employeeCode||!username||password.length<6){
+      if(errorBox)errorBox.textContent="Completa nombre, ID/código, usuario y una clave de mínimo 6 caracteres.";
+      return;
+    }
+    if(errorBox)errorBox.textContent="Creando acceso…";
     b.disabled=true;
     try{
-      await cashStaffAdminRequest("POST",{action:"create",display_name:d.get("display_name"),employee_code:d.get("employee_code"),username:d.get("username"),password:d.get("password")});
+      await cashStaffAdminRequest("POST",{action:"create",display_name:displayName,employee_code:employeeCode,username,password});
+      if(errorBox)errorBox.textContent="";
       close();toast("Cajero creado correctamente","ok");await cash();
-    }catch(err){toast(err.message||"No se pudo crear el cajero.","err");b.disabled=false}
+    }catch(err){
+      const message=err?.message||"No se pudo crear el cajero.";
+      if(errorBox)errorBox.textContent=message;
+      toast(message,"err");
+      b.disabled=false;
+    }
   };
+  $("#createCashStaffBtn").onclick=e=>{e.preventDefault();e.stopPropagation();createStaff();};
+  $("#staffForm").onsubmit=e=>{e.preventDefault();createStaff();};
 }
 
 async function openCashPasswordModal(item){

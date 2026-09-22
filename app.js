@@ -2465,48 +2465,73 @@ async function cash(){
     return `<div class="cash-diff-row"><div><b>${new Date(x.closed_at).toLocaleDateString("es-PE")}</b><small>Esperado ${money(x.expected_amount)} · Contado ${money(x.closing_amount)}</small></div><div class="cash-diff-track"><i class="${d>=0?"positive":"negative"}" style="width:${h}%"></i></div><strong class="${d>=0?"cash-in":"cash-out"}">${d>=0?"+":""}${money(d)}</strong></div>`;
   }).join("");
 
+
   c.innerHTML=`
-    <div class="head"><div><div class="eyebrow2">CAJA · ${isCashier?"TURNO":"ADMINISTRACIÓN"}</div><h1>${isCashier?"Caja rápida.":"Cierre de caja."}</h1><p>${isCashier?`Usuario: <b>${esc(cashCtx.staff?.display_name||"Cajero")}</b> · ${open?`turno iniciado ${new Date(open.opened_at).toLocaleTimeString("es-PE",{hour:"2-digit",minute:"2-digit"})}`:"esperando apertura"}`:"Controla efectivo, turnos, usuarios, diferencias e informes con un máximo de 6 meses."}</p></div>
-      <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center"><label class="cash-period-select">Informe <select id="cashReportMonths" class="secondary">${[2,3,4,5,6].map(n=>`<option value="${n}" ${n===reportMonthsCount?"selected":""}>${n} meses</option>`).join("")}</select></label><button id="downloadCashExcel" class="secondary">▣ Excel · ${reportMonthsCount} meses</button>${!isCashier?'<button id="cashStaffLoginOpen" class="secondary">▣ Entrar como cajero</button><button id="cashStaff" class="secondary">👥 Personal</button>':`<button id="cashStaffLogout" class="secondary">↩ Salir de caja</button>`}${open&&!isCashier?'<button id="closeCashTop" class="primary">✓ Cerrar caja</button>':!open&&!isCashier?'<button id="openCashTop" class="primary">＋ Abrir caja</button>':""}</div>
-    </div>
-
-    ${!isCashier?`<section id="cashStaffPanel" class="card panel cash-login-panel hidden" aria-hidden="true"><div class="eyebrow2">PERSONAL DE CAJA</div><h3>Entrar a caja</h3><p>Usa el usuario y la contraseña que te asignó el administrador.</p><form id="cashStaffForm" autocomplete="on"><label>Usuario<input id="cashStaffUsername" name="username" autocomplete="username" autocapitalize="none" required placeholder="Ej. juan"></label><label>Contraseña<div class="password-field"><input id="cashStaffPassword" name="password" type="password" autocomplete="current-password" required placeholder="Tu contraseña"><button id="cashStaffPasswordToggle" type="button">◉</button></div></label><div id="cashStaffError" class="cash-login-error" role="alert"></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button id="cashStaffSubmit" class="primary" type="submit">Entrar a caja →</button><button id="cashStaffBack" class="secondary" type="button">Cancelar</button></div></form></section>`:""}
-
-    <section class="cash-kpis">
-      <article class="card cash-kpi"><span>ESTADO</span><strong>${open?"ABIERTA":"CERRADA"}</strong><small>${open?(new Date(open.opened_at)).toLocaleString("es-PE"):"Abre una nueva caja para comenzar"}</small></article>
-      <article class="card cash-kpi"><span>APERTURA</span><strong>${money(open?.opening_amount||0)}</strong><small>Efectivo inicial</small></article>
-      <article class="card cash-kpi"><span>INGRESOS</span><strong class="cash-in">${money(income)}</strong><small>${movements.filter(x=>x.type==="INCOME").length} movimientos</small></article>
-      <article class="card cash-kpi"><span>EGRESOS</span><strong class="cash-out">${money(expense)}</strong><small>${movements.filter(x=>x.type==="EXPENSE").length} movimientos</small></article>
-      <article class="card cash-kpi cash-total"><span>EFECTIVO EN CAJA</span><strong>${money(expected)}</strong><small>${movements[0]?`Último movimiento · ${esc(movements[0].created_by_name||"Usuario")} · ${movements[0].type==="INCOME"?"+":"−"}${money(movements[0].amount)} · ${new Date(movements[0].created_at).toLocaleTimeString("es-PE",{hour:"2-digit",minute:"2-digit"})}`:"Caja recién abierta · sin movimientos"}</small></article>
-    </section>
-
-    <section class="card panel cash-report-panel">
-      <div class="panel-title-row"><div><div class="eyebrow2">INFORME AUTOMÁTICO</div><h3>Últimos ${reportMonthsCount} meses</h3><small class="finance-subtitle">Desde ${reportStart.toLocaleDateString("es-PE")} hasta ${new Date(reportEnd.getTime()-86400000).toLocaleDateString("es-PE")}</small></div><button id="downloadCashExcel2" class="secondary">Descargar Excel</button></div>
-      <div class="cash-report-summary">
-        <div><span>CIERRES</span><strong>${closedTwoMonths.length}</strong></div>
-        <div><span>INGRESOS</span><strong class="cash-in">${money(monthly.reduce((s,x)=>s+x.income,0))}</strong></div>
-        <div><span>EGRESOS</span><strong class="cash-out">${money(monthly.reduce((s,x)=>s+x.expense,0))}</strong></div>
-        <div><span>DIFERENCIA</span><strong>${money(monthly.reduce((s,x)=>s+x.difference,0))}</strong></div>
-      </div>
-      <div class="cash-chart"><div class="cash-chart-title"><div><b>Ingresos vs. egresos</b><small>Comparación mensual de movimientos registrados</small></div><span><i class="cash-legend-income"></i>Ingresos <i class="cash-legend-expense"></i>Egresos</span></div>${monthSummary}</div>
-      <div class="cash-difference-chart"><div class="cash-chart-title"><div><b>Diferencia de cada cierre</b><small>Contado frente al efectivo esperado</small></div></div>${closedSummaryRows||'<div class="empty">No hay cierres en este período.</div>'}</div>
-    </section>
-
-    ${isCashier&&open&&movements[0]?`<div class="cash-last-movement"><div><b>Último movimiento</b><small>${esc(movements[0].created_by_name||"Usuario")} · ${movements[0].type==="INCOME"?"Ingreso":"Egreso"} · ${new Date(movements[0].created_at).toLocaleString("es-PE",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}</small></div><strong class="${movements[0].type==="INCOME"?"cash-in":"cash-out"}">${movements[0].type==="INCOME"?"+":"−"} ${money(movements[0].amount)}</strong></div>`:""}
-
-    ${open?`
-      <section class="card panel cash-actions"><div class="panel-title-row"><div><div class="eyebrow2">MOVIMIENTOS · ${isCashier?"MODO RÁPIDO":"ADMINISTRACIÓN"}</div><h3>${isCashier?"Registrar en 2 toques":"Registrar operación"}</h3></div></div>
-        <div class="cash-action-grid"><button id="cashIncome" class="cash-action income"><span class="cash-action-circle">＋</span><b>Ingreso</b><small>Venta · cobro · servicio</small></button><button id="cashExpense" class="cash-action expense"><span class="cash-action-circle">−</span><b>Egreso</b><small>Compra · transporte · gasto</small></button></div>
+    <div class="cash-mobile-center">
+      <section class="cash-hero">
+        <div class="cash-hero-copy">
+          <div class="cash-hero-eyebrow">CAJA · ${isCashier?"TURNO":"ADMINISTRACIÓN"}</div>
+          <h1>${isCashier?"Caja rápida.":"Centro de caja."}</h1>
+          <p>${isCashier?"Usuario: <b>"+esc(cashCtx.staff?.display_name||"Cajero")+"</b> · "+(open?"turno iniciado "+new Date(open.opened_at).toLocaleTimeString("es-PE",{hour:"2-digit",minute:"2-digit"}):"esperando apertura"):"Controla ingresos, egresos y ventas con trazabilidad. Administra turnos, usuarios y genera reportes en segundos."}</p>
+        </div>
+        <div class="cash-hero-status"><i></i>${open?"Operativa":"Cerrada"}</div>
+        <div class="cash-hero-visual" aria-hidden="true">
+          <div class="cash-hero-ring"></div>
+          <div class="cash-register-icon"><div class="cash-paper"><span></span><span></span><span></span></div><div class="cash-screen"></div><div class="cash-keys"><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+        </div>
       </section>
-      <section class="card panel cash-movements"><div class="panel-title-row"><div><div class="eyebrow2">MOVIMIENTOS DE HOY</div><h3>Detalle de caja</h3></div></div>
-      <div class="scroll"><table class="data"><thead><tr><th>Hora</th><th>Usuario</th><th>Tipo</th><th>Concepto</th><th>Referencia</th><th>Monto</th></tr></thead><tbody>
-      ${movements.map(x=>`<tr><td>${new Date(x.created_at).toLocaleTimeString("es-PE",{hour:"2-digit",minute:"2-digit"})}</td><td>${esc(x.created_by_name||"Administrador")}</td><td><span class="cash-type ${x.type==="INCOME"?"in":"out"}">${x.type==="INCOME"?"Ingreso":"Egreso"}</span></td><td><b>${esc(x.concept)}</b></td><td>${esc(x.reference||"—")}</td><td class="${x.type==="INCOME"?"cash-in":"cash-out"}"><b>${x.type==="INCOME"?"+":"−"} ${money(x.amount)}</b></td></tr>`).join("")||'<tr><td colspan="6" class="empty">Aún no hay movimientos.</td></tr>'}
-      </tbody></table></div></section>
-    `:'<section class="card panel cash-closed-empty"><div class="empty-state"><span>▣</span><b>${isCashier?"La caja está cerrada":"No hay una caja abierta"}</b><small>${isCashier?"El administrador debe abrir la caja antes de registrar ingresos o egresos.":"Abre una nueva caja indicando el efectivo inicial para comenzar."}</small></div></section>'}
+      <section class="cash-primary-actions">
+        ${open?"<button id=\"cashIncome\" class=\"cash-primary-action income\"><span>＋</span><b>Nuevo<br>ingreso</b></button>":"<button id=\"openCashTop\" class=\"cash-primary-action income\"><span>＋</span><b>Abrir<br>caja</b></button>"}
+        ${open?"<button id=\"cashExpense\" class=\"cash-primary-action expense\"><span>−</span><b>Nuevo<br>egreso</b></button>":"<button id=\"cashStaffLoginOpen\" class=\"cash-primary-action staff\"><span>↪</span><b>Entrar<br>como cajero</b></button>"}
+        ${open?"<button id=\"cashSaleQuick\" class=\"cash-primary-action sale\"><span>🛒</span><b>Nueva<br>venta</b></button>":"<button id=\"cashStaff\" class=\"cash-primary-action users\"><span>♟</span><b>Usuarios<br>de caja</b></button>"}
+        ${!isCashier?"<button id=\"cashStaffLoginOpen2\" class=\"cash-primary-action staff\"><span>♟</span><b>Entrar<br>como cajero</b></button>":"<button id=\"cashStaffLogout\" class=\"cash-primary-action staff\"><span>↩</span><b>Salir<br>de caja</b></button>"}
+        <button id="cashStaff2" class="cash-primary-action users"><span>⚙</span><b>Usuarios<br>de caja</b></button>
+      </section>
+      ${!isCashier?"<section id=\"cashStaffPanel\" class=\"card panel cash-login-panel hidden\" aria-hidden=\"true\"><div class=\"eyebrow2\">PERSONAL DE CAJA</div><h3>Entrar a caja</h3><p>Usa el usuario y la contraseña que te asignó el administrador.</p><form id=\"cashStaffForm\" autocomplete=\"on\"><label>Usuario<input id=\"cashStaffUsername\" name=\"username\" autocomplete=\"username\" autocapitalize=\"none\" required placeholder=\"Ej. juan\"></label><label>Contraseña<div class=\"password-field\"><input id=\"cashStaffPassword\" name=\"password\" type=\"password\" autocomplete=\"current-password\" required placeholder=\"Tu contraseña\"><button id=\"cashStaffPasswordToggle\" type=\"button\">◉</button></div></label><div id=\"cashStaffError\" class=\"cash-login-error\" role=\"alert\"></div><div style=\"display:flex;gap:8px;flex-wrap:wrap\"><button id=\"cashStaffSubmit\" class=\"primary\" type=\"submit\">Entrar a caja →</button><button id=\"cashStaffBack\" class=\"secondary\" type=\"button\">Cancelar</button></div></form></section>":""}
 
-    <section class="card panel"><div class="panel-title-row"><div><div class="eyebrow2">HISTORIAL</div><h3>Últimos cierres</h3></div></div>
-      <div class="cash-history">${(closed||[]).slice(0,10).map(x=>`<div class="cash-history-row"><div><b>${new Date(x.closed_at).toLocaleDateString("es-PE")}</b><small>Esperado ${money(x.expected_amount)} · Contado ${money(x.closing_amount)}</small></div><strong class="${Number(x.difference||0)===0?"cash-in":"cash-out"}">${Number(x.difference||0)>=0?"+":""}${money(x.difference)}</strong></div>`).join("")||'<div class="empty">Todavía no hay cierres registrados.</div>'}</div>
-    </section>`;
+      <section class="cash-current-card">
+        <div class="cash-current-info">
+          <div class="cash-current-label">ESTADO ACTUAL <span class="cash-status-pill ${open?"on":"off"}"><i></i>${open?"ABIERTA":"CERRADA"}</span></div>
+          <div class="cash-current-detail"><span>▣</span><div><small>Apertura</small><b>${open?new Date(open.opened_at).toLocaleString("es-PE"):"Sin apertura"}</b></div></div>
+          <div class="cash-current-detail"><span>●</span><div><small>${isCashier?"Cajero actual":"Usuario actual"}</small><b>${esc(isCashier?cashCtx.staff?.display_name||"Cajero":"Administrador")}</b></div></div>
+        </div>
+        <div class="cash-current-balance"><small>SALDO ACTUAL</small><strong>${money(expected)}</strong>${open&&!isCashier?"<button id=\"closeCashTop\" class=\"primary cash-close-btn\">🔒 Cerrar caja</button>":open&&isCashier?"<button id=\"cashStaffLogout2\" class=\"secondary cash-close-btn\">↩ Salir de caja</button>":""}</div>
+      </section>
+
+      <section class="cash-day-summary">
+        <div class="cash-section-title"><b>✣ &nbsp;Resumen del día</b><span>Hoy, ${now.toLocaleDateString("es-PE",{day:"2-digit",month:"short",year:"numeric"})}</span></div>
+        <div class="cash-day-grid">
+          <article class="cash-day income"><i>↗</i><span>Ingresos</span><strong>${money(income)}</strong><small>${movements.filter(x=>x.type==="INCOME").length} movimientos</small></article>
+          <article class="cash-day expense"><i>↘</i><span>Egresos</span><strong>${money(expense)}</strong><small>${movements.filter(x=>x.type==="EXPENSE").length} movimientos</small></article>
+          <article class="cash-day sales"><i>🛒</i><span>Ventas</span><strong>${money(movements.filter(x=>x.type==="INCOME"&&/venta/i.test(String(x.concept||""))).reduce((s,x)=>s+Number(x.amount||0),0))}</strong><small>${movements.filter(x=>x.type==="INCOME"&&/venta/i.test(String(x.concept||""))).length} ventas</small></article>
+          <article class="cash-day moves"><i>▤</i><span>Movimientos</span><strong>${movements.length}</strong><small>total del día</small></article>
+        </div>
+      </section>
+
+      <section class="cash-quick-section">
+        <div class="cash-section-title"><b>ϟ &nbsp;Acciones rápidas</b><button id="cashHistoryQuick" type="button">Ver historial →</button></div>
+        <div class="cash-quick-grid">
+          <button id="cashPartialClose" type="button"><i>◔</i><span>Cierre parcial</span></button>
+          <button id="downloadCashExcelQuick" type="button"><i>▣</i><span>Reporte Excel</span></button>
+          <button id="cashAuditQuick" type="button"><i>⌕</i><span>Arqueo de caja</span></button>
+          <button id="cashStaffQuick" type="button"><i>♟</i><span>Usuarios de caja</span></button>
+        </div>
+      </section>
+
+      <section class="card panel cash-report-panel cash-report-mobile">
+        <div class="panel-title-row"><div><div class="eyebrow2">INFORME AUTOMÁTICO</div><h3>Últimos ${reportMonthsCount} meses</h3><small class="finance-subtitle">Desde ${reportStart.toLocaleDateString("es-PE")} hasta ${new Date(reportEnd.getTime()-86400000).toLocaleDateString("es-PE")}</small></div><label class="cash-period-select">Informe <select id="cashReportMonths" class="secondary">${[2,3,4,5,6].map(n=>"<option value=\""+n+"\" "+(n===reportMonthsCount?"selected":"")+">"+n+" meses</option>").join("")}</select></label></div>
+        <button id="downloadCashExcel" class="secondary cash-excel-top">▣ Excel · ${reportMonthsCount} meses</button>
+        <div class="cash-report-summary"><div><span>CIERRES</span><strong>${closedTwoMonths.length}</strong></div><div><span>INGRESOS</span><strong class="cash-in">${money(monthly.reduce((s,x)=>s+x.income,0))}</strong></div><div><span>EGRESOS</span><strong class="cash-out">${money(monthly.reduce((s,x)=>s+x.expense,0))}</strong></div><div><span>DIFERENCIA</span><strong>${money(monthly.reduce((s,x)=>s+x.difference,0))}</strong></div></div>
+        <div class="cash-chart"><div class="cash-chart-title"><div><b>Ingresos vs. egresos</b><small>Comparación mensual de movimientos registrados</small></div></div>${monthSummary}</div>
+        <div class="cash-difference-chart"><div class="cash-chart-title"><div><b>Diferencia de cada cierre</b><small>Contado frente al efectivo esperado</small></div></div>${closedSummaryRows||"<div class=\"empty\">No hay cierres en este período.</div>"}</div>
+      </section>
+
+      ${isCashier&&open&&movements[0]?"<div class=\"cash-last-movement\"><div><b>Último movimiento</b><small>"+esc(movements[0].created_by_name||"Usuario")+" · "+(movements[0].type==="INCOME"?"Ingreso":"Egreso")+" · "+new Date(movements[0].created_at).toLocaleString("es-PE",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})+"</small></div><strong class=\""+(movements[0].type==="INCOME"?"cash-in":"cash-out")+"\">"+(movements[0].type==="INCOME"?"+":"−")+" "+money(movements[0].amount)+"</strong></div>":""}
+
+      ${open?"<section class=\"card panel cash-movements\" id=\"cashMovementHistory\"><div class=\"panel-title-row\"><div><div class=\"eyebrow2\">MOVIMIENTOS DE HOY</div><h3>Últimos movimientos</h3></div></div><div class=\"scroll\"><table class=\"data\"><thead><tr><th>Hora</th><th>Usuario</th><th>Tipo</th><th>Concepto</th><th>Referencia</th><th>Monto</th></tr></thead><tbody>"+(movements.map(x=>"<tr><td>"+new Date(x.created_at).toLocaleTimeString("es-PE",{hour:"2-digit",minute:"2-digit"})+"</td><td>"+esc(x.created_by_name||"Administrador")+"</td><td><span class=\"cash-type "+(x.type==="INCOME"?"in":"out")+"\">"+(x.type==="INCOME"?"Ingreso":"Egreso")+"</span></td><td><b>"+esc(x.concept)+"</b></td><td>"+esc(x.reference||"—")+"</td><td class=\""+(x.type==="INCOME"?"cash-in":"cash-out")+"\"><b>"+(x.type==="INCOME"?"+":"−")+" "+money(x.amount)+"</b></td></tr>").join("")||"<tr><td colspan=\"6\" class=\"empty\">Aún no hay movimientos.</td></tr>")+"</tbody></table></div></section>":"<section class=\"card panel cash-closed-empty\"><div class=\"empty-state\"><span>▣</span><b>"+(isCashier?"La caja está cerrada":"No hay una caja abierta")+"</b><small>"+(isCashier?"El administrador debe abrir la caja antes de registrar movimientos.":"Abre una caja para comenzar a registrar movimientos.")+"</small></div></section>"}
+    </div>
+  `;
+
 
   const report={
     start:reportStart,end:new Date(reportEnd.getTime()-86400000),months:monthly,registers:closedTwoMonths,movements:reportMovements

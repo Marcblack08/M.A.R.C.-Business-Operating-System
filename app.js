@@ -2393,7 +2393,7 @@ async function cashStaffAdminRequest(method,body){
   if(!session?.access_token)throw new Error("La sesión maestra expiró. Vuelve a autorizar Caja.");
   const r=await fetch(`${C.supabaseUrl}/functions/v1/marc-cash-admin`,{
     method,
-    headers:{"Content-Type":"application/json",Authorization:"Bearer "+session.access_token},
+    headers:{"Content-Type":"application/json",Authorization:"Bearer "+session.access_token,apikey:C.supabasePublishableKey},
     body:JSON.stringify(body)
   });
   const j=await r.json().catch(()=>({}));

@@ -599,3 +599,303 @@ body.sidebar-open{overflow:hidden}
   [data-theme="dark"] .client-history-panel,
   [data-theme="dark"] .client-history-stats>div{box-shadow:0 5px 18px rgba(0,0,0,.18)}
 }
+
+/* ===== PHASE 5 — Quote workspace: desktop-first interaction polish ===== */
+@media(min-width:1061px){
+  .quotes-browser{
+    box-shadow:0 10px 32px rgba(20,65,110,.06);
+  }
+  .quotes-browser .toolbar{
+    min-height:66px;
+    border-bottom:1px solid var(--line);
+  }
+  .quotes-browser .search{
+    flex:1;
+    max-width:620px;
+  }
+  .quotes-browser .search input{
+    background:#f8fbfe;
+    border-color:#dbe6f0;
+  }
+  .quotes-browser .search input:focus{
+    background:#fff;
+    border-color:#78b4e6;
+    box-shadow:0 0 0 4px rgba(11,115,230,.08);
+  }
+  .quotes-desktop{
+    max-height:calc(100svh - 280px);
+    min-height:360px;
+  }
+  .quotes-browser .data th{
+    position:sticky;
+    top:0;
+    z-index:2;
+    font-size:8px;
+    letter-spacing:.09em;
+    text-transform:uppercase;
+  }
+  .quotes-browser .data tbody tr{
+    transition:background var(--motion-fast) ease,transform var(--motion-fast) ease;
+  }
+  .quotes-browser .data tbody tr:hover{
+    background:linear-gradient(90deg,#f5faff,#fff);
+  }
+  .quotes-browser .data td{
+    vertical-align:middle;
+  }
+  .quotes-browser .data td button{
+    min-height:31px;
+    padding:7px 10px;
+    border-radius:9px;
+    font-size:8px;
+  }
+
+  /* Quote modal becomes a focused workbench rather than a long form. */
+  #modal .quote-workbench,
+  #modal .quote-modal,
+  #modal form#f{
+    max-width:1180px;
+  }
+  #modal form#f{
+    display:block;
+  }
+  #modal form#f>.form-grid{
+    margin-bottom:10px;
+    padding:13px;
+    border:1px solid var(--line);
+    border-radius:14px;
+    background:linear-gradient(145deg,var(--panel),#f8fbfe);
+  }
+  #modal form#f>.quote-finance-hint{
+    margin:10px 0 12px;
+    padding:11px 13px;
+    border:1px solid #d8e8f7;
+    border-radius:11px;
+    background:#f5faff;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+  }
+  #modal form#f>.quote-finance-hint span{
+    color:var(--muted);
+    font-size:8px;
+  }
+  #modal form#f>#lines{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:10px;
+    max-height:48vh;
+    overflow:auto;
+    padding:2px 4px 4px 1px;
+    scroll-behavior:smooth;
+  }
+  #modal form#f>#lines::-webkit-scrollbar{width:7px}
+  #modal form#f>#lines::-webkit-scrollbar-thumb{
+    background:#cbd9e8;
+    border-radius:99px;
+  }
+  #modal .quote-line.financial-line{
+    border:1px solid #dce7f1;
+    border-radius:14px;
+    padding:12px;
+    background:#fff;
+    box-shadow:0 5px 16px rgba(25,65,105,.045);
+    transition:border-color var(--motion-fast) ease,box-shadow var(--motion-fast) ease,transform var(--motion-fast) ease;
+  }
+  #modal .quote-line.financial-line:hover{
+    border-color:#a9c9e6;
+    box-shadow:0 12px 28px rgba(25,65,105,.09);
+    transform:translateY(-1px);
+  }
+  #modal .quote-line-top{
+    display:grid;
+    grid-template-columns:125px minmax(0,1fr) 34px;
+    gap:8px;
+    align-items:center;
+  }
+  #modal .quote-line-top select,
+  #modal .quote-line-top input{
+    min-height:36px;
+  }
+  #modal .quote-line-top .close{
+    width:34px;
+    height:34px;
+    border-radius:9px;
+    color:#8b3a45;
+    background:#fff4f5;
+  }
+  #modal .quote-line-fields{
+    display:grid;
+    grid-template-columns:100px 150px minmax(0,1fr);
+    gap:8px;
+    margin-top:8px;
+    align-items:center;
+  }
+  #modal .quote-line-fields>input{
+    min-height:36px;
+  }
+  #modal .quote-description-wrap{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:7px;
+  }
+  #modal .quote-description-wrap input{
+    min-width:0;
+  }
+  #modal .quote-ai-line{
+    white-space:nowrap;
+    min-height:36px;
+    border-radius:9px;
+    font-size:8px;
+  }
+  #modal .quote-cost-grid{
+    display:grid;
+    grid-template-columns:repeat(5,minmax(0,1fr));
+    gap:8px;
+    margin-top:9px;
+    padding-top:9px;
+    border-top:1px solid #edf2f7;
+  }
+  #modal .quote-cost-grid label{
+    font-size:8px;
+    font-weight:800;
+    color:var(--muted);
+  }
+  #modal .quote-cost-grid input,
+  #modal .quote-cost-grid select{
+    margin-top:4px;
+    min-height:34px;
+    font-size:9px;
+  }
+  #modal .quote-line-total{
+    margin-top:8px;
+    padding:7px 9px;
+    border-radius:8px;
+    background:#f7fafc;
+    color:var(--muted);
+    font-size:8px;
+    text-align:right;
+  }
+  #modal .quote-line-total b{color:var(--text)}
+  #modal .quote-summary{
+    display:grid;
+    grid-template-columns:repeat(5,minmax(0,1fr)) minmax(190px,1.3fr);
+    gap:8px;
+    margin-top:12px;
+    padding:11px;
+    border:1px solid #d9e7f3;
+    border-radius:14px;
+    background:linear-gradient(135deg,#f6faff,#fff);
+    position:sticky;
+    bottom:0;
+    z-index:4;
+    box-shadow:0 -8px 25px rgba(20,60,100,.07);
+  }
+  #modal .quote-summary>div{
+    min-width:0;
+    padding:8px 9px;
+    border-right:1px solid #e4edf5;
+  }
+  #modal .quote-summary>div:last-child{border-right:0}
+  #modal .quote-summary span{
+    display:block;
+    color:var(--muted);
+    font-size:7px;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    font-weight:900;
+  }
+  #modal .quote-summary b{
+    display:block;
+    margin-top:4px;
+    font-size:12px;
+    white-space:nowrap;
+  }
+  #modal .quote-summary .grand{
+    border-radius:10px;
+    background:#0b73e6;
+    color:#fff;
+    padding:9px 12px;
+  }
+  #modal .quote-summary .grand span{color:#d7edff}
+  #modal .quote-summary .grand b{font-size:16px}
+  #modal .modal-actions{
+    position:sticky;
+    bottom:0;
+    z-index:5;
+    padding-top:11px;
+    margin-top:9px;
+    background:linear-gradient(to bottom,rgba(255,255,255,0),var(--panel) 22%);
+  }
+  #modal #reviewQuote{
+    border-color:#b9d8f4;
+    background:#f2f8ff;
+  }
+
+  /* AI review */
+  #modal .ai-review-grid{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:12px;
+    max-height:62vh;
+    overflow:auto;
+    padding:3px;
+  }
+  #modal .ai-review-section{
+    border:1px solid var(--line);
+    border-radius:13px;
+    padding:13px;
+    background:var(--panel);
+  }
+  #modal .ai-review-section>b{
+    display:block;
+    margin-bottom:8px;
+    font-size:9px;
+    letter-spacing:.04em;
+  }
+  #modal .ai-review-item{
+    display:grid;
+    gap:3px;
+    padding:9px;
+    border-radius:9px;
+    background:#f7fafc;
+    margin-top:6px;
+  }
+  #modal .ai-review-item strong{font-size:9px}
+  #modal .ai-review-item span{font-size:8px;color:var(--muted);line-height:1.5}
+  #modal .ai-review-item.issue{background:#fff7f5;border:1px solid #f1d9d2}
+  #modal .ai-review-item.good{background:#f3fbf6;border:1px solid #d6ebdc}
+
+  [data-theme="dark"] .quotes-browser .search input{
+    background:#0d1a29;
+    border-color:#243d56;
+  }
+  [data-theme="dark"] .quotes-browser .search input:focus{background:#102235}
+  [data-theme="dark"] .quotes-browser .data tbody tr:hover{background:#102235}
+  [data-theme="dark"] #modal form#f>.form-grid,
+  [data-theme="dark"] #modal .quote-line.financial-line{
+    background:#0d1b2b;
+    border-color:#29435e;
+  }
+  [data-theme="dark"] #modal form#f>.quote-finance-hint,
+  [data-theme="dark"] #modal .quote-line-total,
+  [data-theme="dark"] #modal .ai-review-item{
+    background:#102235;
+    border-color:#29435e;
+  }
+  [data-theme="dark"] #modal .quote-summary{
+    background:linear-gradient(135deg,#0d1b2b,#102235);
+    border-color:#29435e;
+  }
+  [data-theme="dark"] #modal .modal-actions{
+    background:linear-gradient(to bottom,rgba(13,27,43,0),#0d1b2b 22%);
+  }
+}
+
+@media(min-width:1061px) and (max-width:1280px){
+  #modal .quote-line-fields{grid-template-columns:90px 130px minmax(0,1fr)}
+  #modal .quote-cost-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  #modal .quote-summary{grid-template-columns:repeat(3,minmax(0,1fr))}
+  #modal .quote-summary .grand{grid-column:span 1}
+}

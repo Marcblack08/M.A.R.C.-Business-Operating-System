@@ -55,11 +55,21 @@
       try{
         window.openChat?.();
         const input=$("#chatInput");
-        if(input){input.value="Prepara un seguimiento para la cotización.";input.focus();}
+        if(input){
+          input.value="Prepara un mensaje de seguimiento para esta cotización.";
+          input.focus();
+          input.dispatchEvent(new Event("input",{bubbles:true}));
+        }
       }catch{}
       return;
     }
     alertAction(x);
+  }
+  function shareFollowup(x){
+    const text=String(x?.body||"").replace(/^La cotización[^.]*\.\s*/i,"");
+    const message=text||"Hola, le escribo para consultar si pudo revisar nuestra cotización. Quedo atento a cualquier consulta.";
+    const url="https://wa.me/?text="+encodeURIComponent(message);
+    window.open(url,"_blank","noopener,noreferrer");
   }
   function open(){
     let root=$("#notificationPanel");
@@ -67,9 +77,13 @@
     root=document.createElement("div");root.id="notificationPanel";root.className="notification-panel";
     const rows=notifications();
     root.innerHTML='<div class="notification-head"><div><b>Notificaciones</b><small>Recordatorios y tareas de M.A.R.C.</small></div><button id="closeNotifications" type="button">×</button></div><div class="notification-list">'+
-      (rows.length?rows.map((x,i)=>'<article class="notification-item '+(x.read?'read':'')+'" data-notification-index="'+i+'"><span class="notification-dot"></span><div class="notification-main"><b>'+esc(x.title)+'</b><p>'+esc(x.body)+'</p><small>'+new Date(x.created_at).toLocaleString("es-PE")+'</small></div>'+((x.meta?.entity_type)?'<button class="notification-go" type="button" data-notification-go="'+i+'">'+actionLabel(x)+'</button>':'')+'</article>').join(""):'<div class="notification-empty"><span>✓</span><b>Todo al día</b><small>No tienes notificaciones pendientes.</small></div>')+
+      (rows.length?rows.map((x,i)=>'<article class="notification-item '+(x.read?'read':'')+'" data-notification-index="'+i+'"><span class="notification-dot"></span><div class="notification-main"><b>'+esc(x.title)+'</b><p>'+esc(x.body)+'</p><small>'+new Date(x.created_at).toLocaleString("es-PE")+'</small></div>'+((x.meta?.entity_type)?''<button class="notification-go" type="button" data-notification-go="'+i+'">'+actionLabel(x)+'</button>'+((String(x?.meta?.entity_type||"").toUpperCase()==="QUOTE")?'<button class="notification-share" type="button" data-notification-share="'+i+'">WhatsApp</button>':'')':'')+'</article>').join(""):'<div class="notification-empty"><span>✓</span><b>Todo al día</b><small>No tienes notificaciones pendientes.</small></div>')+
       '</div><div class="notification-actions"><button id="requestNotifications" type="button">🔔 Activar avisos</button><button id="markNotificationsRead" type="button">Marcar todo leído</button></div>';
     document.body.appendChild(root);
+    root.querySelectorAll("[data-notification-share]").forEach(b=>b.onclick=()=>{
+      const x=notifications()[Number(b.dataset.notificationShare)];
+      if(x)shareFollowup(x);
+    });
     root.querySelectorAll("[data-notification-go]").forEach(b=>b.onclick=()=>{
       const x=notifications()[Number(b.dataset.notificationGo)];
       if(x){x.read=true;write(KEY,notifications());renderCount();root.remove();alertAction(x);}

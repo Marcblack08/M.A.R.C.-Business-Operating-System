@@ -2344,7 +2344,7 @@ async function cashMovementModal(open,type){
 async function cashMasterGate(){
   const email=String(st.u?.email||"").trim();
   if(!email)throw new Error("No se encontró el usuario maestro.");
-  const close=modal(\`<div class="modal-head"><div><div class="eyebrow2">SEGURIDAD MAESTRA</div><h2>🔐 Acceso de administrador</h2><p>Esta zona controla los cajeros y la configuración de Caja.</p></div><button class="close" id="x">×</button></div><form id="cashMasterForm"><label>Usuario maestro<input name="email" type="email" value="\${esc(email)}" readonly></label><label>Clave maestra<div class="password-field"><input name="password" type="password" minlength="6" required autofocus autocomplete="current-password" placeholder="Tu contraseña de M.A.R.C."><button type="button" id="showMasterPass">◉</button></div></label><div id="cashMasterError" class="cash-login-error"></div><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Entrar a administración →</button></div></form>\`);
+  const close=modal(\`<div class="modal-head"><div><div class="eyebrow2">SEGURIDAD MAESTRA</div><h2>🔐 Acceso de administrador</h2><p>Esta zona controla los cajeros y la configuración de Caja.</p></div><button class="close" id="x">×</button></div><form id="cashMasterForm"><label>Usuario maestro<input name="email" type="email" value="${esc(email)}" readonly></label><label>Clave maestra<div class="password-field"><input name="password" type="password" minlength="6" required autofocus autocomplete="current-password" placeholder="Tu contraseña de M.A.R.C."><button type="button" id="showMasterPass">◉</button></div></label><div id="cashMasterError" class="cash-login-error"></div><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Entrar a administración →</button></div></form>\`);
   $("#x").onclick=close;$("#cancel").onclick=close;
   $("#showMasterPass").onclick=()=>{const p=$('#cashMasterForm input[name="password"]');if(p)p.type=p.type==="password"?"text":"password"};
   return new Promise(resolve=>{
@@ -2376,7 +2376,7 @@ async function ensureCashMaster(){
 async function cashStaffAdminRequest(method,body){
   const session=(await S.auth.getSession()).data?.session;
   if(!session?.access_token)throw new Error("La sesión maestra expiró. Vuelve a autorizar Caja.");
-  const r=await fetch(\`\${SUPABASE_URL}/functions/v1/marc-cash-admin\`,{
+  const r=await fetch(\`${SUPABASE_URL}/functions/v1/marc-cash-admin\`,{
     method,
     headers:{"Content-Type":"application/json",Authorization:"Bearer "+session.access_token},
     body:JSON.stringify(body)
@@ -2390,10 +2390,10 @@ async function cashStaffModal(){
   const {data:staff,error}=await S.from("marc_cash_staff").select("id,username,display_name,employee_code,active,created_at").eq("owner_user_id",st.u.id).order("created_at");
   if(error)return toast(error.message,"err");
   const rows=(staff||[]).map(x=>\`<div class="cash-staff-row">
-    <div><b>\${esc(x.display_name)}</b><small>\${x.employee_code?\`ID \${esc(x.employee_code)} · \`:""}@\${esc(x.username)} · \${x.active?"Activo":"Inactivo"}</small></div>
-    <div class="cash-staff-tools"><span>\${x.active?"CAJERO":"PAUSADO"}</span><button type="button" class="secondary cash-staff-action" data-action="password" data-id="\${esc(x.id)}">Clave</button><button type="button" class="secondary cash-staff-action" data-action="toggle" data-id="\${esc(x.id)}">\${x.active?"Desactivar":"Activar"}</button></div>
+    <div><b>${esc(x.display_name)}</b><small>${x.employee_code?\`ID ${esc(x.employee_code)} · \`:""}@${esc(x.username)} · ${x.active?"Activo":"Inactivo"}</small></div>
+    <div class="cash-staff-tools"><span>${x.active?"CAJERO":"PAUSADO"}</span><button type="button" class="secondary cash-staff-action" data-action="password" data-id="${esc(x.id)}">Clave</button><button type="button" class="secondary cash-staff-action" data-action="toggle" data-id="${esc(x.id)}">${x.active?"Desactivar":"Activar"}</button></div>
   </div>\`).join("")||'<div class="empty">Todavía no hay cajeros creados.</div>';
-  const close=modal(\`<div class="modal-head"><div><div class="eyebrow2">ADMINISTRACIÓN MAESTRA</div><h2>👥 Cajeros</h2><p>Crea y controla los accesos de las personas que trabajan en Caja.</p></div><button class="close" id="x">×</button></div><div class="cash-staff-list">\${rows}</div><form id="staffForm"><div class="form-grid"><label>Nombre del cajero<input name="display_name" required placeholder="Ej. Juan Pérez"></label><label>ID / código<input name="employee_code" required autocomplete="off" placeholder="Ej. CAJ-001"></label><label>Usuario de cajero<input name="username" required autocomplete="off" autocapitalize="none" placeholder="Ej. juan"></label><label>Clave del cajero<input name="password" type="password" minlength="6" required placeholder="Mínimo 6 caracteres"></label></div><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cerrar</button><button class="primary">＋ Crear cajero</button></div></form>\`);
+  const close=modal(\`<div class="modal-head"><div><div class="eyebrow2">ADMINISTRACIÓN MAESTRA</div><h2>👥 Cajeros</h2><p>Crea y controla los accesos de las personas que trabajan en Caja.</p></div><button class="close" id="x">×</button></div><div class="cash-staff-list">${rows}</div><form id="staffForm"><div class="form-grid"><label>Nombre del cajero<input name="display_name" required placeholder="Ej. Juan Pérez"></label><label>ID / código<input name="employee_code" required autocomplete="off" placeholder="Ej. CAJ-001"></label><label>Usuario de cajero<input name="username" required autocomplete="off" autocapitalize="none" placeholder="Ej. juan"></label><label>Clave del cajero<input name="password" type="password" minlength="6" required placeholder="Mínimo 6 caracteres"></label></div><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cerrar</button><button class="primary">＋ Crear cajero</button></div></form>\`);
   $("#x").onclick=close;$("#cancel").onclick=close;
   $$(".cash-staff-action",$("#modal")).forEach(btn=>btn.onclick=async()=>{
     const id=btn.dataset.id,action=btn.dataset.action,item=(staff||[]).find(x=>x.id===id);if(!item)return;
@@ -2420,7 +2420,7 @@ async function cashStaffModal(){
 }
 
 async function openCashPasswordModal(item){
-  const close=modal(\`<div class="modal-head"><div><div class="eyebrow2">SEGURIDAD MAESTRA</div><h2>🔐 Cambiar clave</h2><p>Actualiza la clave del cajero <b>@\${esc(item.username)}</b>.</p></div><button class="close" id="x">×</button></div><form id="cashPasswordForm"><label>Nueva clave<div class="password-field"><input name="password" type="password" minlength="6" required autofocus placeholder="Mínimo 6 caracteres"><button type="button" id="showCashPass">◉</button></div></label><label>Confirmar clave<input name="confirm" type="password" minlength="6" required placeholder="Repite la clave"></label><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Guardar clave</button></div></form>\`);
+  const close=modal(\`<div class="modal-head"><div><div class="eyebrow2">SEGURIDAD MAESTRA</div><h2>🔐 Cambiar clave</h2><p>Actualiza la clave del cajero <b>@${esc(item.username)}</b>.</p></div><button class="close" id="x">×</button></div><form id="cashPasswordForm"><label>Nueva clave<div class="password-field"><input name="password" type="password" minlength="6" required autofocus placeholder="Mínimo 6 caracteres"><button type="button" id="showCashPass">◉</button></div></label><label>Confirmar clave<input name="confirm" type="password" minlength="6" required placeholder="Repite la clave"></label><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Guardar clave</button></div></form>\`);
   $("#x").onclick=close;$("#cancel").onclick=close;
   $("#showCashPass").onclick=()=>{const p=$("#cashPasswordForm input[name=password]");if(p)p.type=p.type==="password"?"text":"password"};
   return new Promise(resolve=>{
@@ -2521,11 +2521,11 @@ async function cash(){
         </div>
       </section>
       <section class="cash-primary-actions">
-        \${open?"<button id=\"cashIncome\" class=\"cash-primary-action income\"><span>＋</span><b>Nuevo<br>ingreso</b></button>":"<button id=\"openCashTop\" class=\"cash-primary-action income\"><span>＋</span><b>Abrir<br>caja</b></button>"}
-        \${open?"<button id=\"cashExpense\" class=\"cash-primary-action expense\"><span>−</span><b>Nuevo<br>egreso</b></button>":"<button id=\"cashStaffLoginOpen2\" class=\"cash-primary-action staff\"><span>↪</span><b>Entrar<br>como cajero</b></button>"}
-        \${open?"<button id=\"cashSaleQuick\" class=\"cash-primary-action sale\"><span>🛒</span><b>Nueva<br>venta</b></button>":""}
-        \${isCashier?"<button id=\"cashStaffLogout\" class=\"cash-primary-action staff\"><span>↩</span><b>Salir<br>de caja</b></button>":""}
-        \${!isCashier?"<button id=\"cashStaff2\" class=\"cash-primary-action users\"><span>⚙</span><b>Administrar<br>caja</b></button>":""}
+        ${open?"<button id=\"cashIncome\" class=\"cash-primary-action income\"><span>＋</span><b>Nuevo<br>ingreso</b></button>":"<button id=\"openCashTop\" class=\"cash-primary-action income\"><span>＋</span><b>Abrir<br>caja</b></button>"}
+        ${open?"<button id=\"cashExpense\" class=\"cash-primary-action expense\"><span>−</span><b>Nuevo<br>egreso</b></button>":"<button id=\"cashStaffLoginOpen2\" class=\"cash-primary-action staff\"><span>↪</span><b>Entrar<br>como cajero</b></button>"}
+        ${open?"<button id=\"cashSaleQuick\" class=\"cash-primary-action sale\"><span>🛒</span><b>Nueva<br>venta</b></button>":""}
+        ${isCashier?"<button id=\"cashStaffLogout\" class=\"cash-primary-action staff\"><span>↩</span><b>Salir<br>de caja</b></button>":""}
+        ${!isCashier?"<button id=\"cashStaff2\" class=\"cash-primary-action users\"><span>⚙</span><b>Administrar<br>caja</b></button>":""}
       </section>
       ${!isCashier?"<section id=\"cashStaffPanel\" class=\"card panel cash-login-panel hidden\" aria-hidden=\"true\"><div class=\"eyebrow2\">PERSONAL DE CAJA</div><h3>Entrar a caja</h3><p>Usa el usuario y la contraseña que te asignó el administrador.</p><form id=\"cashStaffForm\" autocomplete=\"on\"><label>Usuario<input id=\"cashStaffUsername\" name=\"username\" autocomplete=\"username\" autocapitalize=\"none\" required placeholder=\"Ej. juan\"></label><label>Contraseña<div class=\"password-field\"><input id=\"cashStaffPassword\" name=\"password\" type=\"password\" autocomplete=\"current-password\" required placeholder=\"Tu contraseña\"><button id=\"cashStaffPasswordToggle\" type=\"button\">◉</button></div></label><div id=\"cashStaffError\" class=\"cash-login-error\" role=\"alert\"></div><div style=\"display:flex;gap:8px;flex-wrap:wrap\"><button id=\"cashStaffSubmit\" class=\"primary\" type=\"submit\">Entrar a caja →</button><button id=\"cashStaffBack\" class=\"secondary\" type=\"button\">Cancelar</button></div></form></section>":""}
 

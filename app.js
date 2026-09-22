@@ -2237,26 +2237,48 @@ async function marketing(){
         <section class="ad-card ad-source-card">
           <div class="ad-section-head"><span class="ad-step">1</span><div><b>Elige qué vamos a anunciar</b><small>Producto del inventario o una foto nueva.</small></div></div>
           <div class="ad-source-tabs">
-            <button type="button" class="ad-source-tab active" data-source="inventory">▣ Inventario</button>
-            <button type="button" class="ad-source-tab" data-source="photo">📷 Foto</button>
+            <button type="button" class="ad-source-tab active" data-source="new">➕ Nuevo producto</button>
+            <button type="button" class="ad-source-tab" data-source="inventory">▣ Producto del inventario</button>
           </div>
 
-          <div id="adInventorySource" class="ad-source-panel">
-            <label class="ad-field"><span>Producto</span><select id="adProduct">${list.length?list.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+(p.sku?" · "+esc(p.sku):"")+'</option>').join(""):'<option value="">No hay productos activos</option>'}</select></label>
+          <div id="adNewSource" class="ad-source-panel">
+            <div class="ad-photo-dual">
+              <div class="ad-photo-box">
+                <div class="ad-photo-box-head"><b>📷 Foto para el anuncio</b><small>La IA la transformará en la pieza publicitaria.</small></div>
+                <div class="ad-photo-drop compact" id="adPhotoDrop">
+                  <div class="ad-photo-preview" id="adPhotoPreview"><span>📷</span><b>Tomar o elegir foto</b><small>Esta será la imagen principal del anuncio.</small></div>
+                  <div class="ad-photo-actions">
+                    <label class="ad-photo-action primary"><span>📷</span><b>Cámara</b><small>Tomar foto</small><input id="adImageCamera" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden></label>
+                    <label class="ad-photo-action"><span>🖼️</span><b>Galería</b><small>Elegir foto</small><input id="adImage" type="file" accept="image/jpeg,image/png,image/webp" hidden></label>
+                  </div>
+                </div>
+              </div>
+              <div class="ad-photo-box">
+                <div class="ad-photo-box-head"><b>🔎 Foto de referencia</b><small>Opcional. Sirve para modelo, marca y detalles.</small></div>
+                <div class="ad-photo-drop compact" id="adReferenceDrop">
+                  <div class="ad-photo-preview" id="adReferencePreview"><span>🔎</span><b>Foto del modelo o etiqueta</b><small>Otra vista, caja, etiqueta o placa.</small></div>
+                  <div class="ad-photo-actions">
+                    <label class="ad-photo-action primary"><span>📷</span><b>Cámara</b><small>Tomar foto</small><input id="adReferenceCamera" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden></label>
+                    <label class="ad-photo-action"><span>🖼️</span><b>Galería</b><small>Elegir foto</small><input id="adReferenceImage" type="file" accept="image/jpeg,image/png,image/webp" hidden></label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="ad-photo-state" id="adPhotoState">Puedes crear la publicidad con una sola foto. La segunda foto es opcional y ayuda a identificar modelo, marca y características.</div>
+            <div class="ad-new-product-fields">
+              <label class="ad-field"><span>Nombre del producto <em>opcional</em></span><input id="adNewName" placeholder="Ej. Cámara Hikvision 2MP"></label>
+              <label class="ad-field"><span>Marca <em>opcional</em></span><input id="adNewBrand" placeholder="Ej. Hikvision"></label>
+              <label class="ad-field"><span>Modelo <em>opcional</em></span><input id="adNewModel" placeholder="Ej. DS-2CD1027G2H"></label>
+              <label class="ad-field"><span>Precio u oferta <em>opcional</em></span><input id="adNewPrice" placeholder="Ej. S/ 190"></label>
+            </div>
+          </div>
+
+          <div id="adInventorySource" class="ad-source-panel hidden">
+            <label class="ad-field"><span>Producto</span><select id="adProduct">${list.length?list.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+(p.sku?" · "+esc(p.sku):"")+'</option>').join(""):'<option value="">No hay productos activos</option>'}</label>
             <label class="ad-field"><span>Buscar producto</span><input id="adProductSearch" placeholder="Nombre, marca o modelo…"></label>
             <div class="ad-product-summary" id="adProductSummary"></div>
           </div>
 
-          <div id="adPhotoSource" class="ad-source-panel hidden">
-            <div class="ad-photo-drop" id="adPhotoDrop">
-              <div class="ad-photo-preview" id="adPhotoPreview"><span>📷</span><b>Toma o selecciona una foto</b><small>JPG, PNG o WEBP · M.A.R.C. la optimiza automáticamente.</small></div>
-              <div class="ad-photo-actions">
-                <label class="ad-photo-action primary"><span>📷</span><b>Cámara</b><small>Tomar ahora</small><input id="adImageCamera" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden></label>
-                <label class="ad-photo-action"><span>🖼️</span><b>Galería</b><small>Elegir imagen</small><input id="adImage" type="file" accept="image/jpeg,image/png,image/webp" hidden></label>
-              </div>
-            </div>
-            <div id="adPhotoState" class="ad-photo-state">Al seleccionar una foto, M.A.R.C. la analizará automáticamente y completará la información del producto.</div>
-          </div>
         </section>
 
         <section class="ad-card ad-message-card">
@@ -2311,7 +2333,8 @@ async function marketing(){
 
   let currentProduct=list.find(p=>p.id===saved?.productId)||list[0]||null;
   let currentCampaign=saved?.campaign||null;
-  let currentImage=null,currentImageFile=null,currentAiImage=null,currentAiVariants=[];
+  let currentImage=null,currentImageFile=null,currentReferenceImage=null,currentReferenceFile=null,currentAiImage=null,currentAiVariants=[];
+  let adSource="new";
   const $p=id=>document.getElementById(id);
 
   const setStatus=(text,type="")=>{const el=$p("adStatus");if(el){el.className="msg "+type;el.textContent=text}};
@@ -2414,10 +2437,17 @@ async function marketing(){
   };
 
   const switchSource=source=>{
-    $$(".ad-source-tab").forEach(b=>b.classList.toggle("active",b.dataset.source===source));
+    adSource=source;
+    $(".ad-source-tab").forEach(b=>b.classList.toggle("active",b.dataset.source===source));
+    $p("adNewSource").classList.toggle("hidden",source!=="new");
     $p("adInventorySource").classList.toggle("hidden",source!=="inventory");
-    $p("adPhotoSource").classList.toggle("hidden",source!=="photo");
-    if(source==="inventory"&&currentProduct){renderProductSummary();renderCanvas()}
+    if(source==="inventory"){
+      currentProduct=list.find(p=>p.id===$p("adProduct").value)||list[0]||null;
+      renderProductSummary();renderCanvas();
+    }else{
+      currentProduct={...(currentProduct&&currentProduct.id?{}:currentProduct||{}),id:null,name:$p("adNewName")?.value.trim()||"Nuevo producto",brand:$p("adNewBrand")?.value.trim()||null,model:$p("adNewModel")?.value.trim()||null,price:$p("adNewPrice")?.value.trim()||null,image_url:currentImage||null,stock:null};
+      renderCanvas();
+    }
   };
 
   $$(".ad-source-tab").forEach(b=>b.onclick=()=>switchSource(b.dataset.source));
@@ -2425,6 +2455,18 @@ async function marketing(){
   $p("adProductSearch").oninput=()=>{const q=$p("adProductSearch").value.toLowerCase().trim(),sel=$p("adProduct"),matches=list.filter(p=>[p.name,p.sku,p.brand,p.model].join(" ").toLowerCase().includes(q));sel.innerHTML=matches.length?matches.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+(p.sku?" · "+esc(p.sku):"")+'</option>').join(""):'<option value="">Sin coincidencias</option>';currentProduct=matches[0]||null;renderProductSummary();renderCanvas()};
   $p("adImage").onchange=e=>preparePhoto(e.target.files?.[0]);
   $p("adImageCamera").onchange=e=>preparePhoto(e.target.files?.[0]);
+  const prepareReferencePhoto=async file=>{
+    if(!file)return;
+    if(!/^image\/(jpeg|png|webp)$/.test(file.type))return toast("Usa una imagen JPG, PNG o WEBP.","err");
+    if(file.size>10*1024*1024)return toast("La foto de referencia debe pesar menos de 10 MB.","err");
+    currentReferenceFile=file;currentReferenceImage=URL.createObjectURL(file);
+    const box=$p("adReferencePreview");
+    if(box)box.innerHTML='<img src="'+currentReferenceImage+'" alt="Referencia"><button type="button" class="ad-photo-remove" id="adReferenceRemove">×</button>';
+    $p("adReferenceRemove").onclick=()=>{currentReferenceImage=null;currentReferenceFile=null;const b=$p("adReferencePreview");if(b)b.innerHTML='<span>🔎</span><b>Foto del modelo o etiqueta</b><small>Otra vista, caja, etiqueta o placa.</small>'};
+    const state=$p("adPhotoState");if(state)state.textContent="✓ Foto de referencia lista. M.A.R.C. la usará para identificar datos cuando generes la publicidad.";
+  };
+  $p("adReferenceImage").onchange=e=>prepareReferencePhoto(e.target.files?.[0]);
+  $p("adReferenceCamera").onchange=e=>prepareReferencePhoto(e.target.files?.[0]);
   const photoDrop=$p("adPhotoDrop");
   if(photoDrop){
     ["dragenter","dragover"].forEach(ev=>photoDrop.addEventListener(ev,e=>{e.preventDefault();photoDrop.classList.add("dragging")}));
@@ -2433,6 +2475,11 @@ async function marketing(){
   }
   $p("adFormat").onchange=renderCanvas;
   $p("adOffer").oninput=renderCanvas;
+  ["adNewName","adNewBrand","adNewModel","adNewPrice"].forEach(id=>$p(id)?.addEventListener("input",()=>{
+    if(adSource!=="new")return;
+    currentProduct={...(currentProduct||{}),id:null,name:$p("adNewName").value.trim()||"Nuevo producto",brand:$p("adNewBrand").value.trim()||null,model:$p("adNewModel").value.trim()||null,price:$p("adNewPrice").value.trim()||null,image_url:currentImage||null,stock:null};
+    renderCanvas();
+  }));
 
   $$(".ad-objective").forEach(btn=>btn.onclick=()=>{
     $$(".ad-objective").forEach(x=>x.classList.toggle("active",x===btn));
@@ -2442,13 +2489,30 @@ async function marketing(){
   });
 
   const readImage=async()=>currentImage?await drawImage(currentImage,1600):"";
-  const payload=()=>({client:null,product:currentProduct||{name:"Producto"},platform:"WHATSAPP",objective:$p("adObjective").value||"VENDER",tone:"PROFESIONAL",audience:"",offer:$p("adOffer").value.trim(),details:$p("adDetails").value.trim(),cta:"Escríbenos para cotizar"});
+  const payload=()=>({client:null,product:currentProduct||{name:"Producto"},platform:"WHATSAPP",objective:$p("adObjective").value||"VENDER",tone:"PROFESIONAL",audience:"",offer:$p("adOffer").value.trim()||$p("adNewPrice")?.value.trim()||"",details:$p("adDetails").value.trim(),cta:"Escríbenos para cotizar"});
 
   const createComplete=async()=>{
     const btn=$p("generateAd");if(btn.disabled)return;
     btn.disabled=true;btn.classList.add("loading");setStatus("M.A.R.C. está preparando el texto…");
     try{
-      if(!currentProduct)throw new Error("Elige un producto o selecciona una foto.");
+      if(adSource==="new"){
+        currentProduct={...(currentProduct||{}),id:null,name:$p("adNewName").value.trim()||"Nuevo producto",brand:$p("adNewBrand").value.trim()||null,model:$p("adNewModel").value.trim()||null,price:$p("adNewPrice").value.trim()||null,image_url:currentImage||null,stock:null};
+        if(!currentImage)throw new Error("Toma o selecciona la foto principal del producto.");
+        if(currentReferenceImage && (!currentProduct.brand || !currentProduct.model)){
+          setStatus("M.A.R.C. está leyendo la foto de referencia…");
+          try{
+            const ref=await drawImage(currentReferenceImage,1400);
+            const rr=await fetch("/api/marketing-product-ai",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({imageBase64:await readImage(),referenceImageBase64:ref.split(",")[1]||"",mimeType:"image/jpeg",referenceMimeType:"image/jpeg",brief:$p("adDetails").value||""})});
+            const jj=await rr.json();if(rr.ok&&jj.product){
+              const rp=jj.product;
+              currentProduct={...currentProduct,name:currentProduct.name==="Nuevo producto"?(rp.name||currentProduct.name):currentProduct.name,brand:currentProduct.brand||rp.brand||null,model:currentProduct.model||rp.model||null,category:rp.category||null,description:rp.description||"",marketing_description:rp.marketing_description||"",key_points:rp.key_points||[]};
+              const d=[rp.marketing_description||rp.description,(rp.key_points||[]).length?"Puntos principales: "+rp.key_points.join(", "):""].filter(Boolean).join("\n");
+              if(d&&!$p("adDetails").value.trim())$p("adDetails").value=d;
+            }
+          }catch{}
+        }
+      }
+      if(!currentProduct)throw new Error("Elige un producto del inventario o crea un producto nuevo.");
       const textR=await fetch("/api/marketing-ai",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify(payload())});
       const textJ=await textR.json();if(!textR.ok)throw new Error(textJ.message||textJ.error||"No se pudo crear el texto.");
       await setCampaign(textJ.campaign);

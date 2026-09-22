@@ -722,12 +722,16 @@ const editQuoteMatch=s.match(/\b(?:modifica|modificar|edita|editar|abre|abrir|ac
       items
     }};
   }
+  if(/\b(historial|historia|historial comercial|historial del cliente|historia del cliente)\b/.test(s) && /\b(cliente|delgado|cliente\s+de)\b/.test(s)){
+    const q=s.replace(/.*\bhistorial(?:\s+del|\s+de)?\s*(?:cliente)?\s*/,"").trim();
+    if(q)return {action:"CLIENT_HISTORY",execute:false,params:{client_query:q}};
+  }
   const deterministic=deterministicIntent(message);
   if(deterministic)return deterministic;
   const context=history.map((x,i)=>"["+i+"] "+x.role+":"+x.content).join("\n").slice(-8000);
   const entityMemory=JSON.stringify(entityContext||{}).slice(0,6000);
   const prompt={messages:[
-    {role:"system",content:'Eres el enrutador de M.A.R.C. Devuelve SOLO JSON válido, sin markdown ni explicación. Convierte lenguaje natural en una sola acción segura. Usa el historial reciente como contexto conversacional real: si el usuario dice "el primero", "el segundo", "ese", "esa", "ahí", "lo anterior", "el mismo", "también", "ahora", "cuánto es", etc., resuelve el referente usando el último resultado relevante del historial. No inventes referentes: si hay más de una interpretación posible, usa CHAT y pide una aclaración breve. Acciones: SEARCH_CLIENTS, SEARCH_INVENTORY, LIST_QUOTES, CASH_STATUS, CASH_LAST_CLOSE, CREATE_CLIENT, CREATE_QUOTE, ADJUST_INVENTORY, CHAT. Para cualquier consulta, pregunta o solicitud de revisar, usa una acción de consulta. Solo usa execute=true para una operación que el usuario pidió explícitamente ejecutar. Nunca inventes IDs, precios, stock, clientes o productos. Para CREATE_QUOTE: items es un arreglo. Producto {type:"PRODUCTO",inventory_query:"texto",quantity:number,unit_price:number|null}; Trabajo {type:"TRABAJO",name:"texto",quantity:number,unit_price:number|null}. Para ADJUST_INVENTORY type es ENTRADA, SALIDA o AJUSTE. M.A.R.C. es un mayordomo digital empresarial. Su identidad debe sentirse siempre presente: elegante, atento, discreto, educado, seguro y resolutivo, como un buen mayordomo que conoce la casa y está pendiente de los asuntos de su señor. Trata al usuario con respeto, usando "señor" de forma natural y sin repetirlo en cada frase. Anticípate cuando sea razonable, mantén orden en la información y presenta primero lo importante. Puede usar expresiones como "A sus órdenes", "Con gusto", "Permítame revisar", "Listo, señor" o "Hecho, señor", pero con moderación para que no resulte teatral. Nunca debe sonar servil, exagerado ni infantil. No inventes emociones, datos ni acciones realizadas. Evita respuestas robóticas y frases genéricas como "no dispongo de información" cuando sí puedes consultar la cuenta. Formato: {"action":"CHAT","execute":false,"params":{}}'},
+    {role:"system",content:'Eres el enrutador de M.A.R.C. Devuelve SOLO JSON válido, sin markdown ni explicación. Convierte lenguaje natural en una sola acción segura. Usa el historial reciente como contexto conversacional real: si el usuario dice "el primero", "el segundo", "ese", "esa", "ahí", "lo anterior", "el mismo", "también", "ahora", "cuánto es", etc., resuelve el referente usando el último resultado relevante del historial. No inventes referentes: si hay más de una interpretación posible, usa CHAT y pide una aclaración breve. Acciones: SEARCH_CLIENTS, CLIENT_HISTORY, SEARCH_INVENTORY, LIST_QUOTES, CASH_STATUS, CASH_LAST_CLOSE, CREATE_CLIENT, CREATE_QUOTE, UPDATE_QUOTE, ADJUST_INVENTORY, CHAT. Para cualquier consulta, pregunta o solicitud de revisar, usa una acción de consulta. Solo usa execute=true para una operación que el usuario pidió explícitamente ejecutar. Nunca inventes IDs, precios, stock, clientes o productos. Para CREATE_QUOTE: items es un arreglo. Producto {type:"PRODUCTO",inventory_query:"texto",quantity:number,unit_price:number|null}; Trabajo {type:"TRABAJO",name:"texto",quantity:number,unit_price:number|null}. Para ADJUST_INVENTORY type es ENTRADA, SALIDA o AJUSTE. M.A.R.C. es un mayordomo digital empresarial. Su identidad debe sentirse siempre presente: elegante, atento, discreto, educado, seguro y resolutivo, como un buen mayordomo que conoce la casa y está pendiente de los asuntos de su señor. Trata al usuario con respeto, usando "señor" de forma natural y sin repetirlo en cada frase. Anticípate cuando sea razonable, mantén orden en la información y presenta primero lo importante. Puede usar expresiones como "A sus órdenes", "Con gusto", "Permítame revisar", "Listo, señor" o "Hecho, señor", pero con moderación para que no resulte teatral. Nunca debe sonar servil, exagerado ni infantil. No inventes emociones, datos ni acciones realizadas. Evita respuestas robóticas y frases genéricas como "no dispongo de información" cuando sí puedes consultar la cuenta. Formato: {"action":"CHAT","execute":false,"params":{}}'},
     ...(context?[{role:"user",content:"Historial reciente:\n"+context}]:[]),
     ...(entityMemory?[{role:"user",content:"Memoria de entidades de esta conversación (datos reales, no inventar):\n"+entityMemory}]:[]),
     {role:"user",content:message}
@@ -740,6 +744,20 @@ const editQuoteMatch=s.match(/\b(?:modifica|modificar|edita|editar|abre|abrir|ac
 async function executePlan(env,token,user,pl,source="AI_AGENT"){
   const action=String(pl?.action||"CHAT").toUpperCase(),p=pl?.params||{};
   if(action==="SEARCH_CLIENTS")return {action,result:await searchClients(env,token,user.id,p.query||"")};
+  if(action==="CLIENT_HISTORY"){
+    const hit=await resolveOneClient(env,token,user.id,p.client_query||p.query||"");
+    if(hit.status!=="FOUND")return {action,result:{status:hit.status,query:p.client_query||p.query||"",options:hit.options||[]}};
+    const client=hit.client;
+    const [quotes,reports,history]=await Promise.all([
+      sb(env,token,"marc_quotes?select=id,number,title,status,total,created_at&user_id=eq."+encodeURIComponent(user.id)+"&client_id=eq."+encodeURIComponent(client.id)+"&deleted_at=is.null&order=created_at.desc&limit=20"),
+      sb(env,token,"technical_reports?select=id,number,title,report_type,report_date,status,created_at&user_id=eq."+encodeURIComponent(user.id)+"&client_id=eq."+encodeURIComponent(client.id)+"&order=created_at.desc&limit=20").catch(()=>[]),
+      sb(env,token,"marc_client_history?select=id,event_type,title,description,metadata,created_at&user_id=eq."+encodeURIComponent(user.id)+"&client_id=eq."+encodeURIComponent(client.id)+"&order=created_at.desc&limit=30").catch(()=>[])
+    ]);
+    const quoteIds=(quotes||[]).map(x=>x.id);
+    let items=[];
+    if(quoteIds.length)items=await sb(env,token,"marc_quote_items?select=quote_id,item_type,name,quantity,unit,unit_price,line_total&user_id=eq."+encodeURIComponent(user.id)+"&quote_id=in.("+quoteIds.join(",")+")&order=created_at.asc").catch(()=>[]);
+    return {action,result:{status:"FOUND",client,quotes:quotes||[],reports:reports||[],history:history||[],items:items||[]}};
+  }
   if(action==="CASH_STATUS"){
     const rows=await sb(env,token,"marc_cash_registers?select=*&user_id=eq."+encodeURIComponent(user.id)+"&status=eq.OPEN&order=opened_at.desc&limit=1");
     const r=rows?.[0];
@@ -766,6 +784,19 @@ async function executePlan(env,token,user,pl,source="AI_AGENT"){
   if(action==="SEARCH_INVENTORY"){if(p.summary){const [count,items]=await Promise.all([countInventory(env,token,user.id),searchInventory(env,token,user.id,"",8)]);return {action,result:{count,items}};}return {action,result:await searchInventory(env,token,user.id,p.query||"")};}
   if(action==="INVENTORY_INSIGHT")return {action,result:await inventoryInsight(env,token,user.id,String(p.kind||"").toUpperCase())};
   if(action==="LIST_QUOTES")return {action,result:await listQuotes(env,token,user.id)};
+  if(action==="CLIENT_HISTORY"){
+    const hit=await resolveOneClient(env,token,user.id,p.client_query||p.query||"");
+    if(hit.status!=="FOUND")return {action,result:{status:hit.status,query:p.client_query||p.query||"",options:hit.options||[]}};
+    const client=hit.client;
+    const [quotes,reports,history]=await Promise.all([
+      sb(env,token,"marc_quotes?select=id,number,title,status,total,created_at&user_id=eq."+encodeURIComponent(user.id)+"&client_id=eq."+encodeURIComponent(client.id)+"&deleted_at=is.null&order=created_at.desc&limit=20"),
+      sb(env,token,"technical_reports?select=id,number,title,report_type,report_date,status,created_at&user_id=eq."+encodeURIComponent(user.id)+"&client_id=eq."+encodeURIComponent(client.id)+"&order=created_at.desc&limit=20").catch(()=>[]),
+      sb(env,token,"marc_client_history?select=id,event_type,title,description,metadata,created_at&user_id=eq."+encodeURIComponent(user.id)+"&client_id=eq."+encodeURIComponent(client.id)+"&order=created_at.desc&limit=30").catch(()=>[])
+    ]);
+    const quoteIds=(quotes||[]).map(x=>x.id);
+    const items=quoteIds.length?await sb(env,token,"marc_quote_items?select=quote_id,item_type,name,quantity,unit,unit_price,line_total&user_id=eq."+encodeURIComponent(user.id)+"&quote_id=in.("+quoteIds.join(",")+")&order=created_at.asc").catch(()=>[]):[];
+    return {action,result:{status:"FOUND",client,quotes:quotes||[],reports:reports||[],history:history||[],items}};
+  }
   if(action==="CREATE_CLIENT")return {action,result:{status:"CONFIRMATION_REQUIRED",params:p}};
   if(action==="CREATE_QUOTE"||action==="UPDATE_QUOTE")return {action,result:{status:"CONFIRMATION_REQUIRED",params:p}};
   if(action==="ADJUST_INVENTORY")return {action,result:{status:"CONFIRMATION_REQUIRED",params:p}};
@@ -847,6 +878,19 @@ async function finalReply(env,message,planData,userName=""){
       if(movements.length>25)lines.push("… y "+(movements.length-25)+" movimientos más.");
     }else lines.push("Sin movimientos registrados en ese cierre.");
     return lines.join("\n");
+  }
+  if(execution?.action==="CLIENT_HISTORY" && result){
+    if(result.status==="NOT_FOUND")return "No encontré ese cliente en tu cuenta.";
+    if(result.status==="AMBIGUOUS")return "Encontré varios clientes con ese nombre. Indícame cuál deseas consultar.";
+    const client=result.client||{},quotes=Array.isArray(result.quotes)?result.quotes:[],reports=Array.isArray(result.reports)?result.reports:[],history=Array.isArray(result.history)?result.history:[],items=Array.isArray(result.items)?result.items:[];
+    const productMap=new Map();
+    for(const x of items){const key=String(x.name||"").trim();if(key)productMap.set(key,(productMap.get(key)||0)+Number(x.quantity||0))}
+    return "👤 HISTORIAL DE "+String(client.name||"CLIENTE").toUpperCase()+"\n\n"+
+      (client.phone?"📞 "+client.phone+"\n":"")+(client.email?"✉️ "+client.email+"\n":"")+
+      "\n🧾 Cotizaciones: "+quotes.length+" · Total cotizado: S/ "+quotes.reduce((s,x)=>s+Number(x.total||0),0).toFixed(2)+
+      "\n🛠️ Informes técnicos: "+reports.length+
+      "\n📦 Productos/servicios: "+(productMap.size?Array.from(productMap.entries()).slice(0,8).map(([n,q])=>"\n• "+n+" · "+q).join(""):" ninguno")+
+      (history.length?"\n\n📝 Últimos registros:\n"+history.slice(0,6).map(x=>"• "+String(x.title||x.event_type||"Registro")+" — "+String(x.description||"").slice(0,140)).join("\n"):"");
   }
   if(execution?.action==="SEARCH_INVENTORY" && result && !Array.isArray(result) && Number.isFinite(Number(result.count))){
     const count=Number(result.count);
@@ -3618,11 +3662,56 @@ export default{
         const body=await request.json();
         const message=String(body?.message||"").trim();
         if(!message)return json({error:"Mensaje vacío"},400,headers);
-        const history=await recentMessages(env,token,user.id,body?.conversationId||"");
-        const pl=await plan(env,message,history);
+        const conversationId=String(body?.conversationId||"");
+        const history=await recentMessages(env,token,user.id,conversationId);
+        const context=await getConversationContext(env,token,user.id,conversationId);
+        const normalized=message.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").trim();
+
+        // El chat web comparte el mismo flujo de confirmación que Telegram.
+        // Nunca ejecutamos una modificación sensible sin una confirmación explícita.
+        if(context?.pending_action){
+          const pending=context.pending_action;
+          const yes=/^(si|sí|ok|dale|confirmar|confirmo|hazlo|hacerlo|guarda|guardar|procede|proceder)$/i.test(normalized);
+          const no=/^(no|cancelar|cancela|cancel|salir|descarta|descartar)$/i.test(normalized);
+          if(yes){
+            let result=null;
+            const p=pending.params||{};
+            if(pending.action==="CREATE_CLIENT"){
+              result=await createClient(env,token,user.id,p,"WEB");
+              if(result.status==="CREATED" && p._next_quote){
+                const next={...p._next_quote,client_id:result.client.id,client_query:result.client.id};
+                const quoteResult=await createQuote(env,token,user.id,next,"WEB");
+                result={status:quoteResult.status,client:result.client,quote:quoteResult.quote||null,items:quoteResult.items||[],message:quoteResult.message};
+              }
+            }else if(pending.action==="CREATE_QUOTE"||pending.action==="UPDATE_QUOTE"){
+              result=await createQuote(env,token,user.id,p,"WEB");
+            }else if(pending.action==="ADJUST_INVENTORY"){
+              result=await adjustInventory(env,token,user.id,p,"WEB");
+            }else{
+              result={status:"NO_ACTION"};
+            }
+            await saveConversationContext(env,token,user.id,conversationId,{...context,pending_action:null});
+            const executed={action:pending.action,result};
+            await incrementAiUsage(env,token,user.id,access);
+            const webDisplayName=[user?.user_metadata?.preferred_name,user?.user_metadata?.full_name,user?.user_metadata?.name,user?.email?.split("@")[0]].find(x=>String(x||"").trim())||"";
+            const text=await finalReply(env,message,{plan:pending,execution:executed,entitlement:access},webDisplayName);
+            return json({text,action:executed.action,result:executed.result},200,headers);
+          }
+          if(no){
+            await saveConversationContext(env,token,user.id,conversationId,{...context,pending_action:null});
+            return json({text:"Listo, señor. Cancelé la operación y no modifiqué sus datos.",action:"CANCELLED",result:{status:"CANCELLED"}},200,headers);
+          }
+        }
+
+        const pl=await plan(env,message,history,context,token,user.id);
         const executed=await executePlan(env,token,user,pl,"AI_AGENT");
         await incrementAiUsage(env,token,user.id,access);
-        const webDisplayName=[user?.user_metadata?.full_name,user?.user_metadata?.name,user?.email?.split("@")[0]].find(x=>String(x||"").trim())||"";
+        if(["CREATE_CLIENT","CREATE_QUOTE","UPDATE_QUOTE","ADJUST_INVENTORY"].includes(String(executed.action||"")) && executed.result?.status==="CONFIRMATION_REQUIRED"){
+          await saveConversationContext(env,token,user.id,conversationId,{...context,pending_action:{action:executed.action,params:executed.result.params||pl.params||{}}});
+        }else if(conversationId){
+          await saveConversationContext(env,token,user.id,conversationId,buildEntityContext(executed,context));
+        }
+        const webDisplayName=[user?.user_metadata?.preferred_name,user?.user_metadata?.full_name,user?.user_metadata?.name,user?.email?.split("@")[0]].find(x=>String(x||"").trim())||"";
         const text=await finalReply(env,message,{plan:pl,execution:executed,entitlement:access},webDisplayName);
         return json({text,action:executed.action,result:executed.result},200,headers);
       }catch(err){

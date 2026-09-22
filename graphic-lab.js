@@ -128,3 +128,33 @@
 
   window.addEventListener("beforeunload",()=>finishProgress());
 })();
+
+/* M.A.R.C. GRAPHIC LAB — chat polish */
+(()=>{
+  const $=(s,r=document)=>r.querySelector(s);
+  const chat=$("#chat"), messages=$("#messages");
+  if(!chat||!messages)return;
+
+  const observe=new MutationObserver(()=>{
+    messages.querySelectorAll(".bubble.a").forEach(b=>{
+      if(b.dataset.marcEnhanced)return;
+      b.dataset.marcEnhanced="1";
+      if(b.textContent.trim()==="Pensando…"){
+        b.classList.add("typing");
+        b.innerHTML="<i></i><i></i><i></i>";
+      }
+    });
+    messages.scrollTop=messages.scrollHeight;
+  });
+  observe.observe(messages,{childList:true,subtree:true});
+
+  const top=$("#app .top");
+  const content=$("#content");
+  const syncScroll=()=>{
+    const scrolled=(window.scrollY||content?.scrollTop||0)>8;
+    top?.classList.toggle("scrolled",scrolled);
+  };
+  window.addEventListener("scroll",syncScroll,{passive:true});
+  content?.addEventListener("scroll",syncScroll,{passive:true});
+  syncScroll();
+})();

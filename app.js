@@ -2215,18 +2215,16 @@ async function marketing(){
   const list=products||[],clientsList=clientsData||[];
   const saved=JSON.parse(localStorage.getItem("marc_marketing_last")||"null");
   $("#content").innerHTML=`
-    <div class="head marketing-hero"><div><div class="eyebrow2">CENTRO DE PUBLICIDAD</div><h1>Crea una publicidad en pocos pasos</h1><p>Elige un producto o toma una foto, dime qué quieres lograr y M.A.R.C. preparará la imagen, el texto y el formato para compartir desde tu teléfono.</p></div><button class="secondary" id="marketingClear">Nueva publicidad</button></div>
+    <div class="head marketing-hero"><div><div class="eyebrow2">PUBLICIDAD</div><h1>Crea tu anuncio</h1><p>Elige el producto, cuéntame qué quieres publicar y M.A.R.C. prepara el anuncio por ti.</p></div><button class="secondary" id="marketingClear">＋ Nueva publicidad</button></div>
     <div class="marketing-quick-start">
-      <div class="marketing-quick-title"><span>⚡</span><div><b>Inicio rápido</b><small>No necesitas completar todo. M.A.R.C. puede completar lo que falte.</small></div></div>
+      <div class="marketing-quick-title"><span>⚡</span><div><b>¿Qué quieres lograr?</b><small>Elige una opción o deja que M.A.R.C. lo decida.</small></div></div>
       <div class="marketing-quick-grid">
-        <button type="button" class="marketing-quick-choice active" data-quick-objective="VENDER"><b>🛍️ Vender</b><small>Producto + beneficio + llamada a la acción</small></button>
-        <button type="button" class="marketing-quick-choice" data-quick-objective="GENERAR CONSULTAS"><b>💬 Conseguir consultas</b><small>Enfocada en contacto por WhatsApp</small></button>
-        <button type="button" class="marketing-quick-choice" data-quick-objective="PROMOCIONAR PRODUCTO"><b>✨ Promocionar</b><small>Presentación profesional del producto</small></button>
-        <button type="button" class="marketing-quick-choice" data-quick-objective="REACTIVAR CLIENTES"><b>🔁 Reactivar clientes</b><small>Mensaje directo para clientes anteriores</small></button>
+        <button type="button" class="marketing-quick-choice active" data-quick-objective="VENDER"><b>🛍️ Vender</b><small>Mostrar beneficios y precio</small></button>
+        <button type="button" class="marketing-quick-choice" data-quick-objective="GENERAR CONSULTAS"><b>💬 Conseguir clientes</b><small>Invitar a escribirte</small></button>
+        <button type="button" class="marketing-quick-choice" data-quick-objective="PROMOCIONAR PRODUCTO"><b>✨ Promocionar</b><small>Presentar el producto</small></button>
       </div>
     </div>
-    <div class="marketing-benefits"><div><b>✦ Imagen con IA</b><small>3 propuestas visuales para elegir</small></div><div><b>✓ Texto automático</b><small>Descripción, CTA y hashtags</small></div><div><b>◉ Datos de tu empresa</b><small>Logo, nombre y teléfono</small></div><div><b>📱 Compartir desde tu teléfono</b><small>WhatsApp, Instagram y más</small></div></div>
-    <section class="card panel marketing-recipient-card"><div class="marketing-recipient-head"><div><div class="eyebrow2">DESTINATARIO</div><h3>¿Es para un cliente?</h3><small>Si eliges uno, M.A.R.C. guardará el envío en su historia.</small></div><span>👤</span></div><div class="marketing-recipient-row"><label class="marketing-recipient-select"><span>Cliente</span><select id="adClient"><option value="">Sin cliente específico · Publicidad general</option>${clientsList.map(x=>"<option value=\""+esc(x.id)+"\">"+esc(x.name)+(x.phone?" · "+esc(x.phone):"")+"</option>").join("")}</select></label><div id="adClientInfo" class="marketing-recipient-info"><b>Publicidad general</b><small>No se añadirá a la historia de un cliente.</small></div></div></section>
+    <div class="marketing-hidden-tools" aria-hidden="true"><select id="adClient"><option value="">Publicidad general</option></select></div>
     <div class="marketing-layout marketing-layout-v2">
       <section class="card panel marketing-form-card">
         <div class="marketing-step-title"><span>1</span><div><b>Producto o foto</b><small>Elige un producto del inventario o toma una foto. M.A.R.C. hará el resto.</small></div><button class="secondary" id="marketingPhotoClear" type="button">Limpiar foto</button></div>
@@ -2249,8 +2247,15 @@ async function marketing(){
         <div class="marketing-step-title"><span>4</span><div><b>Formato de la imagen</b><small>Si no sabes cuál elegir, usa Cuadrado.</small></div></div>
         <div class="marketing-formats"><button type="button" class="marketing-format active" data-format="1080x1080"><b>□</b><span>Cuadrado</span><small>1:1</small></button><button type="button" class="marketing-format" data-format="1080x1350"><b>▯</b><span>Vertical</span><small>4:5</small></button><button type="button" class="marketing-format" data-format="1080x1920"><b>▯</b><span>Historia</span><small>9:16</small></button></div>
         <select id="adFormat" class="marketing-hidden-control"><option value="1080x1080">Cuadrado · 1:1</option><option value="1080x1350">Post vertical · 4:5</option><option value="1080x1920">Historia · 9:16</option></select>
-        <details class="marketing-advanced"><summary>⚙ Opciones avanzadas</summary><div class="form-grid" style="margin-top:10px"><label>Objetivo<select id="adObjective"><option>VENDER</option><option>GENERAR CONSULTAS</option><option>PROMOCIONAR PRODUCTO</option><option>REACTIVAR CLIENTES</option></select></label><label>Tono<select id="adTone"><option>PROFESIONAL</option><option>DIRECTO Y COMERCIAL</option><option>AMIGABLE</option><option>PREMIUM</option><option>URGENTE</option></select></label><label>Público objetivo<input id="adAudience" placeholder="Déjalo vacío y M.A.R.C. lo propone"></label><label>Oferta / precio especial<input id="adOffer" placeholder="Opcional; también puede salir del texto"></label><label>CTA<input id="adCta" value="Escríbenos para cotizar"></label><label>Diseño<select id="adTemplate"><option value="MODERN">Moderno</option><option value="OFFER">Oferta</option><option value="CORPORATE">Corporativo</option></select></label></div></details>
-        <div class="marketing-generate-box"><div><b>Listo para crear</b><small>M.A.R.C. generará 2 propuestas visuales y preparará los textos.</small></div><div class="modal-actions marketing-generate-actions"><button class="primary marketing-main-generate" id="generateAd">✦ Crear publicidad</button><button class="secondary" id="generateTextAd">Solo crear textos</button></div></div><div id="adStatus" class="msg"></div>
+        <div class="marketing-simple-options">
+          <label><span>Objetivo</span><select id="adObjective"><option>VENDER</option><option>GENERAR CONSULTAS</option><option>PROMOCIONAR PRODUCTO</option><option>REACTIVAR CLIENTES</option></select></label>
+          <label><span>Oferta o precio <small>(opcional)</small></span><input id="adOffer" placeholder="Ej. S/ 149"></label>
+        </div>
+        <select id="adTone" class="marketing-hidden-control"><option>PROFESIONAL</option></select>
+        <input id="adAudience" class="marketing-hidden-control" value="">
+        <input id="adCta" class="marketing-hidden-control" value="Escríbenos para cotizar">
+        <select id="adTemplate" class="marketing-hidden-control"><option value="MODERN">Moderno</option></select>
+        <div class="marketing-generate-box"><div><b>Todo listo</b><small>M.A.R.C. creará el texto y el banner automáticamente.</small></div><div class="modal-actions marketing-generate-actions"><button class="primary marketing-main-generate" id="generateAd">✦ Crear publicidad</button></div></div><div id="adStatus" class="msg"></div>
       </section>
       <section class="card panel marketing-preview-card">
         <div class="marketing-step-title"><span>5</span><div><b>Vista previa del banner</b><small>M.A.R.C. aplica tu logo y datos de contacto automáticamente.</small></div></div>
@@ -2260,27 +2265,7 @@ async function marketing(){
     </div>
     <section class="card panel marketing-copy-card"><div class="eyebrow2">6 · PROPUESTAS DE TEXTO</div><div class="marketing-copy-grid"><article><div class="marketing-copy-head"><b>Texto principal</b><button class="secondary" data-copy="primary_text">Copiar</button></div><p id="adPrimary">—</p></article><article><div class="marketing-copy-head"><b>WhatsApp</b><button class="secondary" data-copy="whatsapp_text">Copiar</button></div><p id="adWhatsapp">—</p></article><article><div class="marketing-copy-head"><b>Texto corto</b><button class="secondary" data-copy="short_text">Copiar</button></div><p id="adShort">—</p></article><article><div class="marketing-copy-head"><b>Hashtags</b><button class="secondary" data-copy="hashtags">Copiar</button></div><p id="adHashtags">—</p></article></div></section>
     <section class="card panel marketing-company-footer"><div><b>✓ Datos de tu empresa aplicados automáticamente</b><small>Logo, nombre, teléfono y datos disponibles en tu perfil empresarial.</small></div><button class="secondary" type="button" id="marketingCompanyInfo">Ver datos de contacto</button></section>
-    <section class="card panel marketing-share-center" id="marketingPublishCenter" style="margin-top:14px">
-      <div class="eyebrow2">7 · COMPARTIR</div>
-      <div class="panel-title-row">
-        <div><h3 style="margin:0">¿Dónde quieres compartirla?</h3><small>Elige una aplicación y M.A.R.C. preparará el contenido para tu teléfono.</small></div>
-        <span class="badge ok">📱 LISTO</span>
-      </div>
-      <div class="marketing-share-grid">
-        <button class="marketing-share-option" id="marketingShareWhatsApp" type="button"><span>🟢</span><b>WhatsApp</b><small>Enviar</small></button>
-        <button class="marketing-share-option" id="marketingShareInstagram" type="button"><span>📸</span><b>Instagram</b><small>Publicar</small></button>
-        <button class="marketing-share-option" id="marketingShareFacebook" type="button"><span>f</span><b>Facebook</b><small>Publicar</small></button>
-        <button class="marketing-share-option" id="marketingShareTikTok" type="button"><span>♪</span><b>TikTok</b><small>Publicar</small></button>
-        <button class="marketing-share-option marketing-share-more" id="marketingShareMore" type="button"><span>＋</span><b>Más</b><small>Otras aplicaciones</small></button>
-      </div>
-      <div class="marketing-share-actions">
-        <button class="primary" id="marketingShareNow" type="button">📤 Compartir</button>
-        <button class="secondary" id="marketingPreparePublication" type="button">💾 Guardar</button>
-        <button class="secondary" id="marketingReminder" type="button">🔔 Recordarme</button>
-      </div>
-      <div id="marketingPublishStatus" class="msg" style="margin-top:10px"></div>
-    </section>
-    <section class="card panel marketing-history"><div class="panel-title-row"><div><div class="eyebrow2">HISTORIAL</div><h3>Últimas campañas creadas</h3></div></div><div id="marketingHistory" class="marketing-history-list"><span class="muted-small">Cargando…</span></div></section>
+    <div id="marketingPublishStatus" class="msg marketing-hidden-tools"></div>
   `;
 
   let currentPublicationId=null,currentCampaign=saved?.campaign||null,currentProduct=list.find(p=>p.id===saved?.productId)||list[0]||null,currentClient=clientsList.find(x=>x.id===saved?.clientId)||null,currentImage=null,currentImageFile=null,currentAiImage=null,currentAiVariants=[],currentAiVariantIndex=0,company=companyData||{};
@@ -2454,16 +2439,8 @@ async function marketing(){
       setShareStatus("Recordatorio creado para "+when.toLocaleString("es-PE")+".");
     }
   };
-  $p("marketingPreparePublication").onclick=savePublicationDraft;
-  $p("marketingShareNow").onclick=()=>sharePublication("SHARE");
-  $p("marketingReminder").onclick=remindToShare;
-  $p("marketingShareWhatsApp").onclick=()=>sharePublication("WHATSAPP");
-  $p("marketingShareInstagram").onclick=()=>sharePublication("INSTAGRAM");
-  $p("marketingShareFacebook").onclick=()=>sharePublication("FACEBOOK");
-  $p("marketingShareTikTok").onclick=()=>sharePublication("TIKTOK");
-  $p("marketingShareMore").onclick=()=>sharePublication("SHARE");
-  setShareStatus("Listo. M.A.R.C. no necesita conectar tus cuentas: usa el menú de compartir de tu teléfono.");
-  loadMarketingHistory();
+  setShareStatus("Listo para compartir desde tu teléfono.");
+
   $("[data-ad-hint]").forEach(b=>b.onclick=()=>{$p("adDetails").value=$p("adDetails").value?($p("adDetails").value+" "+b.dataset.adHint):b.dataset.adHint});
   $p("adCta").oninput=renderCanvas;$p("adOffer").oninput=renderCanvas;
   $(".marketing-quick-choice").forEach(btn=>btn.onclick=()=>{
@@ -2506,7 +2483,6 @@ async function marketing(){
     }catch(e){status.className="msg error";status.textContent=e.message||"No se pudo generar el banner."}finally{btn.disabled=false}
   };
   $p("generateAd").onclick=generateAiBanner;
-  $p("generateTextAd").onclick=generateText;
   $p("downloadAd").onclick=()=>{if(!currentCampaign)return;const a=document.createElement("a");a.href=$p("adCanvas").toDataURL("image/png");a.download="MARC_Publicidad_"+String(currentProduct?.name||"producto").replace(/[^a-z0-9áéíóúñü]+/gi,"-").slice(0,50)+".png";a.click()};
   $p("copyBanner").onclick=async()=>{const text=currentCampaign?.banner_text||currentCampaign?.headline||"";if(!text)return toast("Primero genera una publicidad.","err");await navigator.clipboard?.writeText(text);toast("Texto del banner copiado","ok")};
   $p("shareAd").onclick=async()=>{if(!$p("adCanvas")||!currentCampaign)return toast("Primero genera una publicidad.","err");try{const blob=await new Promise(r=>$p("adCanvas").toBlob(r,"image/png"));const file=new File([blob],"MARC_Publicidad.png",{type:"image/png"});if(navigator.share&&navigator.canShare?.({files:[file]})){await navigator.share({title:currentCampaign.title||currentProduct.name,text:currentCampaign.short_text||"",files:[file]})}else{await navigator.clipboard?.writeText(currentCampaign.whatsapp_text||currentCampaign.primary_text||"");toast("Tu dispositivo no permite compartir la imagen directamente; el texto quedó copiado.","ok")}}catch(e){if(e?.name!=="AbortError")toast("No se pudo compartir.","err")}};

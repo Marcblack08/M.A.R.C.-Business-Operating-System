@@ -2392,8 +2392,8 @@ async function cash(){
   }).join("");
 
   c.innerHTML=`
-    <div class="head"><div><div class="eyebrow2">CAJA · ${isCashier?"TURNO":"ADMINISTRACIÓN"}</div><h1>${isCashier?"Caja rápida.":"Cierre de caja."}</h1><p>${isCashier?"Registra ventas y gastos en segundos. Cada movimiento queda identificado con tu usuario.":"Controla efectivo, turnos, usuarios, diferencias e informes con un máximo de 6 meses."}</p></div>
-      <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center"><label class="cash-period-select">Informe <select id="cashReportMonths" class="secondary">${[2,3,4,5,6].map(n=>`<option value="${n}" ${n===reportMonthsCount?"selected":""}>${n} meses</option>`).join("")}</select></label><button id="downloadCashExcel" class="secondary">▣ Excel · ${reportMonthsCount} meses</button>${!isCashier?'<button id="cashStaff" class="secondary">👥 Personal</button>':""}${open&&!isCashier?'<button id="closeCashTop" class="primary">✓ Cerrar caja</button>':!open&&!isCashier?'<button id="openCashTop" class="primary">＋ Abrir caja</button>':""}</div>
+    <div class="head"><div><div class="eyebrow2">CAJA · ${isCashier?"TURNO":"ADMINISTRACIÓN"}</div><h1>${isCashier?"Caja rápida.":"Cierre de caja."}</h1><p>${isCashier?`Usuario: <b>${esc(cashCtx.staff?.display_name||"Cajero")}</b> · ${open?`turno iniciado ${new Date(open.opened_at).toLocaleTimeString("es-PE",{hour:"2-digit",minute:"2-digit"})}`:"esperando apertura"}`:"Controla efectivo, turnos, usuarios, diferencias e informes con un máximo de 6 meses."}</p></div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center"><label class="cash-period-select">Informe <select id="cashReportMonths" class="secondary">${[2,3,4,5,6].map(n=>`<option value="${n}" ${n===reportMonthsCount?"selected":""}>${n} meses</option>`).join("")}</select></label><button id="downloadCashExcel" class="secondary">▣ Excel · ${reportMonthsCount} meses</button>${!isCashier?'<button id="cashStaff" class="secondary">👥 Personal</button>':`<button id="cashStaffLogout" class="secondary">↩ Salir de caja</button>`}${open&&!isCashier?'<button id="closeCashTop" class="primary">✓ Cerrar caja</button>':!open&&!isCashier?'<button id="openCashTop" class="primary">＋ Abrir caja</button>':""}</div>
     </div>
 
     <section class="cash-kpis">
@@ -2440,7 +2440,7 @@ async function cash(){
   $("#downloadCashExcel2").onclick=exportExcel;
   $("#cashReportMonths").onchange=e=>{const n=Math.min(6,Math.max(2,Number(e.target.value)||2));const u=new URL(location.href);u.searchParams.set("cashMonths",String(n));history.replaceState({},document.title,u.toString());cash()};
 
-  if($("#cashStaff"))$("#cashStaff").onclick=()=>cashStaffModal();
+  if($("#cashStaff"))$("#cashStaff").onclick=()=>cashStaffModal();\n  if($("#cashStaffLogout"))$("#cashStaffLogout").onclick=async()=>{\n    const ok=confirm("¿Salir de esta caja?");\n    if(!ok)return;\n    try{await S.auth.signOut();toast("Sesión de caja cerrada","ok")}catch(err){toast(err?.message||"No se pudo salir de la caja.","err")}\n  };
   if(open&&!isCashier)$("#closeCashTop").onclick=()=>closeCashModal(open,expected);
   else if(!open&&!isCashier&&$("#openCashTop"))$("#openCashTop").onclick=()=>openCashModal();
   if(open){$("#cashIncome").onclick=()=>cashMovementModal(open,"INCOME");$("#cashExpense").onclick=()=>cashMovementModal(open,"EXPENSE");}

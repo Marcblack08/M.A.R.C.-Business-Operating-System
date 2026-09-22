@@ -3086,3 +3086,11 @@ html[data-theme="dark"] #scModalOverlay [style*="background:rgba(127,127,127,.08
 /* Inventario: contador y PDF de cotización */
 .inventory-summary div{position:relative}
 .inventory-summary strong{font-variant-numeric:tabular-nums}
+
+/* Centro de publicidad simplificado */
+.marketing-hidden-tools{display:none!important}
+.marketing-simple-options{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
+.marketing-simple-options label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:700}
+.marketing-simple-options label span{color:var(--text,#172033)}
+.marketing-simple-options label small{font-weight:500;color:#7b8494}
+@media(max-width:600px){.marketing-simple-options{grid-template-columns:1fr}}

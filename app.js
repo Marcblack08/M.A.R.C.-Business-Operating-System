@@ -3305,5 +3305,15 @@ function wire(){
     msg(authDiag("Error de autenticación",e?.message||"Error desconocido"),"error");
   });
 }
+// API pública mínima para módulos auxiliares (proveedores, notificaciones y herramientas visuales).
+// Mantiene el núcleo encapsulado y evita que cada módulo dependa de variables internas sueltas.
+window.MARC=window.MARC||{};
+Object.assign(window.MARC,{view,openChat,closeChat,toast});
+window.view=view;
+window.openChat=openChat;
+window.closeChat=closeChat;
+window.toast=toast;
+Object.defineProperty(window,"st",{configurable:true,get:()=>st});
+
 wire()})();
 window.addEventListener("DOMContentLoaded",()=>{if($("#cashStaffLogin"))$("#cashStaffLogin").onclick=signInCashStaff});

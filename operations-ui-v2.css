@@ -678,9 +678,10 @@ button[data-ops-lock="1"]{cursor:wait}
 }
 
 @media (min-width:781px) and (max-width:1199px){
+  /* Tablet/laptop: the sidebar is an overlay, so the shell must NOT reserve a sidebar column. */
   #app.app{
     display:grid!important;
-    grid-template-columns:205px minmax(0,1fr)!important;
+    grid-template-columns:minmax(0,1fr)!important;
     width:100%!important;
     min-width:0!important;
   }

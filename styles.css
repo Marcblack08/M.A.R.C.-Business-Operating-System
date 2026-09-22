@@ -3854,3 +3854,41 @@ html[data-theme="dark"]{color-scheme:dark}
   #app.app>.chat{width:min(100vw,400px)!important;max-width:100vw!important}
   #app.app>.sidebar{width:min(290px,86vw)!important;max-width:86vw!important}
 }
+
+/* ===== THEME 3: COLOR ===== */
+html[data-theme="color"]{
+  color-scheme:light;
+  --bg:#f6f3ff;
+  --panel:#ffffff;
+  --line:#ddd7f2;
+  --text:#202044;
+  --muted:#6f6a8e;
+  --blue:#6857e8;
+  --blue2:#eeeaff;
+  --cyan:#0fa6c9;
+  --violet:#8a55e8;
+  --dark:#21184a;
+  --green:#16865a;
+  --red:#d04462;
+  --amber:#a66b00;
+}
+html[data-theme="color"] body{
+  background:radial-gradient(circle at 78% -8%,#e9ddff 0,#f6f3ff 34%,#f1f7ff 100%);
+}
+html[data-theme="color"] .top,
+html[data-theme="color"] .chat{background:#fff;border-color:#ddd7f2}
+html[data-theme="color"] .sidebar{
+  background:linear-gradient(180deg,#21184a 0%,#3a246d 58%,#1d4f78 100%);
+}
+html[data-theme="color"] .sidebar nav button:hover,
+html[data-theme="color"] .sidebar nav button.active{background:#ffffff18}
+html[data-theme="color"] .card,
+html[data-theme="color"] .modal{background:#fff;border-color:#ddd7f2}
+html[data-theme="color"] .quick button,
+html[data-theme="color"] .secondary,
+html[data-theme="color"] .chips button{background:#faf9ff;border-color:#ddd7f2}
+html[data-theme="color"] .bubble.a{background:#f0ecff;color:#332d5d}
+html[data-theme="color"] .auth{
+  background:linear-gradient(135deg,#fbf9ff 0%,#eee9ff 48%,#e9f8ff 100%);
+}
+html[data-theme="color"] .auth-card{border-color:#d9d0f2;background:#ffffffed}

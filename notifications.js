@@ -7,6 +7,24 @@
   const read=k=>{try{return JSON.parse(localStorage.getItem(k)||"[]")}catch{return[]}};
   const write=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
   const uid=()=>crypto.randomUUID?.()||Date.now()+"-"+Math.random();
+  async function syncServer(){
+    try{
+      const token=window.st?.session?.access_token;
+      if(!token)return;
+      const r=await fetch("/api/notifications",{headers:{Authorization:"Bearer "+token}});
+      if(!r.ok)return;
+      const data=await r.json(); const rows=Array.isArray(data.notifications)?data.notifications:[];
+      const local=notifications(); const known=new Set(local.map(x=>x.server_id||x.id));
+      let changed=false;
+      for(const x of rows){
+        const key=String(x.id);
+        if(known.has(key))continue;
+        local.unshift({id:uid(),server_id:key,title:x.title,body:x.body||"",read:x.status==="SENT",created_at:x.sent_at||x.due_at||x.created_at,meta:{server:true,status:x.status}});
+        changed=true;
+      }
+      if(changed){write(KEY,local.slice(0,100));renderCount();}
+    }catch(e){}
+  }
   function notifications(){return read(KEY)}
   function watchers(){return read(WATCHERS)}
   function saveWatchers(rows){write(WATCHERS,rows)}
@@ -103,7 +121,7 @@
   window.MARCNotifications={notifications,add:addNotification,notify,open,share,reminder,addStockWatch,check:()=>{checkReminders();watchInventory()}};
   document.addEventListener("DOMContentLoaded",()=>{
     $("#notificationBell")?.addEventListener("click",open);
-    renderCount();checkReminders();watchInventory();installMarketingShare();setInterval(()=>{checkReminders();watchInventory()},30000);new MutationObserver(()=>installMarketingShare()).observe(document.body,{childList:true,subtree:true});
+    renderCount();checkReminders();watchInventory();installMarketingShare();syncServer();setInterval(()=>{checkReminders();watchInventory();syncServer()},30000);new MutationObserver(()=>installMarketingShare()).observe(document.body,{childList:true,subtree:true});
     if(!notifications().length)addNotification("Bienvenido a M.A.R.C.","Aquí aparecerán recordatorios, publicidad pendiente, cobros y tareas importantes.");
   });
 })();

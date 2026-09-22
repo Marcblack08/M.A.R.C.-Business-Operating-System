@@ -1,0 +1,103 @@
+/* M.A.R.C. · Operations UI v2 — branch-only visual layer */
+:root{
+  --ops-blue:#0b73e6;--ops-cyan:#19b8d8;--ops-ink:#122033;--ops-muted:#6d7b8d;
+  --ops-panel:rgba(255,255,255,.94);--ops-line:rgba(26,52,79,.11);
+}
+button,.primary,.secondary,.danger,.cash-action,.icon{transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease,background .16s ease,opacity .16s ease}
+button:not(:disabled):hover{transform:translateY(-1px)}
+button:not(:disabled):active{transform:translateY(0) scale(.98)}
+button:disabled{cursor:not-allowed;opacity:.55}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid rgba(11,115,230,.18);outline-offset:2px}
+
+/* Global app chrome */
+.main .top{backdrop-filter:blur(18px);box-shadow:0 1px 0 rgba(15,35,55,.06)}
+.content{animation:opsPageIn .24s ease both}
+@keyframes opsPageIn{from{opacity:.45;transform:translateY(5px)}to{opacity:1;transform:none}}
+.head{gap:18px;margin-bottom:18px}
+.head>div:first-child h1{letter-spacing:-.035em}
+.card,.dashboard-panel,.cash-report-panel{border-radius:20px!important;border-color:var(--ops-line)!important;box-shadow:0 10px 32px rgba(16,39,63,.055)!important}
+.toolbar{min-height:50px;border-radius:15px!important;background:linear-gradient(180deg,rgba(247,250,253,.9),rgba(241,246,250,.72));padding:10px!important}
+.toolbar .search{flex:1;min-width:220px}
+.toolbar .search input{min-height:42px;border-radius:12px!important}
+
+/* Inventory */
+.inventory-ops-header{display:flex;gap:10px;align-items:center;justify-content:space-between;margin:0 0 12px;padding:13px 15px;border:1px solid rgba(11,115,230,.14);border-radius:16px;background:linear-gradient(135deg,rgba(11,115,230,.055),rgba(25,184,216,.035))}
+.inventory-ops-header>div{display:flex;align-items:center;gap:10px}
+.inventory-ops-badge{display:grid;place-items:center;width:36px;height:36px;border-radius:11px;background:linear-gradient(135deg,#0b73e6,#19b8d8);color:#fff;font-weight:900}
+.inventory-ops-header b{display:block;font-size:13px}.inventory-ops-header small{display:block;color:var(--ops-muted);font-size:11px;margin-top:2px}
+.inventory-ops-tools{display:flex;gap:7px;flex-wrap:wrap}
+.inventory-filter-chips{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 12px}
+.inventory-filter-chip{border:1px solid #dbe5ee;background:#fff;color:#5f6f80;border-radius:999px;padding:8px 11px;font-size:11px;font-weight:800;cursor:pointer}
+.inventory-filter-chip.active{background:#eaf5ff;color:#0869a7;border-color:#9dd4f4}
+.inventory-card{transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+.inventory-card:hover{transform:translateY(-2px);box-shadow:0 14px 35px rgba(17,45,73,.1)!important;border-color:rgba(11,115,230,.2)!important}
+.inventory-thumb{width:48px;height:48px;border-radius:12px;overflow:hidden;background:#eef4f8;display:grid;place-items:center;color:#7b8c9c}
+.inventory-thumb img{width:100%;height:100%;object-fit:cover}
+.inventory-status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;background:#21a66f}.inventory-status-dot.low{background:#e7a51a}.inventory-status-dot.out{background:#d64b5b}
+
+/* Supplier center */
+#content:has(#scSupplierList) .head{margin-bottom:14px}
+#content:has(#scSupplierList) .inventory-summary{margin-bottom:14px}
+.supplier-ops-toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;margin-bottom:10px}
+.supplier-ops-search{width:100%;min-height:42px;border:1px solid #dbe4ec;border-radius:12px;padding:0 12px;background:#fff;box-sizing:border-box}
+.supplier-ops-tabs{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 12px}
+.supplier-ops-tab{border:1px solid #dbe4ec;background:#fff;color:#617083;border-radius:999px;padding:8px 12px;font-size:11px;font-weight:800}
+.supplier-ops-tab.active{background:#eaf5ff;color:#0869a7;border-color:#9dd4f4}
+#scSupplierList,#scCatalogList{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:11px}
+#scSupplierList .client-card,#scCatalogList .client-card{margin:0!important;min-width:0}
+.supplier-card-v2{position:relative;overflow:hidden}
+.supplier-card-v2:before{content:"";position:absolute;inset:0 0 auto;height:3px;background:linear-gradient(90deg,#0b73e6,#19b8d8);opacity:.8}
+.supplier-card-v2 .client-card-actions{flex-wrap:wrap}
+.supplier-catalog-empty{grid-column:1/-1;padding:25px;text-align:center;border:1px dashed #cbd8e3;border-radius:16px;color:#738294}
+.sc-modal-field{min-width:0}.sc-modal-field input,.sc-modal-field select,.sc-modal-field textarea{width:100%;box-sizing:border-box}
+#scModalOverlay input,#scModalOverlay select,#scModalOverlay textarea{min-height:42px;border-radius:11px;border:1px solid #dbe4ec;padding:9px 11px;background:#fbfdff;color:inherit;box-sizing:border-box}
+#scModalOverlay button{min-height:42px}
+
+/* Cash */
+#content:has(.cash-kpis) .head{padding:17px 18px;border-radius:20px;background:linear-gradient(135deg,#061b31,#0b4f83);color:#fff;box-shadow:0 14px 38px rgba(3,31,58,.16)}
+#content:has(.cash-kpis) .head h1,#content:has(.cash-kpis) .head p,#content:has(.cash-kpis) .head .eyebrow2{color:#fff}
+#content:has(.cash-kpis) .head p{opacity:.76}
+.cash-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.cash-kpi{position:relative;overflow:hidden;min-height:110px;padding:16px!important}
+.cash-kpi:after{content:"";position:absolute;width:90px;height:90px;border-radius:50%;right:-38px;bottom:-45px;background:rgba(11,115,230,.06)}
+.cash-kpi span{font-size:9px;font-weight:900;letter-spacing:.08em;color:#7a8998}
+.cash-kpi strong{display:block;margin-top:7px;font-size:22px;letter-spacing:-.03em}
+.cash-kpi small{display:block;margin-top:5px;color:#7b8997;line-height:1.35}
+.cash-kpi.cash-total{background:linear-gradient(135deg,#0b73e6,#0c5da6)!important;color:#fff}
+.cash-kpi.cash-total span,.cash-kpi.cash-total small{color:rgba(255,255,255,.72)}
+.cash-kpi.cash-total strong{color:#fff}
+.cash-action-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important}
+.cash-action{min-height:112px!important;border-radius:18px!important;border:1px solid rgba(11,115,230,.12)!important;background:linear-gradient(145deg,#fff,#f7fbff)!important}
+.cash-action.income{border-color:rgba(24,168,111,.22)!important}.cash-action.expense{border-color:rgba(211,78,91,.18)!important}
+.cash-action-circle{box-shadow:0 7px 18px rgba(11,115,230,.12)}
+.cash-report-summary{gap:9px!important}
+.cash-report-summary>div{border-radius:15px!important;background:linear-gradient(180deg,#fff,#f7fafc);border:1px solid var(--ops-line);padding:13px!important}
+.cash-movements .scroll{border-radius:14px;border:1px solid #e4ebf1}
+.cash-history-row{padding:13px 3px!important}
+.cash-close-focus{border-radius:16px!important;background:linear-gradient(135deg,#061b31,#0b73e6)!important;color:#fff!important}
+.cash-close-focus span{color:rgba(255,255,255,.7)!important}
+.cash-close-focus strong{color:#fff!important}
+.cash-product-picker{border:1px solid #dfe7ee!important;border-radius:16px!important;background:#f8fbfd!important;padding:10px!important}
+.cash-product-item{width:100%;border:1px solid transparent!important;background:#fff!important;border-radius:12px!important;margin:5px 0!important;box-shadow:0 3px 12px rgba(16,40,62,.05)}
+.cash-product-item:hover{border-color:#8ecff0!important}
+.cash-product-selected{margin-top:8px}
+
+/* Responsive */
+@media(max-width:1050px){.cash-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:760px){
+ .head{align-items:stretch!important}.head>div:last-child{width:100%}
+ .head>div:last-child button{flex:1}
+ .inventory-ops-header{align-items:flex-start;flex-direction:column}.inventory-ops-tools{width:100%}.inventory-ops-tools button{flex:1}
+ .supplier-ops-toolbar{grid-template-columns:1fr}.supplier-ops-toolbar button{width:100%}
+ #scSupplierList,#scCatalogList{grid-template-columns:1fr!important}
+ .cash-kpis{grid-template-columns:1fr 1fr}.cash-kpi.cash-total{grid-column:1/-1}
+ .cash-action-grid{grid-template-columns:1fr!important}
+ #content:has(.cash-kpis) .head{padding:14px}
+}
+@media(max-width:480px){
+ .cash-kpis{grid-template-columns:1fr}
+ .cash-kpi.cash-total{grid-column:auto}
+ .toolbar .search{min-width:0}
+ .inventory-filter-chips{overflow-x:auto;flex-wrap:nowrap;padding-bottom:3px}
+ .inventory-filter-chip{white-space:nowrap}
+}

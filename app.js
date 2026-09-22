@@ -2274,6 +2274,7 @@ async function marketing(){
           <div class="ad-smart-note"><span>✦</span><div><b>M.A.R.C. decide lo demás</b><small>El tono, público, composición y llamada a la acción se completan automáticamente sin llenar más formularios.</small></div></div>
           <select id="adPlatform" class="marketing-hidden-control"><option value="WHATSAPP">WhatsApp</option></select>
           <select id="adTone" class="marketing-hidden-control"><option>PROFESIONAL</option></select>
+          <input id="adObjective" class="marketing-hidden-control" value="VENDER">
           <input id="adAudience" class="marketing-hidden-control" value="">
           <input id="adCta" class="marketing-hidden-control" value="Escríbenos para cotizar">
           <select id="adTemplate" class="marketing-hidden-control"><option value="MODERN">Moderno</option></select>
@@ -2282,7 +2283,7 @@ async function marketing(){
         </section>
       </div>
 
-      <section class="ad-result" id="adResult">
+      <section class="ad-result is-empty" id="adResult">
         <div class="ad-result-head">
           <div><div class="eyebrow2">3 · RESULTADO</div><h2>Tu publicidad</h2><p>M.A.R.C. genera una propuesta lista para revisar, descargar o compartir.</p></div>
           <div class="ad-result-badge" id="adResultBadge">Esperando contenido</div>
@@ -2315,7 +2316,10 @@ async function marketing(){
 
   const setStatus=(text,type="")=>{const el=$p("adStatus");if(el){el.className="msg "+type;el.textContent=text}};
   const setResultState=(ready=false)=>{
-    const b=$p("adResultBadge");if(b){b.textContent=ready?"Lista para usar":"Esperando contenido";b.className="ad-result-badge "+(ready?"ready":"")}
+    const b=$p("adResultBadge");
+    const result=$p("adResult");
+    if(result)result.classList.toggle("is-empty",!ready);
+    if(b){b.textContent=ready?"Lista para usar":"Esperando contenido";b.className="ad-result-badge "+(ready?"ready":"")}
   };
 
   const applyLogo=()=>{

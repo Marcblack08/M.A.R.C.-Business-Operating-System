@@ -2240,15 +2240,15 @@ async function marketing(){
         <div class="marketing-inventory-row"><label><b>Producto del inventario</b><select id="adProduct">${list.length?list.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+(p.sku?" · "+esc(p.sku):"")+'</option>').join(""):'<option value="">Puedes trabajar solo con la foto</option>'}</select></label><label><b>Buscar</b><input id="adProductSearch" placeholder="Nombre, marca o modelo…"></label></div>
         <div class="marketing-step-title"><span>2</span><div><b>¿Qué quieres decir?</b><small>Escríbelo con tus palabras. También puedes dejarlo vacío y M.A.R.C. propondrá el contenido.</small></div></div>
         <label><textarea id="adDetails" rows="6" placeholder="Ejemplo: Quiero promocionar esta cámara para casas y pequeños negocios. Que se vea moderna y confiable. Quiero que me contacten por WhatsApp."></textarea></label>
-        <div class="marketing-brief-hints"><span>Ejemplos rápidos:</span><button type="button" class="secondary" data-ad-hint="Quiero vender este producto destacando sus principales beneficios y que me contacten por WhatsApp.">Vender producto</button><button type="button" class="secondary" data-ad-hint="Quiero una publicidad profesional para empresas y generar consultas.">Para empresas</button><button type="button" class="secondary" data-ad-hint="Quiero una publicidad llamativa con oferta, precio y llamada a la acción.">Con oferta</button><button type="button" class="secondary" data-ad-hint="Quiero promocionar este producto como un nuevo servicio.">Nuevo servicio</button></div>
+
         <select id="adPlatform" class="marketing-hidden-control"><option value="WHATSAPP">WhatsApp</option></select>
         <div class="marketing-step-title"><span>3</span><div><b>Formato</b><small>Elige cómo quieres que se vea el anuncio. Si dudas, usa Cuadrado.</small></div></div>
         <div class="marketing-formats"><button type="button" class="marketing-format active" data-format="1080x1080"><b>□</b><span>Cuadrado</span><small>1:1</small></button><button type="button" class="marketing-format" data-format="1080x1350"><b>▯</b><span>Vertical</span><small>4:5</small></button><button type="button" class="marketing-format" data-format="1080x1920"><b>▯</b><span>Historia</span><small>9:16</small></button></div>
         <select id="adFormat" class="marketing-hidden-control"><option value="1080x1080">Cuadrado · 1:1</option><option value="1080x1350">Post vertical · 4:5</option><option value="1080x1920">Historia · 9:16</option></select>
         <div class="marketing-simple-options">
-          <label><span>Objetivo</span><select id="adObjective"><option>VENDER</option><option>GENERAR CONSULTAS</option><option>PROMOCIONAR PRODUCTO</option><option>REACTIVAR CLIENTES</option></select></label>
           <label><span>Oferta o precio <small>(opcional)</small></span><input id="adOffer" placeholder="Ej. S/ 149"></label>
         </div>
+        <select id="adObjective" class="marketing-hidden-control"><option>VENDER</option><option>GENERAR CONSULTAS</option><option>PROMOCIONAR PRODUCTO</option><option>REACTIVAR CLIENTES</option></select>
         <select id="adTone" class="marketing-hidden-control"><option>PROFESIONAL</option></select>
         <input id="adAudience" class="marketing-hidden-control" value="">
         <input id="adCta" class="marketing-hidden-control" value="Escríbenos para cotizar">
@@ -2258,11 +2258,10 @@ async function marketing(){
       <section class="card panel marketing-preview-card">
         <div class="marketing-step-title"><span>4</span><div><b>Vista previa del banner</b><small>M.A.R.C. aplica tu logo y datos de contacto automáticamente.</small></div></div>
         <div class="marketing-company-strip"><span class="marketing-company-logo" id="adCompanyLogo"></span><div><b id="adCompanyName">${esc(companyData?.business_name||"Tu empresa")}</b><small id="adCompanyContact">${esc([companyData?.phone,companyData?.email].filter(Boolean).join(" · ")||"Datos de contacto del perfil")}</small></div><span>✓ Datos automáticos</span></div>
-        <div class="marketing-canvas-wrap"><canvas id="adCanvas" width="1080" height="1080"></canvas></div><div id="adVariants" class="marketing-variants" aria-live="polite"></div><div class="marketing-banner-actions"><button class="primary" id="downloadAd" disabled>↓ Descargar PNG</button><button class="secondary" id="copyBanner">Copiar texto</button><button class="secondary" id="shareAd">Compartir</button></div><small id="bannerHint" class="muted-small">Sube una foto y cuéntale a M.A.R.C. qué quieres publicar.</small>
+        <div class="marketing-canvas-wrap"><canvas id="adCanvas" width="1080" height="1080"></canvas></div><div id="adVariants" class="marketing-variants" aria-live="polite"></div><div class="marketing-banner-actions"><button class="primary" id="downloadAd" disabled>↓ Descargar PNG</button><button class="secondary" id="shareAd">Compartir</button></div><small id="bannerHint" class="muted-small">Sube una foto y cuéntale a M.A.R.C. qué quieres publicar.</small>
       </section>
     </div>
-    <section class="card panel marketing-copy-card"><div class="eyebrow2">6 · PROPUESTAS DE TEXTO</div><div class="marketing-copy-grid"><article><div class="marketing-copy-head"><b>Texto principal</b><button class="secondary" data-copy="primary_text">Copiar</button></div><p id="adPrimary">—</p></article><article><div class="marketing-copy-head"><b>WhatsApp</b><button class="secondary" data-copy="whatsapp_text">Copiar</button></div><p id="adWhatsapp">—</p></article><article><div class="marketing-copy-head"><b>Texto corto</b><button class="secondary" data-copy="short_text">Copiar</button></div><p id="adShort">—</p></article><article><div class="marketing-copy-head"><b>Hashtags</b><button class="secondary" data-copy="hashtags">Copiar</button></div><p id="adHashtags">—</p></article></div></section>
-    <section class="card panel marketing-company-footer"><div><b>✓ Datos de tu empresa aplicados automáticamente</b><small>Logo, nombre, teléfono y datos disponibles en tu perfil empresarial.</small></div><button class="secondary" type="button" id="marketingCompanyInfo">Ver datos de contacto</button></section>
+    <section class="card panel marketing-copy-card"><div class="eyebrow2">5 · PROPUESTAS DE TEXTO</div><div class="marketing-copy-grid"><article><div class="marketing-copy-head"><b>Texto principal</b><button class="secondary" data-copy="primary_text">Copiar</button></div><p id="adPrimary">—</p></article><article><div class="marketing-copy-head"><b>WhatsApp</b><button class="secondary" data-copy="whatsapp_text">Copiar</button></div><p id="adWhatsapp">—</p></article><article><div class="marketing-copy-head"><b>Texto corto</b><button class="secondary" data-copy="short_text">Copiar</button></div><p id="adShort">—</p></article><article><div class="marketing-copy-head"><b>Hashtags</b><button class="secondary" data-copy="hashtags">Copiar</button></div><p id="adHashtags">—</p></article></div></section>
     <div id="marketingPublishStatus" class="msg marketing-hidden-tools"></div>
   `;
 
@@ -2382,7 +2381,6 @@ async function marketing(){
   $p("adImageCamera").onchange=async e=>{await setAdImageFile(e.target.files?.[0])};
   $p("analyzeAdPhoto").onclick=analyzeAdPhoto;
   $p("marketingPhotoClear").onclick=clearAdPhoto;
-  $p("marketingCompanyInfo").onclick=()=>toast("Datos usados: "+String(company.business_name||"Tu empresa")+(company.phone?" · "+company.phone:"")+(company.email?" · "+company.email:"")+(company.address?" · "+company.address:""),"ok");
   const publicationText=()=>{const body=[currentCampaign?.headline,currentCampaign?.primary_text,currentCampaign?.short_text,(currentCampaign?.hashtags||[]).join(" ")].filter(Boolean).join("\n\n");return currentClient?"Hola "+(currentClient.contact_name||currentClient.name)+",\n\n"+body:body};
   const recordClientShare=async(publicationId,target)=>{if(!currentClient)return;const h=await S.from("marc_client_history").insert({user_id:st.u.id,client_id:currentClient.id,event_type:"PUBLICIDAD",title:"Publicidad compartida",description:"Se compartió una publicidad de "+(currentProduct?.name||"un producto")+" con "+currentClient.name+".",metadata:{publication_id:publicationId||null,platform:target||"SHARE",product_id:currentProduct?.id||null,product_name:currentProduct?.name||null},visible_to_client:true});if(h.error)console.warn("No se pudo registrar el historial del cliente",h.error)};
   const ensurePublicationRecord=async(target)=>{if(currentPublicationId)return currentPublicationId;if(!currentCampaign)return null;const platform=target==="SHARE"?"WHATSAPP":target||"WHATSAPP";const r=await S.from("marc_publications").insert({user_id:st.u.id,inventory_id:currentProduct?.id||null,client_id:currentClient?.id||null,platform,status:"DRAFT",title:currentCampaign.title||currentProduct?.name,headline:currentCampaign.headline,body:currentCampaign.primary_text,short_text:currentCampaign.short_text,hashtags:currentCampaign.hashtags||[],media_url:currentAiImage||currentImage||currentProduct?.image_url||null,media_type:"IMAGE"}).select("id").single();if(r.error)throw r.error;currentPublicationId=r.data.id;return r.data.id};
@@ -2418,7 +2416,6 @@ async function marketing(){
   };
   setShareStatus("Listo para compartir desde tu teléfono.");
 
-  $("[data-ad-hint]").forEach(b=>b.onclick=()=>{$p("adDetails").value=$p("adDetails").value?($p("adDetails").value+" "+b.dataset.adHint):b.dataset.adHint});
   $p("adCta").oninput=renderCanvas;$p("adOffer").oninput=renderCanvas;
   $(".marketing-quick-choice").forEach(btn=>btn.onclick=()=>{
     const objective=btn.dataset.quickObjective||"VENDER";
@@ -2461,11 +2458,9 @@ async function marketing(){
   };
   $p("generateAd").onclick=generateAiBanner;
   $p("downloadAd").onclick=()=>{if(!currentCampaign)return;const a=document.createElement("a");a.href=$p("adCanvas").toDataURL("image/png");a.download="MARC_Publicidad_"+String(currentProduct?.name||"producto").replace(/[^a-z0-9áéíóúñü]+/gi,"-").slice(0,50)+".png";a.click()};
-  $p("copyBanner").onclick=async()=>{const text=currentCampaign?.banner_text||currentCampaign?.headline||"";if(!text)return toast("Primero genera una publicidad.","err");await navigator.clipboard?.writeText(text);toast("Texto del banner copiado","ok")};
   $p("shareAd").onclick=async()=>{if(!$p("adCanvas")||!currentCampaign)return toast("Primero genera una publicidad.","err");try{const blob=await new Promise(r=>$p("adCanvas").toBlob(r,"image/png"));const file=new File([blob],"MARC_Publicidad.png",{type:"image/png"});if(navigator.share&&navigator.canShare?.({files:[file]})){await navigator.share({title:currentCampaign.title||currentProduct.name,text:currentCampaign.short_text||"",files:[file]})}else{await navigator.clipboard?.writeText(currentCampaign.whatsapp_text||currentCampaign.primary_text||"");toast("Tu dispositivo no permite compartir la imagen directamente; el texto quedó copiado.","ok")}}catch(e){if(e?.name!=="AbortError")toast("No se pudo compartir.","err")}};
   $("[data-copy]").forEach(b=>b.onclick=async()=>{const key=b.dataset.copy,val=key==="hashtags"?(currentCampaign?.hashtags||[]).join(" "):currentCampaign?.[key]||"";if(!val)return toast("No hay texto para copiar.","err");await navigator.clipboard?.writeText(val);toast("Texto copiado","ok")});
   $p("marketingClear").onclick=()=>{currentClient=null;if($p("adClient"))$p("adClient").value="";syncClientSelection();currentAiImage=null;currentAiVariants=[];currentAiVariantIndex=0;currentImage=null;currentImageFile=null;localStorage.removeItem("marc_marketing_last");renderVariants();setCampaign(null)};
-  await renderMarketingHistory();
   if(currentProduct){$p("adProduct").value=currentProduct.id;await renderCanvas()}
   if(saved?.campaign)setCampaign(saved.campaign);
 }

@@ -572,3 +572,11 @@ button,input,select,textarea{font-family:Inter,system-ui,sans-serif}
 .brand-logo img,.hero-visual-logo img,.company-logo-preview img{
   object-fit:contain!important;
 }
+
+
+/* HOTFIX 2026-09-22: contain uploaded company logo in compact header */
+#app #brandLogo{position:relative!important;width:36px!important;min-width:36px!important;height:36px!important;min-height:36px!important;max-width:36px!important;max-height:36px!important;display:grid!important;place-items:center!important;overflow:hidden!important;flex:0 0 36px!important;border-radius:10px!important;background:linear-gradient(145deg,#159ff5,#0869ce)!important;border:1px solid #2db6ff!important}
+#app #brandLogo img{position:static!important;inset:auto!important;display:block!important;width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;min-width:0!important;min-height:0!important;object-fit:contain!important;object-position:center!important;margin:0!important;padding:0!important;transform:none!important}
+#app #brandLogo span{position:static!important;display:grid!important;place-items:center!important;width:100%!important;height:100%!important;font-size:16px!important;line-height:1!important;font-weight:900!important;color:#fff!important}
+@media(max-width:780px){#app #brandLogo{width:34px!important;height:34px!important;min-width:34px!important;min-height:34px!important;max-width:34px!important;max-height:34px!important;flex-basis:34px!important;border-radius:9px!important}#app #brandLogo img{width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important}#app #brandLogo span{font-size:15px!important}}
+#app #content > img{position:relative!important;inset:auto!important;z-index:1!important}

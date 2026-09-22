@@ -2174,6 +2174,83 @@ async function companySettings(){
   };
 }
 
+
+async function getCashStaffContext(){
+  if(!st.u)return {isStaff:false,ownerId:null,staff:null};
+  const {data,error}=await S.from("marc_cash_staff").select("id,owner_user_id,auth_user_id,username,display_name,role,active").eq("auth_user_id",st.u.id).eq("active",true).maybeSingle();
+  if(error)return {isStaff:false,ownerId:st.u.id,staff:null};
+  return data?{isStaff:true,ownerId:data.owner_user_id,staff:data}:{isStaff:false,ownerId:st.u.id,staff:null};
+}
+async function openCashModal(){
+  const ctx=await getCashStaffContext();
+  if(ctx.isStaff)return toast("Solo el administrador puede abrir una nueva caja.","err");
+  const close=modal('<div class="modal-head"><div><h2>＋ Abrir caja</h2><p>Indica cuánto efectivo queda en la caja al comenzar.</p></div><button class="close" id="x">×</button></div><form id="cashOpenForm"><label>Efectivo inicial<input name="amount" type="number" min="0" step="0.01" required placeholder="0.00"></label><label>Nota opcional<textarea name="notes" rows="2" placeholder="Turno, caja o referencia…"></textarea></label><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Abrir caja</button></div></form>');
+  $("#x").onclick=close;$("#cancel").onclick=close;
+  $("#cashOpenForm").onsubmit=async e=>{
+    e.preventDefault();const b=e.currentTarget.querySelector("button.primary");b.disabled=true;
+    try{
+      const amount=Number(new FormData(e.currentTarget).get("amount")||0);
+      if(amount<0)throw new Error("El efectivo inicial no puede ser negativo.");
+      const current=await S.from("marc_cash_registers").select("id").eq("user_id",st.u.id).eq("status","OPEN").limit(1);
+      if(current.data?.length)throw new Error("Ya existe una caja abierta.");
+      const {error}=await S.from("marc_cash_registers").insert({user_id:st.u.id,status:"OPEN",opening_amount:amount,expected_amount:amount,opened_by:st.u.id,notes:String(new FormData(e.currentTarget).get("notes")||"").trim()||null});
+      if(error)throw error;close();toast("Caja abierta correctamente","ok");await cash();
+    }catch(err){toast(err.message||"No se pudo abrir la caja.","err");b.disabled=false}
+  };
+}
+async function closeCashModal(open,expected){
+  const ctx=await getCashStaffContext();
+  if(ctx.isStaff)return toast("Solo el administrador puede cerrar la caja.","err");
+  const close=modal('<div class="modal-head"><div><h2>✓ Cerrar caja</h2><p>Cuenta el efectivo físico y registra el monto real.</p></div><button class="close" id="x">×</button></div><form id="cashCloseForm"><div class="cash-close-focus"><span>EFECTIVO ESPERADO</span><strong>'+money(expected)+'</strong></div><label>Efectivo contado<input name="amount" type="number" min="0" step="0.01" required value="'+Number(expected||0).toFixed(2)+'"></label><label>Observación<textarea name="notes" rows="2" placeholder="Diferencia, incidencia, entrega de turno…"></textarea></label><div id="cashCloseDiff" class="cash-close-diff"></div><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Confirmar cierre</button></div></form>');
+  $("#x").onclick=close;$("#cancel").onclick=close;
+  const form=$("#cashCloseForm"),amountInput=form.querySelector("[name=amount]"),diff=()=>{const d=Number(amountInput.value||0)-Number(expected||0);$("#cashCloseDiff").innerHTML="<span>Diferencia</span><b class='"+(d===0?"cash-in":"cash-out")+"'>"+(d>=0?"+":"")+money(d)+"</b>"};
+  amountInput.oninput=diff;diff();
+  form.onsubmit=async e=>{
+    e.preventDefault();const b=e.currentTarget.querySelector("button.primary");b.disabled=true;
+    try{
+      const closing=Number(new FormData(e.currentTarget).get("amount")||0);
+      if(closing<0)throw new Error("El efectivo contado no puede ser negativo.");
+      const notes=String(new FormData(e.currentTarget).get("notes")||"").trim()||null;
+      const difference=closing-Number(expected||0);
+      const {error}=await S.from("marc_cash_registers").update({status:"CLOSED",closing_amount:closing,expected_amount:Number(expected||0),difference,closed_at:new Date().toISOString(),closed_by:st.u.id,notes}).eq("id",open.id).eq("user_id",st.u.id).eq("status","OPEN");
+      if(error)throw error;close();toast("Caja cerrada correctamente","ok");await cash();
+    }catch(err){toast(err.message||"No se pudo cerrar la caja.","err");b.disabled=false}
+  };
+}
+async function cashMovementModal(open,type){
+  const ctx=await getCashStaffContext();
+  if(!ctx.ownerId)return;
+  const income=type==="INCOME",title=income?"＋ Registrar ingreso":"− Registrar egreso";
+  const close=modal('<div class="modal-head"><div><h2>'+title+'</h2><p>Registro rápido de caja. Quedará asociado a '+esc(ctx.staff?.display_name||"tu usuario")+'.</p></div><button class="close" id="x">×</button></div><form id="cashMoveForm"><div class="cash-quick-amount"><span>S/</span><input name="amount" inputmode="decimal" type="number" min="0.01" step="0.01" required placeholder="0.00" autofocus></div><div class="cash-quick-grid"><button type="button" class="secondary cash-preset" data-v="10">S/ 10</button><button type="button" class="secondary cash-preset" data-v="20">S/ 20</button><button type="button" class="secondary cash-preset" data-v="50">S/ 50</button><button type="button" class="secondary cash-preset" data-v="100">S/ 100</button></div><label>Concepto<input name="concept" required placeholder="'+(income?"Venta, cobro, servicio…":"Compra, transporte, gasto…")+'"></label><label>Referencia opcional<input name="reference" placeholder="Boleta, factura, cliente, nota…"></label><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">'+(income?"Registrar ingreso":"Registrar egreso")+'</button></div></form>');
+  $("#x").onclick=close;$("#cancel").onclick=close;
+  $(".cash-preset",$("#cashMoveForm")).forEach(b=>b.onclick=()=>$("#cashMoveForm [name=amount]").value=b.dataset.v);
+  $("#cashMoveForm").onsubmit=async e=>{
+    e.preventDefault();const b=e.currentTarget.querySelector("button.primary");b.disabled=true;
+    try{
+      const d=new FormData(e.currentTarget),amount=Number(d.get("amount")||0);
+      if(amount<=0)throw new Error("Ingresa un monto válido.");
+      const row={user_id:ctx.ownerId,cash_register_id:open.id,type,amount,concept:String(d.get("concept")||"").trim(),reference:String(d.get("reference")||"").trim()||null,created_by:st.u.id,created_by_name:ctx.staff?.display_name||st.u.email||"Usuario"};
+      const {error}=await S.from("marc_cash_movements").insert(row);if(error)throw error;
+      close();toast(income?"Ingreso registrado":"Egreso registrado","ok");await cash();
+    }catch(err){toast(err.message||"No se pudo registrar el movimiento.","err");b.disabled=false}
+  };
+}
+async function cashStaffModal(){
+  const ctx=await getCashStaffContext();if(ctx.isStaff)return toast("Solo el administrador puede gestionar usuarios de caja.","err");
+  const {data:staff}=await S.from("marc_cash_staff").select("id,username,display_name,active,created_at").eq("owner_user_id",st.u.id).order("created_at");
+  const rows=(staff||[]).map(x=>'<div class="cash-staff-row"><div><b>'+esc(x.display_name)+'</b><small>@'+esc(x.username)+' · '+(x.active?"Activo":"Inactivo")+'</small></div><span>CAJERO</span></div>').join("")||'<div class="empty">Todavía no hay usuarios de caja.</div>';
+  const close=modal('<div class="modal-head"><div><h2>👥 Personal de caja</h2><p>Cada empleado tendrá su propio acceso. Solo usted conserva control administrativo.</p></div><button class="close" id="x">×</button></div><div class="cash-staff-list">'+rows+'</div><form id="staffForm"><div class="form-grid"><label>Nombre del empleado<input name="display_name" required placeholder="Ej. Juan Pérez"></label><label>Usuario<input name="username" required autocomplete="off" placeholder="Ej. juan"></label><label>Contraseña<input name="password" type="password" minlength="6" required placeholder="Mínimo 6 caracteres"></label></div><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cerrar</button><button class="primary">＋ Crear usuario</button></div></form>');
+  $("#x").onclick=close;$("#cancel").onclick=close;
+  $("#staffForm").onsubmit=async e=>{
+    e.preventDefault();const b=e.currentTarget.querySelector("button.primary");b.disabled=true;const d=new FormData(e.currentTarget);
+    try{
+      const r=await fetch("/api/cash-staff",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({display_name:d.get("display_name"),username:d.get("username"),password:d.get("password")})});
+      const j=await r.json();if(!r.ok)throw new Error(j.error||j.message||"No se pudo crear el usuario.");
+      close();toast("Usuario de caja creado correctamente","ok");await cash();
+    }catch(err){toast(err.message||"No se pudo crear el usuario.","err");b.disabled=false}
+  };
+}
+
 async function cash(){
   const c=$("#content");
   const {data:open,error:openError}=await S.from("marc_cash_registers").select("*").eq("user_id",st.u.id).eq("status","OPEN").order("opened_at",{ascending:false}).limit(1).maybeSingle();

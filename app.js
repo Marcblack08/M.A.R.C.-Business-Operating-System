@@ -2542,10 +2542,19 @@ async function cash(){
   $("#cashReportMonths").onchange=e=>{const n=Math.min(6,Math.max(2,Number(e.target.value)||2));const u=new URL(location.href);u.searchParams.set("cashMonths",String(n));history.replaceState({},document.title,u.toString());cash()};
 
   if($("#cashStaff"))$("#cashStaff").onclick=()=>cashStaffModal();
+  if($("#cashStaff2"))$("#cashStaff2").onclick=()=>cashStaffModal();
+  if($("#cashStaffQuick"))$("#cashStaffQuick").onclick=()=>cashStaffModal();
+  if($("#cashStaffLoginOpen2"))$("#cashStaffLoginOpen2").onclick=()=>showCashStaffLogin(true);
+  if($("#cashSaleQuick"))$("#cashSaleQuick").onclick=()=>cashMovementModal(open,"INCOME");
+  if($("#cashHistoryQuick"))$("#cashHistoryQuick").onclick=()=>document.querySelector("#cashMovementHistory")?.scrollIntoView({behavior:"smooth",block:"start"});
+  if($("#cashAuditQuick"))$("#cashAuditQuick").onclick=()=>document.querySelector("#cashMovementHistory")?.scrollIntoView({behavior:"smooth",block:"start"});
+  if($("#downloadCashExcelQuick"))$("#downloadCashExcelQuick").onclick=()=>downloadCashExcel(report);
+  if($("#cashPartialClose"))$("#cashPartialClose").onclick=()=>open?closeCashModal(open,expected):toast("Abre la caja antes de realizar un cierre.","err");
   if($("#cashStaffLoginOpen"))$("#cashStaffLoginOpen").onclick=()=>showCashStaffLogin(true);
   if($("#cashStaffBack"))$("#cashStaffBack").onclick=()=>showCashStaffLogin(false);
   if($("#cashStaffForm"))$("#cashStaffForm").onsubmit=signInCashStaff;
   if($("#cashStaffPasswordToggle"))$("#cashStaffPasswordToggle").onclick=()=>{const p=$("#cashStaffPassword");if(p){p.type=p.type==="password"?"text":"password"}};
+  if($("#cashStaffLogout2"))$("#cashStaffLogout2").onclick=async()=>{$("#cashStaffLogout")?.click()};
   if($("#cashStaffLogout"))$("#cashStaffLogout").onclick=async()=>{
     const ok=confirm("¿Salir de esta caja?");
     if(!ok)return;

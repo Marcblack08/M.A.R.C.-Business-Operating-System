@@ -20,7 +20,7 @@
     const {data:{session}}=await S.auth.getSession();
     if(!session)return;
     const root=document.querySelector("#content");
-    root.innerHTML='<div class="head"><div><div class="eyebrow2">PROVEEDORES Y CATÁLOGOS</div><h1>Centro de abastecimiento.</h1><p>Guarda catálogos de proveedores, revisa productos y pásalos a Inventario o Publicidad sin duplicar información.</p></div><button id="scBack" class="secondary">← Inventario</button></div>'+
+    root.innerHTML='<div class="supplier-center-view"><div class="head"><div><div class="eyebrow2">PROVEEDORES Y CATÁLOGOS</div><h1>Centro de abastecimiento.</h1><p>Guarda catálogos de proveedores, revisa productos y pásalos a Inventario o Publicidad sin duplicar información.</p></div><button id="scBack" class="secondary">← Inventario</button></div>'+
       '<section class="inventory-summary"><div><span>PROVEEDORES</span><strong id="scSuppliers">0</strong><small>Contactos activos</small></div><div><span>CATÁLOGOS</span><strong id="scCatalogs">0</strong><small>Documentos registrados</small></div><div><span>PRODUCTOS DETECTADOS</span><strong id="scItems">0</strong><small>Productos de proveedores</small></div></section>'+
       '<section class="card table"><div class="toolbar"><div><b>Proveedores</b><small> · administra tus fuentes de compra</small></div><button id="scNewSupplier" class="primary">＋ Nuevo proveedor</button></div><div id="scSupplierList" class="client-cards"></div></section>'+
       '<section class="card table" style="margin-top:14px"><div class="toolbar"><div><b>Catálogos</b><small> · PDF, Excel, imágenes o enlaces</small></div><button id="scNewCatalog" class="secondary">＋ Registrar catálogo</button></div><div id="scCatalogList" class="client-cards"></div></section>';

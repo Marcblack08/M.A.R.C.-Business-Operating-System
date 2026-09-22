@@ -3387,3 +3387,179 @@ html[data-theme="dark"] #scModalOverlay [style*="background:rgba(127,127,127,.08
     box-shadow:0 24px 60px rgba(0,0,0,.28)!important;
   }
 }
+
+
+/* ===== VISUAL SYSTEM v2 — COLOR / LIGHT / DARK · WEB + MOBILE ===== */
+/* Base = M.A.R.C. Color/Light: clean white surfaces + blue identity */
+:root{
+  --radius-sm:10px;
+  --radius-md:14px;
+  --radius-lg:20px;
+  --shadow-card:0 10px 30px rgba(25,63,101,.08);
+  --shadow-float:0 18px 50px rgba(20,61,100,.13);
+}
+body{background:var(--bg);-webkit-font-smoothing:antialiased}
+.card,.panel,.dashboard-panel,.kpi-modern,.toolbar,.table{
+  border-radius:var(--radius-md);
+}
+.primary{
+  background:linear-gradient(110deg,#16a9f5 0%,#0b73e6 58%,#125fd0 100%);
+}
+.dashboard-hero{
+  background:
+    radial-gradient(circle at 86% 20%,rgba(91,205,255,.20),transparent 27%),
+    linear-gradient(125deg,#071a32 0%,#0d4b88 57%,#0b7fe0 100%);
+}
+.dashboard-hero,.kpi-modern,.dashboard-panel,.finance-dashboard{
+  box-shadow:var(--shadow-card);
+}
+.quick-modern-grid button{
+  min-height:82px;
+  border-radius:15px;
+  transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease;
+}
+.quick-modern-grid button:hover{transform:translateY(-2px)}
+.kpi-modern{transition:transform .16s ease,box-shadow .16s ease}
+.kpi-modern:hover{transform:translateY(-2px)}
+.modal{
+  border-radius:20px;
+}
+.modal-root{padding:20px}
+
+/* LIGHT / COLOR — stronger hierarchy without making the interface heavy */
+html:not([data-theme="dark"]) .top{
+  box-shadow:0 4px 20px rgba(30,73,113,.05);
+}
+html:not([data-theme="dark"]) .card,
+html:not([data-theme="dark"]) .panel,
+html:not([data-theme="dark"]) .dashboard-panel{
+  background:#fff;
+  border-color:#dfe8f1;
+}
+html:not([data-theme="dark"]) .toolbar{
+  background:#fff;
+  border-color:#dfe8f1;
+}
+html:not([data-theme="dark"]) .sidebar{
+  background:linear-gradient(180deg,#0b2038,#0b2948 58%,#09213a);
+}
+html:not([data-theme="dark"]) .sidebar nav button.active{
+  background:linear-gradient(100deg,#147fe0,#159eea);
+  box-shadow:0 8px 20px rgba(20,126,224,.22);
+}
+
+/* DARK — same geometry, deeper surfaces and restrained blue accents */
+[data-theme="dark"] .dashboard-hero{
+  background:
+    radial-gradient(circle at 86% 18%,rgba(40,163,229,.18),transparent 28%),
+    linear-gradient(125deg,#06111f 0%,#0b2744 58%,#0b4b78 100%);
+}
+[data-theme="dark"] .card,
+[data-theme="dark"] .panel,
+[data-theme="dark"] .dashboard-panel,
+[data-theme="dark"] .kpi-modern,
+[data-theme="dark"] .finance-dashboard{
+  background:linear-gradient(180deg,#101f31,#0c1828);
+  border-color:#223a53;
+}
+[data-theme="dark"] .quick-modern-grid button{
+  background:#101e2f;
+  border-color:#253d56;
+}
+[data-theme="dark"] .quick-modern-grid button:hover{
+  background:#142943;
+  border-color:#316488;
+}
+[data-theme="dark"] .toolbar{
+  background:#0d1929;
+  border-color:#22384f;
+}
+[data-theme="dark"] .table{background:#0d1828}
+[data-theme="dark"] .primary{
+  box-shadow:0 10px 28px rgba(11,115,230,.28);
+}
+
+/* DESKTOP WEB — spacious, aligned, mouse-friendly */
+@media(min-width:1101px){
+  .app{grid-template-columns:230px minmax(0,1fr) 0!important}
+  .content{max-width:1500px!important;padding:30px 38px 52px!important}
+  .top{padding:0 34px!important}
+  .head{margin-bottom:22px!important}
+  .head h1{font-size:30px!important}
+  .grid4{gap:16px!important}
+  .card{padding:20px!important}
+  .dashboard-kpis{gap:16px!important}
+  .kpi-modern{padding:19px!important}
+  .dashboard-main-grid{gap:20px!important}
+  .dashboard-panel{padding:20px!important}
+  .finance-dashboard{padding:20px!important}
+  .modal{width:min(920px,calc(100vw - 100px))!important}
+}
+
+/* LAPTOP — compact enough for 13–15 inch screens */
+@media(min-width:781px) and (max-width:1100px){
+  .content{padding:22px 24px 38px!important}
+  .top{padding:0 22px!important}
+  .head h1{font-size:27px!important}
+  .dashboard-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .dashboard-main-grid{grid-template-columns:1fr!important}
+  .quick-modern-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+  .finance-grid{grid-template-columns:1fr!important}
+}
+
+/* PHONE — true app-like spacing; no desktop components squeezed into mobile */
+@media(max-width:780px){
+  body{overflow-x:hidden}
+  .app{width:100%;min-width:0}
+  .main{width:100%;min-width:0}
+  .top{height:62px!important;padding:0 12px!important}
+  .content{padding:14px 12px 92px!important;max-width:none!important}
+  .head{gap:10px;margin-bottom:14px}
+  .head h1{font-size:23px;line-height:1.12}
+  .head p{font-size:9px;line-height:1.45}
+  .grid4{grid-template-columns:1fr 1fr;gap:9px}
+  .card,.panel,.dashboard-panel{border-radius:15px}
+  .kpi-modern{min-height:76px;padding:13px 11px;border-radius:14px}
+  .kpi-modern strong{font-size:20px}
+  .dashboard-shell{gap:12px}
+  .dashboard-hero{border-radius:19px!important;min-height:365px!important}
+  .dashboard-hero h1{font-size:27px!important;line-height:1.05!important}
+  .dashboard-hero p{font-size:9px!important;line-height:1.45!important}
+  .dashboard-kpis{grid-template-columns:1fr 1fr!important;gap:9px!important}
+  .dashboard-main-grid{grid-template-columns:1fr!important;gap:12px!important}
+  .quick-modern-grid{grid-template-columns:1fr!important;gap:8px!important}
+  .quick-modern-grid button{min-height:70px!important;padding:11px!important}
+  .finance-grid{grid-template-columns:1fr!important}
+  .finance-dashboard{padding:13px!important;border-radius:15px!important}
+  .modal-root{padding:10px!important}
+  .modal{
+    width:100%!important;
+    max-width:100%!important;
+    max-height:calc(100svh - 20px)!important;
+    border-radius:18px!important;
+  }
+  .modal-actions{gap:8px}
+  .modal-actions .primary,.modal-actions .secondary{min-height:46px}
+  .sidebar{width:min(290px,86vw)!important}
+}
+
+/* SMALL PHONE — prevent clipping and oversized typography */
+@media(max-width:390px){
+  .content{padding-left:10px!important;padding-right:10px!important}
+  .dashboard-hero{padding-left:15px!important;padding-right:15px!important}
+  .dashboard-hero h1{font-size:24px!important}
+  .dashboard-hero p{font-size:8.5px!important}
+  .kpi-modern{padding:11px 9px!important}
+  .kpi-modern strong{font-size:18px!important}
+  .kpi-modern span{font-size:7px!important}
+  .kpi-modern small{font-size:6.5px!important}
+  .top{padding:0 9px!important}
+}
+
+/* Touch targets */
+@media(pointer:coarse){
+  button,.primary,.secondary,.sidebar nav button,.theme-toggle{
+    min-height:44px;
+  }
+  input,select,textarea{min-height:44px}
+}

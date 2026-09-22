@@ -19,6 +19,23 @@ function initTheme(){
 }
 function authRateLimitMessage(e){const raw=String(e?.message||"").toLowerCase();return raw.includes("rate limit")||raw.includes("too many")||raw.includes("over_email_send_rate_limit")}
 function mode(m){authMode=m;const title=m==="login"?"Inicia sesión en M.A.R.C.":"Accede a M.A.R.C.";const sub=m==="login"?"Accede a M.A.R.C. de forma rápida y segura con tu cuenta de Google.":"Accede a M.A.R.C. con tu cuenta de Google.";if($("#authTitle"))$("#authTitle").textContent=title;if($("#authSub"))$("#authSub").textContent=sub;msg("")}
+async function signInCashStaff(){
+  const username=prompt("Usuario de caja:");
+  if(!username)return;
+  const password=prompt("Contraseña:");
+  if(!password)return;
+  const b=$("#cashStaffLogin");if(b)b.disabled=true;
+  try{
+    msg("Validando acceso de caja…");
+    const r=await fetch("/api/cash-staff/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username,password})});
+    const j=await r.json();
+    if(!r.ok)throw new Error(j.error||"Usuario o contraseña incorrectos.");
+    if(!j.session?.access_token||!j.session?.refresh_token)throw new Error("La sesión de caja no pudo iniciarse.");
+    const {error}=await S.auth.setSession({access_token:j.session.access_token,refresh_token:j.session.refresh_token});
+    if(error)throw error;
+    msg("");
+  }catch(e){msg(e.message||"No se pudo iniciar el acceso de caja.","error")}finally{if(b)b.disabled=false}
+}
 async function signInGoogle(){
   const b=$("#googleLogin");
   try{
@@ -56,6 +73,8 @@ async function enter(s){
     if(epoch!==st.authEpoch)return;
     await chatLoad();
     if(epoch!==st.authEpoch)return;
+    const cashCtx=await getCashStaffContext();
+    applyCashierMode(!!cashCtx.isStaff);
     app.classList.remove("hidden");
     await loadBrandLogo();
     await view("home");
@@ -88,6 +107,13 @@ async function trial(){
   $("#usage").textContent=(c.count||0)+"/25 clientes · "+(i.count||0)+"/50 productos · "+(q.count||0)+"/5 cotizaciones";
 }
 async function chatLoad(){const box=$("#messages");box.innerHTML="";const {data}=await S.from("marc_messages").select("role,content").eq("conversation_id",st.cid).order("created_at",{ascending:true}).limit(60);if(!data?.length)addBubble("a","Hola. Soy M.A.R.C. Dime qué quieres hacer.");else data.forEach(x=>addBubble(x.role==="USER"?"u":"a",x.content))}
+function applyCashierMode(isCashier){
+  document.body.classList.toggle("cashier-mode",!!isCashier);
+  $("#sidebar nav button,#mobileNav button").forEach(b=>{b.style.display=(!isCashier||b.dataset.view==="cash")?"":"none"});
+  if($("#askTop"))$("#askTop").style.display=isCashier?"none":"";
+  if($("#notificationBell"))$("#notificationBell").style.display=isCashier?"none":"";
+  if($("#chat"))$("#chat").classList.toggle("cashier-hidden",!!isCashier);
+}
 function addBubble(type,text){const e=document.createElement("div");e.className="bubble "+type;e.textContent=text;$("#messages").appendChild(e);$("#messages").scrollTop=$("#messages").scrollHeight}
 let __chatBusy=false;
 async function chatSend(text){
@@ -3373,3 +3399,4 @@ function wire(){
   });
 }
 wire()})();
+window.addEventListener("DOMContentLoaded",()=>{if($("#cashStaffLogin"))$("#cashStaffLogin").onclick=signInCashStaff});

@@ -1,0 +1,574 @@
+/* M.A.R.C. — Desktop & Responsive Visual System 2026-09-22
+   Final visual layer. Keeps application logic untouched and normalizes the
+   accumulated legacy visual overrides into one predictable surface. */
+
+:root{
+  --marc-bg:#071426;
+  --marc-bg-2:#0a1c31;
+  --marc-panel:#0d2138;
+  --marc-panel-2:#102944;
+  --marc-line:#1d3a57;
+  --marc-line-soft:#17314b;
+  --marc-text:#eef7ff;
+  --marc-muted:#8fa8bf;
+  --marc-blue:#1597f5;
+  --marc-cyan:#42c9ff;
+  --marc-green:#36d6a0;
+  --marc-danger:#ff7180;
+  --marc-radius:18px;
+  --marc-shadow:0 18px 50px rgba(0,0,0,.20);
+}
+
+html,body{min-height:100%;overflow-x:hidden}
+body{background:var(--marc-bg);color:var(--marc-text)}
+button,input,select,textarea{font-family:Inter,system-ui,sans-serif}
+
+#app.app{
+  background:
+    radial-gradient(circle at 85% 0%,rgba(15,126,225,.08),transparent 28%),
+    linear-gradient(180deg,#071426 0%,#061323 100%);
+}
+
+/* ---------- Desktop shell ---------- */
+@media(min-width:1061px){
+  #app.app{
+    grid-template-columns:244px minmax(0,1fr) 0!important;
+  }
+  #app .sidebar{
+    width:244px;
+    padding:20px 14px;
+    background:linear-gradient(180deg,#081a30 0%,#0a2440 100%);
+    border-right:1px solid #183550;
+    box-shadow:12px 0 35px rgba(0,0,0,.14);
+  }
+  #app .main{min-width:0;background:transparent}
+  #app .top{
+    height:72px!important;
+    padding:0 28px!important;
+    background:rgba(7,20,38,.92)!important;
+    color:var(--marc-text)!important;
+    border-bottom:1px solid var(--marc-line)!important;
+    box-shadow:0 8px 28px rgba(0,0,0,.12)!important;
+    backdrop-filter:blur(16px);
+  }
+  #app .top>div:first-of-type span{color:#dbeaf7!important}
+  #app .top>div:first-of-type strong{color:#f4f9ff!important}
+  #app .top>div:first-of-type b{color:#55728e!important}
+  #app .theme-toggle,
+  #app .notification-bell,
+  #app .top .icon{
+    background:#0c233b!important;
+    color:#cfe5f6!important;
+    border:1px solid #1c3b58!important;
+  }
+  #app .ask{
+    background:linear-gradient(100deg,#0e86e8,#1168d7)!important;
+    color:#fff!important;border:1px solid #27a9ff!important;
+    box-shadow:0 8px 22px rgba(10,123,225,.20)!important;
+  }
+  #app .person>div{
+    background:linear-gradient(145deg,#159ff7,#0869ce)!important;
+    color:#fff!important;border:2px solid #38baff!important;
+    box-shadow:0 5px 18px rgba(0,140,240,.20)!important;
+  }
+  #app .person b{color:#eaf5ff!important}
+  #app .person small{color:#7f9ab2!important}
+
+  #app .content{
+    width:100%;
+    max-width:1480px;
+    margin:0 auto;
+    padding:30px 34px 48px!important;
+  }
+
+  #app .head h1,
+  #app .panel-title-row h3,
+  #app .dashboard-panel h3{color:#f1f7fc!important}
+  #app .head p,
+  #app .dashboard-panel p,
+  #app .panel-eyebrow + * small{color:var(--marc-muted)!important}
+
+  /* Sidebar */
+  #app .brand{padding:2px 9px 26px!important}
+  #app .brand strong{font-size:14px!important;color:#f4f9ff!important}
+  #app .brand small{color:#7f9ab3!important}
+  #app .sidebar nav{gap:5px!important}
+  #app .sidebar nav button{
+    min-height:43px;
+    padding:11px 12px!important;
+    border-radius:12px!important;
+    color:#91a9bf!important;
+    background:transparent!important;
+  }
+  #app .sidebar nav button:hover{
+    background:#ffffff09!important;
+    color:#fff!important;
+    transform:none!important;
+  }
+  #app .sidebar nav button.active{
+    background:linear-gradient(100deg,#0d70c9,#118eea)!important;
+    color:#fff!important;
+    box-shadow:0 8px 24px rgba(9,116,214,.22)!important;
+  }
+  #app .sidebar nav button.active:before{left:-14px!important;background:#4bc7ff!important}
+  #app .trial{
+    background:#0d2943!important;
+    border:1px solid #21445f!important;
+  }
+  #app .logout{
+    background:#0c243c!important;
+    border:1px solid #173853!important;
+    color:#9db5ca!important;
+  }
+
+  /* Prevent branding/preview media from becoming a floating overlay. */
+  #app .content img:not(.inventory-thumb img):not(.brand-logo img):not(.hero-visual-logo img){
+    max-width:100%;
+  }
+}
+
+/* ---------- Dashboard ---------- */
+.dashboard-shell{gap:18px!important}
+
+.dashboard-hero{
+  position:relative!important;
+  isolation:isolate;
+  overflow:hidden!important;
+  min-height:300px!important;
+  padding:34px 36px!important;
+  border-radius:24px!important;
+  background:
+    radial-gradient(circle at 85% 28%,rgba(31,175,255,.24),transparent 24%),
+    radial-gradient(circle at 18% 100%,rgba(19,88,190,.24),transparent 34%),
+    linear-gradient(135deg,#081a31 0%,#0a3158 52%,#0d76d1 115%)!important;
+  border:1px solid #1b5a85!important;
+  box-shadow:0 22px 60px rgba(0,57,112,.24)!important;
+}
+.dashboard-hero:before{
+  content:"";
+  position:absolute!important;
+  inset:0!important;
+  background:linear-gradient(90deg,transparent 0%,rgba(58,188,255,.06) 58%,rgba(255,255,255,.03) 100%)!important;
+  pointer-events:none!important;
+}
+.dashboard-hero:after{
+  width:360px!important;height:360px!important;
+  right:-120px!important;top:-150px!important;
+  border:1px solid rgba(106,211,255,.20)!important;
+  box-shadow:0 0 0 55px rgba(80,194,255,.055),0 0 0 110px rgba(80,194,255,.035)!important;
+  z-index:0!important;
+}
+.hero-copy{z-index:3!important}
+.hero-eyebrow{color:#62d1ff!important}
+.dashboard-hero h1{color:#fff!important}
+.dashboard-hero h1 span{color:#36c8ff!important}
+.dashboard-hero p{color:#b7d4e9!important}
+
+.hero-actions{
+  z-index:5!important;
+}
+.hero-primary{
+  background:linear-gradient(105deg,#13a8f5,#0a73dd)!important;
+  border:1px solid #3cc6ff!important;
+  color:#fff!important;
+  box-shadow:0 10px 26px rgba(0,130,235,.25)!important;
+}
+.hero-secondary{
+  background:rgba(5,29,53,.52)!important;
+  border:1px solid rgba(91,187,244,.34)!important;
+  color:#e9f6ff!important;
+}
+
+.hero-visual{z-index:2!important}
+.hero-visual-ring{
+  border-color:#20aaff!important;
+  box-shadow:0 0 25px rgba(0,146,255,.45),0 0 0 9px rgba(0,145,255,.08),0 0 0 24px rgba(0,145,255,.04)!important;
+}
+.hero-visual-logo{
+  background:#061a31!important;
+  border-color:#1aa7ff!important;
+  box-shadow:0 0 32px rgba(0,145,255,.35)!important;
+}
+.hero-visual-caption{color:#9ed3ee!important}
+
+.dashboard-kpis{gap:12px!important}
+.kpi-modern{
+  background:linear-gradient(145deg,#0a1f35,#0d2943)!important;
+  border:1px solid #193c58!important;
+  border-radius:17px!important;
+  box-shadow:none!important;
+}
+.kpi-modern span{color:#c8dceb!important}
+.kpi-modern strong{color:#f5faff!important}
+.kpi-modern small{color:#7f9bb2!important}
+.kpi-arrow{color:#5da8d4!important}
+
+.dashboard-main-grid{gap:14px!important}
+.dashboard-panel{
+  background:linear-gradient(145deg,#091d32,#0b2239)!important;
+  border:1px solid #173852!important;
+  border-radius:19px!important;
+  box-shadow:none!important;
+}
+.quick-panel,.alert-panel,.activity-panel,.profit-chart-panel,.margin-panel{padding:18px!important}
+.panel-eyebrow{color:#42c7ff!important}
+.panel-title-row h3{color:#f3f8fc!important}
+.panel-live{color:#5fe0ba!important}
+.quick-modern-grid{gap:9px!important}
+.quick-modern-grid button{
+  background:#0b243d!important;
+  border:1px solid #1a405d!important;
+  color:#eaf6ff!important;
+  border-radius:14px!important;
+  box-shadow:none!important;
+}
+.quick-modern-grid button:hover{
+  background:#0d2c49!important;
+  border-color:#28709b!important;
+  transform:translateY(-1px);
+}
+.quick-modern-grid button b{color:#edf7ff!important}
+.quick-modern-grid button small{color:#7897af!important}
+.quick-icon{box-shadow:none!important}
+
+.critical-row,.activity-row{border-color:#183650!important}
+.critical-copy b{color:#eaf6ff!important}
+.critical-copy small,.activity-row small{color:#7f9bb1!important}
+
+.finance-grid{gap:14px!important}
+.finance-card,.finance-dashboard .card{
+  background:#091d32!important;
+  border:1px solid #173852!important;
+  color:#eef7ff!important;
+}
+.profit-bars .bar,
+.profit-bars div{border-color:#21435e!important}
+
+/* ---------- General application pages ---------- */
+#app .card,
+#app .panel,
+#app .table,
+#app .marketing-form-card,
+#app .marketing-preview-card,
+#app .marketing-copy-card,
+#app .marketing-history,
+#app .comm,
+#app .settings-company-card{
+  border-color:#1a3853!important;
+  background:#0a1e33!important;
+  color:#eaf5fd!important;
+  box-shadow:none!important;
+}
+#app .toolbar{
+  background:#0a1e33!important;
+  border-color:#193750!important;
+}
+#app .toolbar .search input,
+#app .search input{
+  background:#07192c!important;
+  color:#edf7ff!important;
+  border-color:#1b3a57!important;
+}
+#app .data th{color:#7793aa!important}
+#app .data td{border-color:#17344f!important;color:#dcebf5!important}
+#app .data td b{color:#f2f8fc!important}
+#app .secondary{
+  background:#0c243c!important;
+  border-color:#1d405d!important;
+  color:#c9ddeb!important;
+}
+#app .primary{
+  background:linear-gradient(105deg,#159ff5,#096ed8)!important;
+  border:1px solid #2eb5ff!important;
+  box-shadow:0 8px 22px rgba(0,125,235,.18)!important;
+}
+#app input,#app select,#app textarea{
+  background:#07192c!important;
+  color:#eaf6ff!important;
+  border-color:#1c3c59!important;
+}
+#app input::placeholder,#app textarea::placeholder{color:#67849b!important}
+#app input:focus,#app select:focus,#app textarea:focus{
+  border-color:#269fe8!important;
+  box-shadow:0 0 0 3px rgba(21,151,245,.12)!important;
+}
+#app .empty{color:#7793aa!important}
+
+/* Clients / inventory / suppliers / quote surfaces */
+#app .head h1{color:#f4f9fd!important}
+#app .head p{color:#88a2b8!important}
+#app .badge{background:#102b44!important;color:#a9c2d6!important}
+#app .badge.low{background:#3a2d0e!important;color:#f1c76b!important}
+#app .badge.out{background:#3c1720!important;color:#ff9ca7!important}
+#app .badge.ok{background:#0d3528!important;color:#72e0b3!important}
+#app .quote-line{
+  background:#091f35!important;
+  border-color:#1b3c58!important;
+}
+#app .quote-line-total{color:#809bb0!important}
+#app .quote-summary{border-color:#1b3b57!important}
+#app .quote-finance-hint{
+  background:#0b2942!important;
+  border-color:#1d4b6b!important;
+  color:#9fc0d7!important;
+}
+#app .modal-root{
+  background:rgba(1,10,21,.72)!important;
+}
+#app .modal{
+  background:#0a1f35!important;
+  border:1px solid #21435e!important;
+  color:#eaf5fd!important;
+  box-shadow:0 25px 80px rgba(0,0,0,.45)!important;
+}
+#app .modal-head p{color:#809bb1!important}
+#app .modal label{color:#9eb7ca!important}
+#app .close{background:#102b45!important;color:#cfe1ee!important}
+#app .danger{
+  background:#321820!important;
+  border-color:#69303a!important;
+  color:#ff9aa4!important;
+}
+
+/* Marketing: make the workspace feel like a real studio */
+#app .marketing-layout{gap:18px!important}
+#app .marketing-form-card,#app .marketing-preview-card{padding:20px!important}
+#app .marketing-canvas-wrap{
+  background:#06172a!important;
+  border-color:#1b3c59!important;
+  padding:14px!important;
+}
+#app #adCanvas{box-shadow:0 18px 45px rgba(0,0,0,.35)!important}
+#app .marketing-variants,
+#app .marketing-copy-grid article,
+#app .marketing-history-row{
+  background:#081b30!important;
+  border-color:#193953!important;
+}
+#app .marketing-copy-grid article p{color:#90a9bd!important}
+#app .marketing-variants-head b,
+#app .marketing-copy-head b{color:#eaf5fd!important}
+
+/* ---------- Auth: same visual language, without the oversized empty desktop ---------- */
+#auth.auth{
+  min-height:100svh;
+  padding:34px;
+  background:
+    radial-gradient(circle at 12% 15%,rgba(23,155,246,.16),transparent 30%),
+    radial-gradient(circle at 92% 85%,rgba(112,78,220,.13),transparent 30%),
+    #061426;
+}
+#auth .auth-glow{
+  width:55vw;height:55vw;right:-22vw;top:-25vw;
+  border-color:#1d6fa044;
+  box-shadow:0 0 0 90px #158eea0c,0 0 0 180px #158eea06;
+}
+#auth .auth-card{
+  background:rgba(8,25,43,.94)!important;
+  border-color:#1d3b57!important;
+  box-shadow:0 28px 80px rgba(0,0,0,.35)!important;
+  color:#edf7ff!important;
+}
+#auth .auth-card h1{color:#f5faff!important}
+#auth .auth-card p{color:#8fa9bf!important}
+#auth .auth-card label{color:#9eb7cb!important}
+#auth .auth-card input{
+  background:#06182b!important;
+  border-color:#1c3d59!important;
+  color:#edf7ff!important;
+}
+#auth .auth-divider{color:#6f8aa1!important}
+#auth .auth-switch,#auth .auth-foot{color:#7893a9!important}
+#auth .auth-link,#auth .auth-switch button{color:#43baff!important}
+#auth .auth-visual-copy h2{color:#f3f9ff!important}
+#auth .auth-visual-copy p{color:#91aec5!important}
+#auth .auth-visual-stats>div{
+  background:#0a2138!important;
+  border-color:#1b3c58!important;
+}
+#auth .auth-visual-stats b{color:#eaf6ff!important}
+#auth .auth-visual-stats small{color:#7996ad!important}
+
+/* ---------- Hard safety against the stray company-logo overlay seen in the UI ---------- */
+#app .company-logo-preview{
+  position:relative!important;
+  z-index:1!important;
+}
+#app .company-branding{position:relative!important;z-index:1!important}
+#app .content > img[style*="position:fixed"],
+#app .content > img[style*="position:absolute"]{
+  max-width:min(100%,420px)!important;
+  max-height:280px!important;
+  position:relative!important;
+  inset:auto!important;
+  z-index:1!important;
+}
+
+/* ---------- Mobile ---------- */
+@media(max-width:780px){
+  #app.app{display:block!important;min-height:100svh!important;background:#061426!important}
+  #app .main{width:100%!important;min-width:0!important}
+  #app .top{
+    position:fixed!important;left:0!important;right:0!important;top:0!important;
+    height:64px!important;min-height:64px!important;
+    padding:0 12px!important;
+    background:rgba(6,20,38,.97)!important;
+    border-bottom:1px solid #193750!important;
+    box-shadow:0 7px 25px rgba(0,0,0,.22)!important;
+    z-index:200!important;
+  }
+  #app .top>div:first-of-type span:before{
+    color:#f4f9ff!important;
+    font-size:13px!important;
+  }
+  #app .top>div:first-of-type strong{color:#91aac0!important}
+  #app .top .mobile{
+    width:38px!important;height:38px!important;
+    background:#0c2741!important;
+    border:1px solid #1e4563!important;
+    color:#dceeff!important;
+  }
+  #app .theme-toggle,#app .notification-bell{
+    background:#0c2741!important;
+    border:1px solid #1e4563!important;
+    color:#d9ecf8!important;
+  }
+  #app .content{
+    width:100%!important;
+    max-width:none!important;
+    margin:0!important;
+    padding:78px 12px 94px!important;
+    background:#061426!important;
+  }
+  #app .sidebar{
+    top:0!important;bottom:0!important;
+    width:min(292px,84vw)!important;
+    min-height:100svh!important;height:100svh!important;
+    background:linear-gradient(180deg,#071a30,#0a2744)!important;
+    border-right:1px solid #21415d!important;
+    z-index:220!important;
+  }
+  #mobileScrim{z-index:210!important}
+
+  .dashboard-shell{gap:12px!important}
+  .dashboard-hero{
+    min-height:0!important;
+    padding:20px 17px 18px!important;
+    border-radius:18px!important;
+  }
+  .dashboard-hero h1{font-size:27px!important;line-height:1.08!important}
+  .dashboard-hero p{font-size:10px!important;line-height:1.5!important}
+  .hero-actions{position:static!important;display:grid!important;grid-template-columns:1fr!important;gap:8px!important;margin-top:15px}
+  .hero-primary,.hero-secondary{min-height:44px!important;width:100%!important}
+  .hero-visual{display:none!important}
+
+  .dashboard-kpis{grid-template-columns:1fr 1fr!important;gap:8px!important}
+  .kpi-modern{
+    min-height:92px!important;
+    padding:11px!important;
+    border-radius:15px!important;
+  }
+  .kpi-modern strong{font-size:20px!important}
+  .kpi-modern span{font-size:8px!important}
+  .dashboard-main-grid{grid-template-columns:1fr!important;gap:12px!important}
+  .dashboard-panel{border-radius:17px!important}
+  .quick-panel,.alert-panel,.activity-panel,.profit-chart-panel,.margin-panel{padding:14px!important}
+  .quick-modern-grid{grid-template-columns:1fr 1fr!important;gap:8px!important}
+  .quick-modern-grid button{min-height:72px!important;padding:9px!important}
+  .quick-modern-grid button b{font-size:8px!important}
+  .quick-modern-grid button small{font-size:6.5px!important}
+  .quick-icon{width:34px!important;height:34px!important}
+
+  #app .head{margin-bottom:14px!important}
+  #app .head h1{font-size:23px!important}
+  #app .head p{font-size:9px!important}
+  #app .toolbar{
+    background:#091d32!important;
+    border-radius:14px 14px 0 0;
+  }
+  #app .data{min-width:650px!important}
+  #app .data th,#app .data td{font-size:9px!important;padding:11px 10px!important}
+  #app .table{border-radius:16px!important;overflow:hidden}
+  #app .modal-root{z-index:300!important}
+  #app .modal{
+    width:100%!important;
+    max-width:none!important;
+    max-height:94svh!important;
+    border-radius:20px 20px 0 0!important;
+    padding:15px!important;
+    margin:0!important;
+  }
+  #app .modal-actions{
+    background:linear-gradient(180deg,rgba(10,31,53,0),#0a1f35 18%)!important;
+  }
+
+  #auth.auth{
+    min-height:100svh!important;
+    padding:18px!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+  }
+  #auth .auth-visual{
+    display:none!important;
+  }
+  #auth .auth-card{
+    width:100%!important;
+    max-width:430px!important;
+    padding:25px 20px!important;
+    border-radius:20px!important;
+  }
+  #auth .auth-card h1{font-size:27px!important}
+  #auth .auth-card p{font-size:10px!important;margin-bottom:18px!important}
+  #auth .auth-card input{min-height:46px!important;font-size:14px!important}
+  #auth .wide{height:48px!important}
+
+  /* Mobile nav is intentionally simple: five useful destinations, no visual clutter. */
+  .mobile-bottom-nav{
+    display:grid!important;
+    grid-template-columns:repeat(5,minmax(0,1fr))!important;
+    position:fixed!important;
+    left:0!important;right:0!important;bottom:0!important;
+    height:72px!important;
+    padding:5px 6px max(5px,env(safe-area-inset-bottom))!important;
+    background:rgba(7,23,40,.98)!important;
+    border-top:1px solid #1d3b57!important;
+    box-shadow:0 -10px 28px rgba(0,0,0,.28)!important;
+    z-index:190!important;
+  }
+  .mobile-bottom-nav button{
+    min-width:0!important;
+    min-height:60px!important;
+    border-radius:12px!important;
+    color:#87a2b9!important;
+    background:transparent!important;
+  }
+  .mobile-bottom-nav button span{
+    width:30px!important;height:28px!important;
+    font-size:18px!important;
+  }
+  .mobile-bottom-nav button b{font-size:7px!important}
+  .mobile-bottom-nav button.active{
+    color:#50c4ff!important;
+    background:#0b2945!important;
+  }
+  .mobile-bottom-nav button.active span{
+    color:#fff!important;
+    background:#0d73c9!important;
+  }
+}
+
+@media(max-width:390px){
+  #app .content{padding-left:10px!important;padding-right:10px!important}
+  .dashboard-hero{padding:18px 15px!important}
+  .dashboard-hero h1{font-size:25px!important}
+  .kpi-modern{min-height:86px!important;padding:10px 8px!important}
+  .kpi-modern strong{font-size:18px!important}
+  .quick-modern-grid{grid-template-columns:1fr 1fr!important}
+  .quick-modern-grid button{min-height:66px!important}
+}
+
+/* Do not let the browser's image rendering rules distort the core brand mark. */
+.brand-logo img,.hero-visual-logo img,.company-logo-preview img{
+  object-fit:contain!important;
+}

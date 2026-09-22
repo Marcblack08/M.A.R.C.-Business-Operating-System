@@ -71,5 +71,5 @@ function inject(){
   };
   updateEstimate();
 }
-const observer=new MutationObserver(inject);observer.observe(document.body,{childList:true,subtree:true});inject();
+const contentRoot=document.querySelector("#content");if(contentRoot)new MutationObserver(inject).observe(contentRoot,{childList:true,subtree:true});inject();
 })();

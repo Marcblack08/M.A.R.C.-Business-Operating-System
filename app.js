@@ -2,15 +2,24 @@
 function msg(t,c=""){const e=$("#authMsg");e.textContent=t;e.className="msg "+c}
 const THEME_KEY="marc_theme";
 function applyTheme(theme,save=true){
-  const t=theme==="dark"?"dark":"light";
+  const t=["light","dark","color"].includes(theme)?theme:"light";
   document.documentElement.dataset.theme=t;
   if(save)localStorage.setItem(THEME_KEY,t);
   const b=$("#themeToggle"),ab=$("#authThemeToggle"),i=$("#themeIcon"),l=$("#themeLabel");
-  if(i)i.textContent=t==="dark"?"☀":"☾";
-  if(ab)ab.querySelector("span").textContent=t==="dark"?"☀":"☾";
-  if(l)l.textContent=t==="dark"?"Claro":"Oscuro";
-  if(b)b.setAttribute("aria-label",t==="dark"?"Cambiar a modo claro":"Cambiar a modo oscuro");
-  if(ab)ab.setAttribute("aria-label",t==="dark"?"Cambiar a modo claro":"Cambiar a modo oscuro");
+  const meta={
+    light:{icon:"☾",label:"Oscuro",next:"Cambiar a modo oscuro"},
+    dark:{icon:"◐",label:"Color",next:"Cambiar a modo color"},
+    color:{icon:"☀",label:"Claro",next:"Cambiar a modo claro"}
+  }[t];
+  if(i)i.textContent=meta.icon;
+  if(ab)ab.querySelector("span").textContent=meta.icon;
+  if(l)l.textContent=meta.label;
+  if(b)b.setAttribute("aria-label",meta.next);
+  if(ab)ab.setAttribute("aria-label",meta.next);
+}
+function cycleTheme(){
+  const current=document.documentElement.dataset.theme||"light";
+  applyTheme(current==="light"?"dark":current==="dark"?"color":"light");
 }
 function initTheme(){
   const saved=localStorage.getItem(THEME_KEY);
@@ -3217,7 +3226,7 @@ function wire(){
     renderClientPortal(portalToken);
     return;
   }
-  const toggleTheme=()=>applyTheme(document.documentElement.dataset.theme==="dark"?"light":"dark");
+  const toggleTheme=()=>cycleTheme();
   $("#themeToggle").onclick=toggleTheme;
   $("#authThemeToggle").onclick=toggleTheme;
   mode("login");

@@ -31,21 +31,21 @@ async function signInCashStaff(e){
   e?.preventDefault();
   const form=$("#cashStaffForm"),b=$("#cashStaffSubmit");
   if(!form)return;
-  const d=new FormData(form),username=String(d.get("username")||"").trim(),password=String(d.get("password")||"");
+  const d=new FormData(form),username=String(d.get("username")||"").trim().toLowerCase(),password=String(d.get("password")||"");
   cashStaffError("");
   if(!username||password.length<6)return cashStaffError("Escribe tu usuario y una contraseña válida.");
   if(b)b.disabled=true;
   try{
     const ownerSession=(await S.auth.getSession()).data?.session;
     if(ownerSession)sessionStorage.setItem("marc_cash_owner_session",JSON.stringify(ownerSession));
-    const r=await fetch("/api/cash-staff/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username,password})});
-    const j=await r.json().catch(()=>({}));
-    if(!r.ok)throw new Error(j.error||"Usuario o contraseña incorrectos.");
-    if(!j.session?.access_token||!j.session?.refresh_token)throw new Error("No se pudo iniciar la sesión de caja.");
-    const {error}=await S.auth.setSession({access_token:j.session.access_token,refresh_token:j.session.refresh_token});
+    const {error}=await S.auth.signInWithPassword({email:username+"@cash.marc.local",password});
     if(error)throw error;
-  }catch(err){cashStaffError(err?.message||"No se pudo iniciar el acceso de caja.");if(b)b.disabled=false}
+  }catch(err){
+    cashStaffError(err?.message||"Usuario o contraseña incorrectos.");
+    if(b)b.disabled=false;
+  }
 }
+
 async function signInGoogle(e){
   e?.preventDefault();
   e?.stopPropagation();

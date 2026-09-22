@@ -85,7 +85,7 @@ async function trial(){
   const end=new Date(t?.ends_at||Date.now()).getTime(),start=new Date(t?.started_at||Date.now()).getTime(),now=Date.now(),left=Math.max(0,end-now),days=Math.ceil(left/864e5);
   $("#trialDays").textContent=days+" días";
   $("#trialBar").style.width=Math.max(3,100-(left/Math.max(1,end-start)*100))+"%";
-  $("#usage").textContent=(c.count||0)+" clientes · "+(i.count||0)+" productos · "+(q.count||0)+" cotizaciones";
+  $("#usage").textContent=(c.count||0)+"/25 clientes · "+(i.count||0)+"/50 productos · "+(q.count||0)+"/5 cotizaciones";
 }
 async function chatLoad(){const box=$("#messages");box.innerHTML="";const {data}=await S.from("marc_messages").select("role,content").eq("conversation_id",st.cid).order("created_at",{ascending:true}).limit(60);if(!data?.length)addBubble("a","Hola. Soy M.A.R.C. Dime qué quieres hacer.");else data.forEach(x=>addBubble(x.role==="USER"?"u":"a",x.content))}
 function addBubble(type,text){const e=document.createElement("div");e.className="bubble "+type;e.textContent=text;$("#messages").appendChild(e);$("#messages").scrollTop=$("#messages").scrollHeight}
@@ -1292,10 +1292,10 @@ async function inventorySerialsModal(x){
 }
 
 async function inventory(){
-  S.from("marc_inventory").select("*",{count:"exact"}).eq("user_id",st.u.id).eq("active",true).order("name").then(({data,count,error})=>{
+  S.from("marc_inventory").select("*").eq("user_id",st.u.id).eq("active",true).order("name").then(({data,error})=>{
     if(error)return toast(error.message,"err");
     const c=$("#content");
-    const total=Number.isFinite(count)?count:(data||[]).length,low=(data||[]).filter(x=>Number(x.stock)>0&&Number(x.stock)<=Number(x.min_stock)).length,out=(data||[]).filter(x=>Number(x.stock)<=0).length;
+    const total=(data||[]).length,low=(data||[]).filter(x=>Number(x.stock)>0&&Number(x.stock)<=Number(x.min_stock)).length,out=(data||[]).filter(x=>Number(x.stock)<=0).length;
     c.innerHTML=`<div class="head"><div><div class="eyebrow2">INVENTARIO</div><h1>Productos + stock.</h1><p>Controla existencias, precios y unidades desde un solo lugar.</p></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button id="photos" class="secondary">📷 Subir por fotos</button><button id="importPdf" class="secondary">📄 Importar PDF</button><button id="new" class="primary">＋ Nuevo producto</button></div></div>
     <section class="inventory-summary"><div><span>PRODUCTOS</span><strong>${total}</strong><small>En inventario activo</small></div><div><span>STOCK BAJO</span><strong>${low}</strong><small>Requieren reposición</small></div><div><span>AGOTADOS</span><strong>${out}</strong><small>Sin unidades disponibles</small></div></section>
     <section class="card table inventory-browser"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar producto, SKU, marca o modelo…"></div><div class="inventory-toolbar-actions"><button id="selectAll" class="secondary" type="button">☐ Seleccionar</button><button id="bulkDelete" class="danger" type="button" disabled>Eliminar <span id="selectedCount">0</span></button><button id="ask" class="secondary">✦ Preguntar</button></div></div><div class="scroll inventory-desktop"><table class="data"><thead><tr><th style="width:42px;text-align:center"><input id="selectAllHead" type="checkbox" aria-label="Seleccionar todos los productos"></th><th>Producto</th><th>Marca/modelo</th><th>Stock</th><th>Precio</th><th>Estado</th><th></th></tr></thead><tbody id="rows"></tbody></table></div><div id="inventoryCards" class="inventory-cards"></div></section>`;
@@ -2274,48 +2274,27 @@ async function marketing(){
   if($p("adCompanyName"))$p("adCompanyName").textContent=company.business_name||"Tu empresa";
   if($p("adCompanyContact"))$p("adCompanyContact").textContent=[company.phone,company.email].filter(Boolean).join(" · ")||"Datos de contacto del perfil";
   const renderCanvas=async()=>{
-    const canvas=$p("adCanvas");if(!canvas)return;
+    const canvas=$p("adCanvas");if(!canvas||!currentProduct)return;
     const [w,h]=($p("adFormat").value||"1080x1080").split("x").map(Number);canvas.width=w;canvas.height=h;
-    const ctx=canvas.getContext("2d"),tpl=$p("adTemplate")?.value||"MODERN",product=currentProduct||{};
-    const isStory=h>w*1.45,isPortrait=h>w*1.08;
-    const palette=tpl==="OFFER"?["#04152a","#0b4c73","#12b9d8"]:tpl==="CORPORATE"?["#031427","#073b63","#08a6cf"]:["#03152a","#064b78","#08b7d6"];
-    const g=ctx.createLinearGradient(0,0,w,h);g.addColorStop(0,palette[0]);g.addColorStop(.55,palette[1]);g.addColorStop(1,palette[2]);ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
-    const glow=ctx.createRadialGradient(w*.82,h*.12,10,w*.82,h*.12,Math.min(w,h)*.62);glow.addColorStop(0,"rgba(58,220,255,.22)");glow.addColorStop(1,"rgba(0,0,0,0)");ctx.fillStyle=glow;ctx.fillRect(0,0,w,h);
-    ctx.fillStyle="rgba(0,10,25,.18)";for(let i=0;i<7;i++){ctx.beginPath();ctx.arc(w*(.08+i*.17),h*.88,Math.min(w,h)*(.16+i*.012),0,Math.PI*2);ctx.fill()}
-    const logoData=company.logo_data;
-    if(logoData){try{const logo=await new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=reject;im.src=logoData});const lh=Math.min(h*.075,w*.13),lw=lh*(logo.width/logo.height);ctx.fillStyle="#fff";ctx.beginPath();ctx.roundRect?.(w*.055,h*.035,lw+28,lh+18,18);if(!ctx.roundRect)ctx.fillRect(w*.055,h*.035,lw+28,lh+18);ctx.fill();ctx.drawImage(logo,w*.055+14,h*.035+9,lw,lh)}catch{}}
-    ctx.fillStyle="#e9fbff";ctx.font="800 "+Math.round(Math.min(w,h)*.024)+"px Inter";ctx.fillText(String(company.business_name||"M.A.R.C.").slice(0,28),w*.055,h*.145);
-    let img=null;const src=currentAiImage||currentImage||product.image_url;
+    const ctx=canvas.getContext("2d"),tpl=$p("adTemplate")?.value||"MODERN";
+    const palette=tpl==="OFFER"?["#15100a","#8a4b08","#f59e0b"]:tpl==="CORPORATE"?["#071827","#123b5b","#2d78b7"]:["#071a32","#0b4c91","#18a5ee"];
+    const g=ctx.createLinearGradient(0,0,w,h);g.addColorStop(0,palette[0]);g.addColorStop(.58,palette[1]);g.addColorStop(1,palette[2]);ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
+    ctx.fillStyle="rgba(255,255,255,.08)";ctx.beginPath();ctx.arc(w*.86,h*.12,Math.min(w,h)*.24,0,Math.PI*2);ctx.fill();
+    if(company.logo_data){try{const logo=await new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=reject;im.src=company.logo_data});const lh=Math.min(h*.07,w*.22),lw=lh*(logo.width/logo.height);ctx.drawImage(logo,w*.08,h*.045,lw,lh)}catch{}}
+    let img=null;const src=currentAiImage||currentImage||currentProduct.image_url;
     if(src){try{img=await new Promise((resolve,reject)=>{const im=new Image();im.crossOrigin="anonymous";im.onload=()=>resolve(im);im.onerror=reject;im.src=src})}catch{}}
-    const imageX=isPortrait?w*.07:w*.06,imageY=isPortrait?h*.18:h*.20,imageW=isPortrait?w*.86:w*.43,imageH=isPortrait?h*.34:h*.42;
     if(img){
-      const scale=Math.min(imageW/img.width,imageH/img.height),iw=img.width*scale,ih=img.height*scale,x=imageX+(imageW-iw)/2,y=imageY+(imageH-ih)/2;
-      ctx.fillStyle="rgba(255,255,255,.98)";ctx.beginPath();ctx.roundRect?.(x-20,y-20,iw+40,ih+40,28);if(!ctx.roundRect)ctx.fillRect(x-20,y-20,iw+40,ih+40);ctx.fill();
-      ctx.shadowColor="rgba(0,0,0,.22)";ctx.shadowBlur=28;ctx.drawImage(img,x,y,iw,ih);ctx.shadowBlur=0;
+      const boxW=w*.82,boxH=h*.40,scale=Math.min(boxW/img.width,boxH/img.height),iw=img.width*scale,ih=img.height*scale,x=(w-iw)/2,y=h*.13+(boxH-ih)/2;
+      ctx.fillStyle="rgba(255,255,255,.96)";ctx.beginPath();ctx.roundRect?.(x-18,y-18,iw+36,ih+36,28);if(!ctx.roundRect)ctx.fillRect(x-18,y-18,iw+36,ih+36);ctx.fill();ctx.drawImage(img,x,y,iw,ih);
     }
-    const xText=isPortrait?w*.07:w*.55;
-    const textW=isPortrait?w*.86:w*.39;
-    ctx.textAlign="left";ctx.fillStyle="#66e7ff";ctx.font="900 "+Math.round(Math.min(w,h)*.024)+"px Inter";ctx.fillText((tpl==="OFFER"?"OFERTA · ":"PUBLICIDAD · ")+String(company.business_name||"").slice(0,22),xText,isPortrait?h*.57:h*.25);
-    const title=String(currentCampaign?.headline||product.name||"Tu producto").trim();
-    ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*(isStory?.055:isPortrait?.062:.058))+"px Inter";
-    const wrap=(text,maxWidth,maxLines)=>{const words=text.split(/\s+/),out=[];let row="";for(const word of words){const test=row?row+" "+word:word;if(ctx.measureText(test).width>maxWidth&&row){out.push(row);row=word}else row=test}if(row)out.push(row);return out.slice(0,maxLines)};
-    const titleLines=wrap(title,textW,isPortrait?4:4);let ty=isPortrait?h*.63:h*.34;titleLines.forEach(line=>{ctx.fillText(line,xText,ty);ty+=Math.round(Math.min(w,h)*.066)});
-    const points=Array.isArray(product.key_points)?product.key_points.filter(Boolean).slice(0,4):[];
-    const detailSource=points.length?points:(String(product.description||"").split(/[.\n]/).map(x=>x.trim()).filter(x=>x.length>4).slice(0,3));
-    let py=isPortrait?h*.80:h*.62;
-    ctx.font="700 "+Math.round(Math.min(w,h)*.022)+"px Inter";
-    detailSource.forEach((item,i)=>{if(py>h*.88)return;ctx.fillStyle="#b9f5ff";ctx.beginPath();ctx.arc(xText+5,py-6,4,0,Math.PI*2);ctx.fill();ctx.fillStyle="#fff";wrap(String(item),textW-18,1).forEach(line=>{ctx.fillText(line,xText+17,py);py+=Math.round(Math.min(w,h)*.028)});py+=Math.round(Math.min(w,h)*.012)});
-    const price=String($p("adOffer")?.value||"").trim()||(product.price!=null&&product.price!==""?money(product.price):"");
-    if(price){
-      const pw=isPortrait?w*.52:w*.36,ph=Math.min(h*.105,Math.max(62,h*.09)),px=xText,pyPrice=isPortrait?h*.89:h*.76;
-      ctx.fillStyle="#fff";ctx.beginPath();ctx.roundRect?.(px,pyPrice,pw,ph,18);if(!ctx.roundRect)ctx.fillRect(px,pyPrice,pw,ph);ctx.fill();
-      ctx.fillStyle="#062b4d";ctx.font="950 "+Math.round(Math.min(w,h)*.052)+"px Inter";ctx.fillText(price,px+20,pyPrice+ph*.69);
-    }
-    const cta=String($p("adCta")?.value||"Escríbenos").slice(0,28),ctaW=isPortrait?w*.58:w*.36,ctaX=isPortrait:w*.07:w*.55,ctaY=isPortrait?h*.935:h*.86,ctaH=Math.max(46,h*.075);
-    ctx.fillStyle="#0a1730";ctx.strokeStyle="#7cecff";ctx.lineWidth=2;ctx.beginPath();ctx.roundRect?.(ctaX,ctaY,ctaW,ctaH,18);if(!ctx.roundRect)ctx.fillRect(ctaX,ctaY,ctaW,ctaH);ctx.fill();ctx.stroke();
-    ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*.024)+"px Inter";ctx.textAlign="center";ctx.fillText(cta,ctaX+ctaW/2,ctaY+ctaH*.63);
-    ctx.textAlign="left";ctx.fillStyle="#dffbff";ctx.font="850 "+Math.round(Math.min(w,h)*.018)+"px Inter";ctx.fillText(String(company.business_name||"").slice(0,35),w*.055,h*.965);
-    if(company.phone){ctx.fillStyle="#9defff";ctx.font="750 "+Math.round(Math.min(w,h)*.017)+"px Inter";ctx.fillText("WhatsApp · "+String(company.phone).slice(0,28),w*.055,h*.985)}
+    ctx.textAlign="left";ctx.fillStyle=tpl==="OFFER"?"#ffd166":"#8ee4ff";ctx.font="800 "+Math.round(Math.min(w,h)*.026)+"px Inter";ctx.fillText(tpl==="OFFER"?"OFERTA · M.A.R.C.":"PUBLICIDAD · "+String(company.business_name||"M.A.R.C.").slice(0,28),w*.08,h*.59);
+    const banner=String(currentCampaign?.banner_text||currentCampaign?.headline||currentProduct.name||"Tu producto").split(/\n/).slice(0,3);
+    ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*.062)+"px Inter";
+    let y=h*.66;banner.forEach(line=>{const words=line.split(" "),lines=[];let row="";const max=w*.84;for(const word of words){const test=row?row+" "+word:word;if(ctx.measureText(test).width>max&&row){lines.push(row);row=word}else row=test}if(row)lines.push(row);lines.slice(0,3).forEach(t=>{ctx.fillText(t,w*.08,y);y+=Math.round(Math.min(w,h)*.071)})});
+    if($p("adOffer").value.trim()){ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*.034)+"px Inter";ctx.fillText($p("adOffer").value.trim().slice(0,42),w*.08,h*.86)}
+    else if(currentProduct.price!=null&&currentProduct.price!==""){ctx.fillStyle="#fff";ctx.font="900 "+Math.round(Math.min(w,h)*.038)+"px Inter";ctx.fillText(money(currentProduct.price),w*.08,h*.86)}
+    ctx.fillStyle="#d9efff";ctx.font="800 "+Math.round(Math.min(w,h)*.021)+"px Inter";ctx.fillText(String(company.business_name||currentProduct.name).slice(0,55),w*.08,h*.925);if(company.phone){ctx.fillStyle="#9fd8ff";ctx.font="700 "+Math.round(Math.min(w,h)*.017)+"px Inter";ctx.fillText("WhatsApp · "+String(company.phone).slice(0,28),w*.08,h*.955)}
+    ctx.fillStyle="#fff";ctx.beginPath();ctx.roundRect?.(w*.67,h*.88,w*.25,h*.065,18);if(!ctx.roundRect)ctx.fillRect(w*.67,h*.88,w*.25,h*.065);ctx.fillStyle=palette[1];ctx.font="900 "+Math.round(Math.min(w,h)*.019)+"px Inter";ctx.textAlign="center";ctx.fillText(String($p("adCta").value||"Escríbenos").slice(0,24),w*.795,h*.922);ctx.textAlign="left";
   };
   const renderVariants=async()=>{
     const box=$p("adVariants");if(!box)return;
@@ -2598,21 +2577,16 @@ async function analyzeProductBoxPhoto(file,statusEl){
 }
 function inventoryModal(x=null){
   const close=modal(
-    '<div class="modal-head"><div><h2>'+(x?"Editar":"Nuevo")+' producto</h2><p>Completa el producto en 3 pasos. M.A.R.C. te guía.</p></div><button class="close" id="x">×</button></div>'+
+    '<div class="modal-head"><div><h2>'+(x?"Editar":"Nuevo")+' producto</h2><p>Productos + inventario, ahora también con foto.</p></div><button class="close" id="x">×</button></div>'+
     '<form id="f">'+
-      '<div class="inventory-ai-guide">'+
-        '<div class="inventory-ai-step active" data-step="1"><b>1</b><span>Foto</span></div><i></i><div class="inventory-ai-step" data-step="2"><b>2</b><span>Analiza</span></div><i></i><div class="inventory-ai-step" data-step="3"><b>3</b><span>Revisa</span></div>'+
-      '</div>'+
       '<div class="inventory-photo-box">'+
         '<div class="inventory-photo-preview" id="productPhotoPreview">'+(x?.image_url?'<img src="'+esc(x.image_url)+'" alt="Foto del producto">':'<span>📷</span>')+'</div>'+
         '<div style="display:flex;flex-direction:column;gap:7px;min-width:0;flex:1">'+
-          '<label>1. Toma o selecciona una foto<input id="productPhoto" name="image" type="file" accept="image/jpeg,image/png,image/webp" capture="environment"></label>'+
-          '<button type="button" class="secondary" id="analyzeProductPhoto" disabled>✦ Analizar con IA</button>'+
-          '<small id="photoGuide">Fotografía la caja o etiqueta de frente, con buena luz y donde se lean marca y modelo.</small>'+
-          '<div class="inventory-photo-tips"><b>Para obtener mejores datos:</b><span>• No cortes la etiqueta.</span><span>• Evita reflejos y movimiento.</span><span>• Acerca la cámara hasta que el texto sea legible.</span></div>'+
+          '<label>Foto del producto<input id="productPhoto" name="image" type="file" accept="image/jpeg,image/png,image/webp" capture="environment"></label>'+
+          '<button type="button" class="secondary" id="analyzeProductPhoto">✦ Analizar caja con IA</button>'+
+          '<small>Fotografía la caja. Gemini leerá nombre, SKU, marca y modelo. El precio lo colocas tú.</small>'+
         '</div>'+
       '</div>'+
-      '<div id="photoMsg" class="msg"></div>'+
       '<div class="form-grid">'+
         '<label>Nombre<input name="name" required value="'+esc(x?.name||"")+'"></label>'+
         '<label>Código / SKU<input name="sku" value="'+esc(x?.sku||"")+'"></label>'+
@@ -2625,6 +2599,7 @@ function inventoryModal(x=null){
         '<label>Stock<input name="stock" type="number" min="0" step="0.01" value="'+(x?.stock??0)+'"></label>'+
         '<label>Mínimo<input name="min_stock" type="number" min="0" step="0.01" value="'+(x?.min_stock??0)+'"></label>'+
       '</div>'+
+      '<div id="photoMsg" class="msg"></div>'+
       '<div class="modal-actions">'+
         (x?'<button type="button" class="danger" id="deleteProduct">Eliminar producto</button>':'')+
         '<button type="button" class="secondary" id="cancel">Cancelar</button>'+
@@ -2636,56 +2611,14 @@ function inventoryModal(x=null){
   $("#cancel").onclick=close;
 
   const photo=$("#productPhoto"), preview=$("#productPhotoPreview"), msg=$("#photoMsg"), analyzePhoto=$("#analyzeProductPhoto");
-  const setGuideStep=step=>{
-    $$(".inventory-ai-step").forEach(el=>el.classList.toggle("active",Number(el.dataset.step)<=step));
-  };
-  if(analyzePhoto)analyzePhoto.onclick=async()=>{
-    const f=photo.files?.[0];
-    if(!f)return toast("Primero toma o selecciona una foto de la caja.","err");
-    setGuideStep(2);
-    analyzePhoto.disabled=true;
-    const previousLabel=analyzePhoto.textContent;
-    analyzePhoto.textContent="✦ Analizando foto…";
-    msg.className="msg";
-    msg.textContent="M.A.R.C. está leyendo la caja y buscando los datos visibles…";
-    try{
-      const p=await analyzeProductBoxPhoto(f,msg);
-      const fields=[["name","name"],["sku","sku"],["brand","brand"],["model","model"],["category","category"]];
-      let filled=0;
-      fields.forEach(([source,target])=>{
-        const value=String(p?.[source]??"").trim();
-        if(value){$("[name="+target+"]").value=value;filled++}
-      });
-      const serial=String(p?.serial_number??"").trim();
-      if(serial){
-        const serialField=$("[name=serial_number]");
-        if(serialField)serialField.value=serial;
-      }
-      if(!String(p?.name||"").trim())throw new Error("La IA no pudo identificar el producto. Toma una foto más clara, de frente y con la etiqueta visible.");
-      const confidence=Math.round(Number(p.confidence||0)*100);
-      setGuideStep(3);
-      msg.className="msg ok";
-      msg.textContent=(filled?("Producto analizado. "+filled+" campos completados automáticamente. "):"Producto analizado. ")+(confidence?("Confianza aproximada: "+confidence+"%. "):"")+"Revisa los datos y completa precio, costo y stock antes de guardar.";
-    }catch(err){
-      console.error("[M.A.R.C. inventory photo]",err);
-      msg.className="msg error";
-      msg.textContent=err.message||"No se pudo analizar la caja. Inténtalo nuevamente con una foto más clara.";
-    }finally{
-      analyzePhoto.disabled=false;
-      analyzePhoto.textContent=previousLabel;
-    }
-  };
+  if(analyzePhoto)analyzePhoto.onclick=async()=>{const f=photo.files?.[0];if(!f)return toast("Primero toma o selecciona una foto de la caja.","err");analyzePhoto.disabled=true;try{const p=await analyzeProductBoxPhoto(f,msg);if(p.name)$("[name=name]").value=p.name;if(p.sku)$("[name=sku]").value=p.sku;if(p.brand)$("[name=brand]").value=p.brand;if(p.model)$("[name=model]").value=p.model;if(p.category)$("[name=category]").value=p.category;const confidence=Math.round(Number(p.confidence||0)*100);msg.className="msg";msg.textContent=confidence?("Caja analizada. Confianza aproximada: "+confidence+"%. Revisa los datos y coloca tu precio de venta."):("Caja analizada. Revisa los datos y coloca tu precio de venta.")}catch(err){msg.className="msg error";msg.textContent=err.message||"No se pudo analizar la caja."}finally{analyzePhoto.disabled=false}};
   photo.onchange=()=>{
     const f=photo.files?.[0];
     if(!f)return;
-    setGuideStep(1);
     if(!["image/jpeg","image/png","image/webp"].includes(f.type))return toast("Usa JPG, PNG o WEBP.","err");
     if(f.size>5*1024*1024)return toast("La foto supera 5 MB.","err");
     const url=URL.createObjectURL(f);
     preview.innerHTML='<img src="'+url+'" alt="Vista previa">';
-    if(analyzePhoto)analyzePhoto.disabled=false;
-    if(msg){msg.className="msg";msg.textContent="Foto lista. Ahora pulsa «Analizar con IA» para completar los datos automáticamente.";}
-    const guide=$("#photoGuide");if(guide)guide.textContent="Foto lista. Pulsa «Analizar con IA» y M.A.R.C. intentará leer los datos visibles.";
   };
 
   if(x){
@@ -3146,98 +3079,70 @@ async function downloadQuotePdf(id){
   if(!q)throw new Error("No se encontró la cotización.");
   const ir=await S.from("marc_quote_items").select("*").eq("quote_id",id).eq("user_id",st.u.id).order("created_at");
   if(ir.error)throw new Error("No se pudieron leer las partidas: "+ir.error.message);
-  const items=ir.data||[],client=q.marc_clients||{},company=await getCompanyProfile(),{jsPDF}=window.jspdf;
+  const items=ir.data||[];
+  const client=q.marc_clients||{};
+  const company=await getCompanyProfile();
+  const {jsPDF}=window.jspdf;
   const doc=new jsPDF({unit:"mm",format:"a4"});
-  const pageW=210,pageH=297,margin=14,contentW=pageW-margin*2;
-  const hasLogo=Boolean(company?.logo_data),brandName=String(company?.business_name||"M.A.R.C.").trim();
-  const drawHeader=(pageNumber,totalPages)=>{
-    if(pageNumber>1){
-      doc.setFillColor(5,36,67);doc.rect(0,0,pageW,18,"F");
-      doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(10);doc.text(brandName.slice(0,46),margin,11);
-      doc.setFont("helvetica","normal");doc.setFontSize(8);doc.text(String(q.number||"COTIZACIÓN"),pageW-margin,11,{align:"right"});
-      doc.setTextColor(16,35,63);return 25;
-    }
-    doc.setFillColor(5,36,67);doc.roundedRect(margin,12,contentW,33,3,3,"F");
-    if(hasLogo){
-      try{
-        doc.addImage(company.logo_data,"JPEG",margin+5,16,24,24,"logo","FAST");
-      }catch{}
-    }
-    const bx=margin+(hasLogo?34:7);
-    doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(15);doc.text(brandName.slice(0,38),bx,22);
-    doc.setFont("helvetica","normal");doc.setFontSize(7.5);
-    const meta=[company?.legal_name,company?.ruc?("RUC "+company.ruc):"",company?.phone,company?.email].filter(Boolean).join(" · ");
-    if(meta)doc.text(doc.splitTextToSize(meta,102),bx,28);
-    if(company?.address)doc.text(doc.splitTextToSize(company.address,102),bx,34);
-    doc.setFont("helvetica","bold");doc.setFontSize(15);doc.text(String(q.number||"COTIZACIÓN"),pageW-margin-5,22,{align:"right"});
-    doc.setFont("helvetica","normal");doc.setFontSize(8);doc.text(new Date(q.created_at).toLocaleDateString("es-PE"),pageW-margin-5,28,{align:"right"});
-    return 53;
-  };
-  const drawFooter=(pageNumber,totalPages)=>{
-    doc.setDrawColor(214);doc.line(margin,pageH-18,pageW-margin,pageH-18);
-    doc.setFont("helvetica","normal");doc.setFontSize(7);doc.setTextColor(112);
-    doc.text(brandName.slice(0,55),margin,pageH-10);
-    doc.text("Página "+pageNumber+" de "+totalPages,pageW-margin,pageH-10,{align:"right"});
-    doc.setTextColor(16,35,63);
-  };
-  let y=drawHeader(1,1);
+  const pageW=210,margin=14;
+  let y=18;
+  if(company?.logo_data){try{doc.addImage(company.logo_data,"JPEG",margin,y-3,30,18,"logo","FAST")}catch{}}
+  const brandX=company?.logo_data?margin+35:margin;
+  doc.setFont("helvetica","bold");doc.setFontSize(18);doc.text(String(company?.business_name||"M.A.R.C."),brandX,y+2);
+  doc.setFont("helvetica","normal");doc.setFontSize(8);
+  const companyMeta=[company?.legal_name,company?.ruc?("RUC "+company.ruc):"",company?.phone,company?.email].filter(Boolean).join(" · ");
+  if(companyMeta)doc.text(doc.splitTextToSize(companyMeta,95),brandX,y+7);
+  if(company?.address)doc.text(doc.splitTextToSize(company.address,95),brandX,y+12);
+  doc.setFont("helvetica","bold");doc.setFontSize(16);doc.text(String(q.number||"COTIZACIÓN"),pageW-margin,y,{align:"right"});
+  doc.setFont("helvetica","normal");doc.setFontSize(9);doc.text(new Date(q.created_at).toLocaleDateString("es-PE"),pageW-margin,y+5,{align:"right"});
+  y+=23;doc.setDrawColor(210);doc.line(margin,y,pageW-margin,y);y+=9;
   const box=(x,yy,w,h,title,lines)=>{
-    doc.setFillColor(248,250,253);doc.setDrawColor(222);doc.roundedRect(x,yy,w,h,3,3,"FD");
-    doc.setTextColor(10,68,105);doc.setFont("helvetica","bold");doc.setFontSize(8);doc.text(title,x+4,yy+6);
-    doc.setTextColor(35,49,65);doc.setFont("helvetica","normal");doc.setFontSize(8);
-    let ty=yy+12;for(const line of lines){if(!line)continue;const parts=doc.splitTextToSize(String(line),w-8);doc.text(parts,x+4,ty);ty+=4.2*parts.length;if(ty>yy+h-3)break}
+    doc.setDrawColor(225);doc.roundedRect(x,yy,w,h,3,3);
+    doc.setFont("helvetica","bold");doc.setFontSize(9);doc.text(title,x+4,yy+6);
+    doc.setFont("helvetica","normal");doc.setFontSize(8);
+    let ty=yy+12;for(const line of lines){const parts=doc.splitTextToSize(String(line||""),w-8);doc.text(parts,x+4,ty);ty+=4.2*parts.length;if(ty>yy+h-3)break}
   };
   box(margin,y,88,30,"CLIENTE",[client.name||"Sin cliente",client.document_type&&client.document_number?client.document_type+" "+client.document_number:"",client.phone||"",client.email||"",client.address||""]);
-  box(108,y,88,30,"COTIZACIÓN",["Título: "+String(q.title||"Cotización"),"Moneda: "+String(q.currency||"PEN"),"IGV: "+(q.tax_enabled?String(q.tax_rate)+"%":"No incluido"),"Estado: "+String(q.status||"BORRADOR")]);
+  box(108,y,88,30,"CONDICIONES",["Título: "+String(q.title||"Cotización"),"Moneda: "+String(q.currency||"PEN"),"IGV: "+(q.tax_enabled?String(q.tax_rate)+"%":"No incluido"),"Estado: "+String(q.status||"BORRADOR")]);
   y+=38;
-
-  const ensureSpace=(h)=>{
-    if(y+h>pageH-25){doc.addPage();y=drawHeader(doc.getNumberOfPages(),0);return true}
-    return false;
-  };
-  const drawTableHeader=()=>{
-    doc.setFillColor(231,241,248);doc.roundedRect(margin,y,contentW,8,1.5,1.5,"F");
-    doc.setTextColor(10,68,105);doc.setFont("helvetica","bold");doc.setFontSize(7.5);
-    doc.text("CONCEPTO",margin+3,y+5);doc.text("DESCRIPCIÓN",70,y+5);doc.text("CANT.",140,y+5);doc.text("PRECIO",158,y+5);doc.text("TOTAL",184,y+5);
-    y+=12;doc.setTextColor(35,49,65);doc.setFont("helvetica","normal");
-  };
-  drawTableHeader();
-
+  const drawTableHeader=()=>{doc.setFillColor(242,246,250);doc.rect(margin,y,pageW-margin*2,8,"F");doc.setFont("helvetica","bold");doc.setFontSize(8);doc.text("CONCEPTO",margin+2,y+5);doc.text("DESCRIPCIÓN",70,y+5);doc.text("CANT.",140,y+5);doc.text("PRECIO",158,y+5);doc.text("TOTAL",184,y+5);y+=12;doc.setFont("helvetica","normal")};drawTableHeader();
   for(const it of items){
-    const desc=doc.splitTextToSize(String(it.description||"—"),64);
-    const name=doc.splitTextToSize(String(it.name||it.description||"Partida"),55);
-    const rowH=Math.max(8,4.2*Math.max(desc.length,name.length));
-    ensureSpace(rowH+5);
-    doc.setFont("helvetica","bold");doc.setFontSize(8);doc.text(name,margin+3,y);
+    const desc=doc.splitTextToSize(String(it.description||""),64);
+    const name=doc.splitTextToSize(String(it.name||""),55);
+    const h=Math.max(7,4.2*Math.max(desc.length,name.length));
+    if(y+h>270){doc.addPage();y=18;drawTableHeader()}
+    doc.setFont("helvetica","bold");doc.text(name,margin+2,y);
     doc.setFont("helvetica","normal");doc.text(desc,70,y);
     doc.text(String(it.quantity||1),142,y);
     doc.text(money(it.unit_price).replace("PEN","S/"),158,y);
     doc.text(money(it.line_total).replace("PEN","S/"),184,y);
-    y+=rowH+3;doc.setDrawColor(235);doc.line(margin,y-1,pageW-margin,y-1);
+    y+=h+3;doc.setDrawColor(235);doc.line(margin,y-1,pageW-margin,y-1);
   }
-
-  ensureSpace(55);
-  const totalsY=y+3,totalsX=126;
-  doc.setFont("helvetica","normal");doc.setFontSize(8.5);
-  doc.text("Subtotal",totalsX,totalsY);doc.text(money(q.subtotal).replace("PEN","S/"),pageW-margin,totalsY,{align:"right"});
-  doc.text("IGV",totalsX,totalsY+6);doc.text(money(q.tax).replace("PEN","S/"),pageW-margin,totalsY+6,{align:"right"});
-  doc.setFillColor(5,36,67);doc.roundedRect(totalsX,totalsY+10,pageW-margin-totalsX,12,2.5,2.5,"F");
-  doc.setTextColor(255,255,255);doc.setFont("helvetica","bold");doc.setFontSize(10.5);doc.text("TOTAL",totalsX+4,totalsY+18);doc.text(money(q.total).replace("PEN","S/"),pageW-margin-4,totalsY+18,{align:"right"});
-  doc.setTextColor(16,35,63);y=totalsY+30;
-
+  y+=5;
+  if(y>245){doc.addPage();y=18}
+  const totalsX=126;
+  doc.setFont("helvetica","normal");doc.text("Subtotal",totalsX,y);doc.text(money(q.subtotal).replace("PEN","S/"),pageW-margin,y,{align:"right"});y+=6;
+  doc.text("IGV",totalsX,y);doc.text(money(q.tax).replace("PEN","S/"),pageW-margin,y,{align:"right"});y+=7;
+  doc.setDrawColor(30);doc.line(totalsX,y-3,pageW-margin,y-3);
+  doc.setFont("helvetica","bold");doc.setFontSize(12);doc.text("TOTAL",totalsX,y+3);doc.text(money(q.total).replace("PEN","S/"),pageW-margin,y+3,{align:"right"});y+=12;
   if(q.notes){
-    ensureSpace(40);
-    doc.setFont("helvetica","bold");doc.setFontSize(8);doc.setTextColor(10,68,105);doc.text("NOTAS Y CONDICIONES",margin,y);y+=6;
-    doc.setFont("helvetica","normal");doc.setTextColor(45,55,68);doc.setFontSize(8);
-    const noteLines=doc.splitTextToSize(String(q.notes),contentW);for(const line of noteLines){ensureSpace(5);doc.text(line,margin,y);y+=4.3}
+    if(y>255){doc.addPage();y=18}
+    doc.setFont("helvetica","bold");doc.setFontSize(9);doc.text("NOTAS",margin,y);y+=6;doc.setFont("helvetica","normal");doc.setFontSize(8);
+    const noteLines=doc.splitTextToSize(String(q.notes),pageW-margin*2);
+    doc.text(noteLines,margin,y);
   }
-
-  const totalPages=doc.getNumberOfPages();
-  for(let page=1;page<=totalPages;page++){doc.setPage(page);drawFooter(page,totalPages)}
+  const pageCount=doc.getNumberOfPages();
+  for(let page=1;page<=pageCount;page++){
+    doc.setPage(page);doc.setFont("helvetica","normal");doc.setFontSize(7);doc.setTextColor(120);
+    doc.text("M.A.R.C. · "+String(q.number||"Cotización"),margin,289);
+    doc.text("Página "+page+" de "+pageCount,pageW-margin,289,{align:"right"});
+  }
+  doc.setTextColor(0);
   const filename=String(q.number||"cotizacion").replace(/[^\w.-]+/g,"_")+".pdf";
   doc.save(filename);
-  toast("PDF de cotización generado correctamente","ok");
+  toast("PDF descargado","ok");
 }
+
 const authBootSnapshot={
   searchKeys:[...new URLSearchParams(location.search).keys()],
   hashKeys:[...new URLSearchParams(String(location.hash||"").replace(/^#/,"")).keys()]

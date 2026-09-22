@@ -1117,3 +1117,102 @@ button,input,select,textarea{font-family:Inter,system-ui,sans-serif}
   #app .company-actions{display:grid!important;grid-template-columns:1fr 1fr!important;gap:5px!important}
   #app .company-actions>*{min-height:36px!important;font-size:7px!important;padding:0 7px!important}
 }
+
+/* HOTFIX 06 — global consistency pass */
+:root{
+  --marc-control-h:42px;
+  --marc-font:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+#app,#auth{font-family:var(--marc-font)!important}
+#app button{font-family:var(--marc-font)!important;transition:background .16s ease,border-color .16s ease,transform .16s ease,box-shadow .16s ease!important}
+#app button:focus-visible,#auth button:focus-visible,#app input:focus-visible,#app select:focus-visible,#app textarea:focus-visible{
+  outline:2px solid #3abaff!important;outline-offset:2px!important;
+}
+#app .primary,#app .secondary,#app .danger{
+  min-height:var(--marc-control-h);
+  border-radius:11px!important;
+  font-weight:700!important;
+}
+#app .primary:hover{filter:brightness(1.06)!important}
+#app .secondary:hover{background:#10304c!important;border-color:#2a6287!important}
+#app .danger:hover{filter:brightness(1.08)!important}
+#app .head .eyebrow2,#app .eyebrow2{
+  color:#4dc7ff!important;
+  font-weight:800!important;
+  letter-spacing:.9px!important;
+}
+#app .muted-small{color:#7895ad!important}
+#app .msg{border-radius:10px!important}
+#app .empty{
+  min-height:90px!important;
+  display:grid!important;
+  place-items:center!important;
+  padding:20px!important;
+  background:#081b2f!important;
+  border:1px dashed #1d3d59!important;
+  border-radius:13px!important;
+}
+#app .card.panel{
+  border-radius:18px!important;
+}
+#app .card.panel + .card.panel{margin-top:14px!important}
+
+/* Consistent scroll behavior: only intended workspaces scroll horizontally. */
+#app .main,#app .content{overflow-x:hidden!important}
+#app .table,#app .inventory-filter-chips,#app .cash-product-list{scrollbar-width:thin;scrollbar-color:#28536f transparent}
+#app .table::-webkit-scrollbar,
+#app .inventory-filter-chips::-webkit-scrollbar,
+#app .cash-product-list::-webkit-scrollbar{height:6px;width:6px}
+#app .table::-webkit-scrollbar-thumb,
+#app .inventory-filter-chips::-webkit-scrollbar-thumb,
+#app .cash-product-list::-webkit-scrollbar-thumb{background:#28536f;border-radius:999px}
+
+/* Prevent native long content from breaking cards/modals. */
+#app .modal,#app .card,#app .panel,#app .dashboard-panel,#app .ad-card,#app .ad-result{
+  min-width:0!important;
+  overflow-wrap:anywhere;
+}
+#app .modal{
+  overflow:auto!important;
+}
+#app .modal-head{
+  position:sticky!important;
+  top:0!important;
+  z-index:4!important;
+  background:#0a1f35!important;
+}
+
+/* Desktop: give all application pages the same reading width. */
+@media(min-width:781px){
+  #app .content > .head,
+  #app .content > .card,
+  #app .content > .panel{
+    max-width:1480px!important;
+    margin-left:auto!important;
+    margin-right:auto!important;
+  }
+}
+
+/* Phone: eliminate tiny typography that made previous versions look like
+   compressed desktop screens. Keep supporting labels small, but readable. */
+@media(max-width:780px){
+  #app .content{font-size:13px!important}
+  #app .head h1{font-size:22px!important}
+  #app .head p{font-size:10px!important}
+  #app .head .eyebrow2{font-size:8px!important}
+  #app .primary,#app .secondary,#app .danger{min-height:40px!important}
+  #app .modal-head h2{font-size:18px!important}
+  #app .modal-head p{font-size:9px!important}
+  #app .modal label{font-size:9px!important}
+  #app .modal input,#app .modal select,#app .modal textarea{font-size:13px!important}
+  #app .data td{font-size:10px!important}
+  #app .data th{font-size:8px!important}
+  #app .empty{font-size:10px!important}
+  #app .toast{max-width:calc(100vw - 24px)!important}
+}
+
+/* Safe-area support for modern phones. */
+@media(max-width:780px){
+  #app .content{padding-bottom:calc(94px + env(safe-area-inset-bottom))!important}
+  .mobile-bottom-nav{padding-bottom:max(5px,env(safe-area-inset-bottom))!important;height:calc(72px + env(safe-area-inset-bottom))!important}
+}

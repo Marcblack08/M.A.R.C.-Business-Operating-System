@@ -19,7 +19,7 @@
       for(const x of rows){
         const key=String(x.id);
         if(known.has(key))continue;
-        local.unshift({id:uid(),server_id:key,title:x.title,body:x.body||"",read:x.status==="SENT",created_at:x.sent_at||x.due_at||x.created_at,meta:{server:true,status:x.status}});
+        local.unshift({id:uid(),server_id:key,title:x.title,body:x.body||"",read:x.status==="SENT",created_at:x.sent_at||x.due_at||x.created_at,meta:{server:true,status:x.status,entity_type:x.entity_type||null,entity_id:x.entity_id||null,metadata:x.metadata||{}}});
         changed=true;
       }
       if(changed){write(KEY,local.slice(0,100));renderCount();}
@@ -36,15 +36,25 @@
     return rows[0];
   }
   function renderCount(){const n=notifications().filter(x=>!x.read).length;const b=$("#notificationCount");if(b){b.textContent=n>99?"99+":String(n);b.classList.toggle("hidden",n===0)}}
+  function alertAction(x){
+    const type=String(x?.meta?.entity_type||"").toUpperCase();
+    if(type==="INVENTORY"){try{window.view?.("inventory")}catch{}}
+    else if(type==="QUOTE"){try{window.view?.("quotes")}catch{}}
+    else if(type==="CASH"){try{window.view?.("cash")}catch{}}
+  }
   function open(){
     let root=$("#notificationPanel");
     if(root){root.remove();return}
     root=document.createElement("div");root.id="notificationPanel";root.className="notification-panel";
     const rows=notifications();
     root.innerHTML='<div class="notification-head"><div><b>Notificaciones</b><small>Recordatorios y tareas de M.A.R.C.</small></div><button id="closeNotifications" type="button">×</button></div><div class="notification-list">'+
-      (rows.length?rows.map(x=>'<article class="notification-item '+(x.read?'read':'')+'"><span class="notification-dot"></span><div><b>'+esc(x.title)+'</b><p>'+esc(x.body)+'</p><small>'+new Date(x.created_at).toLocaleString("es-PE")+'</small></div></article>').join(""):'<div class="notification-empty"><span>✓</span><b>Todo al día</b><small>No tienes notificaciones pendientes.</small></div>')+
+      (rows.length?rows.map((x,i)=>'<article class="notification-item '+(x.read?'read':'')+'" data-notification-index="'+i+'"><span class="notification-dot"></span><div class="notification-main"><b>'+esc(x.title)+'</b><p>'+esc(x.body)+'</p><small>'+new Date(x.created_at).toLocaleString("es-PE")+'</small></div>'+((x.meta?.entity_type)?'<button class="notification-go" type="button" data-notification-go="'+i+'">Ver</button>':'')+'</article>').join(""):'<div class="notification-empty"><span>✓</span><b>Todo al día</b><small>No tienes notificaciones pendientes.</small></div>')+
       '</div><div class="notification-actions"><button id="requestNotifications" type="button">🔔 Activar avisos</button><button id="markNotificationsRead" type="button">Marcar todo leído</button></div>';
     document.body.appendChild(root);
+    root.querySelectorAll("[data-notification-go]").forEach(b=>b.onclick=()=>{
+      const x=notifications()[Number(b.dataset.notificationGo)];
+      if(x){x.read=true;write(KEY,notifications());renderCount();root.remove();alertAction(x);}
+    });
     $("#closeNotifications").onclick=()=>root.remove();
     $("#markNotificationsRead").onclick=()=>{const rows=notifications().map(x=>({...x,read:true}));write(KEY,rows);renderCount();open()};
     $("#requestNotifications").onclick=async()=>{

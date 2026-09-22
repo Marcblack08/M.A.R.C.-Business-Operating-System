@@ -3838,7 +3838,6 @@ export default{
           const exists=await sb(env,token,"marc_cash_staff?select=id&owner_user_id=eq."+encodeURIComponent(user.id)+"&username=eq."+encodeURIComponent(username)+"&limit=1");
           if(exists?.length)return json({error:"Ese usuario de caja ya existe."},409,headers);
           const email=username+"@cash.marc.pe";
-          const email=username+"@cash.marc.pe";
           let authUserId=null;
           const ar=await fetch(env.SUPABASE_URL+"/auth/v1/admin/users",{method:"POST",headers:{"content-type":"application/json",apikey:adminToken,Authorization:"Bearer "+adminToken},body:JSON.stringify({email,password,email_confirm:true,user_metadata:{cash_username:username,cash_owner_id:user.id}})});
           let ad=await ar.json().catch(()=>null);

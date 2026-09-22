@@ -155,9 +155,25 @@
   }
 
   async function filterCatalogs(supplierId){
-    const S=sb(); const {data}=await S.from("marc_supplier_catalogs").select("*").eq("supplier_id",supplierId).order("created_at",{ascending:false});
-    const names=(data||[]).map(x=>x.name).join("\n");
-    alert(names||"Este proveedor todavía no tiene catálogos.");
+    const S=sb(); if(!S)return;
+    const {data:{session}}=await S.auth.getSession(); if(!session)return;
+    const root=document.querySelector("#content"); if(!root)return;
+    const supplier=await S.from("marc_suppliers").select("*").eq("id",supplierId).eq("user_id",session.user.id).maybeSingle();
+    if(supplier.error)return alert("No se pudo cargar el proveedor: "+supplier.error.message);
+    if(!supplier.data)return alert("Proveedor no encontrado.");
+    const catalogs=await S.from("marc_supplier_catalogs").select("*").eq("supplier_id",supplierId).eq("user_id",session.user.id).order("created_at",{ascending:false});
+    if(catalogs.error)return alert("No se pudieron cargar los catálogos: "+catalogs.error.message);
+    const list=catalogs.data||[];
+    root.innerHTML='<div class="head"><div><div class="eyebrow2">PROVEEDOR</div><h1>'+esc(supplier.data.name)+'</h1><p>Catálogos registrados y productos detectados de este proveedor.</p></div><button id="scBackSuppliers" class="secondary">← Proveedores</button></div>'+
+      '<section class="inventory-summary"><div><span>CATÁLOGOS</span><strong>'+list.length+'</strong><small>Documentos registrados</small></div><div><span>CONTACTO</span><strong style="font-size:18px">'+esc(supplier.data.phone||supplier.data.email||"—")+'</strong><small>'+esc(supplier.data.contact_name||"Sin contacto")+'</small></div><div><span>AUMENTO</span><strong>'+Number(supplier.data.default_markup_pct||0)+'%</strong><small>Predeterminado</small></div></section>'+
+      '<section class="card table"><div class="toolbar"><div><b>Catálogos de '+esc(supplier.data.name)+'</b></div><button id="scSupplierNewCatalog" class="primary">＋ Registrar catálogo</button></div><div id="scSupplierCatalogList" class="client-cards"></div></section>';
+    document.querySelector("#scBackSuppliers").onclick=()=>supplierCenter();
+    document.querySelector("#scSupplierNewCatalog").onclick=()=>newCatalog();
+    const listEl=document.querySelector("#scSupplierCatalogList");
+    listEl.innerHTML=list.map(x=>'<article class="client-card"><div class="client-card-top"><div class="client-avatar">'+esc(x.source_type==="EXCEL"?"XLS":"PDF")+'</div><div class="client-card-name"><h3>'+esc(x.name)+'</h3><small>'+esc(x.status||"UPLOADED")+'</small></div></div><div class="client-card-actions"><button class="primary scOpenCatalog" data-catalog="'+x.id+'">Ver productos</button><button class="secondary scReanalyze" data-catalog="'+x.id+'">↻ Reanalizar</button><button class="danger scDeleteCatalog" data-catalog="'+x.id+'">🗑 Eliminar</button></div></article>').join("")||'<div class="empty-state"><span>📄</span><b>Sin catálogos</b><small>Este proveedor todavía no tiene catálogos registrados.</small></div>';
+    listEl.querySelectorAll(".scOpenCatalog").forEach(b=>b.onclick=()=>catalogProducts(b.dataset.catalog));
+    listEl.querySelectorAll(".scReanalyze").forEach(b=>b.onclick=()=>reanalyzeCatalog(b.dataset.catalog));
+    listEl.querySelectorAll(".scDeleteCatalog").forEach(b=>b.onclick=()=>deleteCatalog(b.dataset.catalog));
   }
 
   function scModal(title,body,actions=""){

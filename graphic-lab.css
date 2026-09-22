@@ -1199,3 +1199,37 @@ body.sidebar-open{overflow:hidden}
   #content{animation:marcViewIn .18s ease both}
   #chat.open{animation:chatIn .18s ease both}
 }
+
+/* PHASE 8 — Smart notification center */
+.notification-panel{
+  position:fixed;z-index:10050;top:76px;right:24px;width:min(430px,calc(100vw - 32px));
+  max-height:min(680px,calc(100vh - 100px));overflow:hidden;display:flex;flex-direction:column;
+  background:rgba(255,255,255,.97);border:1px solid rgba(15,35,63,.10);border-radius:22px;
+  box-shadow:0 24px 70px rgba(15,35,63,.20);backdrop-filter:blur(18px);
+  animation:notificationIn .22s ease both;
+}
+.notification-head{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--line)}
+.notification-head b{display:block;font-size:16px;color:var(--text)}
+.notification-head small{display:block;margin-top:3px;color:var(--muted)}
+.notification-head button{width:34px;height:34px;border:0;border-radius:10px;background:var(--bg);font-size:22px;cursor:pointer}
+.notification-list{overflow:auto;padding:10px}
+.notification-item{display:flex;gap:11px;align-items:flex-start;padding:14px;border-radius:15px;transition:.18s ease}
+.notification-item:hover{background:var(--bg);transform:translateX(-2px)}
+.notification-item.read{opacity:.58}
+.notification-dot{width:9px;height:9px;flex:0 0 9px;margin-top:6px;border-radius:50%;background:var(--blue);box-shadow:0 0 0 5px rgba(11,115,230,.10)}
+.notification-main{min-width:0;flex:1}
+.notification-main b{display:block;color:var(--text);font-size:13px}
+.notification-main p{margin:5px 0;color:var(--muted);font-size:12px;line-height:1.5}
+.notification-main small{color:var(--muted);font-size:10px}
+.notification-go{border:0;border-radius:10px;padding:7px 11px;background:var(--blue);color:#fff;font-weight:800;font-size:11px;cursor:pointer;transition:.18s ease}
+.notification-go:hover{transform:translateY(-1px);filter:brightness(1.05)}
+.notification-empty{padding:48px 20px;text-align:center;color:var(--muted)}
+.notification-empty span{display:grid;place-items:center;width:48px;height:48px;margin:0 auto 12px;border-radius:15px;background:rgba(11,115,230,.10);color:var(--blue);font-size:22px}
+.notification-empty b{display:block;color:var(--text);margin-bottom:4px}
+.notification-actions{display:flex;gap:8px;padding:12px;border-top:1px solid var(--line)}
+.notification-actions button{flex:1;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:11px;padding:10px;font-weight:700;cursor:pointer}
+[data-theme="dark"] .notification-panel{background:rgba(17,27,43,.97);border-color:rgba(255,255,255,.10);box-shadow:0 24px 70px rgba(0,0,0,.45)}
+[data-theme="dark"] .notification-item:hover{background:rgba(255,255,255,.045)}
+@keyframes notificationIn{from{opacity:0;transform:translateY(-8px) scale(.98)}to{opacity:1;transform:none}}
+@media(max-width:700px){.notification-panel{top:68px;right:12px;width:calc(100vw - 24px);border-radius:18px}}
+@media(prefers-reduced-motion:reduce){.notification-panel{animation:none}.notification-item{transition:none}}

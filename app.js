@@ -3421,10 +3421,6 @@ function wire(){
   $("#authThemeToggle").onclick=toggleTheme;
   mode("login");
   $("#googleLogin").onclick=signInGoogle;
-  $("#cashStaffLogin").onclick=()=>showCashStaffLogin(true);
-  $("#cashStaffBack").onclick=()=>showCashStaffLogin(false);
-  $("#cashStaffForm").onsubmit=signInCashStaff;
-  $("#cashStaffPasswordToggle").onclick=()=>{const i=$("#cashStaffPassword"),b=$("#cashStaffPasswordToggle");if(!i)return;i.type=i.type==="password"?"text":"password";b.textContent=i.type==="password"?"◉":"◎"};
   $("#logout").onclick=async()=>{resetUiToLogin();await S.auth.signOut();};
   $("#askTop").onclick=openChat;
   $("#closeChat").onclick=closeChat;

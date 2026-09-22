@@ -174,7 +174,7 @@ async function chatSend(text){
 
   addBubble("u",raw);
   __chatBusy=true;
-  const sendBtn=$("#chatForm button[type="submit"]");
+  const sendBtn=$("#chatForm button[type='submit']");
   if(sendBtn){sendBtn.disabled=true;sendBtn.classList.add("is-busy");}
   const inserted=await S.from("marc_messages").insert({
     conversation_id:st.cid,

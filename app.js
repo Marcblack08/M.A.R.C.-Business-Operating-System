@@ -2300,8 +2300,15 @@ async function cashMovementModal(open,type){
     try{
       const d=new FormData(e.currentTarget),amountValue=Number(d.get("amount")||0);
       if(amountValue<=0)throw new Error("Ingresa un monto válido.");
-      const row={user_id:ctx.ownerId,cash_register_id:open.id,type,amount:amountValue,concept:String(d.get("concept")||"").trim(),reference:String(d.get("reference")||"").trim()||null,created_by:st.u.id,created_by_name:ctx.staff?.display_name||st.u.email||"Usuario"};
-      const {error}=await S.from("marc_cash_movements").insert(row);if(error)throw error;
+      const concept=String(d.get("concept")||"").trim(),reference=String(d.get("reference")||"").trim();
+      if(income&&selected){
+        const quantity=Math.max(1,Number(d.get("quantity")||1));
+        const {error}=await S.rpc("marc_register_product_sale",{p_cash_register_id:open.id,p_product_id:selected.id,p_quantity:quantity,p_amount:amountValue,p_concept:concept,p_reference:reference,p_created_by_name:ctx.staff?.display_name||st.u.email||"Usuario"});
+        if(error)throw error;
+      }else{
+        const row={user_id:ctx.ownerId,cash_register_id:open.id,type,amount:amountValue,concept,reference:reference||null,created_by:st.u.id,created_by_name:ctx.staff?.display_name||st.u.email||"Usuario"};
+        const {error}=await S.from("marc_cash_movements").insert(row);if(error)throw error;
+      }
       close();toast(income?(selected?"Venta registrada · "+selected.name:"Ingreso registrado"):"Egreso registrado","ok");await cash();
     }catch(err){toast(err.message||"No se pudo registrar el movimiento.","err");b.disabled=false}
   };

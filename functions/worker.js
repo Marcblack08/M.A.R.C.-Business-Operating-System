@@ -3794,24 +3794,58 @@ export default{
       try{
         const {token,user}=await authUser(request,env);
         const adminToken=env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY;
+        if(!adminToken)throw Object.assign(new Error("Falta la clave administrativa del Worker."),{status:503});
+        const masterRows=await sb(env,adminToken,"marc_user_roles?select=role,active&user_id=eq."+encodeURIComponent(user.id)+"&role=eq.MASTER&active=eq.true&limit=1");
+        if(!masterRows?.length)return json({error:"Solo el administrador principal puede gestionar el personal de caja."},403,headers);
+
         if(request.method==="GET"){
           const rows=await sb(env,token,"marc_cash_staff?select=id,username,display_name,role,active,created_at,auth_user_id&owner_user_id=eq."+encodeURIComponent(user.id)+"&order=created_at.asc");
           return json({staff:rows||[]},200,headers);
         }
-        if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);
-        const body=await request.json();
-        const username=String(body?.username||"").trim().toLowerCase().replace(/[^a-z0-9._-]/g,"").slice(0,40);
-        const displayName=String(body?.display_name||"").trim().slice(0,100);
-        const password=String(body?.password||"");
-        if(!username||!displayName||password.length<6)return json({error:"Completa usuario, nombre y una contraseña de mínimo 6 caracteres."},400,headers);
-        const exists=await sb(env,token,"marc_cash_staff?select=id&owner_user_id=eq."+encodeURIComponent(user.id)+"&username=eq."+encodeURIComponent(username)+"&limit=1");
-        if(exists?.length)return json({error:"Ese usuario de caja ya existe."},409,headers);
-        if(!adminToken)throw Object.assign(new Error("Falta la clave administrativa del Worker."),{status:503});
-        const ar=await fetch(env.SUPABASE_URL+"/auth/v1/admin/users",{method:"POST",headers:{"content-type":"application/json",apikey:adminToken,Authorization:"Bearer "+adminToken},body:JSON.stringify({email:username+"@cash.marc.local",password,email_confirm:true,user_metadata:{cash_username:username,cash_owner_id:user.id}})});
-        const ad=await ar.json().catch(()=>null);
-        if(!ar.ok)throw Object.assign(new Error(ad?.msg||ad?.message||ad?.error_description||"No se pudo crear el usuario de caja."),{status:ar.status});
-        const rows=await sb(env,adminToken,"marc_cash_staff",{method:"POST",body:{owner_user_id:user.id,auth_user_id:ad.user.id,username,display_name:displayName,role:"CASHIER",active:true}});
-        return json({staff:rows?.[0]||null},201,headers);
+
+        const body=await request.json().catch(()=>({}));
+        if(request.method==="POST"){
+          const username=String(body?.username||"").trim().toLowerCase().replace(/[^a-z0-9._-]/g,"").slice(0,40);
+          const displayName=String(body?.display_name||"").trim().slice(0,100);
+          const password=String(body?.password||"");
+          if(!username||!displayName||password.length<6)return json({error:"Completa usuario, nombre y una contraseña de mínimo 6 caracteres."},400,headers);
+          const exists=await sb(env,token,"marc_cash_staff?select=id&owner_user_id=eq."+encodeURIComponent(user.id)+"&username=eq."+encodeURIComponent(username)+"&limit=1");
+          if(exists?.length)return json({error:"Ese usuario de caja ya existe."},409,headers);
+          const email=username+"@cash.marc.local";
+          const ar=await fetch(env.SUPABASE_URL+"/auth/v1/admin/users",{method:"POST",headers:{"content-type":"application/json",apikey:adminToken,Authorization:"Bearer "+adminToken},body:JSON.stringify({email,password,email_confirm:true,user_metadata:{cash_username:username,cash_owner_id:user.id}})});
+          const ad=await ar.json().catch(()=>null);
+          if(!ar.ok)throw Object.assign(new Error(ad?.msg||ad?.message||ad?.error_description||"No se pudo crear el usuario de caja."),{status:ar.status});
+          const rows=await sb(env,adminToken,"marc_cash_staff",{method:"POST",body:{owner_user_id:user.id,auth_user_id:ad.user.id,username,display_name:displayName,role:"CASHIER",active:true}});
+          return json({staff:rows?.[0]||null},201,headers);
+        }
+
+        if(request.method==="PATCH"){
+          const id=String(body?.id||"").trim();
+          if(!id)return json({error:"Falta el identificador del usuario de caja."},400,headers);
+          const current=(await sb(env,adminToken,"marc_cash_staff?select=id,auth_user_id,username,display_name,active,owner_user_id&id=eq."+encodeURIComponent(id)+"&owner_user_id=eq."+encodeURIComponent(user.id)+"&limit=1"))?.[0];
+          if(!current)return json({error:"Usuario de caja no encontrado."},404,headers);
+          const updates={};
+          if(body?.display_name!==undefined){
+            const displayName=String(body.display_name||"").trim().slice(0,100);
+            if(!displayName)return json({error:"El nombre no puede quedar vacío."},400,headers);
+            updates.display_name=displayName;
+          }
+          if(body?.active!==undefined)updates.active=!!body.active;
+          const password=String(body?.password||"");
+          if(password){
+            if(password.length<6)return json({error:"La contraseña debe tener al menos 6 caracteres."},400,headers);
+            const ar=await fetch(env.SUPABASE_URL+"/auth/v1/admin/users/"+encodeURIComponent(current.auth_user_id),{method:"PUT",headers:{"content-type":"application/json",apikey:adminToken,Authorization:"Bearer "+adminToken},body:JSON.stringify({password})});
+            const ad=await ar.json().catch(()=>null);
+            if(!ar.ok)throw Object.assign(new Error(ad?.msg||ad?.message||ad?.error_description||"No se pudo actualizar la contraseña."),{status:ar.status});
+          }
+          if(Object.keys(updates).length){
+            const rows=await sb(env,adminToken,"marc_cash_staff?id=eq."+encodeURIComponent(id)+"&owner_user_id=eq."+encodeURIComponent(user.id),{method:"PATCH",body:updates});
+            return json({staff:rows?.[0]||null},200,headers);
+          }
+          return json({staff:current},200,headers);
+        }
+
+        return json({error:"Método no permitido"},405,headers);
       }catch(err){return json({error:err?.message||"No se pudo gestionar el personal de caja"},err?.status||500,headers)}
     }
     if(url.pathname==="/api/notifications"){

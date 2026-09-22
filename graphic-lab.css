@@ -1164,3 +1164,38 @@ body.sidebar-open{overflow:hidden}
 [data-theme="dark"] .ad-source-tab.active,[data-theme="dark"] .ad-objective.active{background:#102e49;border-color:#326c9a}
 [data-theme="dark"] .ad-photo-state,[data-theme="dark"] .ad-smart-note{background:#102235;border-color:#294258}
 [data-theme="dark"] .ad-copy-card p{color:#b8c8d8}
+
+
+/* PHASE 6 · navigation + M.A.R.C. interaction polish */
+@media (min-width:1061px){
+  #content{view-transition-name:marc-content}
+  .sidebar nav button,.mobile-bottom-nav button{position:relative;overflow:hidden;transition:transform .18s ease,background .18s ease,color .18s ease,box-shadow .18s ease}
+  .sidebar nav button::after{content:"";position:absolute;inset:8px auto 8px 0;width:3px;border-radius:99px;background:var(--blue);transform:scaleY(0);transition:transform .18s ease}
+  .sidebar nav button:hover{transform:translateX(3px)}
+  .sidebar nav button.active{box-shadow:0 8px 24px rgba(11,115,230,.08)}
+  .sidebar nav button.active::after{transform:scaleY(1)}
+  #askTop{transition:transform .18s ease,box-shadow .18s ease}
+  #askTop:hover{transform:translateY(-1px);box-shadow:0 10px 24px rgba(11,115,230,.14)}
+}
+#content.view-switching{opacity:.72;transform:translateY(3px);transition:opacity .12s ease,transform .12s ease}
+@keyframes marcViewIn{from{opacity:.72;transform:translateY(5px)}to{opacity:1;transform:none}}
+#content{animation:marcViewIn .24s ease both}
+#chat{transition:opacity .2s ease,transform .22s ease,box-shadow .22s ease}
+#chat.closed{pointer-events:none}
+#chat.open{animation:chatIn .22s cubic-bezier(.2,.8,.2,1) both}
+@keyframes chatIn{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+#chatForm button[type="submit"]{transition:transform .15s ease,opacity .15s ease,filter .15s ease}
+#chatForm button[type="submit"]:hover:not(:disabled){transform:translateY(-1px)}
+#chatForm button.is-busy{opacity:.62;cursor:wait;filter:saturate(.7)}
+#chatForm button.is-busy::after{content:"";display:inline-block;width:12px;height:12px;margin-left:7px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;vertical-align:-2px;animation:marcSpin .7s linear infinite}
+@keyframes marcSpin{to{transform:rotate(360deg)}}
+#messages .bubble{animation:messageIn .18s ease both}
+@keyframes messageIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+::view-transition-old(marc-content),::view-transition-new(marc-content){animation-duration:.18s}
+@media (prefers-reduced-motion:reduce){
+  #content,.sidebar nav button,#chat,#messages .bubble{animation:none!important;transition:none!important}
+}
+@media (max-width:1060px){
+  #content{animation:marcViewIn .18s ease both}
+  #chat.open{animation:chatIn .18s ease both}
+}

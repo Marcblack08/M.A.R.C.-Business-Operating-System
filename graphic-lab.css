@@ -22,11 +22,12 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 
 /* Desktop shell */
 @media(min-width:1061px){
+  /* Desktop shell: a single source of truth for sidebar / content / chat. */
   #app.app{
-    grid-template-columns:248px minmax(720px,1fr) 368px;
+    grid-template-columns:230px minmax(720px,1fr) 368px;
   }
   #app.app.chat-closed{
-    grid-template-columns:248px minmax(0,1fr);
+    grid-template-columns:230px minmax(0,1fr);
   }
   .sidebar{
     padding:24px 15px;

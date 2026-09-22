@@ -2,15 +2,24 @@
 function msg(t,c=""){const e=$("#authMsg");e.textContent=t;e.className="msg "+c}
 const THEME_KEY="marc_theme";
 function applyTheme(theme,save=true){
-  const t=theme==="dark"?"dark":"light";
+  const t=["light","dark","color"].includes(theme)?theme:"light";
   document.documentElement.dataset.theme=t;
   if(save)localStorage.setItem(THEME_KEY,t);
   const b=$("#themeToggle"),ab=$("#authThemeToggle"),i=$("#themeIcon"),l=$("#themeLabel");
-  if(i)i.textContent=t==="dark"?"☀":"☾";
-  if(ab)ab.querySelector("span").textContent=t==="dark"?"☀":"☾";
-  if(l)l.textContent=t==="dark"?"Claro":"Oscuro";
-  if(b)b.setAttribute("aria-label",t==="dark"?"Cambiar a modo claro":"Cambiar a modo oscuro");
-  if(ab)ab.setAttribute("aria-label",t==="dark"?"Cambiar a modo claro":"Cambiar a modo oscuro");
+  const meta={
+    light:{icon:"☾",label:"Oscuro",next:"Cambiar a modo oscuro"},
+    dark:{icon:"◐",label:"Color",next:"Cambiar a modo color"},
+    color:{icon:"☀",label:"Claro",next:"Cambiar a modo claro"}
+  }[t];
+  if(i)i.textContent=meta.icon;
+  if(ab)ab.querySelector("span").textContent=meta.icon;
+  if(l)l.textContent=meta.label;
+  if(b)b.setAttribute("aria-label",meta.next);
+  if(ab)ab.setAttribute("aria-label",meta.next);
+}
+function cycleTheme(){
+  const current=document.documentElement.dataset.theme||"light";
+  applyTheme(current==="light"?"dark":current==="dark"?"color":"light");
 }
 function initTheme(){
   const saved=localStorage.getItem(THEME_KEY);
@@ -31,19 +40,21 @@ async function signInCashStaff(e){
   e?.preventDefault();
   const form=$("#cashStaffForm"),b=$("#cashStaffSubmit");
   if(!form)return;
-  const d=new FormData(form),username=String(d.get("username")||"").trim(),password=String(d.get("password")||"");
+  const d=new FormData(form),username=String(d.get("username")||"").trim().toLowerCase(),password=String(d.get("password")||"");
   cashStaffError("");
   if(!username||password.length<6)return cashStaffError("Escribe tu usuario y una contraseña válida.");
   if(b)b.disabled=true;
   try{
-    const r=await fetch("/api/cash-staff/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username,password})});
-    const j=await r.json().catch(()=>({}));
-    if(!r.ok)throw new Error(j.error||"Usuario o contraseña incorrectos.");
-    if(!j.session?.access_token||!j.session?.refresh_token)throw new Error("No se pudo iniciar la sesión de caja.");
-    const {error}=await S.auth.setSession({access_token:j.session.access_token,refresh_token:j.session.refresh_token});
+    const ownerSession=(await S.auth.getSession()).data?.session;
+    if(ownerSession)sessionStorage.setItem("marc_cash_owner_session",JSON.stringify(ownerSession));
+    const {error}=await S.auth.signInWithPassword({email:username+"@cash.marc.pe",password});
     if(error)throw error;
-  }catch(err){cashStaffError(err?.message||"No se pudo iniciar el acceso de caja.");if(b)b.disabled=false}
+  }catch(err){
+    cashStaffError(err?.message||"Usuario o contraseña incorrectos.");
+    if(b)b.disabled=false;
+  }
 }
+
 async function signInGoogle(e){
   e?.preventDefault();
   e?.stopPropagation();
@@ -251,15 +262,17 @@ async function view(x){
     if(x==="quotes")return quotes();if(x==="marketing")return marketing();if(x==="cash")return cash();return settings();
   };
   __viewBusy=true;
+  content?.classList.add("view-switching");
   try{
     if(document.startViewTransition){
       await document.startViewTransition(()=>run()).finished;
     }else{
-      content?.classList.add("view-switching");
       await run();
-      requestAnimationFrame(()=>content?.classList.remove("view-switching"));
     }
-  }finally{__viewBusy=false}
+  }finally{
+    requestAnimationFrame(()=>content?.classList.remove("view-switching"));
+    __viewBusy=false;
+  }
 }
 async function home(){
   const c=$("#content");
@@ -414,9 +427,11 @@ async function home(){
 
   const heroLogo=$("#heroBrandLogo");
   if(heroLogo){
-    // Imagen oficial del mayordomo M.A.R.C.: identidad visual fija del dashboard.
-    heroLogo.innerHTML='<img src="./assets/marc-hero.jpg?v=20260920-01" alt="M.A.R.C., tu mayordomo digital">';
-    heroLogo.classList.add("is-mascot");
+    // El hero pertenece a M.A.R.C.; el logo de la empresa queda reservado para
+    // Configuración, cotizaciones, PDF y publicidad. Nunca debe dominar el dashboard.
+    heroLogo.innerHTML='<span>M</span>';
+    heroLogo.classList.remove("has-company-logo");
+    heroLogo.classList.add("is-marc-brand");
   }
   $("#askHome").onclick=openChat;
   $("#heroQuote").onclick=quoteModal;
@@ -1608,376 +1623,21 @@ async function inventory(){
     };
   });
 }
-async function extractPdfCatalogRows(page){
-  try{
-    const content=await page.getTextContent({normalizeWhitespace:true,disableCombineTextItems:false});
-    const items=(content.items||[]).map(item=>({
-      text:String(item.str||"").replace(/\s+/g," ").trim(),
-      x:Number(item.transform?.[4]||0),
-      y:Number(item.transform?.[5]||0)
-    })).filter(x=>x.text);
-
-    const width=page.view?.[2]||page.getViewport({scale:1}).width||595;
-    const prices=items
-      .filter(x=>x.x>width*.74 && /^\d+(?:[.,]\d{1,2})$/.test(x.text.replace(/[^\d.,]/g,"")))
-      .map(x=>({...x,price:Number(x.text.replace(",","."))}))
-      .sort((a,b)=>b.y-a.y);
-
-    if(!prices.length)return {rows:[],text:items.map(x=>x.text).join("\n"),usedLocal:false};
-
-    const rows=[];
-    for(let i=0;i<prices.length;i++){
-      const p=prices[i];
-      const prev=prices[i-1],next=prices[i+1];
-      const gapPrev=prev?Math.abs(prev.y-p.y):Math.abs(p.y-(next?.y||p.y));
-      const gapNext=next?Math.abs(p.y-next.y):gapPrev;
-      const radius=Math.max(13,Math.min(28,Math.min(gapPrev||20,gapNext||20)*.55));
-      const rowItems=items.filter(x=>Math.abs(x.y-p.y)<=radius);
-
-      const nameParts=rowItems
-        .filter(x=>x.x<width*.34 && Math.abs(x.y-p.y)<=radius)
-        .sort((a,b)=>Math.abs(a.y-p.y)-Math.abs(b.y-p.y)||a.x-b.x)
-        .map(x=>x.text);
-
-      const codeParts=rowItems
-        .filter(x=>x.x>=width*.32 && x.x<width*.74)
-        .sort((a,b)=>Math.abs(a.y-p.y)-Math.abs(b.y-p.y)||a.x-b.x)
-        .map(x=>x.text);
-
-      const name=[...new Set(nameParts)].join(" ").replace(/\s+/g," ").trim();
-      const codeText=[...new Set(codeParts)].join(" ").replace(/\s+/g," ").trim();
-      if(!name)return;
-
-      const skuMatch=codeText.match(/\b(?:[A-Z]{1,6})-[A-Z0-9]{1,12}\b/i);
-      const sku=skuMatch?.[0]||null;
-      const variant=codeText.replace(skuMatch?.[0]||"","").replace(/\s+/g," ").trim();
-      const fullName=[name,variant].filter(Boolean).join(" ").replace(/\s+/g," ").trim();
-
-      rows.push({
-        sku,
-        name:fullName.slice(0,180),
-        brand:null,
-        model:sku,
-        category:name.slice(0,100),
-        unit:"UND",
-        cost:null,
-        price:p.price,
-        stock:null,
-        min_stock:null
-      });
-    }
-
-    // One product per price cell: preserve page order and remove exact duplicates only.
-    const clean=[],seen=new Set();
-    for(const row of rows){
-      const key=((row.sku||"")+"|"+row.name+"|"+row.price).toLowerCase();
-      if(seen.has(key))continue;
-      seen.add(key);clean.push(row);
-    }
-    return {rows:clean,text:items.map(x=>x.text).join("\n"),usedLocal:clean.length>0};
-  }catch{
-    return {rows:[],text:"",usedLocal:false};
-  }
-}
-
-async function extractPdfPageText(page){
-  try{
-    const content=await page.getTextContent({normalizeWhitespace:true,disableCombineTextItems:false});
-    return (content.items||[]).map(x=>String(x.str||"").trim()).filter(Boolean).join("\n");
-  }catch{return ""}
-}
-
-function pdfProgressHtml(page,total,count){
-  const pct=total?Math.round(page*100/total):0;
-  return '<div class="pdf-progress-wrap">'+
-    '<div class="pdf-progress-top"><b id="pdfProgressText">Leyendo página '+page+' de '+total+'</b><strong id="pdfProgressCount">'+count+' productos detectados</strong></div>'+
-    '<div class="pdf-progress"><i id="pdfProgressBar" style="width:'+pct+'%"></i></div>'+
-    '</div>';
-}
-
-async function inventoryPdfModal(){
-  const close=modal(
-    '<div class="modal-head"><div><h2>📄 Importar inventario desde PDF</h2><p>M.A.R.C. lee el catálogo página por página y detecta los productos antes de importarlos.</p></div><button class="close" id="x">×</button></div>'+
-    '<form id="pdfInventoryForm">'+
-    '<label>Catálogo PDF<input id="inventoryPdfFile" type="file" accept="application/pdf" required></label>'+
-    '<div class="pdf-import-hint">Hasta 20 MB. Para catálogos con tablas de texto, M.A.R.C. hace la lectura directamente en el dispositivo para mayor velocidad y precisión.</div>'+
-    '<div id="pdfImportStatus" class="msg"></div>'+
-    '<div id="pdfImportProgress"></div>'+
-    '<div id="pdfLiveItems" class="pdf-live-items hidden"></div>'+
-    '<div id="pdfImportPreview" class="pdf-import-preview hidden"></div>'+
-    '<div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button type="submit" class="primary" id="analyzePdf">Analizar catálogo</button></div>'+
-    '</form>'
-  );
-  $("#x").onclick=close;
-  $("#cancel").onclick=close;
-
-  const form=$("#pdfInventoryForm");
-  const btn=$("#analyzePdf");
-  const status=$("#pdfImportStatus");
-  let working=false;
-
-  form.onsubmit=async function(e){
-    e.preventDefault();
-    if(working)return;
-
-    const file=$("#inventoryPdfFile").files?.[0];
-    if(!file)return toast("Selecciona un PDF.","err");
-    if(file.size>20*1024*1024)return toast("El PDF supera el límite de 20 MB.","err");
-
-    working=true;
-    btn.disabled=true;
-    status.className="msg";
-    status.textContent="Abriendo el catálogo y contando páginas…";
-    $("#pdfImportPreview").classList.add("hidden");
-    $("#pdfLiveItems").classList.add("hidden");
-
-    try{
-      const pdfjs=await ensurePdfJs();
-      if(!pdfjs.GlobalWorkerOptions.workerSrc){
-        pdfjs.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-      }
-
-      const buffer=await file.arrayBuffer();
-      const pdf=await pdfjs.getDocument({data:buffer}).promise;
-      const totalPages=pdf.numPages;
-
-      status.textContent="Catálogo abierto. Procesando "+totalPages+" páginas…";
-      $("#pdfImportProgress").innerHTML=pdfProgressHtml(0,totalPages,0);
-
-      let pendingId=null;
-      let pendingPromise=null;
-      const ensurePendingId=async()=>{
-        if(pendingId)return pendingId;
-        if(pendingPromise)return pendingPromise;
-        pendingPromise=fetch("/api/inventory/pdf-start",{
-          method:"POST",
-          headers:{
-            "Content-Type":"application/json",
-            Authorization:"Bearer "+st.session?.access_token
-          },
-          body:JSON.stringify({filename:file.name,totalPages})
-        }).then(async response=>{
-          const data=await response.json();
-          if(!response.ok)throw new Error(data.message||data.error||"No se pudo iniciar el análisis avanzado.");
-          if(!data.pendingId)throw new Error("No se pudo crear la sesión de análisis avanzado.");
-          pendingId=data.pendingId;
-          return pendingId;
-        }).finally(()=>{pendingPromise=null});
-        return pendingPromise;
-      };
-
-      const detected=[];
-      const live=$("#pdfLiveItems");
-      live.classList.remove("hidden");
-      live.innerHTML='<div class="pdf-live-title">Productos detectados hasta ahora</div><div id="pdfLiveRows"></div>';
-      const liveRows=$("#pdfLiveRows");
-
-      const CONCURRENCY=4;
-      for(let batchStart=1;batchStart<=totalPages;batchStart+=CONCURRENCY){
-        const batch=[];
-        for(let p=0;p<CONCURRENCY&&batchStart+p<=totalPages;p++)batch.push(batchStart+p);
-
-        status.textContent="M.A.R.C. está leyendo páginas "+batch[0]+"–"+batch[batch.length-1]+" de "+totalPages+"…";
-        $("#pdfProgressText").textContent="Leyendo páginas "+batch[0]+"–"+batch[batch.length-1]+" de "+totalPages;
-        $("#pdfProgressCount").textContent=detected.length+" productos detectados";
-        $("#pdfProgressBar").style.width=Math.round((batch[0]-1)*100/totalPages)+"%";
-
-        const results=await Promise.all(batch.map(async pageNumber=>{
-          const page=await pdf.getPage(pageNumber);
-          const local=await extractPdfCatalogRows(page);
-
-          if(local.usedLocal && local.rows.length){
-            return {pageNumber,items:local.rows,mode:"LECTURA DIRECTA"};
-          }
-
-          // Solo los PDFs sin tabla de texto utilizan Gemini.
-          const pendingForPage=await ensurePendingId();
-          const text=local.text||await extractPdfPageText(page);
-          let image="";
-          let viewport=page.getViewport({scale:1.25});
-          if(viewport.width>1600)viewport=page.getViewport({scale:1.25*(1600/viewport.width)});
-          const canvas=document.createElement("canvas");
-          const ctx=canvas.getContext("2d",{alpha:false});
-          canvas.width=Math.ceil(viewport.width);
-          canvas.height=Math.ceil(viewport.height);
-          await page.render({canvasContext:ctx,viewport}).promise;
-          image=canvas.toDataURL("image/jpeg",0.72);
-
-          let analyzed=null,lastError=null;
-          for(let retry=0;retry<2;retry++){
-            try{
-              const pr=await fetch("/api/inventory/pdf-page",{
-                method:"POST",
-                headers:{
-                  "Content-Type":"application/json",
-                  Authorization:"Bearer "+st.session?.access_token
-                },
-                body:JSON.stringify({pendingId:pendingForPage,pageNumber,totalPages,text,image})
-              });
-              const pj=await pr.json();
-              if(!pr.ok)throw new Error(pj.message||pj.error||("No se pudo analizar la página "+pageNumber));
-              analyzed=pj;
-              break;
-            }catch(err){
-              lastError=err;
-              if(retry===0)status.textContent="Reintentando página "+pageNumber+"…";
-            }
-          }
-          if(!analyzed)throw new Error((lastError?.message||"No se pudo analizar la página")+" Revisa tu conexión.");
-          return {pageNumber,items:Array.isArray(analyzed.items)?analyzed.items:[],mode:analyzed.mode||"GEMINI"};
-        }));
-
-        results.sort((a,b)=>a.pageNumber-b.pageNumber);
-        for(const result of results){
-          const pageNumber=result.pageNumber;
-          const pageItems=result.items;
-          detected.push(...pageItems);
-          const recent=pageItems.slice(0,12).map((x,ix)=>'<div class="pdf-live-row"><span>P'+pageNumber+' · '+(ix+1)+'</span><b>'+esc(x.name)+'</b><small>'+esc([x.brand,x.model,x.sku].filter(Boolean).join(" · ")||"Sin código")+'</small></div>').join("");
-          liveRows.insertAdjacentHTML("beforeend",recent);
-        }
-
-        const done=Math.min(batchStart+batch.length-1,totalPages);
-        $("#pdfProgressText").textContent="Leídas páginas "+done+" de "+totalPages;
-        $("#pdfProgressCount").textContent=detected.length+" productos detectados";
-        $("#pdfProgressBar").style.width=Math.round(done*100/totalPages)+"%";
-      }
-
-      status.className="msg ok";
-      status.textContent="Análisis terminado. Revisa exactamente qué productos serán procesados antes de importarlos.";
-      $("#pdfProgressText").textContent="Lectura terminada · "+totalPages+" páginas";
-      $("#pdfProgressCount").textContent=detected.length+" productos detectados";
-
-      const listItems=detected;
-      const preview=$("#pdfImportPreview");
-      preview.innerHTML=
-        '<div class="pdf-final-summary"><strong>Se procesarán '+listItems.length+' productos</strong><span>'+totalPages+' páginas revisadas</span></div>'+
-        '<div class="pdf-product-list">'+
-          listItems.map((x,i)=>'<div class="pdf-product-row"><span><b>'+(i+1)+'.</b> '+esc(x.name)+'</span><small>Página '+Number(x.page_number||1)+' · '+esc([x.sku,x.brand,x.model].filter(Boolean).join(" · ")||"Sin código")+(x.price!=null?" · S/ "+Number(x.price).toFixed(2):"")+'</small></div>').join("")+
-        '</div>';
-      preview.classList.remove("hidden");
-
-      btn.type="button";
-      btn.disabled=false;
-      btn.textContent="Importar "+listItems.length+" productos";
-      btn.dataset.ready="1";
-      btn.onclick=async function(){
-        if(btn.dataset.importing==="1"||!btn.dataset.ready)return;
-        btn.dataset.importing="1";
-        btn.disabled=true;
-        status.className="msg";
-        status.textContent="Importando "+listItems.length+" productos directamente al inventario…";
-
-        try{
-          const {data,error}=await S.rpc("marc_import_inventory_batch",{
-            p_items:listItems,
-            p_update_existing:true
-          });
-          if(error)throw new Error(error.message||"No se pudo importar el lote.");
-          if(!data||data.status!=="IMPORTED")throw new Error("Supabase no confirmó la importación.");
-
-          toast("Inventario actualizado: "+data.created+" nuevos, "+data.updated+" actualizados.","ok");
-          status.className="msg ok";
-          status.textContent="Importación completada. "+data.total+" productos procesados.";
-          close();
-          await trial();
-          await inventory();
-        }catch(err){
-          status.className="msg error";
-          status.textContent=err.message||"No se pudo importar.";
-          btn.disabled=false;
-        }finally{
-          btn.dataset.importing="";
-        }
-      };
-    }catch(err){
-      status.className="msg error";
-      status.textContent=err.message||"No se pudo analizar el catálogo.";
-      $("#pdfImportProgress").innerHTML="";
-      working=false;
-      btn.type="submit";
-      btn.disabled=false;
-    }
-  };
-}
 
 
-async function inventory(){
-  S.from("marc_inventory").select("*").eq("user_id",st.u.id).eq("active",true).order("name").then(({data,error})=>{
-    if(error)return toast(error.message,"err");
-    const c=$("#content");
-    c.innerHTML=`<div class="head"><div><div class="eyebrow2">INVENTARIO</div><h1>Productos + stock.</h1><p>Todo producto vive dentro del inventario.</p></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button id="importPdf" class="secondary">📄 Importar PDF</button><button id="new" class="primary">＋ Nuevo producto</button></div></div>
-    <section class="card table">
-      <div class="toolbar"><div class="search"><input id="search" placeholder="Buscar producto…"></div><button id="ask" class="secondary">Preguntar</button></div>
-      <div id="bulkBar" class="bulk-bar" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:0 0 10px;padding:10px 12px;border:1px solid #d7e5f7;border-radius:12px;background:#f7fbff">
-        <div style="display:flex;align-items:center;gap:10px"><label style="display:flex;align-items:center;gap:8px;font-weight:800;cursor:pointer"><input id="selectAll" type="checkbox"> Seleccionar todos</label><span id="selectedCount" style="font-weight:800;color:#1373e6">0 seleccionados</span></div>
-        <button id="bulkDelete" class="danger" type="button" disabled>🗑 Eliminar seleccionados</button>
-      </div>
-      <div class="scroll"><table class="data"><thead><tr><th style="width:45px;text-align:center"></th><th>Foto</th><th>Producto</th><th>Marca/modelo</th><th>Stock</th><th>Precio</th><th>Estado</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
-    </section>`;
 
-    const rows=$("#rows"), selected=new Set();
-    const currentList=()=>{const q=String($("#search").value||"").toLowerCase();return (data||[]).filter(x=>[x.name,x.sku,x.brand,x.model,x.category].some(v=>String(v||"").toLowerCase().includes(q)))};
-    const sync=()=>{
-      const visible=currentList(), checked=visible.filter(x=>selected.has(x.id)).length, all=visible.length>0&&checked===visible.length;
-      const top=$("#selectAll"); if(top){top.checked=all;top.indeterminate=checked>0&&!all}
-      $("#selectedCount").textContent=selected.size+" seleccionado"+(selected.size===1?"":"s");
-      $("#bulkDelete").disabled=selected.size===0;
-    };
-    const draw=list=>{
-      rows.innerHTML=(list||[]).map(x=>{
-        const stock=Number(x.stock),min=Number(x.min_stock),cls=stock<=0?"out":stock<=min?"low":"ok";
-        return `<tr><td style="text-align:center"><input class="inventory-check" type="checkbox" data-id="${x.id}" ${selected.has(x.id)?"checked":""}></td><td><div class="inventory-thumb">${x.image_url?'<img src="'+esc(x.image_url)+'" alt="Foto">':'<span>📷</span>'}</div></td><td><b>${esc(x.name)}</b><br><small>${esc(x.sku||"Sin código")}</small></td><td>${esc([x.brand,x.model].filter(Boolean).join(" · ")||"—")}</td><td><b>${stock}</b> ${esc(x.unit)}</td><td>${money(x.price)}</td><td><span class="badge ${cls}">${stock<=0?"Agotado":stock<=min?"Bajo":"Disponible"}</span></td><td style="display:flex;gap:5px;flex-wrap:wrap"><button class="secondary" type="button" data-action="edit-inventory" data-id="${x.id}">Editar</button><button class="danger" type="button" data-action="delete-inventory" data-id="${x.id}">Eliminar</button></td></tr>`;
-      }).join("")||'<tr><td colspan="8" class="empty">Agrega tu primer producto.</td></tr>';
-      sync();
-    };
-    draw(data||[]);
 
-    $("#search").oninput=()=>draw(currentList());
-    $("#new").onclick=()=>inventoryModal();
-    $("#importPdf").onclick=inventoryPdfModal;
-    $("#ask").onclick=openChat;
 
-    $("#selectAll").onchange=e=>{
-      const visible=currentList();
-      if(e.target.checked)visible.forEach(x=>selected.add(x.id));else visible.forEach(x=>selected.delete(x.id));
-      draw(visible);
-    };
-    rows.onchange=e=>{
-      const cb=e.target.closest(".inventory-check"); if(!cb)return;
-      if(cb.checked)selected.add(cb.dataset.id);else selected.delete(cb.dataset.id);
-      sync();
-    };
 
-    $("#bulkDelete").onclick=async()=>{
-      const ids=[...selected]; if(!ids.length)return;
-      const chosen=(data||[]).filter(x=>ids.includes(x.id));
-      if(!confirm("¿Eliminar "+ids.length+" producto(s) del inventario?\n\nLos productos desaparecerán del inventario activo, pero se conservarán para el historial."))return;
-      const b=$("#bulkDelete"); b.disabled=true;
-      try{
-        const result=await S.from("marc_inventory").update({active:false,updated_at:new Date().toISOString()}).in("id",ids).eq("user_id",st.u.id);
-        if(result.error)throw result.error;
-        selected.clear();
-        toast(ids.length+" producto(s) eliminado(s)","ok");
-        await inventory();
-      }catch(err){toast(err.message||"No se pudieron eliminar los productos seleccionados.","err");b.disabled=false}
-    };
 
-    rows.onclick=async e=>{
-      const b=e.target.closest("button[data-action]"); if(!b)return;
-      const item=(data||[]).find(x=>x.id===b.dataset.id); if(!item)return;
-      if(b.dataset.action==="edit-inventory")return inventoryModal(item);
-      if(b.dataset.action==="delete-inventory"){
-        if(!confirm("¿Eliminar \""+item.name+"\" del inventario?\n\nEl producto desaparecerá del inventario activo, pero se conservará para el historial."))return;
-        b.disabled=true;
-        try{
-          const result=await S.from("marc_inventory").update({active:false,updated_at:new Date().toISOString()}).eq("id",item.id).eq("user_id",st.u.id);
-          if(result.error)throw result.error;
-          toast("Producto eliminado","ok"); await inventory();
-        }catch(err){toast(err.message||"No se pudo eliminar el producto.","err");b.disabled=false}
-      }
-    };
-  });
-}
+
+
+
+
+
+
+
+
 
 async function quotes(){
   const {data,error}=await S.from("marc_quotes").select("*,marc_clients(name)").eq("user_id",st.u.id).is("deleted_at",null).order("created_at",{ascending:false});
@@ -2265,9 +1925,10 @@ async function closeCashModal(open,expected){
       const closing=Number(new FormData(e.currentTarget).get("amount")||0);
       if(closing<0)throw new Error("El efectivo contado no puede ser negativo.");
       const notes=String(new FormData(e.currentTarget).get("notes")||"").trim()||null;
-      const difference=closing-Number(expected||0);
-      const {error}=await S.from("marc_cash_registers").update({status:"CLOSED",closing_amount:closing,expected_amount:Number(expected||0),difference,closed_at:new Date().toISOString(),closed_by:st.u.id,notes}).eq("id",open.id).eq("user_id",st.u.id).eq("status","OPEN");
-      if(error)throw error;close();toast("Caja cerrada correctamente","ok");await cash();
+      const {data:closed,error}=await S.rpc("marc_cash_close",{p_closing_amount:closing,p_notes:notes});
+      if(error)throw error;
+      if(!closed)throw new Error("Supabase no devolvió el cierre de caja.");
+      close();toast("Caja cerrada correctamente · Diferencia "+money(closing-Number(expected||0)),"ok");await cash();
     }catch(err){toast(err.message||"No se pudo cerrar la caja.","err");b.disabled=false}
   };
 }
@@ -2319,7 +1980,13 @@ async function cashMovementModal(open,type){
       if(amountValue<=0)throw new Error("Ingresa un monto válido.");
       const concept=String(d.get("concept")||"").trim(),reference=String(d.get("reference")||"").trim();
       if(income&&selected){
-        const quantity=Math.max(1,Number(d.get("quantity")||1));
+        const quantity=Number(d.get("quantity")||1);
+        const available=Number(selected.stock||0);
+        if(!Number.isInteger(quantity)||quantity<=0)throw new Error("La cantidad debe ser un número entero mayor que cero.");
+        if(available<=0)throw new Error("Este producto está agotado.");
+        if(quantity>available)throw new Error("Stock insuficiente. Disponible: "+available+" unidad"+(available===1?"":"es")+".");
+        const unitPrice=Number(selected.price||0);
+        if(unitPrice<=0)throw new Error("El producto seleccionado no tiene un precio de venta válido.");
         const {error}=await S.rpc("marc_register_product_sale",{p_cash_register_id:open.id,p_product_id:selected.id,p_quantity:quantity,p_amount:amountValue,p_concept:concept,p_reference:reference,p_created_by_name:ctx.staff?.display_name||st.u.email||"Usuario"});
         if(error)throw error;
       }else{
@@ -2330,52 +1997,130 @@ async function cashMovementModal(open,type){
     }catch(err){toast(err.message||"No se pudo registrar el movimiento.","err");b.disabled=false}
   };
 }
+async function cashMasterGate(){
+  const email=String(st.u?.email||"").trim();
+  if(!email)throw new Error("No se encontró el usuario maestro.");
+  const close=modal(`<div class="modal-head"><div><div class="eyebrow2">SEGURIDAD MAESTRA</div><h2>🔐 Acceso de administrador</h2><p>Usa el usuario y la contraseña de tu cuenta M.A.R.C. para administrar Caja.</p></div><button class="close" id="x">×</button></div><form id="cashMasterForm"><label>Usuario maestro<input name="email" type="email" value="${esc(email)}" readonly></label><label>Clave maestra<div class="password-field"><input name="password" type="password" minlength="6" required autofocus autocomplete="current-password" placeholder="Tu contraseña de M.A.R.C."><button type="button" id="showMasterPass">◉</button></div></label><div id="cashMasterError" class="cash-login-error"></div><div class="modal-actions"><button type="button" class="secondary" id="setupMaster">Crear / cambiar clave maestra</button><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Entrar →</button></div></form>`);
+  $("#x").onclick=close;$("#cancel").onclick=close;
+  $("#showMasterPass").onclick=()=>{const p=$('#cashMasterForm input[name="password"]');if(p)p.type=p.type==="password"?"text":"password"};
+  $("#setupMaster").onclick=async()=>{
+    const setupClose=modal(`<div class="modal-head"><div><div class="eyebrow2">CLAVE MAESTRA</div><h2>🔑 Crear clave de Caja</h2><p>Esta será la contraseña de tu cuenta M.A.R.C. usada para autorizar la administración de Caja.</p></div><button class="close" id="x">×</button></div><form id="cashMasterSetup"><label>Nueva clave<input name="password" type="password" minlength="6" required autofocus placeholder="Mínimo 6 caracteres"></label><label>Confirmar clave<input name="confirm" type="password" minlength="6" required placeholder="Repite la clave"></label><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Guardar clave</button></div></form>`);
+    $("#x").onclick=setupClose;$("#cancel").onclick=setupClose;
+    $("#cashMasterSetup").onsubmit=async ev=>{
+      ev.preventDefault();const d=new FormData(ev.currentTarget),password=String(d.get("password")||""),confirm=String(d.get("confirm")||"");
+      if(password!==confirm)return toast("Las claves no coinciden.","err");
+      const b=ev.currentTarget.querySelector("button.primary");b.disabled=true;
+      try{
+        const {error}=await S.auth.updateUser({password});
+        if(error)throw error;
+        setupClose();toast("Clave maestra creada correctamente","ok");
+      }catch(err){toast(err?.message||"No se pudo crear la clave maestra.","err");b.disabled=false}
+    };
+  };
+  return new Promise(resolve=>{
+    $("#cashMasterForm").onsubmit=async e=>{
+      e.preventDefault();
+      const b=e.currentTarget.querySelector("button.primary"),password=String(new FormData(e.currentTarget).get("password")||"");
+      b.disabled=true;
+      try{
+        const {error}=await S.auth.signInWithPassword({email,password});
+        if(error)throw error;
+        sessionStorage.setItem("marc_cash_master_verified_at",String(Date.now()));
+        close();toast("Acceso maestro autorizado","ok");resolve(true);
+      }catch(err){
+        const el=$("#cashMasterError");if(el)el.textContent=err?.message||"Clave maestra incorrecta.";
+        b.disabled=false;
+      }
+    };
+  });
+}
+
+function cashMasterVerified(){
+  const t=Number(sessionStorage.getItem("marc_cash_master_verified_at")||0);
+  return t>0 && Date.now()-t<10*60*1000;
+}
+async function ensureCashMaster(){
+  if(cashMasterVerified())return true;
+  const ok=await cashMasterGate();
+  return !!ok;
+}
+async function cashStaffAdminRequest(method,body){
+  const session=(await S.auth.getSession()).data?.session;
+  if(!session?.access_token)throw new Error("La sesión maestra expiró. Vuelve a autorizar Caja.");
+  const r=await fetch("/api/cash-staff",{
+    method,
+    headers:{"Content-Type":"application/json",Authorization:"Bearer "+session.access_token},
+    body:JSON.stringify(body||{})
+  });
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(j.error||j.message||"No se pudo completar la operación.");
+  return j;
+}
 async function cashStaffModal(){
-  const ctx=await getCashStaffContext();
-  if(ctx.isStaff)return toast("Solo el administrador puede gestionar usuarios de caja.","err");
-  const {data:staff,error}=await S.from("marc_cash_staff").select("id,username,display_name,active,created_at").eq("owner_user_id",st.u.id).order("created_at");
+  if(!(await ensureCashMaster()))return;
+  const {data:staff,error}=await S.from("marc_cash_staff").select("id,username,display_name,employee_code,active,created_at").eq("owner_user_id",st.u.id).order("created_at");
   if(error)return toast(error.message,"err");
   const rows=(staff||[]).map(x=>`<div class="cash-staff-row">
-    <div><b>${esc(x.display_name)}</b><small>@${esc(x.username)} · ${x.active?"Activo":"Inactivo"}</small></div>
+    <div><b>${esc(x.display_name)}</b><small>${x.employee_code?`ID ${esc(x.employee_code)} · `:""}@${esc(x.username)} · ${x.active?"Activo":"Inactivo"}</small></div>
     <div class="cash-staff-tools"><span>${x.active?"CAJERO":"PAUSADO"}</span><button type="button" class="secondary cash-staff-action" data-action="password" data-id="${esc(x.id)}">Clave</button><button type="button" class="secondary cash-staff-action" data-action="toggle" data-id="${esc(x.id)}">${x.active?"Desactivar":"Activar"}</button></div>
-  </div>`).join("")||'<div class="empty">Todavía no hay usuarios de caja.</div>';
-  const close=modal(`<div class="modal-head"><div><h2>👥 Personal de caja</h2><p>Cada empleado tiene su propio acceso. Solo el administrador abre y cierra la caja.</p></div><button class="close" id="x">×</button></div><div class="cash-staff-list">${rows}</div><form id="staffForm"><div class="form-grid"><label>Nombre del empleado<input name="display_name" required placeholder="Ej. Juan Pérez"></label><label>Usuario<input name="username" required autocomplete="off" autocapitalize="none" placeholder="Ej. juan"></label><label>Contraseña<input name="password" type="password" minlength="6" required placeholder="Mínimo 6 caracteres"></label></div><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cerrar</button><button class="primary">＋ Crear usuario</button></div></form>`);
+  </div>`).join("")||'<div class="empty">Todavía no hay cajeros creados.</div>';
+  const close=modal(`<div class="cash-staff-modal"><div class="modal-head"><div><div class="eyebrow2">ADMINISTRACIÓN MAESTRA</div><h2>👥 Cajeros</h2><p>Crea y controla los accesos de las personas que trabajan en Caja.</p></div><button class="close" id="x">×</button></div><div class="cash-staff-create-card"><div class="eyebrow2">NUEVO CAJERO</div><h3>Crear acceso de cajero</h3><p>Registra aquí el nombre, código, usuario y contraseña del cajero.</p></div><form id="staffForm"><div class="form-grid"><label>Nombre del cajero<input name="display_name" required placeholder="Ej. Juan Pérez"></label><label>ID / código<input name="employee_code" required autocomplete="off" placeholder="Ej. CAJ-001"></label><label>Usuario de cajero<input name="username" required autocomplete="off" autocapitalize="none" placeholder="Ej. juan"></label><label>Clave del cajero<input name="password" type="password" minlength="6" required placeholder="Mínimo 6 caracteres"></label></div><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cerrar</button><button type="button" class="primary" id="createCashStaffBtn">＋ Crear cajero</button></div><div id="staffCreateError" class="form-error" role="alert" aria-live="polite"></div></form><div class="cash-staff-existing"><div class="eyebrow2">CAJEROS REGISTRADOS</div>${rows}</div></div>`);
   $("#x").onclick=close;$("#cancel").onclick=close;
   $$(".cash-staff-action",$("#modal")).forEach(btn=>btn.onclick=async()=>{
-    const id=btn.dataset.id,action=btn.dataset.action,item=(staff||[]).find(x=>x.id===id); if(!item)return;
+    const id=btn.dataset.id,action=btn.dataset.action,item=(staff||[]).find(x=>x.id===id);if(!item)return;
     try{
+      btn.disabled=true;
       if(action==="toggle"){
-        btn.disabled=true;
-        const r=await fetch("/api/cash-staff",{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({id,active:!item.active})});
-        const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||"No se pudo actualizar el usuario.");
-        toast(item.active?"Usuario desactivado":"Usuario activado","ok");close();await cashStaffModal();
+        await cashStaffAdminRequest("PATCH",{id,active:!item.active});
+        toast(item.active?"Cajero desactivado":"Cajero activado","ok");
       }else{
-        openCashPasswordModal(item);
+        await openCashPasswordModal(item);
       }
-    }catch(err){toast(err.message||"No se pudo actualizar el usuario.","err");btn.disabled=false}
+      close();await cashStaffModal();
+    }catch(err){toast(err.message||"No se pudo actualizar el cajero.","err");btn.disabled=false}
   });
-  $("#staffForm").onsubmit=async e=>{
-    e.preventDefault();const b=e.currentTarget.querySelector("button.primary");b.disabled=true;const d=new FormData(e.currentTarget);
-    try{
-      const r=await fetch("/api/cash-staff",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({display_name:d.get("display_name"),username:d.get("username"),password:d.get("password")})});
-      const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||j.message||"No se pudo crear el usuario.");
-      close();toast("Usuario de caja creado correctamente","ok");await cash();
-    }catch(err){toast(err.message||"No se pudo crear el usuario.","err");b.disabled=false}
-  };
-}
-function openCashPasswordModal(item){
-  const close=modal(`<div class="modal-head"><div><div class="eyebrow2">SEGURIDAD</div><h2>🔐 Cambiar contraseña</h2><p>Actualiza la clave de <b>@${esc(item.username)}</b>.</p></div><button class="close" id="x">×</button></div><form id="cashPasswordForm"><label>Nueva contraseña<div class="password-field"><input name="password" type="password" minlength="6" required autofocus placeholder="Mínimo 6 caracteres"><button type="button" id="showCashPass">◉</button></div></label><label>Confirmar contraseña<input name="confirm" type="password" minlength="6" required placeholder="Repite la contraseña"></label><div id="cashPassError" class="cash-login-error"></div><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Guardar nueva clave</button></div></form>`);
-  $("#x").onclick=close;$("#cancel").onclick=close;$("#showCashPass").onclick=()=>{const i=$("#cashPasswordForm [name=password]");i.type=i.type==="password"?"text":"password"};
-  $("#cashPasswordForm").onsubmit=async e=>{
-    e.preventDefault();const d=new FormData(e.currentTarget),password=String(d.get("password")||""),confirm=String(d.get("confirm")||""),err=$("#cashPassError"),b=e.currentTarget.querySelector("button.primary");
-    err.textContent="";if(password.length<6)return err.textContent="La contraseña debe tener al menos 6 caracteres.";if(password!==confirm)return err.textContent="Las contraseñas no coinciden.";
+  const createStaff=async()=>{
+    const form=$("#staffForm"),b=$("#createCashStaffBtn"),errorBox=$("#staffCreateError");
+    if(!form||!b)return;
+    const d=new FormData(form);
+    const displayName=String(d.get("display_name")||"").trim();
+    const employeeCode=String(d.get("employee_code")||"").trim();
+    const username=String(d.get("username")||"").trim().toLowerCase();
+    const password=String(d.get("password")||"");
+    if(!displayName||!employeeCode||!username||password.length<6){
+      if(errorBox)errorBox.textContent="Completa nombre, ID/código, usuario y una clave de mínimo 6 caracteres.";
+      return;
+    }
+    if(errorBox)errorBox.textContent="Creando acceso…";
     b.disabled=true;
     try{
-      const r=await fetch("/api/cash-staff",{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({id:item.id,password})});
-      const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||"No se pudo cambiar la contraseña.");
-      close();toast("Contraseña actualizada correctamente","ok");
-    }catch(err2){err.textContent=err2.message||"No se pudo cambiar la contraseña.";b.disabled=false}
+      await cashStaffAdminRequest("POST",{action:"create",display_name:displayName,employee_code:employeeCode,username,password});
+      if(errorBox)errorBox.textContent="";
+      close();toast("Cajero creado correctamente","ok");await cash();
+    }catch(err){
+      const message=err?.message||"No se pudo crear el cajero.";
+      if(errorBox)errorBox.textContent=message;
+      toast(message,"err");
+      b.disabled=false;
+    }
   };
+  $("#createCashStaffBtn").onclick=e=>{e.preventDefault();e.stopPropagation();createStaff();};
+  $("#staffForm").onsubmit=e=>{e.preventDefault();createStaff();};
+}
+
+async function openCashPasswordModal(item){
+  const close=modal(`<div class="modal-head"><div><div class="eyebrow2">SEGURIDAD MAESTRA</div><h2>🔐 Cambiar clave</h2><p>Actualiza la clave del cajero <b>@${esc(item.username)}</b>.</p></div><button class="close" id="x">×</button></div><form id="cashPasswordForm"><label>Nueva clave<div class="password-field"><input name="password" type="password" minlength="6" required autofocus placeholder="Mínimo 6 caracteres"><button type="button" id="showCashPass">◉</button></div></label><label>Confirmar clave<input name="confirm" type="password" minlength="6" required placeholder="Repite la clave"></label><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Guardar clave</button></div></form>`);
+  $("#x").onclick=close;$("#cancel").onclick=close;
+  $("#showCashPass").onclick=()=>{const p=$("#cashPasswordForm input[name=password]");if(p)p.type=p.type==="password"?"text":"password"};
+  return new Promise(resolve=>{
+    $("#cashPasswordForm").onsubmit=async e=>{
+      e.preventDefault();const d=new FormData(e.currentTarget),password=String(d.get("password")||""),confirm=String(d.get("confirm")||"");
+      if(password!==confirm)return toast("Las claves no coinciden.","err");
+      const b=e.currentTarget.querySelector("button.primary");b.disabled=true;
+      try{await cashStaffAdminRequest("PATCH",{id:item.id,password});close();toast("Clave del cajero actualizada","ok");resolve(true)}
+      catch(err){toast(err.message||"No se pudo cambiar la clave.","err");b.disabled=false}
+    };
+  });
 }
 
 async function cash(){
@@ -2449,69 +2194,116 @@ async function cash(){
     return `<div class="cash-diff-row"><div><b>${new Date(x.closed_at).toLocaleDateString("es-PE")}</b><small>Esperado ${money(x.expected_amount)} · Contado ${money(x.closing_amount)}</small></div><div class="cash-diff-track"><i class="${d>=0?"positive":"negative"}" style="width:${h}%"></i></div><strong class="${d>=0?"cash-in":"cash-out"}">${d>=0?"+":""}${money(d)}</strong></div>`;
   }).join("");
 
+
   c.innerHTML=`
-    <div class="head"><div><div class="eyebrow2">CAJA · ${isCashier?"TURNO":"ADMINISTRACIÓN"}</div><h1>${isCashier?"Caja rápida.":"Cierre de caja."}</h1><p>${isCashier?`Usuario: <b>${esc(cashCtx.staff?.display_name||"Cajero")}</b> · ${open?`turno iniciado ${new Date(open.opened_at).toLocaleTimeString("es-PE",{hour:"2-digit",minute:"2-digit"})}`:"esperando apertura"}`:"Controla efectivo, turnos, usuarios, diferencias e informes con un máximo de 6 meses."}</p></div>
-      <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center"><label class="cash-period-select">Informe <select id="cashReportMonths" class="secondary">${[2,3,4,5,6].map(n=>`<option value="${n}" ${n===reportMonthsCount?"selected":""}>${n} meses</option>`).join("")}</select></label><button id="downloadCashExcel" class="secondary">▣ Excel · ${reportMonthsCount} meses</button>${!isCashier?'<button id="cashStaffLoginOpen" class="secondary">▣ Entrar como cajero</button><button id="cashStaff" class="secondary">👥 Personal</button>':`<button id="cashStaffLogout" class="secondary">↩ Salir de caja</button>`}${open&&!isCashier?'<button id="closeCashTop" class="primary">✓ Cerrar caja</button>':!open&&!isCashier?'<button id="openCashTop" class="primary">＋ Abrir caja</button>':""}</div>
-    </div>
-
-    ${!isCashier?`<section id="cashStaffPanel" class="card panel cash-login-panel hidden" aria-hidden="true"><div class="eyebrow2">PERSONAL DE CAJA</div><h3>Entrar a caja</h3><p>Usa el usuario y la contraseña que te asignó el administrador.</p><form id="cashStaffForm" autocomplete="on"><label>Usuario<input id="cashStaffUsername" name="username" autocomplete="username" autocapitalize="none" required placeholder="Ej. juan"></label><label>Contraseña<div class="password-field"><input id="cashStaffPassword" name="password" type="password" autocomplete="current-password" required placeholder="Tu contraseña"><button id="cashStaffPasswordToggle" type="button">◉</button></div></label><div id="cashStaffError" class="cash-login-error" role="alert"></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button id="cashStaffSubmit" class="primary" type="submit">Entrar a caja →</button><button id="cashStaffBack" class="secondary" type="button">Cancelar</button></div></form></section>`:""}
-
-    <section class="cash-kpis">
-      <article class="card cash-kpi"><span>ESTADO</span><strong>${open?"ABIERTA":"CERRADA"}</strong><small>${open?(new Date(open.opened_at)).toLocaleString("es-PE"):"Abre una nueva caja para comenzar"}</small></article>
-      <article class="card cash-kpi"><span>APERTURA</span><strong>${money(open?.opening_amount||0)}</strong><small>Efectivo inicial</small></article>
-      <article class="card cash-kpi"><span>INGRESOS</span><strong class="cash-in">${money(income)}</strong><small>${movements.filter(x=>x.type==="INCOME").length} movimientos</small></article>
-      <article class="card cash-kpi"><span>EGRESOS</span><strong class="cash-out">${money(expense)}</strong><small>${movements.filter(x=>x.type==="EXPENSE").length} movimientos</small></article>
-      <article class="card cash-kpi cash-total"><span>EFECTIVO EN CAJA</span><strong>${money(expected)}</strong><small>${movements[0]?`Último movimiento · ${esc(movements[0].created_by_name||"Usuario")} · ${movements[0].type==="INCOME"?"+":"−"}${money(movements[0].amount)} · ${new Date(movements[0].created_at).toLocaleTimeString("es-PE",{hour:"2-digit",minute:"2-digit"})}`:"Caja recién abierta · sin movimientos"}</small></article>
-    </section>
-
-    <section class="card panel cash-report-panel">
-      <div class="panel-title-row"><div><div class="eyebrow2">INFORME AUTOMÁTICO</div><h3>Últimos ${reportMonthsCount} meses</h3><small class="finance-subtitle">Desde ${reportStart.toLocaleDateString("es-PE")} hasta ${new Date(reportEnd.getTime()-86400000).toLocaleDateString("es-PE")}</small></div><button id="downloadCashExcel2" class="secondary">Descargar Excel</button></div>
-      <div class="cash-report-summary">
-        <div><span>CIERRES</span><strong>${closedTwoMonths.length}</strong></div>
-        <div><span>INGRESOS</span><strong class="cash-in">${money(monthly.reduce((s,x)=>s+x.income,0))}</strong></div>
-        <div><span>EGRESOS</span><strong class="cash-out">${money(monthly.reduce((s,x)=>s+x.expense,0))}</strong></div>
-        <div><span>DIFERENCIA</span><strong>${money(monthly.reduce((s,x)=>s+x.difference,0))}</strong></div>
-      </div>
-      <div class="cash-chart"><div class="cash-chart-title"><div><b>Ingresos vs. egresos</b><small>Comparación mensual de movimientos registrados</small></div><span><i class="cash-legend-income"></i>Ingresos <i class="cash-legend-expense"></i>Egresos</span></div>${monthSummary}</div>
-      <div class="cash-difference-chart"><div class="cash-chart-title"><div><b>Diferencia de cada cierre</b><small>Contado frente al efectivo esperado</small></div></div>${closedSummaryRows||'<div class="empty">No hay cierres en este período.</div>'}</div>
-    </section>
-
-    ${isCashier&&open&&movements[0]?`<div class="cash-last-movement"><div><b>Último movimiento</b><small>${esc(movements[0].created_by_name||"Usuario")} · ${movements[0].type==="INCOME"?"Ingreso":"Egreso"} · ${new Date(movements[0].created_at).toLocaleString("es-PE",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}</small></div><strong class="${movements[0].type==="INCOME"?"cash-in":"cash-out"}">${movements[0].type==="INCOME"?"+":"−"} ${money(movements[0].amount)}</strong></div>`:""}
-
-    ${open?`
-      <section class="card panel cash-actions"><div class="panel-title-row"><div><div class="eyebrow2">MOVIMIENTOS · ${isCashier?"MODO RÁPIDO":"ADMINISTRACIÓN"}</div><h3>${isCashier?"Registrar en 2 toques":"Registrar operación"}</h3></div></div>
-        <div class="cash-action-grid"><button id="cashIncome" class="cash-action income"><span class="cash-action-circle">＋</span><b>Ingreso</b><small>Venta · cobro · servicio</small></button><button id="cashExpense" class="cash-action expense"><span class="cash-action-circle">−</span><b>Egreso</b><small>Compra · transporte · gasto</small></button></div>
+    <div class="cash-mobile-center">
+      <section class="cash-hero">
+        <div class="cash-hero-copy">
+          <div class="cash-hero-eyebrow">CAJA · ${isCashier?"TURNO":"ADMINISTRACIÓN"}</div>
+          <h1>${isCashier?"Caja rápida.":"Centro de caja."}</h1>
+          <p>${isCashier?"Usuario: <b>"+esc(cashCtx.staff?.display_name||"Cajero")+"</b> · "+(open?"turno iniciado "+new Date(open.opened_at).toLocaleTimeString("es-PE",{hour:"2-digit",minute:"2-digit"}):"esperando apertura"):"Controla ingresos, egresos y ventas con trazabilidad. Administra turnos, usuarios y genera reportes en segundos."}</p>
+        </div>
+        <div class="cash-hero-status"><i></i>${open?"Operativa":"Cerrada"}</div>
+        <div class="cash-hero-visual" aria-hidden="true">
+          <div class="cash-hero-ring"></div>
+          <div class="cash-register-icon"><div class="cash-paper"><span></span><span></span><span></span></div><div class="cash-screen"></div><div class="cash-keys"><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+        </div>
       </section>
-      <section class="card panel cash-movements"><div class="panel-title-row"><div><div class="eyebrow2">MOVIMIENTOS DE HOY</div><h3>Detalle de caja</h3></div></div>
-      <div class="scroll"><table class="data"><thead><tr><th>Hora</th><th>Usuario</th><th>Tipo</th><th>Concepto</th><th>Referencia</th><th>Monto</th></tr></thead><tbody>
-      ${movements.map(x=>`<tr><td>${new Date(x.created_at).toLocaleTimeString("es-PE",{hour:"2-digit",minute:"2-digit"})}</td><td>${esc(x.created_by_name||"Administrador")}</td><td><span class="cash-type ${x.type==="INCOME"?"in":"out"}">${x.type==="INCOME"?"Ingreso":"Egreso"}</span></td><td><b>${esc(x.concept)}</b></td><td>${esc(x.reference||"—")}</td><td class="${x.type==="INCOME"?"cash-in":"cash-out"}"><b>${x.type==="INCOME"?"+":"−"} ${money(x.amount)}</b></td></tr>`).join("")||'<tr><td colspan="6" class="empty">Aún no hay movimientos.</td></tr>'}
-      </tbody></table></div></section>
-    `:'<section class="card panel cash-closed-empty"><div class="empty-state"><span>▣</span><b>${isCashier?"La caja está cerrada":"No hay una caja abierta"}</b><small>${isCashier?"El administrador debe abrir la caja antes de registrar ingresos o egresos.":"Abre una nueva caja indicando el efectivo inicial para comenzar."}</small></div></section>'}
+      <section class="cash-primary-actions">
+        ${open?"<button id=\"cashIncome\" class=\"cash-primary-action income\"><span>＋</span><b>Nuevo<br>ingreso</b></button>":"<button id=\"openCashTop\" class=\"cash-primary-action income\"><span>＋</span><b>Abrir<br>caja</b></button>"}
+        ${open?"<button id=\"cashExpense\" class=\"cash-primary-action expense\"><span>−</span><b>Nuevo<br>egreso</b></button>":"<button id=\"cashStaffLoginOpen2\" class=\"cash-primary-action staff\"><span>↪</span><b>Entrar<br>como cajero</b></button>"}
+        ${open?"<button id=\"cashSaleQuick\" class=\"cash-primary-action sale\"><span>🛒</span><b>Nueva<br>venta</b></button>":""}
+        ${isCashier?"<button id=\"cashStaffLogout\" class=\"cash-primary-action staff\"><span>↩</span><b>Salir<br>de caja</b></button>":""}
+        ${!isCashier?"<button id=\"cashStaff2\" class=\"cash-primary-action users\"><span>⚙</span><b>Administrar<br>cajeros</b></button>":""}${!isCashier?"<button id=\"cashStaffCreate\" class=\"cash-primary-action income\"><span>＋</span><b>Crear<br>cajero</b></button>":""}
+      </section>
+      ${!isCashier?"<section id=\"cashStaffPanel\" class=\"card panel cash-login-panel hidden\" aria-hidden=\"true\"><div class=\"eyebrow2\">PERSONAL DE CAJA</div><h3>Entrar a caja</h3><p>Usa el usuario y la contraseña que te asignó el administrador.</p><form id=\"cashStaffForm\" autocomplete=\"on\"><label>Usuario<input id=\"cashStaffUsername\" name=\"username\" autocomplete=\"username\" autocapitalize=\"none\" required placeholder=\"Ej. juan\"></label><label>Contraseña<div class=\"password-field\"><input id=\"cashStaffPassword\" name=\"password\" type=\"password\" autocomplete=\"current-password\" required placeholder=\"Tu contraseña\"><button id=\"cashStaffPasswordToggle\" type=\"button\">◉</button></div></label><div id=\"cashStaffError\" class=\"cash-login-error\" role=\"alert\"></div><div style=\"display:flex;gap:8px;flex-wrap:wrap\"><button id=\"cashStaffSubmit\" class=\"primary\" type=\"submit\">Entrar a caja →</button><button id=\"cashStaffBack\" class=\"secondary\" type=\"button\">Cancelar</button></div></form></section>":""}
 
-    <section class="card panel"><div class="panel-title-row"><div><div class="eyebrow2">HISTORIAL</div><h3>Últimos cierres</h3></div></div>
-      <div class="cash-history">${(closed||[]).slice(0,10).map(x=>`<div class="cash-history-row"><div><b>${new Date(x.closed_at).toLocaleDateString("es-PE")}</b><small>Esperado ${money(x.expected_amount)} · Contado ${money(x.closing_amount)}</small></div><strong class="${Number(x.difference||0)===0?"cash-in":"cash-out"}">${Number(x.difference||0)>=0?"+":""}${money(x.difference)}</strong></div>`).join("")||'<div class="empty">Todavía no hay cierres registrados.</div>'}</div>
-    </section>`;
+      <section class="cash-current-card">
+        <div class="cash-current-info">
+          <div class="cash-current-label">ESTADO ACTUAL <span class="cash-status-pill ${open?"on":"off"}"><i></i>${open?"ABIERTA":"CERRADA"}</span></div>
+          <div class="cash-current-detail"><span>▣</span><div><small>Apertura</small><b>${open?new Date(open.opened_at).toLocaleString("es-PE"):"Sin apertura"}</b></div></div>
+          <div class="cash-current-detail"><span>●</span><div><small>${isCashier?"Cajero actual":"Usuario actual"}</small><b>${esc(isCashier?cashCtx.staff?.display_name||"Cajero":"Administrador")}</b></div></div>
+        </div>
+        <div class="cash-current-balance"><small>SALDO ACTUAL</small><strong>${money(expected)}</strong>${open&&!isCashier?"<button id=\"closeCashTop\" class=\"primary cash-close-btn\">🔒 Cerrar caja</button>":open&&isCashier?"<button id=\"cashStaffLogout2\" class=\"secondary cash-close-btn\">↩ Salir de caja</button>":""}</div>
+      </section>
+
+      <section class="cash-day-summary">
+        <div class="cash-section-title"><b>✣ &nbsp;Resumen del día</b><span>Hoy, ${now.toLocaleDateString("es-PE",{day:"2-digit",month:"short",year:"numeric"})}</span></div>
+        <div class="cash-day-grid">
+          <article class="cash-day income"><i>↗</i><span>Ingresos</span><strong>${money(income)}</strong><small>${movements.filter(x=>x.type==="INCOME").length} movimientos</small></article>
+          <article class="cash-day expense"><i>↘</i><span>Egresos</span><strong>${money(expense)}</strong><small>${movements.filter(x=>x.type==="EXPENSE").length} movimientos</small></article>
+          <article class="cash-day sales"><i>🛒</i><span>Ventas</span><strong>${money(movements.filter(x=>x.type==="INCOME"&&/venta/i.test(String(x.concept||""))).reduce((s,x)=>s+Number(x.amount||0),0))}</strong><small>${movements.filter(x=>x.type==="INCOME"&&/venta/i.test(String(x.concept||""))).length} ventas</small></article>
+          <article class="cash-day moves"><i>▤</i><span>Movimientos</span><strong>${movements.length}</strong><small>total del día</small></article>
+        </div>
+      </section>
+
+      <section class="cash-quick-section">
+        <div class="cash-section-title"><b>ϟ &nbsp;Acciones rápidas</b><button id="cashHistoryQuick" type="button">Ver historial →</button></div>
+        <div class="cash-quick-grid">
+          <button id="cashPartialClose" type="button"><i>◔</i><span>Cierre parcial</span></button>
+          <button id="downloadCashExcelQuick" type="button"><i>▣</i><span>Reporte Excel</span></button>
+          <button id="cashAuditQuick" type="button"><i>⌕</i><span>Arqueo de caja</span></button>
+          <button id="cashStaffQuick" type="button"><i>♟</i><span>Usuarios de caja</span></button>
+        </div>
+      </section>
+
+      <section class="card panel cash-report-panel cash-report-mobile">
+        <div class="panel-title-row"><div><div class="eyebrow2">INFORME AUTOMÁTICO</div><h3>Últimos ${reportMonthsCount} meses</h3><small class="finance-subtitle">Desde ${reportStart.toLocaleDateString("es-PE")} hasta ${new Date(reportEnd.getTime()-86400000).toLocaleDateString("es-PE")}</small></div><label class="cash-period-select">Informe <select id="cashReportMonths" class="secondary">${[2,3,4,5,6].map(n=>"<option value=\""+n+"\" "+(n===reportMonthsCount?"selected":"")+">"+n+" meses</option>").join("")}</select></label></div>
+        <button id="downloadCashExcel" class="secondary cash-excel-top">▣ Excel · ${reportMonthsCount} meses</button>
+        <div class="cash-report-summary"><div><span>CIERRES</span><strong>${closedTwoMonths.length}</strong></div><div><span>INGRESOS</span><strong class="cash-in">${money(monthly.reduce((s,x)=>s+x.income,0))}</strong></div><div><span>EGRESOS</span><strong class="cash-out">${money(monthly.reduce((s,x)=>s+x.expense,0))}</strong></div><div><span>DIFERENCIA</span><strong>${money(monthly.reduce((s,x)=>s+x.difference,0))}</strong></div></div>
+        <div class="cash-chart"><div class="cash-chart-title"><div><b>Ingresos vs. egresos</b><small>Comparación mensual de movimientos registrados</small></div></div>${monthSummary}</div>
+        <div class="cash-difference-chart"><div class="cash-chart-title"><div><b>Diferencia de cada cierre</b><small>Contado frente al efectivo esperado</small></div></div>${closedSummaryRows||"<div class=\"empty\">No hay cierres en este período.</div>"}</div>
+      </section>
+
+      ${isCashier&&open&&movements[0]?"<div class=\"cash-last-movement\"><div><b>Último movimiento</b><small>"+esc(movements[0].created_by_name||"Usuario")+" · "+(movements[0].type==="INCOME"?"Ingreso":"Egreso")+" · "+new Date(movements[0].created_at).toLocaleString("es-PE",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})+"</small></div><strong class=\""+(movements[0].type==="INCOME"?"cash-in":"cash-out")+"\">"+(movements[0].type==="INCOME"?"+":"−")+" "+money(movements[0].amount)+"</strong></div>":""}
+
+      ${open?"<section class=\"card panel cash-movements\" id=\"cashMovementHistory\"><div class=\"panel-title-row\"><div><div class=\"eyebrow2\">MOVIMIENTOS DE HOY</div><h3>Últimos movimientos</h3></div></div><div class=\"scroll\"><table class=\"data\"><thead><tr><th>Hora</th><th>Usuario</th><th>Tipo</th><th>Concepto</th><th>Referencia</th><th>Monto</th></tr></thead><tbody>"+(movements.map(x=>"<tr><td>"+new Date(x.created_at).toLocaleTimeString("es-PE",{hour:"2-digit",minute:"2-digit"})+"</td><td>"+esc(x.created_by_name||"Administrador")+"</td><td><span class=\"cash-type "+(x.type==="INCOME"?"in":"out")+"\">"+(x.type==="INCOME"?"Ingreso":"Egreso")+"</span></td><td><b>"+esc(x.concept)+"</b></td><td>"+esc(x.reference||"—")+"</td><td class=\""+(x.type==="INCOME"?"cash-in":"cash-out")+"\"><b>"+(x.type==="INCOME"?"+":"−")+" "+money(x.amount)+"</b></td></tr>").join("")||"<tr><td colspan=\"6\" class=\"empty\">Aún no hay movimientos.</td></tr>")+"</tbody></table></div></section>":"<section class=\"card panel cash-closed-empty\"><div class=\"empty-state\"><span>▣</span><b>"+(isCashier?"La caja está cerrada":"No hay una caja abierta")+"</b><small>"+(isCashier?"El administrador debe abrir la caja antes de registrar movimientos.":"Abre una caja para comenzar a registrar movimientos.")+"</small></div></section>"}
+    </div>
+  `;
+
 
   const report={
     start:reportStart,end:new Date(reportEnd.getTime()-86400000),months:monthly,registers:closedTwoMonths,movements:reportMovements
   };
   const exportExcel=()=>downloadCashExcel(report);
-  $("#downloadCashExcel").onclick=exportExcel;
-  $("#downloadCashExcel2").onclick=exportExcel;
+  if($("#downloadCashExcel"))$("#downloadCashExcel").onclick=exportExcel;
   $("#cashReportMonths").onchange=e=>{const n=Math.min(6,Math.max(2,Number(e.target.value)||2));const u=new URL(location.href);u.searchParams.set("cashMonths",String(n));history.replaceState({},document.title,u.toString());cash()};
 
   if($("#cashStaff"))$("#cashStaff").onclick=()=>cashStaffModal();
+  if($("#cashStaff2"))$("#cashStaff2").onclick=()=>cashStaffModal();
+  if($("#cashStaffCreate"))$("#cashStaffCreate").onclick=()=>cashStaffModal();
+  if($("#cashStaffQuick"))$("#cashStaffQuick").onclick=()=>cashStaffModal();
+  if($("#cashStaffLoginOpen2"))$("#cashStaffLoginOpen2").onclick=()=>showCashStaffLogin(true);
+  if($("#cashSaleQuick"))$("#cashSaleQuick").onclick=()=>cashMovementModal(open,"INCOME");
+  if($("#cashHistoryQuick"))$("#cashHistoryQuick").onclick=()=>document.querySelector("#cashMovementHistory")?.scrollIntoView({behavior:"smooth",block:"start"});
+  if($("#cashAuditQuick"))$("#cashAuditQuick").onclick=()=>document.querySelector("#cashMovementHistory")?.scrollIntoView({behavior:"smooth",block:"start"});
+  if($("#downloadCashExcelQuick"))$("#downloadCashExcelQuick").onclick=()=>downloadCashExcel(report);
+  if($("#cashPartialClose"))$("#cashPartialClose").onclick=()=>open?closeCashModal(open,expected):toast("Abre la caja antes de realizar un cierre.","err");
   if($("#cashStaffLoginOpen"))$("#cashStaffLoginOpen").onclick=()=>showCashStaffLogin(true);
   if($("#cashStaffBack"))$("#cashStaffBack").onclick=()=>showCashStaffLogin(false);
   if($("#cashStaffForm"))$("#cashStaffForm").onsubmit=signInCashStaff;
   if($("#cashStaffPasswordToggle"))$("#cashStaffPasswordToggle").onclick=()=>{const p=$("#cashStaffPassword");if(p){p.type=p.type==="password"?"text":"password"}};
+  if($("#cashStaffLogout2"))$("#cashStaffLogout2").onclick=async()=>{$("#cashStaffLogout")?.click()};
   if($("#cashStaffLogout"))$("#cashStaffLogout").onclick=async()=>{
     const ok=confirm("¿Salir de esta caja?");
     if(!ok)return;
-    try{await S.auth.signOut();toast("Sesión de caja cerrada","ok")}catch(err){toast(err?.message||"No se pudo salir de la caja.","err")}
+    try{
+      const raw=sessionStorage.getItem("marc_cash_owner_session");
+      const owner=raw?JSON.parse(raw):null;
+      sessionStorage.removeItem("marc_cash_owner_session");
+      if(owner?.access_token&&owner?.refresh_token){
+        const restored=await S.auth.setSession({access_token:owner.access_token,refresh_token:owner.refresh_token});
+        if(restored.error)throw restored.error;
+        await enter(restored.data.session);
+        toast("Sesión de caja cerrada · regresaste al administrador","ok");
+      }else{
+        await S.auth.signOut();
+        toast("Sesión de caja cerrada","ok");
+      }
+    }catch(err){toast(err?.message||"No se pudo salir de la caja.","err")}
   };
-  if(open&&!isCashier)$("#closeCashTop").onclick=()=>closeCashModal(open,expected);
-  else if(!open&&!isCashier&&$("#openCashTop"))$("#openCashTop").onclick=()=>openCashModal();
+  if(open&&!isCashier)$("#closeCashTop").onclick=async()=>{if(await ensureCashMaster())closeCashModal(open,expected)};
+  else if(!open&&!isCashier&&$("#openCashTop"))$("#openCashTop").onclick=async()=>{if(await ensureCashMaster())openCashModal()};
   if(open){$("#cashIncome").onclick=()=>cashMovementModal(open,"INCOME");$("#cashExpense").onclick=()=>cashMovementModal(open,"EXPENSE");}
 }
 
@@ -2545,10 +2337,11 @@ function downloadCashExcel(report){
 
   const regMap=new Map(report.registers.map(x=>[x.id,x]));
   const movRows=[
-    ["Fecha","Caja","Tipo","Concepto","Referencia","Monto"],
+    ["Fecha","Caja","Usuario","Tipo","Concepto","Referencia","Monto"],
     ...report.movements.map(x=>[
       fmtDate(x.created_at),
       regMap.get(x.cash_register_id)?.closed_at?new Date(regMap.get(x.cash_register_id).closed_at).toLocaleDateString("es-PE"):"",
+      x.created_by_name||"",
       x.type==="INCOME"?"Ingreso":"Egreso",
       x.concept||"",
       x.reference||"",
@@ -2556,8 +2349,8 @@ function downloadCashExcel(report){
     ])
   ];
   const wsMov=XLSX.utils.aoa_to_sheet(movRows);
-  wsMov["!cols"]=[{wch:21},{wch:14},{wch:12},{wch:38},{wch:25},{wch:14}];
-  if(movRows.length>1)wsMov["!autofilter"]={ref:"A1:F"+movRows.length};
+  wsMov["!cols"]=[{wch:21},{wch:14},{wch:24},{wch:12},{wch:38},{wch:25},{wch:14}];
+  if(movRows.length>1)wsMov["!autofilter"]={ref:"A1:G"+movRows.length};
   XLSX.utils.book_append_sheet(wb,wsMov,"Movimientos");
 
   // Hojas adicionales para un informe de auditoría detallado.
@@ -3433,7 +3226,7 @@ function wire(){
     renderClientPortal(portalToken);
     return;
   }
-  const toggleTheme=()=>applyTheme(document.documentElement.dataset.theme==="dark"?"light":"dark");
+  const toggleTheme=()=>cycleTheme();
   $("#themeToggle").onclick=toggleTheme;
   $("#authThemeToggle").onclick=toggleTheme;
   mode("login");
@@ -3448,17 +3241,12 @@ function wire(){
   $("#exitConversation").onclick=closeChat;
   $("#menu").onclick=()=>$("#sidebar").classList.toggle("open");
   $("#mobileScrim").onclick=()=>$("#sidebar").classList.remove("open");
-  // Navegación robusta para escritorio y móvil: delegación de eventos para que
-  // los botones sigan funcionando aunque el contenido se redibuje dinámicamente.
-  document.querySelectorAll(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>{
-    b.type="button";
-    b.onclick=(e)=>{e.preventDefault();e.stopPropagation();if(b.dataset.view==="suppliers"&&typeof window.marcSupplierCenter==="function")return window.marcSupplierCenter();return view(b.dataset.view)};
-  });
   document.addEventListener("click",e=>{
-    const b=e.target.closest?.(".sidebar nav button[data-view],#mobileNav button[data-view]");
+    const b=e.target.closest?.(".sidebar nav button[data-view]");
     if(!b)return;
     e.preventDefault();
     if(b.dataset.view==="suppliers"&&typeof window.marcSupplierCenter==="function")return window.marcSupplierCenter();
+    if(b.dataset.view==="settings")return companySettings();
     view(b.dataset.view);
   },true);
   $("#chatForm").onsubmit=e=>{e.preventDefault();const v=$("#chatInput").value.trim();if(v){$("#chatInput").value="";chatSend(v)}};
@@ -3516,5 +3304,15 @@ function wire(){
     msg(authDiag("Error de autenticación",e?.message||"Error desconocido"),"error");
   });
 }
+// API pública mínima para módulos auxiliares (proveedores, notificaciones y herramientas visuales).
+// Mantiene el núcleo encapsulado y evita que cada módulo dependa de variables internas sueltas.
+window.MARC=window.MARC||{};
+Object.assign(window.MARC,{view,openChat,closeChat,toast});
+window.view=view;
+window.openChat=openChat;
+window.closeChat=closeChat;
+window.toast=toast;
+Object.defineProperty(window,"st",{configurable:true,get:()=>st});
+
 wire()})();
 window.addEventListener("DOMContentLoaded",()=>{if($("#cashStaffLogin"))$("#cashStaffLogin").onclick=signInCashStaff});

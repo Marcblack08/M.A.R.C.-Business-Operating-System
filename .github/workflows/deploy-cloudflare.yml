@@ -2,9 +2,10 @@ name: Deploy Cloudflare Worker
 
 on:
   push:
+    # Solo main publica al Worker de producción.
+    # Las ramas de trabajo no deben enviar tráfico al Worker productivo.
     branches:
       - main
-      - graphic-lab
   workflow_dispatch:
 
 permissions:

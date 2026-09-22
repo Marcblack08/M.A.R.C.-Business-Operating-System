@@ -3803,7 +3803,7 @@ export default{
         const staff=lookup?.[0];
         if(!staff||!staff.active)return json({error:"Usuario de caja no disponible"},401,headers);
         const adminToken=env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY;
-        let loginEmail=username+"@cash.marc.local";
+        let loginEmail=username+"@cash.marc.pe";
         if(adminToken&&staff.auth_user_id){
           const ur=await fetch(env.SUPABASE_URL+"/auth/v1/admin/users/"+encodeURIComponent(staff.auth_user_id),{headers:{apikey:adminToken,Authorization:"Bearer "+adminToken}});
           const ud=await ur.json().catch(()=>null);
@@ -3837,11 +3837,34 @@ export default{
           if(!username||!displayName||password.length<6)return json({error:"Completa usuario, nombre y una contraseña de mínimo 6 caracteres."},400,headers);
           const exists=await sb(env,token,"marc_cash_staff?select=id&owner_user_id=eq."+encodeURIComponent(user.id)+"&username=eq."+encodeURIComponent(username)+"&limit=1");
           if(exists?.length)return json({error:"Ese usuario de caja ya existe."},409,headers);
-          const email=username+"@cash.marc.local";
+          const email=username+"@cash.marc.pe";
+          let authUserId=null;
           const ar=await fetch(env.SUPABASE_URL+"/auth/v1/admin/users",{method:"POST",headers:{"content-type":"application/json",apikey:adminToken,Authorization:"Bearer "+adminToken},body:JSON.stringify({email,password,email_confirm:true,user_metadata:{cash_username:username,cash_owner_id:user.id}})});
-          const ad=await ar.json().catch(()=>null);
-          if(!ar.ok)throw Object.assign(new Error(ad?.msg||ad?.message||ad?.error_description||"No se pudo crear el usuario de caja."),{status:ar.status});
-          const rows=await sb(env,adminToken,"marc_cash_staff",{method:"POST",body:{owner_user_id:user.id,auth_user_id:ad.user.id,username,display_name:displayName,role:"CASHIER",active:true}});
+          let ad=await ar.json().catch(()=>null);
+          if(ar.ok){
+            authUserId=ad?.user?.id||ad?.id;
+          }else if(String(ad?.msg||ad?.message||ad?.error_description||ad?.error||"").toLowerCase().includes("already registered")){
+            // Recupera una cuenta Auth huérfana creada por un intento anterior.
+            let page=1;
+            while(!authUserId && page<=10){
+              const lr=await fetch(env.SUPABASE_URL+"/auth/v1/admin/users?page="+page+"&per_page=100",{method:"GET",headers:{apikey:adminToken,Authorization:"Bearer "+adminToken}});
+              const lj=await lr.json().catch(()=>null);
+              const found=(lj?.users||[]).find(x=>String(x?.email||"").toLowerCase()===email.toLowerCase());
+              if(found)authUserId=found.id;
+              if(!lj?.users?.length || lj.users.length<100)break;
+              page++;
+            }
+            if(authUserId){
+              const linked=await sb(env,adminToken,"marc_cash_staff?select=id,owner_user_id&auth_user_id=eq."+encodeURIComponent(authUserId)+"&limit=1");
+              if(linked?.length)throw Object.assign(new Error("Ese usuario de cajero ya está registrado."),{status:409});
+              const ur=await fetch(env.SUPABASE_URL+"/auth/v1/admin/users/"+encodeURIComponent(authUserId),{method:"PUT",headers:{"content-type":"application/json",apikey:adminToken,Authorization:"Bearer "+adminToken},body:JSON.stringify({password,email_confirm:true,user_metadata:{cash_username:username,cash_owner_id:user.id}})});
+              if(!ur.ok)throw Object.assign(new Error("La cuenta de cajero ya existe pero no se pudo recuperar."),{status:502});
+            }
+          }else{
+            throw Object.assign(new Error(ad?.msg||ad?.message||ad?.error_description||ad?.error||"No se pudo crear el usuario de caja."),{status:ar.status,details:ad});
+          }
+          if(!authUserId)throw Object.assign(new Error("Supabase no devolvió el ID del usuario de caja."),{status:502,details:ad});
+          const rows=await sb(env,adminToken,"marc_cash_staff",{method:"POST",body:{owner_user_id:user.id,auth_user_id:authUserId,username,display_name:displayName,employee_code:String(body?.employee_code||"").trim().slice(0,60),role:"CASHIER",active:true}});
           return json({staff:rows?.[0]||null},201,headers);
         }
 

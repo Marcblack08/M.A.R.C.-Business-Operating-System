@@ -3020,30 +3020,29 @@ async function marketingImage(request,env){
 
   for(const variant of variants){
     const visualPrompt=[
-      "Crea el fondo visual profesional de un banner publicitario para un negocio real.",
-      "NO escribas texto, letras, números, precios, marcas, logotipos, botones, hashtags ni interfaces dentro de la imagen.",
-      "La composición debe dejar una zona limpia y legible para que la aplicación agregue posteriormente el texto exacto.",
-      "Si recibes una foto del producto, conserva fielmente el producto, su forma, color, detalles y proporciones; mejora iluminación, fondo y presentación sin alterar sus características.",
-      "Si no recibes foto, crea una representación visual coherente y comercial basada únicamente en los datos del producto.",
-      "Estética: pieza publicitaria profesional para redes sociales, inspirada en anuncios comerciales de tecnología y seguridad: composición dinámica, producto grande y protagonista, fondo azul/cian de alto contraste, zonas visuales claras para título, beneficios, precio y llamada a la acción.",
-      "El producto debe verse grande, nítido y atractivo. Prioriza una presentación comercial realista sobre un simple fondo vacío.",
-      "Puedes incorporar formas geométricas, brillos, ondas, líneas, iconos visuales genéricos y elementos gráficos tecnológicos, pero NO escribas texto ni números dentro de la imagen.",
-      "Plataforma: "+platform+". Relación de aspecto: "+ratio+".",
+      "Crea una pieza visual publicitaria profesional usando la FOTO PRINCIPAL como fuente absoluta de verdad.",
+      "IDENTIDAD DEL PRODUCTO: conserva exactamente el objeto fotografiado. No lo reemplaces, no lo conviertas en otro producto, no cambies su categoría, marca visible, forma, estructura, color principal ni características físicas.",
+      "Si los datos escritos dicen una cosa diferente a la foto, IGNORA los datos contradictorios y sigue la foto. Nunca conviertas un ventilador en una cámara, una herramienta en otro producto ni un producto TOTAL en otro producto.",
+      "Puedes mejorar el entorno: elimina fondos descuidados, manos, piernas, superficies pobres y elementos distractores cuando sea posible; crea un fondo profesional coherente con el uso real del producto; mejora iluminación, sombras, profundidad, nitidez y composición.",
+      "El producto debe permanecer reconocible y físicamente fiel. No inventes accesorios importantes ni cambies piezas del producto.",
+      "No escribas texto, letras, números, precios, especificaciones, marcas nuevas, logotipos nuevos, códigos QR, botones ni interfaces dentro de la imagen. La aplicación colocará posteriormente los textos exactos y el logo real.",
+      "Deja una zona visual limpia y equilibrada para que la aplicación coloque titular, precio y llamada a la acción.",
+      "Estética: anuncio comercial profesional para redes sociales, producto grande y protagonista, fondo relacionado con su uso, iluminación atractiva, profundidad y composición moderna. Evita plantillas genéricas vacías.",
+      "Relación de aspecto: "+ratio+".",
       "PROPUESTA VISUAL: "+variant+". "+(styleMap[variant]||"Composición moderna y comercial equilibrada."),
-      "Producto: "+JSON.stringify({
-        name:String(p.name||"Producto"),
-        brand:String(p.brand||""),
-        model:String(p.model||""),
-        category:String(p.category||""),
-        details:String(body?.details||""),
-        headline:String(campaign.headline||""),
-        objective:String(body?.objective||"VENDER")
+      "DATOS AUXILIARES DEL PRODUCTO (solo sirven para contexto y nunca pueden contradecir la foto): "+JSON.stringify({
+        name:String(p.name||""),brand:String(p.brand||""),model:String(p.model||""),category:String(p.category||""),details:String(body?.details||"")
       })
     ].join("\n");
 
     const parts=[{text:visualPrompt}];
     if(imageData)parts.push({inlineData:{mimeType:imageData[1]==="image/jpg"?"image/jpeg":imageData[1],data:imageData[2]}});
-
+    const refRaw=String(body?.referenceImageData||"");
+    const refMatch=refRaw.match(/^data:(image\/(?:png|jpeg|jpg|webp));base64,(.+)$/);
+    if(refMatch){
+      parts.push({text:"FOTO DE REFERENCIA: úsala únicamente para confirmar modelo, marca, etiqueta o detalles visibles. No la uses para cambiar la identidad del producto principal."});
+      parts.push({inlineData:{mimeType:refMatch[1]==="image/jpg"?"image/jpeg":refMatch[1],data:refMatch[2]}});
+    }
     let variantImage=null;
     for(const model of models){
       try{

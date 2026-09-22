@@ -19,22 +19,32 @@ function initTheme(){
 }
 function authRateLimitMessage(e){const raw=String(e?.message||"").toLowerCase();return raw.includes("rate limit")||raw.includes("too many")||raw.includes("over_email_send_rate_limit")}
 function mode(m){authMode=m;const title=m==="login"?"Inicia sesión en M.A.R.C.":"Accede a M.A.R.C.";const sub=m==="login"?"Accede a M.A.R.C. de forma rápida y segura con tu cuenta de Google.":"Accede a M.A.R.C. con tu cuenta de Google.";if($("#authTitle"))$("#authTitle").textContent=title;if($("#authSub"))$("#authSub").textContent=sub;msg("")}
-async function signInCashStaff(){
-  const username=prompt("Usuario de caja:");
-  if(!username)return;
-  const password=prompt("Contraseña:");
-  if(!password)return;
-  const b=$("#cashStaffLogin");if(b)b.disabled=true;
+function showCashStaffLogin(show=true){
+  const panel=$("#cashStaffPanel"), main=$("#googleLogin"), trigger=$("#cashStaffLogin"), foot=$(".auth-foot");
+  if(!panel)return;
+  panel.classList.toggle("hidden",!show); panel.setAttribute("aria-hidden",String(!show));
+  if(main)main.classList.toggle("hidden",show);
+  if(trigger)trigger.classList.toggle("hidden",show);
+  if(foot)foot.classList.toggle("hidden",show);
+  if(show){$("#cashStaffError").textContent="";setTimeout(()=>$("#cashStaffUsername")?.focus(),60)}
+}
+function cashStaffError(t){const e=$("#cashStaffError");if(e)e.textContent=t||""}
+async function signInCashStaff(e){
+  e?.preventDefault();
+  const form=$("#cashStaffForm"),b=$("#cashStaffSubmit");
+  if(!form)return;
+  const d=new FormData(form),username=String(d.get("username")||"").trim(),password=String(d.get("password")||"");
+  cashStaffError("");
+  if(!username||password.length<6)return cashStaffError("Escribe tu usuario y una contraseña válida.");
+  if(b)b.disabled=true;
   try{
-    msg("Validando acceso de caja…");
     const r=await fetch("/api/cash-staff/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username,password})});
-    const j=await r.json();
+    const j=await r.json().catch(()=>({}));
     if(!r.ok)throw new Error(j.error||"Usuario o contraseña incorrectos.");
-    if(!j.session?.access_token||!j.session?.refresh_token)throw new Error("La sesión de caja no pudo iniciarse.");
+    if(!j.session?.access_token||!j.session?.refresh_token)throw new Error("No se pudo iniciar la sesión de caja.");
     const {error}=await S.auth.setSession({access_token:j.session.access_token,refresh_token:j.session.refresh_token});
     if(error)throw error;
-    msg("");
-  }catch(e){msg(e.message||"No se pudo iniciar el acceso de caja.","error")}finally{if(b)b.disabled=false}
+  }catch(err){cashStaffError(err?.message||"No se pudo iniciar el acceso de caja.");if(b)b.disabled=false}
 }
 async function signInGoogle(){
   const b=$("#googleLogin");
@@ -77,7 +87,7 @@ async function enter(s){
     applyCashierMode(!!cashCtx.isStaff);
     app.classList.remove("hidden");
     await loadBrandLogo();
-    await view("home");
+    await view(cashCtx.isStaff?"cash":"home");
   }catch(e){
     if(epoch!==st.authEpoch)return;
     st.u=null;st.session=null;st.cid=null;
@@ -3324,6 +3334,10 @@ function wire(){
   $("#authThemeToggle").onclick=toggleTheme;
   mode("login");
   $("#googleLogin").onclick=signInGoogle;
+  $("#cashStaffLogin").onclick=()=>showCashStaffLogin(true);
+  $("#cashStaffBack").onclick=()=>showCashStaffLogin(false);
+  $("#cashStaffForm").onsubmit=signInCashStaff;
+  $("#cashStaffPasswordToggle").onclick=()=>{const i=$("#cashStaffPassword"),b=$("#cashStaffPasswordToggle");if(!i)return;i.type=i.type==="password"?"text":"password";b.textContent=i.type==="password"?"◉":"◎"};
   $("#logout").onclick=async()=>{resetUiToLogin();await S.auth.signOut();};
   $("#askTop").onclick=openChat;
   $("#closeChat").onclick=closeChat;

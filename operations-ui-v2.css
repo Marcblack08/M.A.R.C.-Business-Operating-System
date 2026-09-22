@@ -324,3 +324,47 @@ button[data-ops-lock="1"]{cursor:wait}
   .hero-visual-logo{width:152px!important;height:152px!important}
   .hero-actions{left:18px!important;right:18px!important}
 }
+
+
+/* ===== Cash · second operational center ===== */
+.cash-login-panel{
+  margin:0 0 14px;
+  border-radius:20px!important;
+  border:1px solid rgba(34,143,225,.20)!important;
+  background:linear-gradient(145deg,#f8fcff,#eef7ff)!important;
+}
+.cash-login-panel h3{margin:4px 0;font-size:16px}
+.cash-login-panel>p{color:#718398;font-size:9px;margin:0 0 12px}
+.cash-staff-list{display:grid;gap:8px;margin-bottom:14px}
+.cash-staff-row{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:12px;border:1px solid #e0eaf2;border-radius:14px;background:#fff;
+}
+.cash-staff-row small{display:block;margin-top:4px;color:#7c8da0;font-size:8px}
+.cash-staff-tools{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.cash-staff-tools>span{font-size:7px;font-weight:900;color:#218457;background:#e9f8ef;padding:5px 7px;border-radius:999px}
+.cash-staff-tools button{font-size:8px!important}
+
+.supplier-center-view{
+  animation:opsSupplierIn .28s cubic-bezier(.2,.75,.25,1) both;
+}
+@keyframes opsSupplierIn{
+  from{opacity:0;transform:translateY(12px) scale(.992)}
+  to{opacity:1;transform:none}
+}
+.supplier-center-view .inventory-summary,
+.supplier-center-view .card{
+  animation:opsSupplierCardIn .34s ease both;
+}
+.supplier-center-view .inventory-summary{animation-delay:.03s}
+.supplier-center-view .card:nth-of-type(2){animation-delay:.07s}
+.supplier-center-view .card:nth-of-type(3){animation-delay:.11s}
+@keyframes opsSupplierCardIn{
+  from{opacity:.55;transform:translateY(8px)}
+  to{opacity:1;transform:none}
+}
+@media(max-width:760px){
+  .cash-login-panel{padding:15px!important}
+  .cash-staff-row{align-items:flex-start;flex-direction:column}
+  .cash-staff-tools{width:100%;justify-content:flex-start}
+}

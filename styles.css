@@ -3295,3 +3295,95 @@ html[data-theme="dark"] #scModalOverlay [style*="background:rgba(127,127,127,.08
 .ad-new-product-fields .ad-field{min-width:0}
 @media(max-width:900px){.ad-photo-dual{grid-template-columns:1fr 1fr}.ad-new-product-fields{grid-template-columns:1fr 1fr}}
 @media(max-width:620px){.ad-photo-dual{grid-template-columns:1fr;gap:9px}.ad-photo-box{padding:8px}.ad-photo-box-head b{font-size:10px}.ad-photo-box-head small{font-size:8px}.ad-photo-drop.compact .ad-photo-preview{min-height:115px}.ad-new-product-fields{grid-template-columns:1fr 1fr}.ad-new-product-fields .ad-field:first-child{grid-column:1/-1}}
+
+
+/* ===== DESKTOP WEB OPTIMIZATION — preserve mobile layout ===== */
+@media (min-width:1101px){
+  .app{
+    grid-template-columns:230px minmax(0,1fr) 0!important;
+  }
+  .sidebar{
+    width:230px!important;
+    padding:22px 14px!important;
+    position:sticky!important;
+    top:0!important;
+    height:100svh!important;
+    overflow-y:auto!important;
+  }
+  .brand{
+    padding:5px 10px 24px!important;
+  }
+  .sidebar nav button{
+    min-height:42px!important;
+    padding:11px 13px!important;
+    font-size:12px!important;
+  }
+  .sidebar nav{gap:6px!important}
+  .main{min-width:0!important}
+  .top{
+    height:74px!important;
+    padding:0 32px!important;
+  }
+  .content{
+    width:100%!important;
+    max-width:1480px!important;
+    padding:30px 34px 48px!important;
+  }
+  .dashboard-shell{gap:20px!important}
+  .dashboard-hero{
+    min-height:360px!important;
+    padding:36px 38px 24px!important;
+    border-radius:26px!important;
+  }
+  .dashboard-hero .hero-copy{max-width:58%!important}
+  .dashboard-hero h1{font-size:40px!important}
+  .dashboard-hero p{font-size:12px!important;max-width:620px!important}
+  .hero-visual{
+    right:44px!important;
+    top:44px!important;
+    width:270px!important;
+    height:270px!important;
+  }
+  .hero-visual-ring{width:245px!important;height:245px!important}
+  .hero-visual-logo{width:200px!important;height:200px!important;padding:14px!important}
+  .hero-visual-logo img{object-fit:contain!important}
+  .hero-actions{left:38px!important;right:38px!important;bottom:24px!important}
+  .dashboard-kpis{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:15px!important}
+  .kpi-modern{min-height:92px!important;padding:18px!important}
+  .dashboard-main-grid{grid-template-columns:minmax(0,1.15fr) minmax(360px,.85fr)!important;gap:18px!important}
+  .quick-modern-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+  .finance-grid{grid-template-columns:minmax(0,1.5fr) minmax(300px,.7fr)!important}
+  .modal{
+    width:min(900px,calc(100vw - 80px))!important;
+    max-height:88vh!important;
+  }
+}
+
+/* Medium desktop / laptop */
+@media (min-width:781px) and (max-width:1100px){
+  .app{grid-template-columns:205px minmax(0,1fr) 0!important}
+  .sidebar{width:205px!important;padding:18px 10px!important}
+  .top{padding:0 20px!important}
+  .content{padding:24px 22px 38px!important;max-width:1200px!important}
+  .dashboard-hero{min-height:360px!important}
+  .dashboard-hero h1{font-size:34px!important}
+  .hero-visual{right:18px!important;top:48px!important;width:220px!important;height:220px!important}
+  .hero-visual-ring{width:195px!important;height:195px!important}
+  .hero-visual-logo{width:160px!important;height:160px!important;padding:10px!important}
+  .hero-visual-logo img{object-fit:contain!important}
+  .dashboard-main-grid{grid-template-columns:1fr!important}
+  .quick-modern-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+}
+
+/* Dark desktop surfaces keep the same geometry, with proper contrast */
+@media (min-width:781px){
+  [data-theme="dark"] .content{background:transparent}
+  [data-theme="dark"] .dashboard-panel,
+  [data-theme="dark"] .kpi-modern,
+  [data-theme="dark"] .card{
+    box-shadow:0 14px 34px rgba(0,0,0,.18)!important;
+  }
+  [data-theme="dark"] .dashboard-hero{
+    box-shadow:0 24px 60px rgba(0,0,0,.28)!important;
+  }
+}

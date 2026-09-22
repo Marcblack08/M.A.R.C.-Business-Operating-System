@@ -3622,3 +3622,186 @@ html:not([data-theme="dark"]) .sidebar nav button.active{
   .dashboard-hero .hero-visual-ring{width:215px!important;height:215px!important}
   .dashboard-hero .hero-visual-logo{width:178px!important;height:178px!important;padding:12px!important}
 }
+
+
+/* ===== RESPONSIVE POLISH v3 — mobile, tablet and desktop ===== */
+html{scroll-behavior:smooth}
+body{min-width:0}
+button,input,select,textarea{font:inherit}
+img{max-width:100%}
+
+/* Modal system: never let content or actions escape the viewport. */
+.modal-root{
+  box-sizing:border-box!important;
+  overflow:auto!important;
+  overscroll-behavior:contain;
+  padding:max(14px,env(safe-area-inset-top)) max(14px,env(safe-area-inset-right)) max(14px,env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left))!important;
+}
+.modal-root>.modal{
+  box-sizing:border-box!important;
+  width:min(720px,100%)!important;
+  max-width:100%!important;
+  max-height:min(92svh,900px)!important;
+  overflow:auto!important;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+}
+.modal-head{gap:12px}
+.modal-head>div:first-child{min-width:0}
+.modal-head h2,.modal-head p{overflow-wrap:anywhere}
+.modal-actions{flex-wrap:wrap}
+.modal-actions button{min-width:120px}
+.form-grid{min-width:0}
+.form-grid label{min-width:0}
+.modal input,.modal select,.modal textarea{box-sizing:border-box;max-width:100%}
+
+/* Cashier administration gets its own stable scroll regions. */
+.cash-staff-modal{
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+  gap:12px;
+}
+.cash-staff-modal .modal-head{margin-bottom:2px}
+.cash-staff-create-card{
+  padding:13px 14px;
+  border:1px solid #d9e7f4;
+  border-radius:14px;
+  background:linear-gradient(135deg,#f6fbff,#eef6fd);
+}
+.cash-staff-create-card h3{margin:3px 0 4px;font-size:14px;color:#173451}
+.cash-staff-create-card p{margin:0;color:#6f8398;font-size:9px;line-height:1.45}
+.cash-staff-modal form{min-width:0}
+.cash-staff-modal .form-grid{grid-template-columns:1fr 1fr}
+.cash-staff-modal .modal-actions{justify-content:flex-end}
+.cash-staff-modal .modal-actions button{min-height:44px}
+.form-error{
+  min-height:18px;
+  margin-top:2px;
+  color:#b9364c;
+  font-size:10px;
+  line-height:1.4;
+  overflow-wrap:anywhere;
+}
+.cash-staff-existing{
+  min-width:0;
+  display:grid;
+  gap:8px;
+  padding-top:2px;
+}
+.cash-staff-row{
+  min-width:0;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:11px 12px;
+  border:1px solid #dfe8f1;
+  border-radius:12px;
+  background:#fff;
+}
+.cash-staff-row>div:first-child{min-width:0}
+.cash-staff-row b,.cash-staff-row small{display:block;overflow-wrap:anywhere}
+.cash-staff-row b{font-size:11px}
+.cash-staff-row small{margin-top:3px;color:#7b8ea1;font-size:8px}
+.cash-staff-tools{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;flex:none}
+.cash-staff-tools>span{font-size:7px;font-weight:800;color:#17804d}
+.cash-staff-tools button{min-height:38px}
+
+/* Dark theme: preserve the same geometry and readable controls. */
+[data-theme="dark"] .modal-root>.modal{
+  background:#0d1b2b;
+  color:#e8f1f9;
+  border:1px solid #263e56;
+}
+[data-theme="dark"] .cash-staff-create-card{
+  background:linear-gradient(135deg,#12263b,#0e2033);
+  border-color:#29435c;
+}
+[data-theme="dark"] .cash-staff-create-card h3{color:#edf6ff}
+[data-theme="dark"] .cash-staff-create-card p,
+[data-theme="dark"] .cash-staff-row small{color:#9eb2c6}
+[data-theme="dark"] .cash-staff-row{
+  background:#101f30;
+  border-color:#294056;
+}
+[data-theme="dark"] .cash-staff-row b{color:#edf6ff}
+[data-theme="dark"] .modal label{color:#bcd0e2}
+[data-theme="dark"] .modal input,
+[data-theme="dark"] .modal select,
+[data-theme="dark"] .modal textarea{
+  background:#0a1725;
+  color:#edf6ff;
+  border-color:#2a435c;
+}
+[data-theme="dark"] .close,
+[data-theme="dark"] .secondary{
+  background:#16283c;
+  color:#dceafa;
+  border-color:#29445d;
+}
+
+/* Tablet / small laptop: keep side navigation and content balanced. */
+@media(min-width:781px) and (max-width:1100px){
+  .content{width:100%;box-sizing:border-box}
+  .head{align-items:center}
+  .cash-staff-modal .form-grid{grid-template-columns:1fr 1fr}
+  .modal-root>.modal{max-height:90svh!important}
+}
+
+/* Phones: true single-column modal with visible actions and no horizontal clipping. */
+@media(max-width:780px){
+  .modal-root{
+    place-items:start center!important;
+    padding:10px max(10px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left))!important;
+  }
+  .modal-root>.modal{
+    width:100%!important;
+    max-height:calc(100svh - 20px)!important;
+    margin:auto 0!important;
+    padding:14px!important;
+    border-radius:17px!important;
+  }
+  .modal-head{margin-bottom:10px}
+  .modal-head h2{font-size:17px}
+  .modal-head p{font-size:9px;line-height:1.45}
+  .cash-staff-modal .form-grid{grid-template-columns:1fr!important;gap:9px}
+  .cash-staff-modal .modal-actions{
+    display:grid!important;
+    grid-template-columns:1fr 1.35fr!important;
+    width:100%;
+  }
+  .cash-staff-modal .modal-actions button{width:100%;min-width:0}
+  .cash-staff-existing{
+    max-height:34svh;
+    overflow:auto;
+    padding-right:2px;
+  }
+  .cash-staff-row{
+    align-items:flex-start;
+    flex-direction:column;
+    gap:9px;
+  }
+  .cash-staff-tools{width:100%;justify-content:flex-start}
+  .cash-staff-tools button{min-height:42px}
+}
+
+/* Very small phones: prioritize usable controls over decorative spacing. */
+@media(max-width:390px){
+  .modal-root{padding:7px!important}
+  .modal-root>.modal{max-height:calc(100svh - 14px)!important;padding:12px!important}
+  .cash-staff-modal{gap:9px}
+  .cash-staff-create-card{padding:11px 12px}
+  .cash-staff-modal .modal-actions{grid-template-columns:1fr 1fr!important}
+  .cash-staff-existing{max-height:30svh}
+}
+
+/* Desktop: prevent excessive stretching while using the available workspace. */
+@media(min-width:1101px){
+  .modal-root>.modal{width:min(760px,calc(100vw - 80px))!important}
+  .cash-staff-modal .form-grid{grid-template-columns:1fr 1fr}
+}
+
+/* Theme-aware browser controls. */
+html:not([data-theme="dark"]){color-scheme:light}
+html[data-theme="dark"]{color-scheme:dark}

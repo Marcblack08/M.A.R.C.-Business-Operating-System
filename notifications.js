@@ -42,13 +42,32 @@
     else if(type==="QUOTE"){try{window.view?.("quotes")}catch{}}
     else if(type==="CASH"){try{window.view?.("cash")}catch{}}
   }
+  function actionLabel(x){
+    const t=String(x?.meta?.entity_type||"").toUpperCase();
+    if(t==="QUOTE")return "Preparar seguimiento";
+    if(t==="INVENTORY")return "Revisar inventario";
+    if(t==="CASH")return "Revisar caja";
+    return "Ver";
+  }
+  function runSmartAction(x){
+    const t=String(x?.meta?.entity_type||"").toUpperCase();
+    if(t==="QUOTE"){
+      try{
+        window.openChat?.();
+        const input=$("#chatInput");
+        if(input){input.value="Prepara un seguimiento para la cotización.";input.focus();}
+      }catch{}
+      return;
+    }
+    alertAction(x);
+  }
   function open(){
     let root=$("#notificationPanel");
     if(root){root.remove();return}
     root=document.createElement("div");root.id="notificationPanel";root.className="notification-panel";
     const rows=notifications();
     root.innerHTML='<div class="notification-head"><div><b>Notificaciones</b><small>Recordatorios y tareas de M.A.R.C.</small></div><button id="closeNotifications" type="button">×</button></div><div class="notification-list">'+
-      (rows.length?rows.map((x,i)=>'<article class="notification-item '+(x.read?'read':'')+'" data-notification-index="'+i+'"><span class="notification-dot"></span><div class="notification-main"><b>'+esc(x.title)+'</b><p>'+esc(x.body)+'</p><small>'+new Date(x.created_at).toLocaleString("es-PE")+'</small></div>'+((x.meta?.entity_type)?'<button class="notification-go" type="button" data-notification-go="'+i+'">Ver</button>':'')+'</article>').join(""):'<div class="notification-empty"><span>✓</span><b>Todo al día</b><small>No tienes notificaciones pendientes.</small></div>')+
+      (rows.length?rows.map((x,i)=>'<article class="notification-item '+(x.read?'read':'')+'" data-notification-index="'+i+'"><span class="notification-dot"></span><div class="notification-main"><b>'+esc(x.title)+'</b><p>'+esc(x.body)+'</p><small>'+new Date(x.created_at).toLocaleString("es-PE")+'</small></div>'+((x.meta?.entity_type)?'<button class="notification-go" type="button" data-notification-go="'+i+'">'+actionLabel(x)+'</button>':'')+'</article>').join(""):'<div class="notification-empty"><span>✓</span><b>Todo al día</b><small>No tienes notificaciones pendientes.</small></div>')+
       '</div><div class="notification-actions"><button id="requestNotifications" type="button">🔔 Activar avisos</button><button id="markNotificationsRead" type="button">Marcar todo leído</button></div>';
     document.body.appendChild(root);
     root.querySelectorAll("[data-notification-go]").forEach(b=>b.onclick=()=>{

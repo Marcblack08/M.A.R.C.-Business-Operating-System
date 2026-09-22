@@ -2416,22 +2416,10 @@ async function marketing(){
     currentImage=URL.createObjectURL(file);
     currentAiImage=null;
     updatePhotoPreview();
-    setStatus("Optimizando y analizando la foto…");
-    try{
-      const optimized=await drawImage(currentImage,1600);
-      const raw=optimized.split(",")[1]||"";
-      const r=await fetch("/api/marketing-product-ai",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+st.session?.access_token},body:JSON.stringify({imageBase64:raw,mimeType:"image/jpeg",brief:$p("adDetails").value||""})});
-      const j=await r.json();if(!r.ok)throw new Error(j.message||j.error||"No se pudo analizar la foto.");
-      const p=j.product||{};
-      currentProduct={...(currentProduct||{}),id:null,name:p.name||"Producto desde foto",sku:p.sku||null,brand:p.brand||null,model:p.model||null,category:p.category||null,description:p.description||"",marketing_description:p.marketing_description||"",key_points:p.key_points||[],image_url:currentImage,price:currentProduct?.price??null,stock:null};
-      const detail=[p.marketing_description||p.description,(p.key_points||[]).length?"Puntos principales: "+p.key_points.join(", "):""].filter(Boolean).join("\n");
-      if(detail)$p("adDetails").value=detail;
-      const state=$p("adPhotoState");if(state)state.innerHTML='<b>✓ Foto analizada</b><small>'+(p.name?esc(p.name):"Producto identificado")+' · Confianza '+Math.round(Number(p.confidence||0)*100)+'%</small>';
-      renderProductSummary();
-      setStatus("Foto lista. M.A.R.C. ya incorporó la información detectada.","ok");
-    }catch(e){
-      const state=$p("adPhotoState");if(state)state.textContent="La foto quedó disponible como referencia. Puedes crear la publicidad aunque la lectura automática no haya sido concluyente.";
-      setStatus(e.message||"No se pudo analizar la foto.", "error");
+    const state=$p("adPhotoState");
+    if(state)state.textContent="✓ Foto principal lista. M.A.R.C. la transformará con IA al crear la publicidad.";
+    if(adSource==="new"){
+      currentProduct={...(currentProduct||{}),id:null,name:$p("adNewName")?.value.trim()||"Nuevo producto",brand:$p("adNewBrand")?.value.trim()||null,model:$p("adNewModel")?.value.trim()||null,price:$p("adNewPrice")?.value.trim()||null,image_url:currentImage,stock:null};
     }
     await renderCanvas();
   };

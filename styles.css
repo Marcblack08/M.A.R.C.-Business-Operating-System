@@ -3484,7 +3484,7 @@ html:not([data-theme="dark"]) .sidebar nav button.active{
 
 /* DESKTOP WEB — spacious, aligned, mouse-friendly */
 @media(min-width:1101px){
-  .app{grid-template-columns:230px minmax(0,1fr) 368px!important}
+  /* El shell desktop se define en graphic-lab.css; aquí solo ajustamos contenido. */
   .content{max-width:1500px!important;padding:30px 38px 52px!important}
   .top{padding:0 34px!important}
   .head{margin-bottom:22px!important}

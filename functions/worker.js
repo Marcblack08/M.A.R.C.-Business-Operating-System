@@ -3667,7 +3667,8 @@ async function processDueReminders(env){
           if(id.chat_id){await sendTelegram(env,id.chat_id,"🔔 M.A.R.C. · Recordatorio\n\n"+String(r.title||"Recordatorio")+"\n"+String(r.body||""));sent=true;}
         }
       }
-      await sb(env,adminToken,"marc_reminders?id=eq."+encodeURIComponent(r.id),{method:"PATCH",body:{status:sent||String(r.channel||"").toUpperCase()==="IN_APP"?"SENT":"FAILED",sent_at:sent?new Date().toISOString():null}});
+      const ch=String(r.channel||"").toUpperCase(); const nextStatus=sent||ch==="IN_APP"?"SENT":ch==="BOTH"?"PENDING":"FAILED";
+      await sb(env,adminToken,"marc_reminders?id=eq."+encodeURIComponent(r.id),{method:"PATCH",body:{status:nextStatus,sent_at:sent?new Date().toISOString():null}});
       if(sent)results.push({id:r.id,status:"SENT"});else results.push({id:r.id,status:"PENDING_WEB"});
     }catch(err){
       await sb(env,adminToken,"marc_reminders?id=eq."+encodeURIComponent(r.id),{method:"PATCH",body:{status:"FAILED",metadata:{error:String(err?.message||"Error enviando recordatorio")}}}).catch(()=>{});
@@ -3714,6 +3715,14 @@ export default{
     const headers=corsHeaders(request);
     if(request.method==="OPTIONS")return new Response(null,{status:204,headers});
     const url=new URL(request.url);
+    if(url.pathname==="/api/notifications"){
+      if(request.method!=="GET")return json({error:"Método no permitido"},405,headers);
+      try{
+        const {token,user}=await authUser(request,env);
+        const rows=await sb(env,token,"marc_reminders?select=id,title,body,due_at,status,channel,created_at,sent_at&user_id=eq."+encodeURIComponent(user.id)+"&order=due_at.desc&limit=50");
+        return json({notifications:rows||[]},200,headers);
+      }catch(err){return json({error:err?.message||"No se pudieron cargar las notificaciones"},err?.status||500,headers)}
+    }
     if(url.pathname==="/api/chat"){
       if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);
       try{

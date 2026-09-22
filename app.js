@@ -2344,9 +2344,23 @@ async function cashMovementModal(open,type){
 async function cashMasterGate(){
   const email=String(st.u?.email||"").trim();
   if(!email)throw new Error("No se encontró el usuario maestro.");
-  const close=modal(\`<div class="modal-head"><div><div class="eyebrow2">SEGURIDAD MAESTRA</div><h2>🔐 Acceso de administrador</h2><p>Esta zona controla los cajeros y la configuración de Caja.</p></div><button class="close" id="x">×</button></div><form id="cashMasterForm"><label>Usuario maestro<input name="email" type="email" value="${esc(email)}" readonly></label><label>Clave maestra<div class="password-field"><input name="password" type="password" minlength="6" required autofocus autocomplete="current-password" placeholder="Tu contraseña de M.A.R.C."><button type="button" id="showMasterPass">◉</button></div></label><div id="cashMasterError" class="cash-login-error"></div><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Entrar a administración →</button></div></form>\`);
+  const close=modal(`<div class="modal-head"><div><div class="eyebrow2">SEGURIDAD MAESTRA</div><h2>🔐 Acceso de administrador</h2><p>Usa el usuario y la contraseña de tu cuenta M.A.R.C. para administrar Caja.</p></div><button class="close" id="x">×</button></div><form id="cashMasterForm"><label>Usuario maestro<input name="email" type="email" value="${esc(email)}" readonly></label><label>Clave maestra<div class="password-field"><input name="password" type="password" minlength="6" required autofocus autocomplete="current-password" placeholder="Tu contraseña de M.A.R.C."><button type="button" id="showMasterPass">◉</button></div></label><div id="cashMasterError" class="cash-login-error"></div><div class="modal-actions"><button type="button" class="secondary" id="setupMaster">Crear / cambiar clave maestra</button><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Entrar →</button></div></form>`);
   $("#x").onclick=close;$("#cancel").onclick=close;
   $("#showMasterPass").onclick=()=>{const p=$('#cashMasterForm input[name="password"]');if(p)p.type=p.type==="password"?"text":"password"};
+  $("#setupMaster").onclick=async()=>{
+    const setupClose=modal(`<div class="modal-head"><div><div class="eyebrow2">CLAVE MAESTRA</div><h2>🔑 Crear clave de Caja</h2><p>Esta será la contraseña de tu cuenta M.A.R.C. usada para autorizar la administración de Caja.</p></div><button class="close" id="x">×</button></div><form id="cashMasterSetup"><label>Nueva clave<input name="password" type="password" minlength="6" required autofocus placeholder="Mínimo 6 caracteres"></label><label>Confirmar clave<input name="confirm" type="password" minlength="6" required placeholder="Repite la clave"></label><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Guardar clave</button></div></form>`);
+    $("#x").onclick=setupClose;$("#cancel").onclick=setupClose;
+    $("#cashMasterSetup").onsubmit=async ev=>{
+      ev.preventDefault();const d=new FormData(ev.currentTarget),password=String(d.get("password")||""),confirm=String(d.get("confirm")||"");
+      if(password!==confirm)return toast("Las claves no coinciden.","err");
+      const b=ev.currentTarget.querySelector("button.primary");b.disabled=true;
+      try{
+        const {error}=await S.auth.updateUser({password});
+        if(error)throw error;
+        setupClose();toast("Clave maestra creada correctamente","ok");
+      }catch(err){toast(err?.message||"No se pudo crear la clave maestra.","err");b.disabled=false}
+    };
+  };
   return new Promise(resolve=>{
     $("#cashMasterForm").onsubmit=async e=>{
       e.preventDefault();
@@ -2364,6 +2378,7 @@ async function cashMasterGate(){
     };
   });
 }
+
 function cashMasterVerified(){
   const t=Number(sessionStorage.getItem("marc_cash_master_verified_at")||0);
   return t>0 && Date.now()-t<10*60*1000;

@@ -88,6 +88,7 @@ async function enter(s){
     app.classList.remove("hidden");
     await loadBrandLogo();
     await view(cashCtx.isStaff?"cash":"home");
+    if(cashCtx.isStaff) toast("Bienvenido, "+(cashCtx.staff?.display_name||"cajero")+" · caja lista","ok");
   }catch(e){
     if(epoch!==st.authEpoch)return;
     st.u=null;st.session=null;st.cid=null;

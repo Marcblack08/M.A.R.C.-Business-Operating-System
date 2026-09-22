@@ -3772,6 +3772,48 @@ export default{
     const headers=corsHeaders(request);
     if(request.method==="OPTIONS")return new Response(null,{status:204,headers});
     const url=new URL(request.url);
+    if(url.pathname==="/api/cash-staff/login"){
+      if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);
+      try{
+        const body=await request.json();
+        const username=String(body?.username||"").trim().toLowerCase().replace(/[^a-z0-9._-]/g,"").slice(0,40);
+        const password=String(body?.password||"");
+        if(!username||password.length<6)return json({error:"Usuario o contraseña inválidos"},400,headers);
+        const lookup=await sb(env,env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY,
+          "marc_cash_staff?select=owner_user_id,auth_user_id,username,display_name,role,active&username=eq."+encodeURIComponent(username)+"&limit=1");
+        const staff=lookup?.[0];
+        if(!staff||!staff.active)return json({error:"Usuario de caja no disponible"},401,headers);
+        const tokenUrl=env.SUPABASE_URL+"/auth/v1/token?grant_type=password";
+        const tr=await fetch(tokenUrl,{method:"POST",headers:{"content-type":"application/json",apikey:env.SUPABASE_PUBLISHABLE_KEY},body:JSON.stringify({email:username+"@cash.marc.local",password})});
+        const td=await tr.json().catch(()=>null);
+        if(!tr.ok)return json({error:"Usuario o contraseña incorrectos"},401,headers);
+        return json({session:td,staff},200,headers);
+      }catch(err){return json({error:err?.message||"No se pudo iniciar sesión de caja"},err?.status||500,headers)}
+    }
+    if(url.pathname==="/api/cash-staff"){
+      try{
+        const {token,user}=await authUser(request,env);
+        const adminToken=env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY;
+        if(request.method==="GET"){
+          const rows=await sb(env,token,"marc_cash_staff?select=id,username,display_name,role,active,created_at,auth_user_id&owner_user_id=eq."+encodeURIComponent(user.id)+"&order=created_at.asc");
+          return json({staff:rows||[]},200,headers);
+        }
+        if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);
+        const body=await request.json();
+        const username=String(body?.username||"").trim().toLowerCase().replace(/[^a-z0-9._-]/g,"").slice(0,40);
+        const displayName=String(body?.display_name||"").trim().slice(0,100);
+        const password=String(body?.password||"");
+        if(!username||!displayName||password.length<6)return json({error:"Completa usuario, nombre y una contraseña de mínimo 6 caracteres."},400,headers);
+        const exists=await sb(env,token,"marc_cash_staff?select=id&owner_user_id=eq."+encodeURIComponent(user.id)+"&username=eq."+encodeURIComponent(username)+"&limit=1");
+        if(exists?.length)return json({error:"Ese usuario de caja ya existe."},409,headers);
+        if(!adminToken)throw Object.assign(new Error("Falta la clave administrativa del Worker."),{status:503});
+        const ar=await fetch(env.SUPABASE_URL+"/auth/v1/admin/users",{method:"POST",headers:{"content-type":"application/json",apikey:adminToken,Authorization:"Bearer "+adminToken},body:JSON.stringify({email:username+"@cash.marc.local",password,email_confirm:true,user_metadata:{cash_username:username,cash_owner_id:user.id}})});
+        const ad=await ar.json().catch(()=>null);
+        if(!ar.ok)throw Object.assign(new Error(ad?.msg||ad?.message||ad?.error_description||"No se pudo crear el usuario de caja."),{status:ar.status});
+        const rows=await sb(env,adminToken,"marc_cash_staff",{method:"POST",body:{owner_user_id:user.id,auth_user_id:ad.user.id,username,display_name:displayName,role:"CASHIER",active:true}});
+        return json({staff:rows?.[0]||null},201,headers);
+      }catch(err){return json({error:err?.message||"No se pudo gestionar el personal de caja"},err?.status||500,headers)}
+    }
     if(url.pathname==="/api/notifications"){
       if(request.method!=="GET")return json({error:"Método no permitido"},405,headers);
       try{

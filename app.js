@@ -2742,9 +2742,13 @@ async function marketing(){
   if(currentProduct){$p("adProduct").value=currentProduct.id;renderProductSummary();await renderCanvas()}
   if(saved?.campaign)setCampaign(saved.campaign);
 }
-async function quoteModal(existing=null,preset=null){
-  const cls=(await S.from("marc_clients").select("id,name").eq("user_id",st.u.id).order("name")).data||[];
-  const inv=(await S.from("marc_inventory").select("id,name,brand,model,price,cost,unit,stock").eq("user_id",st.u.id).eq("active",true).order("name")).data||[];
+async async function quoteModal(existing=null,preset=null){
+  const clientsResult=await S.from("marc_clients").select("id,name,phone").eq("user_id",st.u.id).order("name");
+  const inventoryResult=await S.from("marc_inventory").select("id,name,brand,model,price,cost,unit,stock").eq("user_id",st.u.id).eq("active",true).order("name");
+  if(clientsResult.error)throw new Error("No se pudieron cargar los clientes: "+clientsResult.error.message);
+  if(inventoryResult.error)throw new Error("No se pudo cargar el inventario: "+inventoryResult.error.message);
+  const cls=clientsResult.data||[];
+  const inv=inventoryResult.data||[];
   let lines=[];
   const quote=existing;
 
@@ -2999,12 +3003,15 @@ async function quoteModal(existing=null,preset=null){
 
   $("#f").onsubmit=async e=>{
     e.preventDefault();
+    const submitBtn=e.currentTarget.querySelector('button[type="submit"]');
+    if(submitBtn?.disabled)return;
+    if(submitBtn)submitBtn.disabled=true;
     const d=new FormData(e.currentTarget);
     const valid=lines.filter(x=>x.type==="PRODUCTO"?!!x.inventory_id:!!String(x.name||"").trim());
-    if(!valid.length)return toast("Agrega al menos una partida.","err");
-    if(valid.some(x=>Number(x.qty)<=0||Number(x.price)<0))return toast("Revisa cantidades y precios.","err");
-    if(valid.some(x=>x.type==="TRABAJO"&&!Number(x.price)))return toast("Cada trabajo debe tener precio.","err");
-    if(valid.some(x=>Number(x.cost||0)<0||Number(x.transport||0)<0||Number(x.labor||0)<0||Number(x.other||0)<0))return toast("Los costos no pueden ser negativos.","err");
+    if(!valid.length){if(submitBtn)submitBtn.disabled=false;return toast("Agrega al menos una partida.","err");}
+    if(valid.some(x=>Number(x.qty)<=0||Number(x.price)<0)){if(submitBtn)submitBtn.disabled=false;return toast("Revisa cantidades y precios.","err");}
+    if(valid.some(x=>x.type==="TRABAJO"&&!Number(x.price))){if(submitBtn)submitBtn.disabled=false;return toast("Cada trabajo debe tener precio.","err");}
+    if(valid.some(x=>Number(x.cost||0)<0||Number(x.transport||0)<0||Number(x.labor||0)<0||Number(x.other||0)<0)){if(submitBtn)submitBtn.disabled=false;return toast("Los costos no pueden ser negativos.","err");}
     const localWarnings=[];
     valid.forEach((x,i)=>{
       if(!String(x.description||"").trim())localWarnings.push("Partida "+(i+1)+": falta una descripción.");

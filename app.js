@@ -418,15 +418,11 @@ async function home(){
 
   const heroLogo=$("#heroBrandLogo");
   if(heroLogo){
-    // En el dashboard usamos el logo comercial de la cuenta, contenido dentro del área visual.
-    try{
-      const company=await getCompanyProfile();
-      if(company?.logo_data){
-        heroLogo.innerHTML='<img src="'+esc(company.logo_data)+'" alt="Logo de empresa">';
-        heroLogo.classList.remove("is-mascot");
-        heroLogo.classList.add("has-company-logo");
-      }
-    }catch{}
+    // El hero pertenece a M.A.R.C.; el logo de la empresa queda reservado para
+    // Configuración, cotizaciones, PDF y publicidad. Nunca debe dominar el dashboard.
+    heroLogo.innerHTML='<span>M</span>';
+    heroLogo.classList.remove("has-company-logo");
+    heroLogo.classList.add("is-marc-brand");
   }
   $("#askHome").onclick=openChat;
   $("#heroQuote").onclick=quoteModal;

@@ -418,9 +418,15 @@ async function home(){
 
   const heroLogo=$("#heroBrandLogo");
   if(heroLogo){
-    // Imagen oficial del mayordomo M.A.R.C.: identidad visual fija del dashboard.
-    heroLogo.innerHTML='<img src="./assets/marc-hero.jpg?v=20260920-01" alt="M.A.R.C., tu mayordomo digital">';
-    heroLogo.classList.add("is-mascot");
+    // En el dashboard usamos el logo comercial de la cuenta, contenido dentro del área visual.
+    try{
+      const company=await getCompanyProfile();
+      if(company?.logo_data){
+        heroLogo.innerHTML='<img src="'+esc(company.logo_data)+'" alt="Logo de empresa">';
+        heroLogo.classList.remove("is-mascot");
+        heroLogo.classList.add("has-company-logo");
+      }
+    }catch{}
   }
   $("#askHome").onclick=openChat;
   $("#heroQuote").onclick=quoteModal;

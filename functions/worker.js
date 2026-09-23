@@ -3754,6 +3754,15 @@ export default{
         return json({session:td,staff},200,headers);
       }catch(err){return json({error:safeClientError(err,"No se pudo iniciar sesión de caja")},err?.status||500,headers)}
     }
+    if(url.pathname==="/api/cash-staff/context"){
+      try{
+        const {token,user}=await authUser(request,env);
+        const rows=await sb(env,env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY,
+          "marc_cash_staff?select=id,owner_user_id,auth_user_id,username,display_name,role,active&auth_user_id=eq."+encodeURIComponent(user.id)+"&active=eq.true&limit=1");
+        const staff=rows?.[0]||null;
+        return json({isStaff:!!staff,ownerId:staff?.owner_user_id||user.id,staff},200,headers);
+      }catch(err){return json({error:safeClientError(err,"No se pudo consultar el contexto de caja.")},err?.status||500,headers)}
+    }
     if(url.pathname==="/api/cash-staff"){
       try{
         const {token,user}=await authUser(request,env);

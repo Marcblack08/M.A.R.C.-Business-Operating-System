@@ -3005,6 +3005,7 @@ async function inventoryPdfPreview(request,env){
   const access=await entitlement(env,token,user.id);
   if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request,env));
   if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request,env));
+  if(!(await rateLimit(env,"ai:"+user.id+":pdf-preview",20,3600)))return json({error:"Has alcanzado el límite temporal de análisis de PDF. Intenta nuevamente más tarde."},429,corsHeaders(request,env));
   const form=await request.formData();
   const file=form.get("file");
   if(!file||typeof file.arrayBuffer!=="function")return json({error:"Adjunta un archivo PDF."},400,corsHeaders(request,env));
@@ -3485,8 +3486,11 @@ async function uploadMarketingDataUrl(env,adminToken,userId,dataUrl){
   return String(signedData.signedURL).startsWith("http")?String(signedData.signedURL):env.SUPABASE_URL+"/storage/v1"+String(signedData.signedURL);
 }
 async function telegramDiagnostics(request,env){
-  if(request.method!=="GET")return json({error:"Método no permitido"},405);
-  if(!env.TELEGRAM_BOT_TOKEN)return json({ok:false,error:"TELEGRAM_BOT_TOKEN missing"},503);
+  if(request.method!=="GET")return json({error:"Método no permitido"},405,corsHeaders(request,env));
+  const {user}=await authUser(request,env);
+  const access=await entitlement(env,request.headers.get("Authorization")?.replace(/^Bearer\s+/i,"")||"",user.id);
+  if(access.kind==="expired")return json({error:"No autorizado"},403,corsHeaders(request,env));
+  if(!env.TELEGRAM_BOT_TOKEN)return json({ok:false,error:"Telegram no está configurado."},503,corsHeaders(request,env));
   const r=await fetch("https://api.telegram.org/bot"+env.TELEGRAM_BOT_TOKEN+"/getWebhookInfo");
   const d=await r.json().catch(()=>null);
   if(!r.ok||!d?.ok)return json({ok:false,error:d?.description||"Telegram error"},502);

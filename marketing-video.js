@@ -44,7 +44,7 @@ function inject(){
       const file=document.getElementById("adImageCamera")?.files?.[0]||document.getElementById("adImage")?.files?.[0]||null;
       const imageData=await fileToDataUrl(file);
       const r=await fetch("/api/marketing-video-start",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+session.access_token},body:JSON.stringify({
-        product,campaign:{headline:document.getElementById("adDetails")?.value.trim()||product.name},details:brief,platform:document.getElementById("adPlatform")?.value||"INSTAGRAM",objective:document.getElementById("adObjective")?.value||"VENDER",tone:document.getElementById("adTone")?.value||"PROFESIONAL",format:document.getElementById("marketingVideoFormat").value,model:model.value,imageData
+        product,campaign:{headline:document.getElementById("adDetails")?.value.trim()||product.name},details:brief,platform:document.getElementById("adPlatform")?.value||"WHATSAPP",objective:document.getElementById("adObjective")?.value||"VENDER",tone:document.getElementById("adTone")?.value||"PROFESIONAL",format:document.getElementById("marketingVideoFormat").value,model:model.value,imageData
       })});
       const j=await r.json();if(!r.ok)throw new Error(j.message||j.error||"No se pudo iniciar el video.");
       currentOperation=j.operationToken||"";

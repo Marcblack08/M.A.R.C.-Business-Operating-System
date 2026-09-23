@@ -3366,6 +3366,7 @@ async function revokeClientPortal(request,env){
 
 async function clientPortalView(request,env){
   if(request.method!=="GET")return json({error:"Método no permitido"},405,corsHeaders(request,env));
+  if(!(await rateLimit(env,"portal:"+requestIp(request),30,3600)))return json({error:"Demasiadas solicitudes al portal. Intenta nuevamente más tarde."},429,corsHeaders(request,env));
   const url=new URL(request.url);
   const rawToken=String(url.searchParams.get("token")||"").trim();
   if(rawToken.length<20)return json({error:"Enlace de cliente inválido o vencido."},401,corsHeaders(request,env));
@@ -3588,6 +3589,9 @@ async function metaCallback(request,env){
   const states=await lookup.json().catch(()=>[]);
   const st=states?.[0];
   if(!st||new Date(st.expires_at).getTime()<Date.now())return new Response("M.A.R.C. · La sesión de conexión expiró. Vuelve a intentarlo.",{status:400});
+  // Consume the OAuth state before exchanging the code. This makes the state one-time-use
+  // even if the callback is replayed concurrently.
+  await sb(env,adminToken,"marc_oauth_states?id=eq."+encodeURIComponent(st.id)+"&state=eq."+encodeURIComponent(state)+"&provider=eq.META",{method:"DELETE"});
   if(!env.META_APP_ID||!env.META_APP_SECRET)throw new Error("Meta no está configurado.");
   const redirectUri=new URL("/api/social/meta/callback",request.url).toString(),version=String(env.META_GRAPH_VERSION||"v23.0");
   const tokenUrl=new URL("https://graph.facebook.com/"+version+"/oauth/access_token");

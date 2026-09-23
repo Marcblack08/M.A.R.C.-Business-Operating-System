@@ -1941,15 +1941,15 @@ async function closeCashModal(open,expected){
 async function cashMovementModal(open,type){
   const ctx=await getCashStaffContext();
   if(!ctx.ownerId)return;
-  const income=type==="INCOME",title=income?"＋ Registrar ingreso":"− Registrar egreso";
+  const income=type==="INCOME",title=income?"🛒 Registrar venta":"💸 Registrar gasto";
   let products=[];
   if(income){
     const {data,error}=await S.from("marc_inventory").select("id,name,sku,brand,model,category,unit,price,stock,image_url,description").eq("user_id",ctx.ownerId).eq("active",true).order("name").limit(1000);
     if(error)return toast(error.message,"err");
     products=data||[];
   }
-  const productOptions=products.length?'<div class="cash-product-picker"><div class="cash-product-head"><b>¿Qué producto estás vendiendo?</b><small>Busca por nombre, marca, modelo o SKU.</small></div><input id="cashProductSearch" class="cash-product-search" placeholder="🔎 Buscar producto…"><div id="cashProductList" class="cash-product-list"></div><div id="cashProductSelected" class="cash-product-selected"></div></div>':'';
-  const close=modal('<div class="modal-head"><div><h2>'+title+'</h2><p>Registro rápido de caja. Quedará asociado a '+esc(ctx.staff?.display_name||"tu usuario")+'.</p></div><button class="close" id="x">×</button></div><form id="cashMoveForm">'+productOptions+'<div class="cash-quick-amount"><span>S/</span><input name="amount" inputmode="decimal" type="number" min="0.01" step="0.01" required placeholder="0.00" autofocus></div><div id="cashProductQtyWrap" class="cash-product-qty hidden"><label>Cantidad<input id="cashProductQty" name="quantity" type="number" min="1" step="1" value="1"></label><span id="cashProductTotal"></span></div><div class="cash-quick-grid"><button type="button" class="secondary cash-preset" data-v="10">S/ 10</button><button type="button" class="secondary cash-preset" data-v="20">S/ 20</button><button type="button" class="secondary cash-preset" data-v="50">S/ 50</button><button type="button" class="secondary cash-preset" data-v="100">S/ 100</button></div><label>Concepto<input name="concept" required placeholder="'+(income?"Venta, cobro, servicio…":"Compra, transporte, gasto…")+'"></label><label>Referencia opcional<input name="reference" placeholder="Boleta, factura, cliente, nota…"></label><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">'+(income?"Registrar ingreso":"Registrar egreso")+'</button></div></form>');
+  const productOptions=income&&products.length?'<div class="cash-product-picker"><div class="cash-product-head"><b>¿Qué producto estás vendiendo?</b><small>Busca por nombre, marca, modelo o SKU.</small></div><input id="cashProductSearch" class="cash-product-search" placeholder="🔎 Buscar producto…"><div id="cashProductList" class="cash-product-list"></div><div id="cashProductSelected" class="cash-product-selected"></div></div>':'';
+  const close=modal('<div class="modal-head"><div><h2>'+title+'</h2><p>Registro rápido de caja. Quedará asociado a '+esc(ctx.staff?.display_name||"tu usuario")+'.</p></div><button class="close" id="x">×</button></div><form id="cashMoveForm">'+productOptions+'<div class="cash-quick-amount"><span>S/</span><input name="amount" inputmode="decimal" type="number" min="0.01" step="0.01" required placeholder="0.00" autofocus></div><div id="cashProductQtyWrap" class="cash-product-qty hidden"><label>Cantidad<input id="cashProductQty" name="quantity" type="number" min="1" step="1" value="1"></label><span id="cashProductTotal"></span></div><div class="cash-quick-grid"><button type="button" class="secondary cash-preset" data-v="10">S/ 10</button><button type="button" class="secondary cash-preset" data-v="20">S/ 20</button><button type="button" class="secondary cash-preset" data-v="50">S/ 50</button><button type="button" class="secondary cash-preset" data-v="100">S/ 100</button></div><label>Tipo de gasto<select name="expense_category" required><option value="">Selecciona una categoría…</option><option>Compra de mercadería</option><option>Materiales</option><option>Transporte</option><option>Servicios</option><option>Alquiler</option><option>Alimentación</option><option>Personal</option><option>Mantenimiento</option><option>Otros</option></select></label><label>Concepto<input name="concept" required placeholder="'+(income?"Venta, cobro, servicio…":"Compra, transporte, gasto…")+'"></label><label>Referencia opcional<input name="reference" placeholder="Boleta, factura, cliente, nota…"></label><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">'+(income?"Registrar ingreso":"Registrar egreso")+'</button></div></form>');
   $("#x").onclick=close;$("#cancel").onclick=close;
   let selected=null;
   const amount=$("#cashMoveForm [name=amount]"),qty=$("#cashProductQty"),qtyWrap=$("#cashProductQtyWrap"),total=$("#cashProductTotal"),list=$("#cashProductList"),search=$("#cashProductSearch"),selectedBox=$("#cashProductSelected");
@@ -1984,7 +1984,7 @@ async function cashMovementModal(open,type){
     try{
       const d=new FormData(e.currentTarget),amountValue=Number(d.get("amount")||0);
       if(amountValue<=0)throw new Error("Ingresa un monto válido.");
-      const concept=String(d.get("concept")||"").trim(),reference=String(d.get("reference")||"").trim();
+      let concept=String(d.get("concept")||"").trim(),reference=String(d.get("reference")||"").trim(); if(!income){const category=String(d.get("expense_category")||"").trim();if(!category)throw new Error("Selecciona el tipo de gasto.");concept="[GASTO: "+category+"] "+concept;}
       if(income&&selected){
         const quantity=Number(d.get("quantity")||1);
         const available=Number(selected.stock||0);
@@ -1999,7 +1999,7 @@ async function cashMovementModal(open,type){
         const row={user_id:ctx.ownerId,cash_register_id:open.id,type,amount:amountValue,concept,reference:reference||null,created_by:st.u.id,created_by_name:ctx.staff?.display_name||st.u.email||"Usuario"};
         const {error}=await S.from("marc_cash_movements").insert(row);if(error)throw error;
       }
-      close();toast(income?(selected?"Venta registrada · "+selected.name:"Ingreso registrado"):"Egreso registrado","ok");await cash();
+      close();toast(income?(selected?"Venta registrada · "+selected.name:"Ingreso registrado"):"Gasto registrado","ok");await cash();
     }catch(err){toast(err.message||"No se pudo registrar el movimiento.","err");b.disabled=false}
   };
 }
@@ -2222,8 +2222,8 @@ async function cash(){
         </div>
       </section>
       <section class="cash-primary-actions">
-        ${open?"<button id=\"cashIncome\" class=\"cash-primary-action income\"><span>＋</span><b>Nuevo<br>ingreso</b></button>":"<button id=\"openCashTop\" class=\"cash-primary-action income\"><span>＋</span><b>Abrir<br>caja</b></button>"}
-        ${open?"<button id=\"cashExpense\" class=\"cash-primary-action expense\"><span>−</span><b>Nuevo<br>egreso</b></button>":"<button id=\"cashStaffLoginOpen2\" class=\"cash-primary-action staff\"><span>↪</span><b>Entrar<br>como cajero</b></button>"}
+        ${open?"<button id=\"cashIncome\" class=\"cash-primary-action income\"><span>＋</span><b>Registrar<br>venta</b></button>":"<button id=\"openCashTop\" class=\"cash-primary-action income\"><span>＋</span><b>Abrir<br>caja</b></button>"}
+        ${open?"<button id=\"cashExpense\" class=\"cash-primary-action expense\"><span>−</span><b>Registrar<br>gasto</b></button>":"<button id=\"cashStaffLoginOpen2\" class=\"cash-primary-action staff\"><span>↪</span><b>Entrar<br>como cajero</b></button>"}
         ${open?"<button id=\"cashSaleQuick\" class=\"cash-primary-action sale\"><span>🛒</span><b>Nueva<br>venta</b></button>":""}
         ${isCashier?"<button id=\"cashStaffLogout\" class=\"cash-primary-action staff\"><span>↩</span><b>Salir<br>de caja</b></button>":""}
         ${!isCashier?"<button id=\"cashStaff2\" class=\"cash-primary-action users\"><span>⚙</span><b>Administrar<br>cajeros</b></button>":""}${!isCashier?"<button id=\"cashStaffCreate\" class=\"cash-primary-action income\"><span>＋</span><b>Crear<br>cajero</b></button>":""}

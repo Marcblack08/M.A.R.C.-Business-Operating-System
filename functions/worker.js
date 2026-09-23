@@ -3763,7 +3763,7 @@ export default{
         if(!masterRows?.length)return json({error:"Solo el administrador principal puede gestionar el personal de caja."},403,headers);
 
         if(request.method==="GET"){
-          const rows=await sb(env,token,"marc_cash_staff?select=id,username,display_name,role,active,created_at,auth_user_id&owner_user_id=eq."+encodeURIComponent(user.id)+"&order=created_at.asc");
+          const rows=await sb(env,adminToken,"marc_cash_staff?select=id,username,display_name,employee_code,role,active,created_at,auth_user_id&owner_user_id=eq."+encodeURIComponent(user.id)+"&order=created_at.asc");
           return json({staff:rows||[]},200,headers);
         }
 

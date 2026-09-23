@@ -47,12 +47,14 @@ function inject(){
         product,campaign:{headline:document.getElementById("adDetails")?.value.trim()||product.name},details:brief,platform:document.getElementById("adPlatform")?.value||"INSTAGRAM",objective:document.getElementById("adObjective")?.value||"VENDER",tone:document.getElementById("adTone")?.value||"PROFESIONAL",format:document.getElementById("marketingVideoFormat").value,model:model.value,imageData
       })});
       const j=await r.json();if(!r.ok)throw new Error(j.message||j.error||"No se pudo iniciar el video.");
-      currentOperation=j.operationName;localStorage.setItem("marc_marketing_video_operation",currentOperation);
+      currentOperation=j.operationToken||"";
+if(!currentOperation)throw new Error("M.A.R.C. no recibió un token seguro para la operación de video.");
+localStorage.setItem("marc_marketing_video_operation",currentOperation);
       status.textContent="Video en generación. M.A.R.C. revisará el estado cada 10 segundos…";
       const poll=async()=>{
         try{
           const s=await getSession();
-          const sr=await fetch("/api/marketing-video-status",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+s.access_token},body:JSON.stringify({operationName:currentOperation})});
+          const sr=await fetch("/api/marketing-video-status",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+s.access_token},body:JSON.stringify({operationToken:currentOperation})});
           const sj=await sr.json();if(!sr.ok)throw new Error(sj.message||sj.error||"No se pudo consultar el estado.");
           if(sj.status==="PROCESSING"){status.textContent="Veo está generando el video… esto puede tardar un poco.";pollTimer=setTimeout(poll,10000);return}
           pollTimer=null;cancel.disabled=true;

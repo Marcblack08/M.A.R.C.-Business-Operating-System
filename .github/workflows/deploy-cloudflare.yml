@@ -2,8 +2,6 @@ name: Deploy Cloudflare Worker
 
 on:
   push:
-    # Solo main publica al Worker de producción.
-    # Las ramas de trabajo no deben enviar tráfico al Worker productivo.
     branches:
       - main
   workflow_dispatch:
@@ -14,12 +12,13 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Deploy to Cloudflare Workers
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

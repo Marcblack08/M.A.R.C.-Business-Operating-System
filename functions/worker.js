@@ -2766,7 +2766,8 @@ async function marketingProductAi(request,env){
   if(request.method!=="POST")return json({error:"Método no permitido"},405);
   const {token,user}=await authUser(request,env);
   const access=await entitlement(env,token,user.id);
-  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request,env));
+  if(!(await rateLimit(env,"ai:"+user.id+":marketing-product",30,3600)))return json({error:"Has alcanzado el límite temporal de solicitudes de IA. Intenta nuevamente más tarde."},429,corsHeaders(request,env));
+  if(access.kind==="expired"}return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request,env));
   if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request,env));
   const body=await request.json().catch(()=>({}));
   let image=String(body?.imageBase64||"").trim();
@@ -2819,7 +2820,9 @@ async function marketingProductAi(request,env){
 async function analyzeInventoryProductPhoto(request,env){
   if(request.method!=="POST")return json({error:"Método no permitido"},405);
   const {token,user}=await authUser(request,env);
-  const access=await entitlement(env,token,user.id);  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request,env));
+  const access=await entitlement(env,token,user.id);
+  if(!(await rateLimit(env,"ai:"+user.id+":inventory-photo",30,3600)))return json({error:"Has alcanzado el límite temporal de solicitudes de IA. Intenta nuevamente más tarde."},429,corsHeaders(request,env));
+  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request,env));
   if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request,env));
   const body=await request.json().catch(()=>({}));
   let image=String(body?.imageBase64||"").trim();

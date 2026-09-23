@@ -57,8 +57,31 @@ async function geminiGenerate(env,input,options={}){
 }
 
 function corsHeaders(request,env){
-  const origin=request.headers.get("Origin")||"*";
-  return {"access-control-allow-origin":origin,"access-control-allow-headers":"authorization,content-type","access-control-allow-methods":"GET,POST,OPTIONS","vary":"Origin"};
+  const origin=request.headers.get("Origin")||"";
+  const requestOrigin=new URL(request.url).origin;
+  const configured=String(env?.ALLOWED_ORIGINS||"").split(",").map(x=>x.trim()).filter(Boolean);
+  const allowed=new Set([requestOrigin,...configured]);
+  const headers={
+    "access-control-allow-headers":"authorization,content-type",
+    "access-control-allow-methods":"GET,POST,OPTIONS",
+    "vary":"Origin",
+    "x-content-type-options":"nosniff",
+    "x-frame-options":"DENY",
+    "referrer-policy":"no-referrer",
+    "permissions-policy":"geolocation=(),camera=(self),microphone=()"
+  };
+  if(origin&&allowed.has(origin))headers["access-control-allow-origin"]=origin;
+  return headers;
+}
+
+function safeClientError(err,fallback="Ocurrió un error al procesar la solicitud."){
+  const status=Number(err?.status||500);
+  if(status>=400&&status<500&&status!==429){
+    const message=String(err?.message||"").trim();
+    if(message&&message.length<=240)return message;
+  }
+  if(status===429)return "Demasiadas solicitudes. Intenta nuevamente en unos minutos.";
+  return fallback;
 }
 
 async function authUser(request,env){
@@ -3757,7 +3780,7 @@ async function processDuePublicationJobs(env){
     }catch(err){
       const attempt=Number(job.attempt||0)+1;
       const retry=attempt<3;
-      await sb(env,adminToken,"marc_publication_jobs?id=eq."+encodeURIComponent(job.id),{method:"PATCH",body:{status:retry?"PENDING":"FAILED",run_after:retry?new Date(Date.now()+attempt*5*60*1000).toISOString():job.run_after,finished_at:retry?null:new Date().toISOString(),error_message:String(err?.message||"Error de publicación"),response_metadata:{status:err?.status||500,detail:err?.details||null}}}).catch(()=>{});
+      await sb(env,adminToken,"marc_publication_jobs?id=eq."+encodeURIComponent(job.id),{method:"PATCH",body:{status:retry?"PENDING":"FAILED",run_after:retry?new Date(Date.now()+attempt*5*60*1000).toISOString():job.run_after,finished_at:retry?null:new Date().toISOString(),error_message:String(err?.message||"Error de publicación"),response_metadata:{status:err?.status||500}}}).catch(()=>{});
       results.push({id:job.id,status:retry?"RETRY":"FAILED",error:String(err?.message||"Error")});
     }
   }
@@ -3770,7 +3793,14 @@ export default{
   },
   async fetch(request,env,ctx){
     const headers=corsHeaders(request,env);
-    if(request.method==="OPTIONS")return new Response(null,{status:204,headers});
+    const requestOrigin=request.headers.get("Origin")||"";
+    const requestOriginUrl=new URL(request.url).origin;
+    const configuredOrigins=String(env?.ALLOWED_ORIGINS||"").split(",").map(x=>x.trim()).filter(Boolean);
+    const allowedOrigins=new Set([requestOriginUrl,...configuredOrigins]);
+    if(request.method==="OPTIONS"){
+      if(requestOrigin&&!allowedOrigins.has(requestOrigin))return new Response(null,{status:403,headers});
+      return new Response(null,{status:204,headers});
+    }
     const url=new URL(request.url);
     if(url.pathname==="/api/auth/signup"){
       if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);
@@ -3789,7 +3819,7 @@ export default{
           return json({error:msg},ar.status||400,headers);
         }
         return json({ok:true,user:{id:ad?.id,email:ad?.email}},200,headers);
-      }catch(err){return json({error:err?.message||"No se pudo crear la cuenta."},500,headers)}
+      }catch(err){return json({error:safeClientError(err,"No se pudo crear la cuenta.")},500,headers)}
     }
     if(url.pathname==="/api/cash-staff/login"){
       if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);
@@ -3814,7 +3844,7 @@ export default{
         const td=await tr.json().catch(()=>null);
         if(!tr.ok)return json({error:"Usuario o contraseña incorrectos"},401,headers);
         return json({session:td,staff},200,headers);
-      }catch(err){return json({error:err?.message||"No se pudo iniciar sesión de caja"},err?.status||500,headers)}
+      }catch(err){return json({error:safeClientError(err,"No se pudo iniciar sesión de caja")},err?.status||500,headers)}
     }
     if(url.pathname==="/api/cash-staff"){
       try{
@@ -3895,7 +3925,7 @@ export default{
         }
 
         return json({error:"Método no permitido"},405,headers);
-      }catch(err){return json({error:err?.message||"No se pudo gestionar el personal de caja"},err?.status||500,headers)}
+      }catch(err){return json({error:safeClientError(err,"No se pudo gestionar el personal de caja")},err?.status||500,headers)}
     }
     if(url.pathname==="/api/notifications"){
       if(request.method!=="GET")return json({error:"Método no permitido"},405,headers);
@@ -3903,7 +3933,7 @@ export default{
         const {token,user}=await authUser(request,env);
         const rows=await sb(env,token,"marc_reminders?select=id,title,body,due_at,status,channel,created_at,sent_at&user_id=eq."+encodeURIComponent(user.id)+"&order=due_at.desc&limit=50");
         return json({notifications:rows||[]},200,headers);
-      }catch(err){return json({error:err?.message||"No se pudieron cargar las notificaciones"},err?.status||500,headers)}
+      }catch(err){return json({error:safeClientError(err,"No se pudieron cargar las notificaciones")},err?.status||500,headers)}
     }
     if(url.pathname==="/api/chat"){
       if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);
@@ -3982,66 +4012,66 @@ export default{
         const text=await finalReply(env,message,{plan:pl,execution:executed,entitlement:access},webDisplayName);
         return json({text,action:executed.action,result:executed.result},200,headers);
       }catch(err){
-        return json({error:err?.message||"Error del agente",detail:err?.details||null},err?.status||500,headers);
+        return json({error:safeClientError(err,"Error del agente")},err?.status||500,headers);
       }
     }
     if(url.pathname==="/api/telegram/webhook"){
       try{return await telegramWebhook(request,env,ctx)}catch(err){
-        return json({error:err?.message||"Error del webhook",detail:err?.details||null},err?.status||500);
+        return json({error:safeClientError(err,"Error del webhook")},err?.status||500);
       }
     }
     if(url.pathname==="/api/client-portal/create"){
-      try{return await createClientPortal(request,env)}catch(err){return json({error:err?.message||"No se pudo crear el portal.",detail:err?.details||null},err?.status||500,corsHeaders(request,env))}
+      try{return await createClientPortal(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo crear el portal.")},err?.status||500,corsHeaders(request,env))}
     }
     if(url.pathname==="/api/client-portal/revoke"){
-      try{return await revokeClientPortal(request,env)}catch(err){return json({error:err?.message||"No se pudo revocar el portal.",detail:err?.details||null},err?.status||500,corsHeaders(request,env))}
+      try{return await revokeClientPortal(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo revocar el portal.")},err?.status||500,corsHeaders(request,env))}
     }
     if(url.pathname==="/api/client-portal/view"){
-      try{return await clientPortalView(request,env)}catch(err){return json({error:err?.message||"No se pudo cargar el portal.",detail:err?.details||null},err?.status||500,corsHeaders(request,env))}
+      try{return await clientPortalView(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo cargar el portal.")},err?.status||500,corsHeaders(request,env))}
     }
     if(url.pathname==="/api/marketing-product-ai"){
-      try{return await marketingProductAi(request,env)}catch(err){return json({error:err?.message||"No se pudo analizar el producto.",detail:err?.details||null},err?.status||500,headers)}
+      try{return await marketingProductAi(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo analizar el producto.")},err?.status||500,headers)}
     }
     if(url.pathname==="/api/inventory/analyze-photo"){
-      try{return await analyzeInventoryProductPhoto(request,env)}catch(err){return json({error:err?.message||"No se pudo analizar la foto del producto.",detail:err?.details||null},err?.status||500,headers)}
+      try{return await analyzeInventoryProductPhoto(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo analizar la foto del producto.")},err?.status||500,headers)}
     }
     if(url.pathname==="/api/inventory/pdf-start"){
-      try{return await inventoryPdfStart(request,env)}catch(err){return json({error:err?.message||"No se pudo iniciar el análisis"},err?.status||500,headers)}
+      try{return await inventoryPdfStart(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo iniciar el análisis")},err?.status||500,headers)}
     }
     if(url.pathname==="/api/inventory/pdf-page"){
-      try{return await inventoryPdfPageAnalyze(request,env)}catch(err){return json({error:err?.message||"No se pudo analizar la página"},err?.status||500,headers)}
+      try{return await inventoryPdfPageAnalyze(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo analizar la página")},err?.status||500,headers)}
     }
     if(url.pathname==="/api/inventory/pdf-finalize"){
-      try{return await inventoryPdfFinalize(request,env)}catch(err){return json({error:err?.message||"No se pudo finalizar el análisis"},err?.status||500,headers)}
+      try{return await inventoryPdfFinalize(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo finalizar el análisis")},err?.status||500,headers)}
     }
     if(url.pathname==="/api/inventory/pdf-preview"){
-      try{return await inventoryPdfPreview(request,env)}catch(err){return json({error:err?.message||"No se pudo analizar el PDF"},err?.status||500,headers)}
+      try{return await inventoryPdfPreview(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo analizar el PDF")},err?.status||500,headers)}
     }
     if(url.pathname==="/api/inventory/pdf-import"){
-      try{return await inventoryPdfImport(request,env)}catch(err){return json({error:err?.message||"No se pudo importar el inventario"},err?.status||500,headers)}
+      try{return await inventoryPdfImport(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo importar el inventario")},err?.status||500,headers)}
     }
     if(url.pathname==="/api/company/profile"){
       try{
         if(request.method==="GET")return await companyProfile(request,env);
         if(request.method==="POST")return await saveCompanyProfile(request,env);
         return json({error:"Método no permitido"},405,headers);
-      }catch(err){return json({error:err?.message||"No se pudo gestionar el perfil empresarial"},err?.status||500,headers)}
+      }catch(err){return json({error:safeClientError(err,"No se pudo gestionar el perfil empresarial")},err?.status||500,headers)}
     }
     if(url.pathname==="/api/quote-ai"){
       try{return await quoteAiDraft(request,env)}catch(err){
-        return json({error:err?.message||"No se pudo generar la cotización con IA.",detail:err?.details||null},err?.status||500,headers);
+        return json({error:safeClientError(err,"No se pudo generar la cotización con IA.")},err?.status||500,headers);
       }
     }
-    if(url.pathname==="/api/marketing-ai"){try{return await marketingAi(request,env)}catch(err){return json({error:err?.message||"No se pudo generar la publicidad.",detail:err?.details||null},err?.status||500,headers)}}
-    if(url.pathname==="/api/marketing-video-start"){try{return await marketingVideoStart(request,env)}catch(err){return json({error:err?.message||"No se pudo iniciar el video.",detail:err?.details||null},err?.status||500,headers)}}
-    if(url.pathname==="/api/marketing-video-status"){try{return await marketingVideoStatus(request,env)}catch(err){return json({error:err?.message||"No se pudo consultar el video.",detail:err?.details||null},err?.status||500,headers)}}
-    if(url.pathname==="/api/marketing-image"){try{return await marketingImage(request,env)}catch(err){return json({error:err?.message||"No se pudo generar el banner con IA.",detail:err?.details||null},err?.status||500,headers)}}
+    if(url.pathname==="/api/marketing-ai"){try{return await marketingAi(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo generar la publicidad.")},err?.status||500,headers)}}
+    if(url.pathname==="/api/marketing-video-start"){try{return await marketingVideoStart(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo iniciar el video.")},err?.status||500,headers)}}
+    if(url.pathname==="/api/marketing-video-status"){try{return await marketingVideoStatus(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo consultar el video.")},err?.status||500,headers)}}
+    if(url.pathname==="/api/marketing-image"){try{return await marketingImage(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo generar el banner con IA.")},err?.status||500,headers)}}
     if(url.pathname==="/api/social/meta/publish"){
-      try{return await metaPublish(request,env)}catch(err){return json({error:err?.message||"No se pudo publicar en Meta.",detail:err?.details||null},err?.status||500,headers)}
+      try{return await metaPublish(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo publicar en Meta.")},err?.status||500,headers)}
     }
     if(url.pathname==="/api/social/meta/connect"){
       if(request.method!=="GET")return json({error:"Método no permitido"},405,headers);
-      try{return await metaConnect(request,env)}catch(err){return json({error:err?.message||"No se pudo iniciar la conexión con Meta."},err?.status||500,headers)}
+      try{return await metaConnect(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo iniciar la conexión con Meta.")},err?.status||500,headers)}
     }
     if(url.pathname==="/api/social/meta/callback"){
       try{return await metaCallback(request,env)}catch(err){return new Response("M.A.R.C. · "+String(err?.message||"No se pudo completar la conexión con Meta."),{status:err?.status||500,headers:{"content-type":"text/plain; charset=utf-8","cache-control":"no-store"}})}
@@ -4049,19 +4079,19 @@ export default{
     if(url.pathname==="/api/telegram/diagnostics"){return telegramDiagnostics(request,env)}
     if(url.pathname==="/api/telegram/setup"){
       if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);
-      try{return await telegramSetup(request,env)}catch(err){return json({error:err?.message||"No se pudo configurar Telegram"},err?.status||500,headers)}
+      try{return await telegramSetup(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo configurar Telegram")},err?.status||500,headers)}
     }
     if(url.pathname==="/api/telegram/status"){
       if(request.method!=="GET")return json({error:"Método no permitido"},405,headers);
-      try{return await telegramStatus(request,env)}catch(err){return json({error:err?.message||"No se pudo consultar Telegram"},err?.status||500,headers)}
+      try{return await telegramStatus(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo consultar Telegram")},err?.status||500,headers)}
     }
     if(url.pathname==="/api/telegram/link"){
       if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);
-      try{return await telegramLink(request,env)}catch(err){return json({error:err?.message||"No se pudo generar el enlace"},err?.status||500,headers)}
+      try{return await telegramLink(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo generar el enlace")},err?.status||500,headers)}
     }
     if(url.pathname==="/api/telegram/unlink"){
       if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);
-      try{return await telegramUnlink(request,env)}catch(err){return json({error:err?.message||"No se pudo desconectar Telegram"},err?.status||500,headers)}
+      try{return await telegramUnlink(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo desconectar Telegram")},err?.status||500,headers)}
     }
     if(url.pathname.startsWith("/api/"))return json({error:"Ruta no encontrada"},404,headers);
     const assetResponse=await env.ASSETS.fetch(request);

@@ -1941,70 +1941,79 @@ async function closeCashModal(open,expected){
 }
 async function cashMovementModal(open,type){
   const ctx=await getCashStaffContext();
-  if(!ctx.ownerId)return;
-  const income=type==="INCOME",title=income?"🛒 Registrar venta":"💸 Registrar gasto";
+  if(!ctx.ownerId)return toast("No se encontró la caja administradora.","err");
+  if(!open)return toast("Primero abre la caja para registrar ventas.","err");
+  const income=type==="INCOME";
   let products=[];
   if(income){
-    const {data,error}=await S.from("marc_inventory").select("id,name,sku,brand,model,category,unit,price,stock,image_url,description").eq("user_id",ctx.ownerId).eq("active",true).order("name").limit(1000);
+    const {data,error}=await S.from("marc_inventory")
+      .select("id,name,sku,brand,model,category,unit,price,stock,image_url,description")
+      .eq("user_id",ctx.ownerId).eq("active",true).order("name").limit(1000);
     if(error)return toast(error.message,"err");
     products=data||[];
   }
-  const productOptions=income&&products.length?'<div class="cash-product-picker"><div class="cash-product-head"><b>¿Qué producto estás vendiendo?</b><small>Busca por nombre, marca, modelo o SKU.</small></div><input id="cashProductSearch" class="cash-product-search" placeholder="🔎 Buscar producto…"><div id="cashProductList" class="cash-product-list"></div><div id="cashProductSelected" class="cash-product-selected"></div></div>':'';
-  const close=modal('<div class="modal-head"><div><h2>'+title+'</h2><p>Registro rápido de caja. Quedará asociado a '+esc(ctx.staff?.display_name||"tu usuario")+'.</p></div><button class="close" id="x">×</button></div><form id="cashMoveForm">'+productOptions+'<div class="cash-quick-amount"><span>S/</span><input name="amount" inputmode="decimal" type="number" min="0.01" step="0.01" required placeholder="0.00" autofocus></div><div id="cashProductQtyWrap" class="cash-product-qty hidden"><label>Cantidad<input id="cashProductQty" name="quantity" type="number" min="1" step="1" value="1"></label><span id="cashProductTotal"></span></div><div class="cash-quick-grid"><button type="button" class="secondary cash-preset" data-v="10">S/ 10</button><button type="button" class="secondary cash-preset" data-v="20">S/ 20</button><button type="button" class="secondary cash-preset" data-v="50">S/ 50</button><button type="button" class="secondary cash-preset" data-v="100">S/ 100</button></div><label style="display:'+(income?"block":"none")+'">Tipo de gasto<select name="expense_category" '+(income?"":"required")+'><option value="">Selecciona una categoría…</option><option>Compra de mercadería</option><option>Materiales</option><option>Transporte</option><option>Servicios</option><option>Alquiler</option><option>Alimentación</option><option>Personal</option><option>Mantenimiento</option><option>Otros</option></select></label><label>Concepto<input name="concept" required placeholder="'+(income?"Venta, cobro, servicio…":"Compra, transporte, gasto…")+'"></label><label>Referencia opcional<input name="reference" placeholder="Boleta, factura, cliente, nota…"></label><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">'+(income?"Registrar venta":"Registrar gasto")+'</button></div></form>');
-  $("#x").onclick=close;$("#cancel").onclick=close;
-  let selected=null;
-  const amount=$("#cashMoveForm [name=amount]"),qty=$("#cashProductQty"),qtyWrap=$("#cashProductQtyWrap"),total=$("#cashProductTotal"),list=$("#cashProductList"),search=$("#cashProductSearch"),selectedBox=$("#cashProductSelected");
-  const renderProducts=()=>{
-    if(!list)return;
-    const q=String(search?.value||"").trim().toLowerCase();
-    const filtered=products.filter(p=>[p.name,p.sku,p.brand,p.model,p.category].some(v=>String(v||"").toLowerCase().includes(q))).slice(0,30);
-    list.innerHTML=filtered.map(p=>'<button type="button" class="cash-product-item" data-id="'+esc(p.id)+'">'+(p.image_url?'<img src="'+esc(p.image_url)+'" alt="">':'<span class="cash-product-thumb">▦</span>')+'<span><b>'+esc(p.name)+'</b><small>'+esc([p.brand,p.model,p.sku].filter(Boolean).join(" · ")||"Sin código")+'</small><small>'+esc(p.description||p.category||"Producto")+' · Stock: '+Number(p.stock||0)+'</small></span><strong>'+money(p.price||0)+'</strong></button>').join("")||'<div class="empty">No encontré productos con esa búsqueda.</div>';
-    $$(".cash-product-item",list).forEach(b=>b.onclick=()=>selectProduct(products.find(p=>p.id===b.dataset.id)));
-  };
-  const updateProductTotal=()=>{
-    if(!selected)return;
-    const n=Math.max(1,Number(qty?.value||1)),v=Number(selected.price||0)*n;
-    amount.value=v.toFixed(2);
-    if(total)total.textContent=n+" × "+money(selected.price||0)+" = "+money(v);
-  };
-  const selectProduct=p=>{
-    if(!p)return;
-    selected=p; if(qtyWrap)qtyWrap.classList.remove("hidden");
-    if(selectedBox)selectedBox.innerHTML='<div><b>✓ '+esc(p.name)+'</b><small>'+esc([p.brand,p.model,p.unit].filter(Boolean).join(" · ")||"Producto seleccionado")+'</small></div><button type="button" id="cashProductClear">Cambiar</button>';
-    if($("#cashProductClear"))$("#cashProductClear").onclick=()=>{selected=null;selectedBox.innerHTML="";qtyWrap?.classList.add("hidden");amount.value="";renderProducts()};
-    $("#cashMoveForm [name=concept]").value="Venta · "+p.name+(p.model?" · "+p.model:"");
-    $("#cashMoveForm [name=reference]").value=p.sku||"";
-    qty.value="1";updateProductTotal();
-  };
-  search?.addEventListener("input",renderProducts);
-  qty?.addEventListener("input",updateProductTotal);
-  renderProducts();
-  $$(".cash-preset",$("#cashMoveForm")).forEach(b=>b.onclick=()=>{selected=null;selectedBox&&(selectedBox.innerHTML="");qtyWrap?.classList.add("hidden");amount.value=b.dataset.v});
-  $("#cashMoveForm").onsubmit=async e=>{
-    e.preventDefault();const b=e.currentTarget.querySelector("button.primary");b.disabled=true;
-    try{
-      const d=new FormData(e.currentTarget),amountValue=Number(d.get("amount")||0);
-      if(amountValue<=0)throw new Error("Ingresa un monto válido.");
-      let concept=String(d.get("concept")||"").trim(),reference=String(d.get("reference")||"").trim(); if(!income){const category=String(d.get("expense_category")||"").trim();if(!category)throw new Error("Selecciona el tipo de gasto.");concept="[GASTO: "+category+"] "+concept;}
-      if(income&&selected){
-        const quantity=Number(d.get("quantity")||1);
-        const available=Number(selected.stock||0);
-        if(!Number.isInteger(quantity)||quantity<=0)throw new Error("La cantidad debe ser un número entero mayor que cero.");
-        if(available<=0)throw new Error("Este producto está agotado.");
-        if(quantity>available)throw new Error("Stock insuficiente. Disponible: "+available+" unidad"+(available===1?"":"es")+".");
-        const unitPrice=Number(selected.price||0);
-        if(unitPrice<=0)throw new Error("El producto seleccionado no tiene un precio de venta válido.");
-        const {error}=await S.rpc("marc_register_product_sale",{p_cash_register_id:open.id,p_product_id:selected.id,p_quantity:quantity,p_amount:amountValue,p_concept:concept,p_reference:reference,p_created_by_name:ctx.staff?.display_name||st.u.email||"Usuario"});
-        if(error)throw error;
-      }else{
-        const row={user_id:ctx.ownerId,cash_register_id:open.id,type,amount:amountValue,concept,reference:reference||null,created_by:st.u.id,created_by_name:ctx.staff?.display_name||st.u.email||"Usuario"};
+
+  if(!income){
+    const close=modal('<div class="modal-head"><div><div class="eyebrow2">SALIDA DE CAJA</div><h2>💸 Registrar gasto</h2><p>Registra el gasto y su categoría para mantener la caja ordenada.</p></div><button class="close" id="x">×</button></div><form id="cashMoveForm"><div class="cash-quick-amount"><span>S/</span><input name="amount" inputmode="decimal" type="number" min="0.01" step="0.01" required placeholder="0.00" autofocus></div><label>Tipo de gasto<select name="expense_category" required><option value="">Selecciona una categoría…</option><option>Compra de mercadería</option><option>Materiales</option><option>Transporte</option><option>Servicios</option><option>Alquiler</option><option>Alimentación</option><option>Personal</option><option>Mantenimiento</option><option>Otros</option></select></label><label>Concepto<input name="concept" required placeholder="¿En qué se gastó?"></label><label>Referencia opcional<input name="reference" placeholder="Boleta, factura, proveedor…"></label><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Registrar gasto</button></div></form>');
+    $("#x").onclick=close;$("#cancel").onclick=close;
+    $("#cashMoveForm").onsubmit=async e=>{
+      e.preventDefault();const b=e.currentTarget.querySelector("button.primary");b.disabled=true;
+      try{
+        const d=new FormData(e.currentTarget),amountValue=Number(d.get("amount")||0),category=String(d.get("expense_category")||"").trim(),concept=String(d.get("concept")||"").trim(),reference=String(d.get("reference")||"").trim();
+        if(amountValue<=0)throw new Error("Ingresa un monto válido.");
+        if(!category)throw new Error("Selecciona el tipo de gasto.");
+        const row={user_id:ctx.ownerId,cash_register_id:open.id,type:"EXPENSE",amount:amountValue,concept:"[GASTO: "+category+"] "+concept,reference:reference||null,created_by:st.u.id,created_by_name:ctx.staff?.display_name||st.u.email||"Usuario"};
         const {error}=await S.from("marc_cash_movements").insert(row);if(error)throw error;
-      }
-      close();toast(income?(selected?"Venta registrada · "+selected.name:"Ingreso registrado"):"Gasto registrado","ok");await cash();
-    }catch(err){toast(err.message||"No se pudo registrar el movimiento.","err");b.disabled=false}
+        close();toast("Gasto registrado","ok");await cash();
+      }catch(err){toast(err.message||"No se pudo registrar el gasto.","err");b.disabled=false}
+    };
+    return;
+  }
+
+  const categories=[...new Set(products.map(p=>String(p.category||"Otros").trim()).filter(Boolean))];
+  const close=modal('<div class="modal-head"><div><div class="eyebrow2">PUNTO DE VENTA</div><h2>🛒 Nueva venta</h2><p>Selecciona productos, cantidades y cobra todo en una sola operación.</p></div><button class="close" id="x">×</button></div><div id="pos" style="display:grid;grid-template-columns:minmax(0,1.7fr) minmax(280px,.9fr);gap:18px;max-height:72vh;overflow:hidden"><section style="min-width:0;display:flex;flex-direction:column;gap:10px"><input id="posSearch" class="cash-product-search" placeholder="🔎 Buscar producto, marca, modelo o SKU…" autofocus><div id="posCats" style="display:flex;gap:8px;overflow:auto;padding:2px 0 6px"></div><div id="posProducts" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px;overflow:auto;padding:2px"></div></section><aside style="border:1px solid var(--line,#ddd);border-radius:18px;padding:14px;display:flex;flex-direction:column;min-height:0;background:var(--panel,#fff)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div><b>Tu pedido</b><small style="display:block;opacity:.65">Toca un producto para añadirlo</small></div><span id="posCount" class="eyebrow2">0</span></div><div id="posCart" style="overflow:auto;flex:1;margin:10px 0"></div><div style="border-top:1px solid var(--line,#ddd);padding-top:12px"><div style="display:flex;justify-content:space-between;font-size:1.15rem"><b>Total</b><strong id="posTotal">S/ 0.00</strong></div><label style="margin-top:10px">Cliente / referencia opcional<input id="posReference" placeholder="Nombre, boleta, nota…"></label><button type="button" class="primary" id="posCharge" style="width:100%;margin-top:10px;padding:14px">Cobrar venta · S/ 0.00</button></div></aside></div>');
+  $("#x").onclick=close;
+  const search=$("#posSearch"),list=$("#posProducts"),cats=$("#posCats"),cartBox=$("#posCart"),totalBox=$("#posTotal"),countBox=$("#posCount"),charge=$("#posCharge");
+  const cart=new Map();let activeCategory="TODOS";
+  const money2=v=>money(v);
+  const renderCats=()=>{
+    const all=["TODOS",...categories];
+    cats.innerHTML=all.map(c=>'<button type="button" class="secondary pos-cat" data-cat="'+esc(c)+'" style="white-space:nowrap;padding:7px 12px;border-radius:999px">'+esc(c)+'</button>').join("");
+    $$(".pos-cat",cats).forEach(btn=>btn.onclick=()=>{activeCategory=btn.dataset.cat;renderProducts()});
   };
-}
-async function cashMasterGate(){
+  const filtered=()=>{const q=String(search?.value||"").trim().toLowerCase();return products.filter(p=>(activeCategory==="TODOS"||String(p.category||"Otros").trim()===activeCategory)&&[p.name,p.sku,p.brand,p.model,p.category].some(v=>String(v||"").toLowerCase().includes(q))).slice(0,100);};
+  const renderProducts=()=>{
+    const rows=filtered();
+    list.innerHTML=rows.map(p=>{
+      const inCart=cart.get(p.id)?.quantity||0,stock=Number(p.stock||0),disabled=stock<=0;
+      return '<button type="button" data-id="'+esc(p.id)+'" '+(disabled?'disabled':'')+' style="text-align:left;border:1px solid var(--line,#ddd);border-radius:16px;padding:10px;background:var(--panel,#fff);cursor:pointer;position:relative;opacity:'+(disabled?".55":"1")+'">'+(p.image_url?'<img src="'+esc(p.image_url)+'" alt="" style="width:100%;height:100px;object-fit:contain;border-radius:10px;background:#f5f5f5">':'<div style="height:100px;display:grid;place-items:center;border-radius:10px;background:rgba(127,127,127,.08);font-size:2rem">📦</div>')+'<b style="display:block;margin-top:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(p.name)+'</b><small style="display:block;opacity:.65;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc([p.brand,p.model].filter(Boolean).join(" · ")||p.category||"Producto")+'</small><div style="display:flex;justify-content:space-between;gap:6px;margin-top:6px"><strong>'+money2(p.price)+'</strong><small>Stock '+stock+(inCart?' · Pedido '+inCart:"")+'</small></div></button>';
+    }).join("")||'<div class="empty">No hay productos con esa búsqueda.</div>';
+    $$('button[data-id]',list).forEach(btn=>btn.onclick=()=>addProduct(products.find(p=>p.id===btn.dataset.id)));
+  };
+  const renderCart=()=>{
+    let total=0,count=0;
+    cartBox.innerHTML=[...cart.values()].map(item=>{const line=Number(item.product.price||0)*item.quantity;total+=line;count+=item.quantity;return '<div style="display:grid;grid-template-columns:1fr auto;gap:8px;padding:9px 0;border-bottom:1px solid var(--line,#ddd)"><div><b>'+esc(item.product.name)+'</b><small style="display:block;opacity:.65">'+money2(item.product.price)+' c/u</small><div style="display:flex;align-items:center;gap:5px;margin-top:5px"><button type="button" class="secondary pos-minus" data-id="'+esc(item.product.id)+'">−</button><b>'+item.quantity+'</b><button type="button" class="secondary pos-plus" data-id="'+esc(item.product.id)+'">+</button><button type="button" class="secondary pos-remove" data-id="'+esc(item.product.id)+'">Quitar</button></div></div><strong>'+money2(line)+'</strong></div>'}).join("")||'<div class="empty" style="padding:30px 4px;text-align:center">🛒<br><br>El pedido está vacío.<br><small>Elige un producto de la izquierda.</small></div>';
+    totalBox.textContent=money2(total);countBox.textContent=count+" u.";charge.textContent="Cobrar venta · "+money2(total);charge.disabled=count===0;
+    $$(".pos-minus",cartBox).forEach(b=>b.onclick=()=>changeQty(b.dataset.id,-1));$$(".pos-plus",cartBox).forEach(b=>b.onclick=()=>changeQty(b.dataset.id,1));$$(".pos-remove",cartBox).forEach(b=>b.onclick=()=>{cart.delete(b.dataset.id);renderCart();renderProducts()});
+  };
+  const addProduct=p=>{if(!p||Number(p.stock||0)<=0)return;const item=cart.get(p.id);if(item){if(item.quantity>=Number(p.stock||0))return toast("No hay más stock de "+p.name,"err");item.quantity++}else cart.set(p.id,{product:p,quantity:1});renderCart();renderProducts()};
+  const changeQty=(id,delta)=>{const item=cart.get(id);if(!item)return;const next=item.quantity+delta;if(next<=0)cart.delete(id);else if(next<=Number(item.product.stock||0))item.quantity=next;else return toast("Stock insuficiente.","err");renderCart();renderProducts()};
+  search?.addEventListener("input",renderProducts);
+  renderCats();renderProducts();renderCart();
+  charge.onclick=async()=>{
+    if(!cart.size)return;
+    charge.disabled=true;
+    try{
+      const reference=String($("#posReference")?.value||"").trim();
+      for(const item of cart.values()){
+        const p=item.product,q=item.quantity,unitPrice=Number(p.price||0);
+        const {error}=await S.rpc("marc_register_product_sale",{p_cash_register_id:open.id,p_product_id:p.id,p_quantity:q,p_amount:unitPrice*q,p_concept:"Venta · "+p.name+(p.model?" · "+p.model:""),p_reference:reference||p.sku||null,p_created_by_name:ctx.staff?.display_name||st.u.email||"Usuario"});
+        if(error)throw error;
+      }
+      close();toast("Venta registrada · "+[...cart.values()].reduce((n,x)=>n+x.quantity,0)+" productos","ok");await cash();
+    }catch(err){toast(err.message||"No se pudo registrar la venta.","err");charge.disabled=false}
+  };
+}async function cashMasterGate(){
   const email=String(st.u?.email||"").trim();
   if(!email)throw new Error("No se encontró el usuario maestro.");
   const close=modal(`<div class="modal-head"><div><div class="eyebrow2">SEGURIDAD MAESTRA</div><h2>🔐 Acceso de administrador</h2><p>Usa el usuario y la contraseña de tu cuenta M.A.R.C. para administrar Caja.</p></div><button class="close" id="x">×</button></div><form id="cashMasterForm"><label>Usuario maestro<input name="email" type="email" value="${esc(email)}" readonly></label><label>Clave maestra<div class="password-field"><input name="password" type="password" minlength="6" required autofocus autocomplete="current-password" placeholder="Tu contraseña de M.A.R.C."><button type="button" id="showMasterPass">◉</button></div></label><div id="cashMasterError" class="cash-login-error"></div><div class="modal-actions"><button type="button" class="secondary" id="setupMaster">Crear / cambiar clave maestra</button><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Entrar →</button></div></form>`);

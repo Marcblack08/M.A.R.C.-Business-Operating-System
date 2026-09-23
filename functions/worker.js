@@ -3781,22 +3781,26 @@ export default{
           let ad=await ar.json().catch(()=>null);
           if(ar.ok){
             authUserId=ad?.user?.id||ad?.id;
-          }else if(String(ad?.msg||ad?.message||ad?.error_description||ad?.error||"").toLowerCase().includes("already registered")){
-            // Recupera una cuenta Auth huérfana creada por un intento anterior.
-            let page=1;
-            while(!authUserId && page<=10){
+          }else if(ar.status===422||/already.*registered|already.*exists|email.*registered|email.*exists|duplicate/i.test(String(ad?.msg||ad?.message||ad?.error_description||ad?.error||""))){
+            // Recupera únicamente una cuenta Auth huérfana del cajero. Nunca vincula una cuenta que ya pertenezca a otro cajero.
+            let page=1,found=null;
+            while(!found && page<=10){
               const lr=await fetch(env.SUPABASE_URL+"/auth/v1/admin/users?page="+page+"&per_page=100",{method:"GET",headers:{apikey:adminToken,Authorization:"Bearer "+adminToken}});
               const lj=await lr.json().catch(()=>null);
-              const found=(lj?.users||[]).find(x=>String(x?.email||"").toLowerCase()===email.toLowerCase());
-              if(found)authUserId=found.id;
+              found=(lj?.users||[]).find(x=>String(x?.email||"").toLowerCase()===email.toLowerCase())||null;
               if(!lj?.users?.length || lj.users.length<100)break;
               page++;
             }
-            if(authUserId){
-              const linked=await sb(env,adminToken,"marc_cash_staff?select=id,owner_user_id&auth_user_id=eq."+encodeURIComponent(authUserId)+"&limit=1");
+            if(found){
+              const linked=await sb(env,adminToken,"marc_cash_staff?select=id,owner_user_id&auth_user_id=eq."+encodeURIComponent(found.id)+"&limit=1");
               if(linked?.length)throw Object.assign(new Error("Ese usuario de cajero ya está registrado."),{status:409});
-              const ur=await fetch(env.SUPABASE_URL+"/auth/v1/admin/users/"+encodeURIComponent(authUserId),{method:"PUT",headers:{"content-type":"application/json",apikey:adminToken,Authorization:"Bearer "+adminToken},body:JSON.stringify({password,email_confirm:true,user_metadata:{cash_username:username,cash_owner_id:user.id}})});
+              const existingOwner=String(found?.user_metadata?.cash_owner_id||"");
+              if(existingOwner && existingOwner!==String(user.id))throw Object.assign(new Error("Ese usuario de cajero pertenece a otra cuenta administrativa."),{status:409});
+              authUserId=found.id;
+              const ur=await fetch(env.SUPABASE_URL+"/auth/v1/admin/users/"+encodeURIComponent(authUserId),{method:"PUT",headers:{"content-type":"application/json",apikey:adminToken,Authorization:"Bearer "+adminToken},body:JSON.stringify({password,email_confirm:true,user_metadata:{...(found.user_metadata||{}),cash_username:username,cash_owner_id:user.id}})});
               if(!ur.ok)throw Object.assign(new Error("La cuenta de cajero ya existe pero no se pudo recuperar."),{status:502});
+            }else{
+              throw Object.assign(new Error("No se pudo crear el acceso de cajero porque ese usuario ya existe en autenticación. Usa otro usuario."),{status:409});
             }
           }else{
             throw Object.assign(new Error(ad?.msg||ad?.message||ad?.error_description||ad?.error||"No se pudo crear el usuario de caja."),{status:ar.status,details:ad});

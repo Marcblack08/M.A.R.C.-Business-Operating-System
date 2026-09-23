@@ -3374,7 +3374,7 @@ async function createClientPortal(request,env){
   const hash=await sha256Hex(rawToken);
   await sb(env,token,"marc_clients?id=eq."+encodeURIComponent(clientId)+"&user_id=eq."+encodeURIComponent(user.id),{
     method:"PATCH",
-    body:{portal_enabled:true,portal_token_hash:hash,portal_created_at:new Date().toISOString(),portal_last_seen_at:null}
+    body:{portal_enabled:true,portal_token_hash:hash,portal_created_at:new Date().toISOString(),portal_expires_at:new Date(Date.now()+30*24*60*60*1000).toISOString(),portal_last_seen_at:null}
   });
   await audit(env,token,user.id,"CLIENT",clientId,"PORTAL_CREATE",{client_name:client.name},"WEB");
   const origin=new URL(request.url).origin;
@@ -3390,7 +3390,7 @@ async function revokeClientPortal(request,env){
   const rows=await sb(env,token,"marc_clients?id=eq."+encodeURIComponent(clientId)+"&user_id=eq."+encodeURIComponent(user.id)+"&select=id,name&limit=1");
   if(!rows?.[0])return json({error:"Cliente no encontrado"},404,corsHeaders(request,env));
   await sb(env,token,"marc_clients?id=eq."+encodeURIComponent(clientId)+"&user_id=eq."+encodeURIComponent(user.id),{
-    method:"PATCH",body:{portal_enabled:false,portal_token_hash:null,portal_created_at:null,portal_last_seen_at:null}
+    method:"PATCH",body:{portal_enabled:false,portal_token_hash:null,portal_created_at:null,portal_expires_at:null,portal_last_seen_at:null}
   });
   return json({ok:true},200,corsHeaders(request,env));
 }
@@ -3404,9 +3404,13 @@ async function clientPortalView(request,env){
   const hash=await sha256Hex(rawToken);
   const adminToken=env.SUPABASE_SERVICE_ROLE_KEY||env.SUPABASE_SECRET_KEY;
   if(!adminToken)throw Object.assign(new Error("El portal de clientes requiere SUPABASE_SERVICE_ROLE_KEY."),{status:503});
-  const rows=await sb(env,adminToken,"marc_clients?portal_enabled=eq.true&portal_token_hash=eq."+encodeURIComponent(hash)+"&select=id,user_id,name,document_type,document_number,contact_name,email,phone,address,portal_last_seen_at&limit=1");
+  const rows=await sb(env,adminToken,"marc_clients?portal_enabled=eq.true&portal_token_hash=eq."+encodeURIComponent(hash)+"&select=id,user_id,name,document_type,document_number,contact_name,email,phone,address,portal_last_seen_at,portal_expires_at&limit=1");
   const client=rows?.[0];
   if(!client)return json({error:"Enlace de cliente inválido o vencido."},401,corsHeaders(request,env));
+  if(!client.portal_expires_at || new Date(client.portal_expires_at).getTime()<=Date.now()){
+    await sb(env,adminToken,"marc_clients?id=eq."+encodeURIComponent(client.id)+"&user_id=eq."+encodeURIComponent(client.user_id),{method:"PATCH",body:{portal_enabled:false,portal_token_hash:null,portal_expires_at:null}});
+    return json({error:"Enlace de cliente vencido. Solicita un nuevo enlace."},410,corsHeaders(request,env));
+  }
   const uid=client.user_id,cid=client.id;
   const [company,quotes,reports,history]=await Promise.all([
     sb(env,adminToken,"marc_company_profiles?user_id=eq."+encodeURIComponent(uid)+"&select=business_name,phone,email,logo_data&limit=1"),

@@ -3822,9 +3822,9 @@ export default{
         const ar=await fetch(env.SUPABASE_URL+"/auth/v1/admin/users",{method:"POST",headers:{"content-type":"application/json",apikey:adminToken,Authorization:"Bearer "+adminToken},body:JSON.stringify({email,password,email_confirm:true})});
         const ad=await ar.json().catch(()=>null);
         if(!ar.ok){
-          const msg=String(ad?.msg||ad?.message||ad?.error_description||"No se pudo crear la cuenta.");
-          if(ar.status===422&&/already|exists|registered|duplicate/i.test(msg))return json({error:"Ya existe una cuenta con ese correo. Inicia sesión o usa recuperación de contraseña."},409,headers);
-          return json({error:msg},ar.status||400,headers);
+          const msg=String(ad?.msg||ad?.message||ad?.error_description||"");
+          if(ar.status===422&&/already|exists|registered|duplicate/i.test(msg))return json({error:"No se pudo crear la cuenta con esos datos."},400,headers);
+          return json({error:"No se pudo crear la cuenta. Verifica los datos e inténtalo nuevamente."},400,headers);
         }
         return json({ok:true,user:{id:ad?.id,email:ad?.email}},200,headers);
       }catch(err){return json({error:safeClientError(err,"No se pudo crear la cuenta.")},500,headers)}
@@ -3839,7 +3839,7 @@ export default{
         const lookup=await sb(env,env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY,
           "marc_cash_staff?select=owner_user_id,auth_user_id,username,display_name,role,active&username=eq."+encodeURIComponent(username)+"&limit=1");
         const staff=lookup?.[0];
-        if(!staff||!staff.active)return json({error:"Usuario de caja no disponible"},401,headers);
+        if(!staff||!staff.active)return json({error:"Usuario o contraseña incorrectos"},401,headers);
         const adminToken=env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY;
         let loginEmail=username+"@cash.marc.pe";
         if(adminToken&&staff.auth_user_id){

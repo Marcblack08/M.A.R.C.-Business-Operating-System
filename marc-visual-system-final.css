@@ -3465,3 +3465,80 @@ html:not([data-theme="dark"]):not([data-theme="color"]) .brand-image{
   0%,100%{transform:translateY(0)}
   50%{transform:translateY(-5px)}
 }
+
+/* ===== HOTFIX 22 — final polish / reference proportions ===== */
+@media screen and (min-width:1101px){
+  #auth.auth{
+    grid-template-columns:minmax(420px,1fr) minmax(390px,520px)!important;
+    place-items:center!important;
+    gap:clamp(40px,7vw,110px)!important;
+    padding:50px clamp(40px,7vw,110px)!important;
+    background:
+      radial-gradient(circle at 18% 18%,rgba(23,174,220,.18),transparent 34%),
+      radial-gradient(circle at 85% 4%,rgba(25,91,220,.17),transparent 32%),
+      linear-gradient(135deg,#062a3c 0%,#06192d 52%,#050f20 100%)!important;
+  }
+  #auth .auth-visual{
+    width:min(680px,100%)!important;
+    min-height:680px!important;
+    padding:24px!important;
+    border-radius:32px!important;
+    background:
+      radial-gradient(circle at 50% 40%,rgba(26,164,231,.22),transparent 42%),
+      linear-gradient(145deg,rgba(12,73,94,.76),rgba(4,21,36,.96))!important;
+    border:1px solid rgba(68,190,235,.22)!important;
+    box-shadow:0 30px 80px rgba(0,0,0,.28)!important;
+  }
+  #auth .auth-visual-brand{
+    justify-content:center!important;
+    text-align:center!important;
+  }
+  #auth .auth-visual-brand .logo{display:none!important}
+  #auth .auth-visual-brand b{
+    font-size:40px!important;
+    letter-spacing:.055em!important;
+  }
+  #auth .auth-visual-brand small{
+    display:block!important;
+    font-size:10px!important;
+    letter-spacing:.18em!important;
+    margin-top:8px!important;
+  }
+  #auth .auth-mascot-wrap{height:380px!important;min-height:380px!important}
+  #auth .auth-mascot{width:360px!important;height:360px!important}
+  #auth .auth-visual-copy{text-align:center!important;padding:0 20px!important}
+  #auth .auth-visual-copy h2{font-size:46px!important;line-height:.98!important}
+  #auth .auth-visual-copy p{font-size:11px!important;max-width:570px!important;margin-inline:auto!important}
+  #auth .auth-visual-stats{margin-top:24px!important}
+  #auth .auth-card{
+    width:100%!important;
+    max-width:520px!important;
+    padding:30px!important;
+    border-radius:28px!important;
+    background:linear-gradient(145deg,rgba(18,55,73,.80),rgba(5,22,38,.95))!important;
+    border:1px solid rgba(67,182,230,.24)!important;
+    box-shadow:0 28px 70px rgba(0,0,0,.32)!important;
+  }
+}
+@media screen and (max-width:520px){
+  #auth .auth-visual-brand b{font-size:25px!important}
+  #auth .auth-visual-brand small{font-size:7px!important}
+  #auth .auth-mascot-wrap{
+    height:285px!important;
+    min-height:285px!important;
+    flex-basis:285px!important;
+  }
+  #auth .auth-mascot{
+    width:270px!important;
+    height:270px!important;
+  }
+  #auth .auth-visual-copy h2{
+    font-size:32px!important;
+    letter-spacing:-.055em!important;
+  }
+  #auth .auth-visual-copy p{font-size:8.5px!important}
+  #auth .auth-visual-stats>div{
+    min-height:70px!important;
+    padding-top:29px!important;
+  }
+}

@@ -56,7 +56,7 @@ async function geminiGenerate(env,input,options={}){
   throw lastError||Object.assign(new Error("Gemini no está disponible temporalmente."),{status:503});
 }
 
-function corsHeaders(request){
+function corsHeaders(request,env){
   const origin=request.headers.get("Origin")||"*";
   return {"access-control-allow-origin":origin,"access-control-allow-headers":"authorization,content-type","access-control-allow-methods":"GET,POST,OPTIONS","vary":"Origin"};
 }
@@ -2430,7 +2430,7 @@ async function companyProfile(request,env){
   const adminToken=env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY;
   if(!adminToken)throw Object.assign(new Error("Falta la clave de servidor de Supabase."),{status:503});
   const rows=await sb(env,adminToken,"marc_company_profiles?select=user_id,business_name,legal_name,ruc,address,phone,email,logo_data,updated_at&user_id=eq."+encodeURIComponent(user.id)+"&limit=1");
-  return json({profile:rows?.[0]||null},200,corsHeaders(request));
+  return json({profile:rows?.[0]||null},200,corsHeaders(request,env));
 }
 async function saveCompanyProfile(request,env){
   const {user}=await authUser(request,env);
@@ -2461,7 +2461,7 @@ async function saveCompanyProfile(request,env){
     prefer:"resolution=merge-duplicates,return=representation",
     body:profile
   });
-  return json({profile:rows?.[0]||profile,entitlement:access},200,corsHeaders(request));
+  return json({profile:rows?.[0]||profile,entitlement:access},200,corsHeaders(request,env));
 }
 
 
@@ -2657,8 +2657,8 @@ async function inventoryPdfStart(request,env){
   if(request.method!=="POST")return json({error:"Método no permitido"},405);
   const {token,user}=await authUser(request,env);
   const access=await entitlement(env,token,user.id);
-  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request));
-  if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request));
+  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request,env));
+  if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request,env));
   const body=await request.json().catch(()=>({}));
   const filename=String(body?.filename||"catalogo.pdf").slice(0,180);
   const rows=await sb(env,env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY,"marc_pending_imports",{
@@ -2674,7 +2674,7 @@ async function inventoryPdfStart(request,env){
     }
   });
   await incrementAiUsage(env,token,user.id,access);
-  return json({pendingId:rows?.[0]?.id||null,filename},200,corsHeaders(request));
+  return json({pendingId:rows?.[0]?.id||null,filename},200,corsHeaders(request,env));
 }
 
 async function geminiGenerateText(env,text,prompt,options={}){
@@ -2729,16 +2729,16 @@ async function marketingProductAi(request,env){
   if(request.method!=="POST")return json({error:"Método no permitido"},405);
   const {token,user}=await authUser(request,env);
   const access=await entitlement(env,token,user.id);
-  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request));
-  if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request));
+  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request,env));
+  if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request,env));
   const body=await request.json().catch(()=>({}));
   let image=String(body?.imageBase64||"").trim();
   const mime=String(body?.mimeType||"image/jpeg").trim().toLowerCase();
   const brief=String(body?.brief||"").trim().slice(0,2500);
-  if(!image)return json({error:"No se recibió la foto del producto."},400,corsHeaders(request));
-  if(!["image/jpeg","image/png","image/webp"].includes(mime))return json({error:"Formato de imagen no permitido."},400,corsHeaders(request));
+  if(!image)return json({error:"No se recibió la foto del producto."},400,corsHeaders(request,env));
+  if(!["image/jpeg","image/png","image/webp"].includes(mime))return json({error:"Formato de imagen no permitido."},400,corsHeaders(request,env));
   image=image.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/,"");
-  if(image.length>7000000)return json({error:"La imagen es demasiado grande para analizarla. Usa una foto menor de 6 MB."},413,corsHeaders(request));
+  if(image.length>7000000)return json({error:"La imagen es demasiado grande para analizarla. Usa una foto menor de 6 MB."},413,corsHeaders(request,env));
   const prompt=[
     "Analiza esta foto de un producto para crear una publicidad profesional.",
     "Extrae solamente datos que puedas leer o identificar con suficiente seguridad. NO inventes especificaciones, certificaciones, garantías, precios, descuentos, disponibilidad ni beneficios técnicos.",
@@ -2776,21 +2776,21 @@ async function marketingProductAi(request,env){
   };
   await incrementAiUsage(env,token,user.id,access);
   await audit(env,token,user.id,"MARKETING",null,"ANALYZE_PRODUCT_PHOTO",{confidence:product.confidence,identified:Boolean(product.name)},"WEB");
-  return json({status:"ANALYZED",product},200,corsHeaders(request));
+  return json({status:"ANALYZED",product},200,corsHeaders(request,env));
 }
 
 async function analyzeInventoryProductPhoto(request,env){
   if(request.method!=="POST")return json({error:"Método no permitido"},405);
   const {token,user}=await authUser(request,env);
-  const access=await entitlement(env,token,user.id);  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request));
-  if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request));
+  const access=await entitlement(env,token,user.id);  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request,env));
+  if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request,env));
   const body=await request.json().catch(()=>({}));
   let image=String(body?.imageBase64||"").trim();
   const mime=String(body?.mimeType||"image/jpeg").trim().toLowerCase();
-  if(!image)return json({error:"No se recibió la foto del producto."},400,corsHeaders(request));
-  if(!["image/jpeg","image/png","image/webp"].includes(mime))return json({error:"Formato de imagen no permitido."},400,corsHeaders(request));
+  if(!image)return json({error:"No se recibió la foto del producto."},400,corsHeaders(request,env));
+  if(!["image/jpeg","image/png","image/webp"].includes(mime))return json({error:"Formato de imagen no permitido."},400,corsHeaders(request,env));
   image=image.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/,"");
-  if(image.length>7000000)return json({error:"La imagen es demasiado grande para analizarla. Usa una foto más pequeña."},413,corsHeaders(request));
+  if(image.length>7000000)return json({error:"La imagen es demasiado grande para analizarla. Usa una foto más pequeña."},413,corsHeaders(request,env));
   const prompt='Analiza esta foto de la caja o empaque de un producto para inventario. Extrae SOLO información que realmente puedas leer o identificar en la imagen. No inventes SKU, marca, modelo, categoría ni número de serie. No extraigas ni calcules precios de venta. Devuelve SOLO JSON con este formato exacto: {"name":"","sku":null,"brand":null,"model":null,"category":"","serial_number":null,"confidence":0}. name es el nombre comercial visible. sku es el código/SKU/part number del producto. serial_number es el número de serie único de ESTA unidad si aparece claramente en la caja o etiqueta; no confundas SKU o modelo con serial y usa null si no es visible. brand y model solo si aparecen. category solo si es evidente. confidence entre 0 y 1.';
   const out=await geminiGenerateImage(env,image,prompt,{maxTokens:700,json:true,mimeType:mime});
   const text=out?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("")||"";
@@ -2808,7 +2808,7 @@ async function analyzeInventoryProductPhoto(request,env){
   };
   await incrementAiUsage(env,token,user.id,access);
   await audit(env,token,user.id,"INVENTORY",null,"ANALYZE_PRODUCT_PHOTO",{confidence:product.confidence,identified:Boolean(product.name)},"WEB");
-  return json({status:"ANALYZED",product},200,corsHeaders(request));
+  return json({status:"ANALYZED",product},200,corsHeaders(request,env));
 }
 
 function parseInventoryProductLines(text,pageNumber){
@@ -2880,11 +2880,11 @@ async function inventoryPdfPageAnalyze(request,env){
   const totalPages=Math.max(pageNumber,Number(body?.totalPages||pageNumber));
   const image=String(body?.image||"");
   const pageText=String(body?.text||"").trim();
-  if(!pendingId||(!image&&!pageText))return json({error:"Faltan los datos de la página."},400,corsHeaders(request));
-  if(image.length>6*1024*1024)return json({error:"La imagen de la página es demasiado grande."},413,corsHeaders(request));
+  if(!pendingId||(!image&&!pageText))return json({error:"Faltan los datos de la página."},400,corsHeaders(request,env));
+  if(image.length>6*1024*1024)return json({error:"La imagen de la página es demasiado grande."},413,corsHeaders(request,env));
 
   const rows=await sb(env,adminToken,"marc_pending_imports?select=id,items,status,expires_at&user_id=eq."+encodeURIComponent(user.id)+"&id=eq."+encodeURIComponent(pendingId)+"&status=eq.PENDING&expires_at=gt."+encodeURIComponent(new Date().toISOString())+"&limit=1");
-  if(!rows?.[0])return json({error:"La sesión de análisis expiró o no existe."},404,corsHeaders(request));
+  if(!rows?.[0])return json({error:"La sesión de análisis expiró o no existe."},404,corsHeaders(request,env));
 
   const prompt=
     "Lee la página "+pageNumber+" de "+totalPages+" de un catálogo. "+
@@ -2910,7 +2910,7 @@ async function inventoryPdfPageAnalyze(request,env){
     throw Object.assign(new Error("No se reconocieron productos en la página "+pageNumber+"."),{status:502,details:{mode,preview:text.slice(0,700)}});
   }
 
-  return json({pageNumber,totalPages,found:items.length,totalFound:items.length,items,mode},200,corsHeaders(request));
+  return json({pageNumber,totalPages,found:items.length,totalFound:items.length,items,mode},200,corsHeaders(request,env));
 }
 
 async function inventoryPdfFinalize(request,env){
@@ -2921,19 +2921,19 @@ async function inventoryPdfFinalize(request,env){
   const pendingId=String(form.get("pendingId")||"");
   const file=form.get("file");
   const submittedItems=String(form.get("items")||"");
-  if(!pendingId||!file||typeof file.arrayBuffer!=="function")return json({error:"Faltan el PDF o la importación pendiente."},400,corsHeaders(request));
+  if(!pendingId||!file||typeof file.arrayBuffer!=="function")return json({error:"Faltan el PDF o la importación pendiente."},400,corsHeaders(request,env));
   const bytes=await file.arrayBuffer();
-  if(bytes.byteLength>20*1024*1024)return json({error:"El PDF supera el límite de 20 MB."},413,corsHeaders(request));
+  if(bytes.byteLength>20*1024*1024)return json({error:"El PDF supera el límite de 20 MB."},413,corsHeaders(request,env));
 
   const rows=await sb(env,adminToken,"marc_pending_imports?select=id,user_id,items,status,expires_at&user_id=eq."+encodeURIComponent(user.id)+"&id=eq."+encodeURIComponent(pendingId)+"&status=eq.PENDING&expires_at=gt."+encodeURIComponent(new Date().toISOString())+"&limit=1");
   const pending=rows?.[0];
-  if(!pending)return json({error:"La importación expiró o ya fue finalizada."},404,corsHeaders(request));
+  if(!pending)return json({error:"La importación expiró o ya fue finalizada."},404,corsHeaders(request,env));
   let submitted=[];
   if(submittedItems){
     try{submitted=JSON.parse(submittedItems)}catch{}
   }
   const items=sanitizePdfItems(Array.isArray(submitted)&&submitted.length?submitted:pending.items);
-  if(!items.length)return json({error:"No se detectaron productos para mostrar."},422,corsHeaders(request));
+  if(!items.length)return json({error:"No se detectaron productos para mostrar."},422,corsHeaders(request,env));
 
   const safeName=String(file.name||"catalogo.pdf").replace(/[^A-Za-z0-9._-]/g,"_").slice(-120)||"catalogo.pdf";
   const path=user.id+"/"+Date.now()+"-"+crypto.randomUUID()+"-"+safeName;
@@ -2954,26 +2954,26 @@ async function inventoryPdfFinalize(request,env){
   await sb(env,adminToken,"marc_pending_imports?id=eq."+encodeURIComponent(pendingId)+"&user_id=eq."+encodeURIComponent(user.id),{
     method:"PATCH",body:{document_id:documentId,items,updated_at:new Date().toISOString()}
   });
-  return json({pendingId,documentId,count:items.length,items},200,corsHeaders(request));
+  return json({pendingId,documentId,count:items.length,items},200,corsHeaders(request,env));
 }
 
 async function inventoryPdfPreview(request,env){
   if(request.method!=="POST")return json({error:"Método no permitido"},405);
   const {token,user}=await authUser(request,env);
   const access=await entitlement(env,token,user.id);
-  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request));
-  if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request));
+  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request,env));
+  if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request,env));
   const form=await request.formData();
   const file=form.get("file");
-  if(!file||typeof file.arrayBuffer!=="function")return json({error:"Adjunta un archivo PDF."},400,corsHeaders(request));
+  if(!file||typeof file.arrayBuffer!=="function")return json({error:"Adjunta un archivo PDF."},400,corsHeaders(request,env));
   const mime=String(file.type||"application/pdf").toLowerCase(),name=String(file.name||"catalogo.pdf");
-  if(mime!=="application/pdf"&&!name.toLowerCase().endsWith(".pdf"))return json({error:"Solo se aceptan archivos PDF."},400,corsHeaders(request));
+  if(mime!=="application/pdf"&&!name.toLowerCase().endsWith(".pdf"))return json({error:"Solo se aceptan archivos PDF."},400,corsHeaders(request,env));
   const bytes=await file.arrayBuffer();
-  if(bytes.byteLength>20*1024*1024)return json({error:"El PDF supera el límite de 20 MB."},413,corsHeaders(request));
+  if(bytes.byteLength>20*1024*1024)return json({error:"El PDF supera el límite de 20 MB."},413,corsHeaders(request,env));
   const adminToken=env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY;
   const job=await createPendingImport(env,adminToken,user.id,"WEB",null,name,bytes);
   await incrementAiUsage(env,token,user.id,access);
-  return json({pendingId:job.pending.id,documentId:job.document?.id||null,count:job.items.length,items:job.items.slice(0,50)},200,corsHeaders(request));
+  return json({pendingId:job.pending.id,documentId:job.document?.id||null,count:job.items.length,items:job.items.slice(0,50)},200,corsHeaders(request,env));
 }
 
 async function inventoryPdfImport(request,env){
@@ -2981,9 +2981,9 @@ async function inventoryPdfImport(request,env){
   const {token,user}=await authUser(request,env);
   const body=await request.json();
   const access=await entitlement(env,token,user.id);
-  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request));
+  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request,env));
   const result=await importPendingInventory(env,env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY,user.id,String(body?.pendingId||""),body?.updateExisting!==false,"WEB");
-  return json(result,200,corsHeaders(request));
+  return json(result,200,corsHeaders(request,env));
 }
 
 async function processTelegramInventoryPdf(env,adminToken,userId,chatId,document){
@@ -3008,8 +3008,8 @@ async function quoteAiDraft(request,env){
   if(request.method!=="POST")return json({error:"Método no permitido"},405);
   const {token,user}=await authUser(request,env);
   const access=await entitlement(env,token,user.id);
-  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request));
-  if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request));
+  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request,env));
+  if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request,env));
   const body=await request.json();
   const improveLines=Boolean(body?.improveLines);
   const rawLines=Array.isArray(body?.items)?body.items:[];
@@ -3019,7 +3019,7 @@ async function quoteAiDraft(request,env){
   const clientQuery=String(body?.clientQuery||"").trim().slice(0,200);
   if(body?.reviewQuote){
     const items=rawLines.map((x,i)=>({index:Number.isInteger(Number(x?.index))?Number(x.index):i,type:String(x?.type||"TRABAJO"),name:String(x?.name||"").trim(),description:String(x?.description||"").trim(),quantity:Number(x?.quantity||0),unit_price:Number(x?.unit_price||0),cost:Number(x?.cost||0),transport:Number(x?.transport||0),labor:Number(x?.labor||0),other:Number(x?.other||0),material_provider:String(x?.material_provider||"CLIENT")})).slice(0,40);
-    if(!items.length)return json({error:"Agrega al menos una partida para revisar."},400,corsHeaders(request));
+    if(!items.length)return json({error:"Agrega al menos una partida para revisar."},400,corsHeaders(request,env));
     const subtotal=items.reduce((s,x)=>s+(x.quantity*x.unit_price),0),internalCost=items.reduce((s,x)=>s+(x.quantity*x.cost)+x.transport+x.labor+x.other,0);
     const prompt={messages:[
       {role:"system",content:'Eres un revisor técnico de cotizaciones. Devuelve SOLO JSON válido con {"issues":[{"title":"...","detail":"..."}],"positives":[{"title":"...","detail":"..."}]}. Analiza únicamente los datos recibidos. Detecta descripciones vacías o poco específicas, cantidades/precios/costos incoherentes, trabajos sin detalles suficientes, costos internos faltantes cuando sean relevantes y posibles inconsistencias entre tipo de partida y sus datos. NO inventes precios de mercado ni afirmes que un precio es caro o barato. No inventes información. Las observaciones deben ser concretas y útiles. Máximo 8 observaciones.'},
@@ -3030,11 +3030,11 @@ async function quoteAiDraft(request,env){
     if(!textOut)throw Object.assign(new Error("Gemini devolvió una respuesta vacía."),{status:502});
     let review;try{review=JSON.parse(textOut.replace(/^```json\s*|^```\s*$/g,"").trim())}catch{throw Object.assign(new Error("Gemini devolvió una revisión en un formato no válido. Inténtalo nuevamente."),{status:502,details:{raw:textOut.slice(0,500)}})}
     await incrementAiUsage(env,token,user.id,access);
-    return json({review:{issues:Array.isArray(review.issues)?review.issues.slice(0,8):[],positives:Array.isArray(review.positives)?review.positives.slice(0,8):[]},entitlement:access},200,corsHeaders(request));
+    return json({review:{issues:Array.isArray(review.issues)?review.issues.slice(0,8):[],positives:Array.isArray(review.positives)?review.positives.slice(0,8):[]},entitlement:access},200,corsHeaders(request,env));
   }
   if(improveLines){
     const items=rawLines.map((x,i)=>({index:Number.isInteger(Number(x?.index))?Number(x.index):i,type:String(x?.type||"TRABAJO").slice(0,20),name:String(x?.name||"").trim().slice(0,180),description:String(x?.description||"").trim().slice(0,2000)})).filter(x=>x.description).slice(0,40);
-    if(!items.length)return json({error:"Escribe al menos una descripción para mejorar."},400,corsHeaders(request));
+    if(!items.length)return json({error:"Escribe al menos una descripción para mejorar."},400,corsHeaders(request,env));
     const prompt={messages:[
       {role:"system",content:'Eres un redactor técnico de cotizaciones para una empresa de servicios. Devuelve SOLO JSON válido con {"items":[{"index":0,"title":"...","description":"..."}]}. Mejora únicamente la redacción de cada descripción recibida. Conserva todos los datos aportados y NO inventes datos técnicos, cantidades, precios, materiales, marcas, medidas, plazos ni trabajos. No agregues información que no esté escrita. Haz el texto profesional, claro, específico y apto para una cotización. El índice debe conservar exactamente el índice recibido.'},
       {role:"user",content:"PARTIDAS A MEJORAR:\n"+JSON.stringify(items)}
@@ -3045,9 +3045,9 @@ async function quoteAiDraft(request,env){
     let parsed;try{parsed=JSON.parse(responseText.replace(/^```json\s*|^```\s*$/g,"").trim())}catch{parsed={items:[]}}
     const improvedLines=Array.isArray(parsed?.items)?parsed.items.map((x,i)=>({index:Number.isInteger(Number(x?.index))?Number(x.index):items[i]?.index,title:String(x?.title||"").trim().slice(0,180),description:String(x?.description||"").trim().slice(0,2000)})).filter(x=>Number.isInteger(x.index)&&x.description):[];
     await incrementAiUsage(env,token,user.id,access);
-    return json({improvedLines,entitlement:access},200,corsHeaders(request));
+    return json({improvedLines,entitlement:access},200,corsHeaders(request,env));
   }
-  if(!description)return json({error:"Escribe la descripción del trabajo."},400,corsHeaders(request));
+  if(!description)return json({error:"Escribe la descripción del trabajo."},400,corsHeaders(request,env));
   const prompt=improveOnly?{messages:[
     {role:"system",content:'Eres un redactor técnico de cotizaciones para una empresa de servicios. Devuelve SOLO JSON válido con {"title":"...","description":"..."}. Mejora la redacción del texto sin inventar datos técnicos, cantidades, precios, materiales, marcas, medidas ni trabajos que no estén escritos. Conserva todos los datos aportados. Hazlo profesional, claro, específico y apto para una cotización. Si faltan datos, no los inventes.'},
     {role:"user",content:"TEXTO ORIGINAL:\n"+description}
@@ -3058,17 +3058,17 @@ async function quoteAiDraft(request,env){
   let out;try{out=await geminiGenerate(env,prompt,{json:true,maxTokens:500})}catch(err){throw Object.assign(new Error("Gemini: "+String(err?.message||"Error de API").slice(0,800)),{status:err?.status||502,details:err?.details||null})}
   const responseText=out?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("")||"";
   if(!responseText)throw Object.assign(new Error("Gemini devolvió una respuesta vacía. Revisa el modelo y la cuota de la API key."),{status:502,details:{finishReason:out?.candidates?.[0]?.finishReason||null}});
-  if(improveOnly){let improved;try{improved=JSON.parse(responseText.replace(/^```json\s*|^```\s*$/g,"").trim())}catch{improved={title:"",description:description}}await incrementAiUsage(env,token,user.id,access);return json({improved:{title:String(improved.title||"").trim(),description:String(improved.description||description).trim()},entitlement:access},200,corsHeaders(request))}
+  if(improveOnly){let improved;try{improved=JSON.parse(responseText.replace(/^```json\s*|^```\s*$/g,"").trim())}catch{improved={title:"",description:description}}await incrementAiUsage(env,token,user.id,access);return json({improved:{title:String(improved.title||"").trim(),description:String(improved.description||description).trim()},entitlement:access},200,corsHeaders(request,env))}
   const draft=recoverQuoteDraft(responseText,description,clientQuery,allCost);
   if(!draft?.items?.length)throw Object.assign(new Error("La IA no generó una partida."),{status:502});
   await incrementAiUsage(env,token,user.id,access);
-  return json({draft,entitlement:access},200,corsHeaders(request));
+  return json({draft,entitlement:access},200,corsHeaders(request,env));
 }
 async function marketingImage(request,env){
   if(request.method!=="POST")return json({error:"Método no permitido"},405);
   const {token,user}=await authUser(request,env),access=await entitlement(env,token,user.id);
-  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request));
-  if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request));
+  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request,env));
+  if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request,env));
 
   const body=await request.json();
   const p=body?.product||{};
@@ -3159,18 +3159,18 @@ async function marketingImage(request,env){
     images,
     image:{mimeType:images[0].mimeType,data:images[0].data},
     model:images[0].model
-  },200,corsHeaders(request));
+  },200,corsHeaders(request,env));
 }
 
 async function marketingVideoStart(request,env){
   if(request.method!=="POST")return json({error:"Método no permitido"},405);
   const {token,user}=await authUser(request,env),access=await entitlement(env,token,user.id);
-  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request));
+  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request,env));
   if(access.kind==="trial"||access.kind==="trial_limited")return json({
     error:"VIDEO_SUBSCRIPTION_REQUIRED",
     message:"La generación de videos con IA está incluida en las suscripciones activas. Activa un plan para usar esta función.",
     includedInSubscription:true
-  },402,corsHeaders(request));
+  },402,corsHeaders(request,env));
 
   const body=await request.json(),product=body?.product||{},campaign=body?.campaign||{};
   const apiKey=env.GEMINI_API_KEY||env.GEMINI_API_KEY2;
@@ -3228,15 +3228,15 @@ async function marketingVideoStart(request,env){
     aspectRatio,
     durationSeconds:8,
     message:"Video iniciado. La generación es asíncrona; M.A.R.C. consultará el estado."
-  },202,corsHeaders(request));
+  },202,corsHeaders(request,env));
 }
 
 async function marketingVideoStatus(request,env){
   const method=request.method;
   if(method!=="GET"&&method!=="POST")return json({error:"Método no permitido"},405);
   const {token,user}=await authUser(request,env),access=await entitlement(env,token,user.id);
-  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request));
-  if(access.kind!=="paid"&&access.kind!=="master")return json({error:"VIDEO_SUBSCRIPTION_REQUIRED",message:"La generación de videos está incluida en una suscripción activa de M.A.R.C."},402,corsHeaders(request));
+  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request,env));
+  if(access.kind!=="paid"&&access.kind!=="master")return json({error:"VIDEO_SUBSCRIPTION_REQUIRED",message:"La generación de videos está incluida en una suscripción activa de M.A.R.C."},402,corsHeaders(request,env));
 
   let operationName="";
   let download=false;
@@ -3250,7 +3250,7 @@ async function marketingVideoStatus(request,env){
     download=Boolean(body?.download);
   }
   if(!operationName||!/^operations\/[A-Za-z0-9._-]+$/.test(operationName)){
-    return json({error:"operationName inválido."},400,corsHeaders(request));
+    return json({error:"operationName inválido."},400,corsHeaders(request,env));
   }
 
   const apiKey=env.GEMINI_API_KEY||env.GEMINI_API_KEY2;
@@ -3260,24 +3260,24 @@ async function marketingVideoStatus(request,env){
   if(!r.ok)throw Object.assign(new Error(data?.error?.message||("No se pudo consultar Veo ("+r.status+").")),{status:r.status||502,details:data});
 
   if(!data?.done){
-    return json({status:"PROCESSING",operationName},200,corsHeaders(request));
+    return json({status:"PROCESSING",operationName},200,corsHeaders(request,env));
   }
   if(data?.error){
-    return json({status:"FAILED",operationName,error:data.error.message||"Veo no pudo generar el video.",detail:data.error},200,corsHeaders(request));
+    return json({status:"FAILED",operationName,error:data.error.message||"Veo no pudo generar el video.",detail:data.error},200,corsHeaders(request,env));
   }
 
   const sample=data?.response?.generateVideoResponse?.generatedSamples?.[0]||data?.response?.generatedVideos?.[0]||null;
   const videoUri=sample?.video?.uri||null;
-  if(!videoUri)return json({status:"FAILED",operationName,error:"Veo terminó, pero no devolvió un archivo de video."},200,corsHeaders(request));
+  if(!videoUri)return json({status:"FAILED",operationName,error:"Veo terminó, pero no devolvió un archivo de video."},200,corsHeaders(request,env));
 
   if(!download){
     await incrementAiUsage(env,token,user.id,access);
-    return json({status:"READY",operationName,downloadUrl:"/api/marketing-video-status?operationName="+encodeURIComponent(operationName)+"&download=1",mimeType:"video/mp4",durationSeconds:8},200,corsHeaders(request));
+    return json({status:"READY",operationName,downloadUrl:"/api/marketing-video-status?operationName="+encodeURIComponent(operationName)+"&download=1",mimeType:"video/mp4",durationSeconds:8},200,corsHeaders(request,env));
   }
 
   const video=await fetch(videoUri,{headers:{"x-goog-api-key":apiKey}});
   if(!video.ok)throw Object.assign(new Error("Veo generó el video, pero no se pudo descargar el archivo."),{status:502});
-  const headers=new Headers(corsHeaders(request));
+  const headers=new Headers(corsHeaders(request,env));
   headers.set("content-type",video.headers.get("content-type")||"video/mp4");
   headers.set("content-disposition",'attachment; filename="MARC_Publicidad_Video.mp4"');
   headers.set("cache-control","private, no-store");
@@ -3285,14 +3285,14 @@ async function marketingVideoStatus(request,env){
 }
 
 async function createClientPortal(request,env){
-  if(request.method!=="POST")return json({error:"Método no permitido"},405,corsHeaders(request));
+  if(request.method!=="POST")return json({error:"Método no permitido"},405,corsHeaders(request,env));
   const {token,user}=await authUser(request,env);
   const body=await request.json().catch(()=>({}));
   const clientId=String(body?.clientId||"").trim();
-  if(!clientId)return json({error:"clientId requerido"},400,corsHeaders(request));
+  if(!clientId)return json({error:"clientId requerido"},400,corsHeaders(request,env));
   const clientRows=await sb(env,token,"marc_clients?id=eq."+encodeURIComponent(clientId)+"&user_id=eq."+encodeURIComponent(user.id)+"&select=id,name,portal_enabled&limit=1");
   const client=clientRows?.[0];
-  if(!client)return json({error:"Cliente no encontrado"},404,corsHeaders(request));
+  if(!client)return json({error:"Cliente no encontrado"},404,corsHeaders(request,env));
   const rawToken=randomToken(32);
   const hash=await sha256Hex(rawToken);
   await sb(env,token,"marc_clients?id=eq."+encodeURIComponent(clientId)+"&user_id=eq."+encodeURIComponent(user.id),{
@@ -3301,34 +3301,34 @@ async function createClientPortal(request,env){
   });
   await audit(env,token,user.id,"CLIENT",clientId,"PORTAL_CREATE",{client_name:client.name},"WEB");
   const origin=new URL(request.url).origin;
-  return json({ok:true,clientId,name:client.name,token:rawToken,portalUrl:origin+"/?cliente_token="+encodeURIComponent(rawToken)},200,corsHeaders(request));
+  return json({ok:true,clientId,name:client.name,token:rawToken,portalUrl:origin+"/?cliente_token="+encodeURIComponent(rawToken)},200,corsHeaders(request,env));
 }
 
 async function revokeClientPortal(request,env){
-  if(request.method!=="POST")return json({error:"Método no permitido"},405,corsHeaders(request));
+  if(request.method!=="POST")return json({error:"Método no permitido"},405,corsHeaders(request,env));
   const {token,user}=await authUser(request,env);
   const body=await request.json().catch(()=>({}));
   const clientId=String(body?.clientId||"").trim();
-  if(!clientId)return json({error:"clientId requerido"},400,corsHeaders(request));
+  if(!clientId)return json({error:"clientId requerido"},400,corsHeaders(request,env));
   const rows=await sb(env,token,"marc_clients?id=eq."+encodeURIComponent(clientId)+"&user_id=eq."+encodeURIComponent(user.id)+"&select=id,name&limit=1");
-  if(!rows?.[0])return json({error:"Cliente no encontrado"},404,corsHeaders(request));
+  if(!rows?.[0])return json({error:"Cliente no encontrado"},404,corsHeaders(request,env));
   await sb(env,token,"marc_clients?id=eq."+encodeURIComponent(clientId)+"&user_id=eq."+encodeURIComponent(user.id),{
     method:"PATCH",body:{portal_enabled:false,portal_token_hash:null,portal_created_at:null,portal_last_seen_at:null}
   });
-  return json({ok:true},200,corsHeaders(request));
+  return json({ok:true},200,corsHeaders(request,env));
 }
 
 async function clientPortalView(request,env){
-  if(request.method!=="GET")return json({error:"Método no permitido"},405,corsHeaders(request));
+  if(request.method!=="GET")return json({error:"Método no permitido"},405,corsHeaders(request,env));
   const url=new URL(request.url);
   const rawToken=String(url.searchParams.get("token")||"").trim();
-  if(rawToken.length<20)return json({error:"Enlace de cliente inválido o vencido."},401,corsHeaders(request));
+  if(rawToken.length<20)return json({error:"Enlace de cliente inválido o vencido."},401,corsHeaders(request,env));
   const hash=await sha256Hex(rawToken);
   const adminToken=env.SUPABASE_SERVICE_ROLE_KEY||env.SUPABASE_SECRET_KEY;
   if(!adminToken)throw Object.assign(new Error("El portal de clientes requiere SUPABASE_SERVICE_ROLE_KEY."),{status:503});
   const rows=await sb(env,adminToken,"marc_clients?portal_enabled=eq.true&portal_token_hash=eq."+encodeURIComponent(hash)+"&select=id,user_id,name,document_type,document_number,contact_name,email,phone,address,portal_last_seen_at&limit=1");
   const client=rows?.[0];
-  if(!client)return json({error:"Enlace de cliente inválido o vencido."},401,corsHeaders(request));
+  if(!client)return json({error:"Enlace de cliente inválido o vencido."},401,corsHeaders(request,env));
   const uid=client.user_id,cid=client.id;
   const [company,quotes,reports,history]=await Promise.all([
     sb(env,adminToken,"marc_company_profiles?user_id=eq."+encodeURIComponent(uid)+"&select=business_name,phone,email,logo_data&limit=1"),
@@ -3376,14 +3376,14 @@ async function clientPortalView(request,env){
     quotes:safeQuotes,
     reports:(reports||[]).map(r=>({id:r.id,number:r.number,title:r.title,report_type:r.report_type,report_date:r.report_date,technician:r.technician,location:r.location,equipment:r.equipment,problem:r.problem,diagnosis:r.diagnosis,work_performed:r.work_performed,recommendations:r.recommendations,conclusions:r.conclusions,observations:r.observations,status:r.status,created_at:r.created_at})),
     history:visibleHistory
-  },200,corsHeaders(request));
+  },200,corsHeaders(request,env));
 }
 
 async function marketingAi(request,env){
   if(request.method!=="POST")return json({error:"Método no permitido"},405);
   const {token,user}=await authUser(request,env),access=await entitlement(env,token,user.id);
-  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request));
-  if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request));
+  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request,env));
+  if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request,env));
   const body=await request.json(),p=body?.product||{},platform=String(body?.platform||"WHATSAPP").toUpperCase();
   const imageData=String(body?.imageData||"").trim().match(/^data:(image\/(?:png|jpeg|jpg|webp));base64,(.+)$/);
   const referenceData=String(body?.referenceImageData||"").trim().match(/^data:(image\/(?:png|jpeg|jpg|webp));base64,(.+)$/);
@@ -3402,7 +3402,7 @@ async function marketingAi(request,env){
   const responseText=out?.candidates?.[0]?.content?.parts?.map(x=>x.text||"").join("")||"";if(!responseText)throw Object.assign(new Error("Gemini devolvió una respuesta vacía."),{status:502});
   let parsed;try{parsed=extractJson(responseText)}catch{throw Object.assign(new Error("La IA devolvió un formato publicitario no válido."),{status:502})}
   await incrementAiUsage(env,token,user.id,access);
-  return json({campaign:{title:String(parsed?.title||p.name||"Publicidad").trim().slice(0,180),headline:String(parsed?.headline||p.name||"").trim().slice(0,180),primary_text:String(parsed?.primary_text||"").trim().slice(0,4000),short_text:String(parsed?.short_text||"").trim().slice(0,1200),whatsapp_text:String(parsed?.whatsapp_text||"").trim().slice(0,2000),banner_text:String(parsed?.banner_text||parsed?.headline||p.name||"").trim().slice(0,300),hashtags:Array.isArray(parsed?.hashtags)?parsed.hashtags.map(x=>String(x).trim()).filter(Boolean).slice(0,8):[]},entitlement:access},200,corsHeaders(request));
+  return json({campaign:{title:String(parsed?.title||p.name||"Publicidad").trim().slice(0,180),headline:String(parsed?.headline||p.name||"").trim().slice(0,180),primary_text:String(parsed?.primary_text||"").trim().slice(0,4000),short_text:String(parsed?.short_text||"").trim().slice(0,1200),whatsapp_text:String(parsed?.whatsapp_text||"").trim().slice(0,2000),banner_text:String(parsed?.banner_text||parsed?.headline||p.name||"").trim().slice(0,300),hashtags:Array.isArray(parsed?.hashtags)?parsed.hashtags.map(x=>String(x).trim()).filter(Boolean).slice(0,8):[]},entitlement:access},200,corsHeaders(request,env));
 }
 
 
@@ -3453,14 +3453,14 @@ async function metaPublish(request,env){
   else { const auth=await authUser(request,env); token=auth.token; user=auth.user; }
   const access=await entitlement(env,token,user.id);
   if(access.kind!=="master")throw Object.assign(new Error("Publicar en redes sociales requiere el plan MASTER."),{status:403});
-  if(request.method!=="POST")return json({error:"Método no permitido"},405,corsHeaders(request));
+  if(request.method!=="POST")return json({error:"Método no permitido"},405,corsHeaders(request,env));
   const body=await request.json().catch(()=>({}));
   const publicationId=String(body?.publicationId||"").trim();
   if(!publicationId)throw Object.assign(new Error("Falta publicationId."),{status:400});
   const rows=await sb(env,token,"marc_publications?select=id,user_id,platform,status,title,headline,body,short_text,hashtags,media_url,media_type&user_id=eq."+encodeURIComponent(user.id)+"&id=eq."+encodeURIComponent(publicationId)+"&limit=1");
   const publication=rows?.[0];
   if(!publication)throw Object.assign(new Error("No encontré la publicación."),{status:404});
-  if(["PUBLISHED","PUBLISHING"].includes(publication.status))return json({ok:true,status:publication.status,publication},200,corsHeaders(request));
+  if(["PUBLISHED","PUBLISHING"].includes(publication.status))return json({ok:true,status:publication.status,publication},200,corsHeaders(request,env));
   const platform=String(publication.platform||"").toUpperCase();
   if(!["FACEBOOK","INSTAGRAM"].includes(platform))throw Object.assign(new Error("La publicación real está habilitada por ahora para Facebook e Instagram."),{status:422});
   const conRows=await sb(env,token,"marc_social_connections?select=id,platform,account_name,external_account_id,token_ref,status&user_id=eq."+encodeURIComponent(user.id)+"&platform=eq."+platform+"&status=eq.CONNECTED&limit=1");
@@ -3500,7 +3500,7 @@ async function metaPublish(request,env){
       externalId=String(pd.id);
     }
     await sb(env,token,"marc_publications?id=eq."+encodeURIComponent(publication.id)+"&user_id=eq."+encodeURIComponent(user.id),{method:"PATCH",body:{status:"PUBLISHED",published_at:new Date().toISOString(),external_post_id:externalId||null,external_url:externalUrl,last_error:null,updated_at:new Date().toISOString()}});
-    return json({ok:true,status:"PUBLISHED",platform,externalPostId:externalId,externalUrl,mediaUrl},200,corsHeaders(request));
+    return json({ok:true,status:"PUBLISHED",platform,externalPostId:externalId,externalUrl,mediaUrl},200,corsHeaders(request,env));
   }catch(err){
     await sb(env,token,"marc_publications?id=eq."+encodeURIComponent(publication.id)+"&user_id=eq."+encodeURIComponent(user.id),{method:"PATCH",body:{status:"FAILED",last_error:String(err?.message||"Error de publicación"),updated_at:new Date().toISOString()}}).catch(()=>{});
     throw err;
@@ -3604,7 +3604,7 @@ async function telegramSetup(request,env){
   if(!r.ok||!data?.ok)throw Object.assign(new Error(data?.description||"Telegram rechazó la configuración del webhook."),{status:502});
   const infoR=await fetch("https://api.telegram.org/bot"+env.TELEGRAM_BOT_TOKEN+"/getWebhookInfo");
   const info=await infoR.json().catch(()=>null);
-  return json({ok:true,webhookUrl,botUsername:telegramBotName(env),webhook:info?.result||null},200,corsHeaders(request));
+  return json({ok:true,webhookUrl,botUsername:telegramBotName(env),webhook:info?.result||null},200,corsHeaders(request,env));
 }
 
 async function telegramStatus(request,env){
@@ -3633,7 +3633,7 @@ async function telegramStatus(request,env){
       has_custom_certificate:Boolean(webhook.has_custom_certificate),
       error:webhook.error||null
     }:null
-  },200,corsHeaders(request));
+  },200,corsHeaders(request,env));
 }
 async function telegramLink(request,env){
   const {token,user}=await authUser(request,env);
@@ -3644,12 +3644,12 @@ async function telegramLink(request,env){
   const expires=new Date(Date.now()+10*60*1000).toISOString();
   await sb(env,token,"marc_link_tokens?user_id=eq."+encodeURIComponent(user.id)+"&channel=eq.TELEGRAM&used_at=is.null",{method:"DELETE"});
   await sb(env,token,"marc_link_tokens",{method:"POST",body:{user_id:user.id,channel:"TELEGRAM",token_hash:hash,expires_at:expires}});
-  return json({deepLink:"https://t.me/"+bot+"?start="+encodeURIComponent(rawToken),expiresAt:expires},200,corsHeaders(request));
+  return json({deepLink:"https://t.me/"+bot+"?start="+encodeURIComponent(rawToken),expiresAt:expires},200,corsHeaders(request,env));
 }
 async function telegramUnlink(request,env){
   const {token,user}=await authUser(request,env);
   await sb(env,token,"marc_channel_identities?user_id=eq."+encodeURIComponent(user.id)+"&channel=eq.TELEGRAM&status=eq.LINKED",{method:"PATCH",body:{status:"REVOKED",updated_at:new Date().toISOString()}});
-  return json({ok:true},200,corsHeaders(request));
+  return json({ok:true},200,corsHeaders(request,env));
 }
 
 async function processOperationalAlerts(env){
@@ -3769,7 +3769,7 @@ export default{
     ctx.waitUntil((async()=>{await processOperationalAlerts(env).catch(()=>{});await processDueReminders(env).catch(()=>{});await processDuePublicationJobs(env).catch(()=>{});})());
   },
   async fetch(request,env,ctx){
-    const headers=corsHeaders(request);
+    const headers=corsHeaders(request,env);
     if(request.method==="OPTIONS")return new Response(null,{status:204,headers});
     const url=new URL(request.url);
     if(url.pathname==="/api/auth/signup"){
@@ -3991,13 +3991,13 @@ export default{
       }
     }
     if(url.pathname==="/api/client-portal/create"){
-      try{return await createClientPortal(request,env)}catch(err){return json({error:err?.message||"No se pudo crear el portal.",detail:err?.details||null},err?.status||500,corsHeaders(request))}
+      try{return await createClientPortal(request,env)}catch(err){return json({error:err?.message||"No se pudo crear el portal.",detail:err?.details||null},err?.status||500,corsHeaders(request,env))}
     }
     if(url.pathname==="/api/client-portal/revoke"){
-      try{return await revokeClientPortal(request,env)}catch(err){return json({error:err?.message||"No se pudo revocar el portal.",detail:err?.details||null},err?.status||500,corsHeaders(request))}
+      try{return await revokeClientPortal(request,env)}catch(err){return json({error:err?.message||"No se pudo revocar el portal.",detail:err?.details||null},err?.status||500,corsHeaders(request,env))}
     }
     if(url.pathname==="/api/client-portal/view"){
-      try{return await clientPortalView(request,env)}catch(err){return json({error:err?.message||"No se pudo cargar el portal.",detail:err?.details||null},err?.status||500,corsHeaders(request))}
+      try{return await clientPortalView(request,env)}catch(err){return json({error:err?.message||"No se pudo cargar el portal.",detail:err?.details||null},err?.status||500,corsHeaders(request,env))}
     }
     if(url.pathname==="/api/marketing-product-ai"){
       try{return await marketingProductAi(request,env)}catch(err){return json({error:err?.message||"No se pudo analizar el producto.",detail:err?.details||null},err?.status||500,headers)}
@@ -4066,6 +4066,7 @@ export default{
     if(url.pathname.startsWith("/api/"))return json({error:"Ruta no encontrada"},404,headers);
     const assetResponse=await env.ASSETS.fetch(request);
     const assetHeaders=new Headers(assetResponse.headers);
+    for(const [key,value] of Object.entries(headers))assetHeaders.set(key,value);
     if(["/","/index.html"].includes(url.pathname)||/\\.(?:js|css|html)$/.test(url.pathname)){
       assetHeaders.set("Cache-Control","no-store, no-cache, must-revalidate, max-age=0");
       assetHeaders.set("Pragma","no-cache");

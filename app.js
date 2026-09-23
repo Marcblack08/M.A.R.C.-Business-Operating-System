@@ -2058,8 +2058,13 @@ async function cashStaffAdminRequest(method,body){
 }
 async function cashStaffModal(){
   if(!(await ensureCashMaster()))return;
-  const {data:staff,error}=await S.from("marc_cash_staff").select("id,username,display_name,employee_code,active,created_at").eq("owner_user_id",st.u.id).order("created_at");
-  if(error)return toast(error.message,"err");
+  let staff=[];
+  try{
+    const result=await cashStaffAdminRequest("GET");
+    staff=Array.isArray(result?.staff)?result.staff:[];
+  }catch(error){
+    return toast(error?.message||"No se pudieron cargar los cajeros.","err");
+  }
   const rows=(staff||[]).map(x=>`<div class="cash-staff-row">
     <div><b>${esc(x.display_name)}</b><small>${x.employee_code?`ID ${esc(x.employee_code)} · `:""}@${esc(x.username)} · ${x.active?"Activo":"Inactivo"}</small></div>
     <div class="cash-staff-tools"><span>${x.active?"CAJERO":"PAUSADO"}</span><button type="button" class="secondary cash-staff-action" data-action="password" data-id="${esc(x.id)}">Clave</button><button type="button" class="secondary cash-staff-action" data-action="toggle" data-id="${esc(x.id)}">${x.active?"Desactivar":"Activar"}</button></div>

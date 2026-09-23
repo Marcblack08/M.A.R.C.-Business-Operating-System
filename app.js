@@ -1903,7 +1903,7 @@ async function getCashStaffContext(){
 }
 async function openCashModal(){
   const ctx=await getCashStaffContext();
-  if(ctx.isStaff)return toast("Solo el administrador puede abrir una nueva caja.","err");
+  if(!ctx.ownerId)return toast("No se encontró la caja administradora.","err");
   const close=modal('<div class="modal-head"><div><h2>＋ Abrir caja</h2><p>Indica cuánto efectivo queda en la caja al comenzar.</p></div><button class="close" id="x">×</button></div><form id="cashOpenForm"><label>Efectivo inicial<input name="amount" type="number" min="0" step="0.01" required placeholder="0.00"></label><label>Nota opcional<textarea name="notes" rows="2" placeholder="Turno, caja o referencia…"></textarea></label><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Abrir caja</button></div></form>');
   $("#x").onclick=close;$("#cancel").onclick=close;
   $("#cashOpenForm").onsubmit=async e=>{
@@ -2338,7 +2338,9 @@ async function cash(){
   };
   if(open&&!isCashier)$("#closeCashTop").onclick=async()=>{if(await ensureCashMaster())closeCashModal(open,expected)};
   else if(!open&&!isCashier&&$("#openCashTop"))$("#openCashTop").onclick=()=>openCashModal();
-  if(open){$("#cashIncome").onclick=()=>cashMovementModal(open,"INCOME");$("#cashExpense").onclick=()=>cashMovementModal(open,"EXPENSE");}
+  if(open){
+    if($("#cashExpense"))$("#cashExpense").onclick=()=>cashMovementModal(open,"EXPENSE");
+  }
 }
 
 function downloadCashExcel(report){

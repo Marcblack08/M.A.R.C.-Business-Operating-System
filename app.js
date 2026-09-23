@@ -1911,10 +1911,11 @@ async function openCashModal(){
     try{
       const amount=Number(new FormData(e.currentTarget).get("amount")||0);
       if(amount<0)throw new Error("El efectivo inicial no puede ser negativo.");
-      const current=await S.from("marc_cash_registers").select("id").eq("user_id",st.u.id).eq("status","OPEN").limit(1);
-      if(current.data?.length)throw new Error("Ya existe una caja abierta.");
-      const {error}=await S.from("marc_cash_registers").insert({user_id:st.u.id,status:"OPEN",opening_amount:amount,expected_amount:amount,opened_by:st.u.id,notes:String(new FormData(e.currentTarget).get("notes")||"").trim()||null});
-      if(error)throw error;close();toast("Caja abierta correctamente","ok");await cash();
+      const notes=String(new FormData(e.currentTarget).get("notes")||"").trim()||null;
+      const {data:opened,error}=await S.rpc("marc_cash_open",{p_opening_amount:amount,p_notes:notes});
+      if(error)throw error;
+      if(!opened?.id)throw new Error("Supabase no confirmó la apertura de caja.");
+      close();toast("Caja abierta correctamente","ok");await cash();
     }catch(err){toast(err.message||"No se pudo abrir la caja.","err");b.disabled=false}
   };
 }

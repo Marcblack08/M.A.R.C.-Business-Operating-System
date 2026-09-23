@@ -3209,6 +3209,35 @@ async function marketingImage(request,env){
   },200,corsHeaders(request,env));
 }
 
+async function videoOperationSecret(env){
+  const secret=env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY;
+  if(!secret)throw Object.assign(new Error("Falta una clave privada para proteger la operación de video."),{status:503});
+  return String(secret);
+}
+function videoB64uText(value){return b64u(new TextEncoder().encode(String(value)));}
+function videoTextFromB64u(value){return new TextDecoder().decode(unb64u(value));}
+async function signVideoOperation(env,userId,operationName){
+  const secret=await videoOperationSecret(env);
+  const payload=JSON.stringify({v:1,u:String(userId),op:String(operationName),iat:Date.now()});
+  const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(secret),{name:"HMAC",hash:"SHA-256"},false,["sign"]);
+  const sig=await crypto.subtle.sign("HMAC",key,new TextEncoder().encode(payload));
+  return videoB64uText(payload)+"."+b64u(new Uint8Array(sig));
+}
+async function verifyVideoOperation(env,token,userId){
+  const raw=String(token||"").split(".");
+  if(raw.length!==2)throw Object.assign(new Error("Token de operación inválido."),{status:403});
+  let payload;
+  try{payload=JSON.parse(videoTextFromB64u(raw[0]));}catch{throw Object.assign(new Error("Token de operación inválido."),{status:403});}
+  if(payload?.v!==1||String(payload?.u)!==String(userId)||!/^operations\/[A-Za-z0-9._-]+$/.test(String(payload?.op||"")))throw Object.assign(new Error("Operación no autorizada."),{status:403});
+  if(!Number.isFinite(Number(payload.iat))||Date.now()-Number(payload.iat)>24*60*60*1000)throw Object.assign(new Error("La operación de video expiró."),{status:410});
+  const secret=await videoOperationSecret(env);
+  const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(secret),{name:"HMAC",hash:"SHA-256"},false,["verify"]);
+  let sig;try{sig=unb64u(raw[1]);}catch{throw Object.assign(new Error("Token de operación inválido."),{status:403});}
+  const ok=await crypto.subtle.verify("HMAC",key,sig,new TextEncoder().encode(videoTextFromB64u(raw[0])));
+  if(!ok)throw Object.assign(new Error("Operación no autorizada."),{status:403});
+  return String(payload.op);
+}
+
 async function marketingVideoStart(request,env){
   if(request.method!=="POST")return json({error:"Método no permitido"},405);
   const {token,user}=await authUser(request,env),access=await entitlement(env,token,user.id);
@@ -3271,6 +3300,7 @@ async function marketingVideoStart(request,env){
   return json({
     status:"PROCESSING",
     operationName:data.name,
+    operationToken:await signVideoOperation(env,user.id,data.name),
     model,
     aspectRatio,
     durationSeconds:8,
@@ -3289,11 +3319,11 @@ async function marketingVideoStatus(request,env){
   let download=false;
   if(method==="GET"){
     const url=new URL(request.url);
-    operationName=String(url.searchParams.get("operationName")||"").trim();
+    operationName=await verifyVideoOperation(env,String(url.searchParams.get("operationToken")||""),user.id);
     download=url.searchParams.get("download")==="1";
   }else{
     const body=await request.json();
-    operationName=String(body?.operationName||"").trim();
+    operationName=await verifyVideoOperation(env,String(body?.operationToken||""),user.id);
     download=Boolean(body?.download);
   }
   if(!operationName||!/^operations\/[A-Za-z0-9._-]+$/.test(operationName)){
@@ -3319,7 +3349,7 @@ async function marketingVideoStatus(request,env){
 
   if(!download){
     await incrementAiUsage(env,token,user.id,access);
-    return json({status:"READY",operationName,downloadUrl:"/api/marketing-video-status?operationName="+encodeURIComponent(operationName)+"&download=1",mimeType:"video/mp4",durationSeconds:8},200,corsHeaders(request,env));
+    return json({status:"READY",operationName,downloadUrl:"/api/marketing-video-status?operationToken="+encodeURIComponent(await signVideoOperation(env,user.id,operationName))+"&download=1",mimeType:"video/mp4",durationSeconds:8},200,corsHeaders(request,env));
   }
 
   const video=await fetch(videoUri,{headers:{"x-goog-api-key":apiKey}});

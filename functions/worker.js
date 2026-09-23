@@ -3124,7 +3124,7 @@ async function marketingImage(request,env){
 
   const format=String(body?.format||"1080x1080");
   const ratio=format==="1080x1350"?"4:5":format==="1080x1920"?"9:16":"1:1";
-  const platform=String(body?.platform||"INSTAGRAM").toUpperCase();
+  const platform=String(body?.platform||"WHATSAPP").toUpperCase();
   const requested=Array.isArray(body?.variants)&&body.variants.length?body.variants:["MODERN"];
   const variants=[...new Set(requested.map(x=>String(x||"MODERN").toUpperCase()))].slice(0,3);
   const styleMap={
@@ -3249,7 +3249,7 @@ async function marketingVideoStart(request,env){
     "Texto publicitario disponible: "+String(campaign.headline||campaign.banner_text||""),
     "Objetivo: "+String(body?.objective||"VENDER"),
     "Tono: "+String(body?.tone||"PROFESIONAL"),
-    "Plataforma: "+String(body?.platform||"INSTAGRAM"),
+    "Plataforma: "+String(body?.platform||"WHATSAPP"),
     "Relación de aspecto: "+aspectRatio
   ].join("\n");
 
@@ -3939,7 +3939,6 @@ export default{
     if(url.pathname==="/api/marketing-image"){try{return await marketingImage(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo generar el banner con IA.")},err?.status||500,headers)}}
     if(url.pathname==="/api/social/meta/connect"){
       if(request.method!=="GET")return json({error:"Método no permitido"},405,headers);
-      try{return await metaConnect(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo iniciar la conexión con Meta.")},err?.status||500,headers)}
     }
     if(url.pathname==="/api/telegram/diagnostics"){return telegramDiagnostics(request,env)}
     if(url.pathname==="/api/telegram/setup"){

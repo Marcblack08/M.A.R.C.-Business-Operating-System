@@ -3467,7 +3467,14 @@ async function uploadMarketingDataUrl(env,adminToken,userId,dataUrl){
   const path="marketing/"+userId+"/"+crypto.randomUUID()+"."+ext;
   const r=await fetch(env.SUPABASE_URL+"/storage/v1/object/inventory-images/"+path,{method:"POST",headers:{apikey:adminToken,Authorization:"Bearer "+adminToken,"content-type":mime,"x-upsert":"false"},body:bin});
   if(!r.ok){const rawErr=await r.text();throw Object.assign(new Error("No se pudo guardar la imagen de publicidad."),{status:502,details:rawErr});}
-  return env.SUPABASE_URL+"/storage/v1/object/public/inventory-images/"+path;
+  const signed=await fetch(env.SUPABASE_URL+"/storage/v1/object/sign/inventory-images/"+path,{
+    method:"POST",
+    headers:{apikey:adminToken,Authorization:"Bearer "+adminToken,"content-type":"application/json"},
+    body:JSON.stringify({expiresIn:3600})
+  });
+  const signedData=await signed.json().catch(()=>null);
+  if(!signed.ok||!signedData?.signedURL)throw Object.assign(new Error("No se pudo generar el enlace temporal de la imagen."),{status:502});
+  return String(signedData.signedURL).startsWith("http")?String(signedData.signedURL):env.SUPABASE_URL+"/storage/v1"+String(signedData.signedURL);
 }
 async function metaPublish(request,env){
   const internal= request.headers.get("X-MARC-Internal")==="1" && isAdminToken(env,(request.headers.get("Authorization")||"").replace(/^Bearer\\s+/,""));

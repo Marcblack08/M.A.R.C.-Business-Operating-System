@@ -1024,9 +1024,8 @@ async function entitlement(env,token,userId){
 async function incrementAiUsage(env,token,userId,access=null){
   if(access?.kind==="master")return;
   const d=new Date(),period=d.toISOString().slice(0,10),end=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).toISOString().slice(0,10);
-  const rows=await sb(env,token,"marc_usage_counters?select=id,ai_actions&user_id=eq."+encodeURIComponent(userId)+"&period_start=eq."+period+"&limit=1");
-  if(rows?.[0])await sb(env,token,"marc_usage_counters?id=eq."+rows[0].id+"&user_id=eq."+encodeURIComponent(userId),{method:"PATCH",body:{ai_actions:Number(rows[0].ai_actions||0)+1,updated_at:new Date().toISOString()}});
-  else await sb(env,token,"marc_usage_counters",{method:"POST",body:{user_id:userId,period_start:period,period_end:end,ai_actions:1}});
+  const result=await sb(env,token,"rpc/marc_increment_ai_usage",{method:"POST",body:{p_user_id:userId,p_period_start:period,p_period_end:end}});
+  return Number(result||0);
 }
 
 async function sha256Hex(value){

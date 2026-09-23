@@ -3028,3 +3028,140 @@ html:not([data-theme="dark"]):not([data-theme="color"]) .brand-image{
   #auth .auth-visual-copy p{font-size:7px!important}
   #auth.auth>.auth-card{padding:18px 15px 15px!important}
 }
+
+/* ===== HOTFIX 20 — redesign mobile cover as one premium hero ===== */
+@media screen and (max-width:1100px) and (orientation:portrait){
+  #auth.auth{
+    padding:10px 10px 26px!important;
+    gap:10px!important;
+    background:
+      radial-gradient(circle at 90% 0%,rgba(23,124,239,.18),transparent 32%),
+      linear-gradient(180deg,#061a30 0%,#051426 100%)!important;
+  }
+  #auth.auth>.auth-visual{
+    min-height:395px!important;
+    height:395px!important;
+    padding:0!important;
+    display:flex!important;
+    flex-direction:column!important;
+    justify-content:flex-start!important;
+    border-radius:24px!important;
+    overflow:hidden!important;
+    background:
+      radial-gradient(circle at 50% 42%,rgba(20,145,240,.22),transparent 40%),
+      linear-gradient(145deg,#0a2d4c 0%,#06192d 68%,#061427 100%)!important;
+    border:1px solid rgba(70,184,255,.25)!important;
+    box-shadow:0 22px 55px rgba(0,0,0,.34),inset 0 1px rgba(255,255,255,.04)!important;
+  }
+  #auth .auth-visual-brand{
+    position:absolute!important;
+    top:14px!important;
+    left:17px!important;
+    z-index:5!important;
+    height:auto!important;
+    margin:0!important;
+    padding:0!important;
+  }
+  #auth .auth-visual-brand b{
+    font-size:11px!important;
+    text-shadow:0 2px 10px rgba(0,0,0,.35)!important;
+  }
+  #auth .auth-visual-brand small{font-size:6px!important}
+  #auth .auth-mascot-wrap{
+    order:1!important;
+    width:100%!important;
+    height:285px!important;
+    min-height:285px!important;
+    flex:0 0 285px!important;
+    margin:0!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    background:
+      radial-gradient(circle at center,rgba(20,151,246,.19),transparent 58%)!important;
+  }
+  #auth .auth-mascot{
+    width:265px!important;
+    height:265px!important;
+    max-width:none!important;
+    object-fit:contain!important;
+    border-radius:50%!important;
+    filter:drop-shadow(0 12px 32px rgba(0,134,255,.38))!important;
+    animation:marcMobileMascot 6s ease-in-out infinite!important;
+  }
+  #auth .auth-visual-copy{
+    order:2!important;
+    position:relative!important;
+    z-index:4!important;
+    padding:0 18px 15px!important;
+    margin:0!important;
+    align-self:stretch!important;
+    background:linear-gradient(180deg,transparent,rgba(3,16,29,.72) 22%,rgba(3,16,29,.96) 100%)!important;
+  }
+  #auth .auth-visual-copy>span{
+    font-size:6px!important;
+    letter-spacing:.18em!important;
+  }
+  #auth .auth-visual-copy h2{
+    font-size:25px!important;
+    line-height:1!important;
+    margin:4px 0 5px!important;
+    letter-spacing:-.045em!important;
+  }
+  #auth .auth-visual-copy p{
+    font-size:7px!important;
+    line-height:1.35!important;
+    max-width:100%!important;
+    margin:0!important;
+  }
+  #auth .auth-visual-stats{display:none!important}
+
+  #auth.auth>.auth-card{
+    order:2!important;
+    padding:19px 16px 16px!important;
+    border-radius:22px!important;
+    background:
+      linear-gradient(180deg,rgba(9,31,51,.98),rgba(5,20,35,.98))!important;
+    border:1px solid rgba(70,184,255,.18)!important;
+    box-shadow:0 18px 45px rgba(0,0,0,.28)!important;
+  }
+  #auth .auth-card-top{margin-bottom:10px!important}
+  #auth .auth-card-top .auth-mark{
+    width:38px!important;height:38px!important;border-radius:11px!important;
+  }
+  #auth .auth-card h1{
+    font-size:24px!important;
+    line-height:1.04!important;
+    margin-bottom:5px!important;
+  }
+  #auth .auth-card p{
+    font-size:7.5px!important;
+    line-height:1.35!important;
+    margin-bottom:11px!important;
+  }
+  #auth .google-login,#auth #authSubmit{
+    height:43px!important;
+    min-height:43px!important;
+    border-radius:11px!important;
+  }
+}
+@media screen and (max-width:520px){
+  #auth.auth{padding:8px 8px 20px!important;gap:9px!important}
+  #auth.auth>.auth-visual{
+    min-height:360px!important;
+    height:360px!important;
+  }
+  #auth .auth-mascot-wrap{
+    height:255px!important;
+    min-height:255px!important;
+    flex-basis:255px!important;
+  }
+  #auth .auth-mascot{
+    width:235px!important;
+    height:235px!important;
+  }
+  #auth .auth-visual-copy{padding:0 15px 13px!important}
+  #auth .auth-visual-copy h2{font-size:23px!important}
+  #auth .auth-visual-copy p{font-size:6.5px!important}
+  #auth.auth>.auth-card{padding:17px 14px 14px!important}
+}

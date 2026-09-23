@@ -3551,7 +3551,9 @@ async function metaCallback(request,env){
   const state=url.searchParams.get("state"),code=url.searchParams.get("code");
   if(error) return new Response("M.A.R.C. · Meta canceló la conexión. "+String(errorDescription||error),{status:400,headers:{"content-type":"text/plain; charset=utf-8"}});
   if(!state||!code)return new Response("M.A.R.C. · Faltan parámetros OAuth.",{status:400});
-  const lookup=await fetch(env.SUPABASE_URL+"/rest/v1/marc_oauth_states?select=id,user_id,provider,expires_at&state=eq."+encodeURIComponent(state)+"&provider=eq.META&limit=1",{headers:{apikey:env.SUPABASE_PUBLISHABLE_KEY}});
+  const adminToken=env.SUPABASE_SERVICE_ROLE_KEY||env.SUPABASE_SECRET_KEY;
+  if(!adminToken)throw Object.assign(new Error("Falta la clave privada de Supabase para validar OAuth."),{status:503});
+  const lookup=await fetch(env.SUPABASE_URL+"/rest/v1/marc_oauth_states?select=id,user_id,provider,expires_at&state=eq."+encodeURIComponent(state)+"&provider=eq.META&limit=1",{headers:{apikey:adminToken,Authorization:"Bearer "+adminToken}});
   const states=await lookup.json().catch(()=>[]);
   const st=states?.[0];
   if(!st||new Date(st.expires_at).getTime()<Date.now())return new Response("M.A.R.C. · La sesión de conexión expiró. Vuelve a intentarlo.",{status:400});
@@ -3566,7 +3568,6 @@ async function metaCallback(request,env){
   pageUrl.searchParams.set("access_token",td.access_token);
   const pr=await fetch(pageUrl);const pd=await pr.json().catch(()=>null);
   if(!pr.ok||!Array.isArray(pd?.data))throw Object.assign(new Error(pd?.error?.message||"No se pudieron obtener las páginas de Meta."),{status:502});
-  const adminToken=env.SUPABASE_SERVICE_ROLE_KEY||env.SUPABASE_SECRET_KEY;
   if(!adminToken)throw Object.assign(new Error("Falta la clave privada de Supabase para finalizar OAuth."),{status:503});
   const encrypted=[];
   for(const page of pd.data){

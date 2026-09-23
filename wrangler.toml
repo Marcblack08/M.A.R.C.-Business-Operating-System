@@ -10,8 +10,7 @@ GEMINI_MODEL="gemini-3.8-flash"
 GEMINI_MODEL_FALLBACK="gemini-3.7-flash"
 GEMINI_MODEL_FALLBACK2="gemini-3.6-flash"
 GEMINI_MARKETING_MODEL="gemini-3.1-flash-lite"
-# Secretos: SUPABASE_SECRET_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET,
-# META_APP_ID, META_APP_SECRET, META_TOKEN_ENCRYPTION_KEY
+# Secretos: SUPABASE_SECRET_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET
 
 [assets]
 directory="."
@@ -19,7 +18,7 @@ binding="ASSETS"
 run_worker_first=["/api/*","/","/index.html","/app.js","/styles.css","/config.js"]
 
 [triggers]
-# Procesa publicaciones programadas cada minuto.
+# Procesa tareas operativas y recordatorios cada minuto.
 crons=["* * * * *"]
 
 # deploy-trigger: telegram-mayordomo-direct-routes-20260919-2045

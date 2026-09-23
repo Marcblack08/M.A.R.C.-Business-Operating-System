@@ -2047,11 +2047,12 @@ async function ensureCashMaster(){
 async function cashStaffAdminRequest(method,body){
   const session=(await S.auth.getSession()).data?.session;
   if(!session?.access_token)throw new Error("La sesión maestra expiró. Vuelve a autorizar Caja.");
-  const r=await fetch("/api/cash-staff",{
+  const options={
     method,
-    headers:{"Content-Type":"application/json",Authorization:"Bearer "+session.access_token},
-    body:JSON.stringify(body||{})
-  });
+    headers:{"Content-Type":"application/json",Authorization:"Bearer "+session.access_token}
+  };
+  if(!["GET","HEAD"].includes(String(method).toUpperCase()))options.body=JSON.stringify(body||{});
+  const r=await fetch("/api/cash-staff",options);
   const j=await r.json().catch(()=>({}));
   if(!r.ok)throw new Error(j.error||j.message||"No se pudo completar la operación.");
   return j;

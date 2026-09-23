@@ -2316,7 +2316,7 @@ async function cash(){
     }catch(err){toast(err?.message||"No se pudo salir de la caja.","err")}
   };
   if(open&&!isCashier)$("#closeCashTop").onclick=async()=>{if(await ensureCashMaster())closeCashModal(open,expected)};
-  else if(!open&&!isCashier&&$("#openCashTop"))$("#openCashTop").onclick=async()=>{if(await ensureCashMaster())openCashModal()};
+  else if(!open&&!isCashier&&$("#openCashTop"))$("#openCashTop").onclick=()=>openCashModal();
   if(open){$("#cashIncome").onclick=()=>cashMovementModal(open,"INCOME");$("#cashExpense").onclick=()=>cashMovementModal(open,"EXPENSE");}
 }
 

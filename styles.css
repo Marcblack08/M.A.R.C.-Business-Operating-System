@@ -3896,3 +3896,41 @@ html[data-theme="color"] .auth{
   background:linear-gradient(135deg,#fbf9ff 0%,#eee9ff 48%,#e9f8ff 100%);
 }
 html[data-theme="color"] .auth-card{border-color:#d9d0f2;background:#ffffffed}
+
+
+/* Caja POS - experiencia visual */
+.cash-primary-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin:18px 0}
+.cash-primary-action{position:relative;min-height:118px!important;border:1px solid var(--line);border-radius:22px!important;padding:18px!important;text-align:left!important;display:flex;flex-direction:column;justify-content:center;gap:4px;transition:transform .16s,box-shadow .16s,border-color .16s;background:var(--panel);box-shadow:0 8px 24px #10233f0b}
+.cash-primary-action:hover{transform:translateY(-2px);box-shadow:0 14px 32px #10233f16;border-color:#9fc8ed}
+.cash-primary-action>span{font-size:27px;line-height:1}
+.cash-primary-action>b{font-size:17px;line-height:1.05}
+.cash-primary-action>small{font-size:10px;color:var(--muted);margin-top:5px;line-height:1.35}
+.cash-primary-action.sale{background:linear-gradient(145deg,#0b73e6,#0759bd);color:#fff;border-color:#0759bd}
+.cash-primary-action.sale small{color:#dceeff}
+.cash-primary-action.income{background:linear-gradient(145deg,#e9f8f0,#fff);border-color:#bce7ce}
+.cash-primary-action.expense{background:linear-gradient(145deg,#fff1f2,#fff);border-color:#f0c7cc}
+.cash-primary-action.staff{background:linear-gradient(145deg,#f5f8fc,#fff)}
+.cash-action-main{min-height:138px!important}
+.cash-howto{border:1px solid var(--line);border-radius:24px;background:linear-gradient(145deg,var(--panel),#f7fbff);padding:20px;margin:8px 0 20px;box-shadow:0 10px 30px #10233f0b}
+.cash-howto-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start}
+.cash-howto-head h3{margin:4px 0 5px;font-size:20px}
+.cash-howto-head p{margin:0;color:var(--muted);font-size:11px;line-height:1.5;max-width:680px}
+.cash-howto-badge{background:var(--blue2);color:var(--blue);font-size:10px;font-weight:900;padding:8px 11px;border-radius:999px;white-space:nowrap}
+.cash-howto-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px}
+.cash-howto-steps article{display:flex;gap:12px;padding:14px;border:1px solid var(--line);border-radius:17px;background:var(--panel)}
+.cash-howto-steps article>span{width:31px;height:31px;flex:0 0 31px;border-radius:50%;display:grid;place-items:center;background:var(--blue);color:#fff;font-weight:900}
+.cash-howto-steps b{display:block;font-size:12px;margin-bottom:5px}
+.cash-howto-steps small{display:block;color:var(--muted);font-size:10px;line-height:1.5}
+.cash-howto-details{border-top:1px solid var(--line);margin-top:12px;padding-top:11px;font-size:11px}
+.cash-howto-details summary{cursor:pointer;font-weight:800}
+.cash-howto-details p{color:var(--muted);line-height:1.5;margin:8px 0 0}
+@media(max-width:760px){
+ .cash-primary-actions{grid-template-columns:1fr 1fr;gap:10px}
+ .cash-primary-action{min-height:105px!important;padding:14px!important;border-radius:18px!important}
+ .cash-primary-action>b{font-size:15px}
+ .cash-action-main{grid-column:1/-1;min-height:126px!important}
+ .cash-howto{padding:15px;border-radius:19px}
+ .cash-howto-head{display:block}
+ .cash-howto-badge{display:inline-block;margin-top:10px}
+ .cash-howto-steps{grid-template-columns:1fr}
+}

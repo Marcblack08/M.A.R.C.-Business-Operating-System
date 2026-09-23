@@ -2694,6 +2694,7 @@ async function inventoryPdfStart(request,env){
   if(request.method!=="POST")return json({error:"Método no permitido"},405);
   const {token,user}=await authUser(request,env);
   const access=await entitlement(env,token,user.id);
+  if(!(await rateLimit(env,"ai:"+user.id+":pdf-preview",20,3600)))return json({error:"Has alcanzado el límite temporal de análisis de PDF. Intenta nuevamente más tarde."},429,corsHeaders(request,env));
   if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request,env));
   if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request,env));
   const body=await request.json().catch(()=>({}));
@@ -2956,6 +2957,7 @@ async function inventoryPdfPageAnalyze(request,env){
 async function inventoryPdfFinalize(request,env){
   if(request.method!=="POST")return json({error:"Método no permitido"},405);
   const {token,user}=await authUser(request,env);
+  if(!(await rateLimit(env,"ai:"+user.id+":pdf-page",60,3600)))return json({error:"Has alcanzado el límite temporal de análisis de páginas PDF. Intenta nuevamente más tarde."},429,corsHeaders(request,env));
   const adminToken=env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY;
   const form=await request.formData();
   const pendingId=String(form.get("pendingId")||"");
@@ -3048,6 +3050,7 @@ async function quoteAiDraft(request,env){
   if(request.method!=="POST")return json({error:"Método no permitido"},405);
   const {token,user}=await authUser(request,env);
   const access=await entitlement(env,token,user.id);
+  if(!(await rateLimit(env,"ai:"+user.id+":quote",40,3600)))return json({error:"Has alcanzado el límite temporal de generación de cotizaciones con IA. Intenta nuevamente más tarde."},429,corsHeaders(request,env));
   if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request,env));
   if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request,env));
   const body=await request.json();
@@ -3107,6 +3110,7 @@ async function quoteAiDraft(request,env){
 async function marketingImage(request,env){
   if(request.method!=="POST")return json({error:"Método no permitido"},405);
   const {token,user}=await authUser(request,env),access=await entitlement(env,token,user.id);
+  if(!(await rateLimit(env,"ai:"+user.id+":video",10,3600)))return json({error:"Has alcanzado el límite temporal de generación de videos. Intenta nuevamente más tarde."},429,corsHeaders(request,env));
   if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request,env));
   if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request,env));
 
@@ -3967,6 +3971,7 @@ export default{
       try{
         const {token,user}=await authUser(request,env);
         const access=await entitlement(env,token,user.id);
+        if(!(await rateLimit(env,"ai:"+user.id+":chat",60,3600)))return json({error:"Has alcanzado el límite temporal del asistente. Intenta nuevamente más tarde."},429,headers);
         if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para seguir usando M.A.R.C."},402,headers);
         if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de 30 acciones de IA de la prueba."},429,headers);
         const body=await request.json();

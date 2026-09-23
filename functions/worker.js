@@ -84,6 +84,20 @@ function safeClientError(err,fallback="Ocurrió un error al procesar la solicitu
   return fallback;
 }
 
+async function rateLimit(env,key,maxHits,windowSeconds){
+  const adminToken=env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY;
+  if(!adminToken)return true;
+  try{
+    const rows=await sb(env,adminToken,"rpc/marc_rate_limit",{method:"POST",body:{p_key:String(key).slice(0,200),p_max_hits:maxHits,p_window_seconds:windowSeconds}});
+    return rows===true;
+  }catch(err){
+    return true;
+  }
+}
+function requestIp(request){
+  return String(request.headers.get("CF-Connecting-IP")||request.headers.get("X-Forwarded-For")||"unknown").split(",")[0].trim().slice(0,80);
+}
+
 async function authUser(request,env){
   const auth=request.headers.get("Authorization")||"";
   if(!auth.startsWith("Bearer "))throw Object.assign(new Error("No autenticado"),{status:401});
@@ -3812,6 +3826,7 @@ export default{
     const url=new URL(request.url);
     if(url.pathname==="/api/auth/signup"){
       if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);
+      if(!(await rateLimit(env,"signup:ip:"+requestIp(request),8,900)))return json({error:"Demasiados intentos. Intenta nuevamente más tarde."},429,headers);
       try{
         const body=await request.json().catch(()=>({}));
         const email=String(body?.email||"").trim().toLowerCase();
@@ -3831,6 +3846,7 @@ export default{
     }
     if(url.pathname==="/api/cash-staff/login"){
       if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);
+      if(!(await rateLimit(env,"cash-login:ip:"+requestIp(request),10,900)))return json({error:"Demasiados intentos. Intenta nuevamente más tarde."},429,headers);
       try{
         const body=await request.json();
         const username=String(body?.username||"").trim().toLowerCase().replace(/[^a-z0-9._-]/g,"").slice(0,40);

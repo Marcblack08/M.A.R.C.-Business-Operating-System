@@ -86,12 +86,12 @@ function safeClientError(err,fallback="Ocurrió un error al procesar la solicitu
 
 async function rateLimit(env,key,maxHits,windowSeconds){
   const adminToken=env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY;
-  if(!adminToken)return true;
+  if(!adminToken)return false;
   try{
     const rows=await sb(env,adminToken,"rpc/marc_rate_limit",{method:"POST",body:{p_key:String(key).slice(0,200),p_max_hits:maxHits,p_window_seconds:windowSeconds}});
     return rows===true;
   }catch(err){
-    return true;
+    return false;
   }
 }
 function requestIp(request){

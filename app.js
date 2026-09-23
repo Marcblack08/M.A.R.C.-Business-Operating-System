@@ -1891,9 +1891,15 @@ async function companySettings(){
 
 async function getCashStaffContext(){
   if(!st.u)return {isStaff:false,ownerId:null,staff:null};
-  const {data,error}=await S.from("marc_cash_staff").select("id,owner_user_id,auth_user_id,username,display_name,role,active").eq("auth_user_id",st.u.id).eq("active",true).maybeSingle();
-  if(error)return {isStaff:false,ownerId:st.u.id,staff:null};
-  return data?{isStaff:true,ownerId:data.owner_user_id,staff:data}:{isStaff:false,ownerId:st.u.id,staff:null};
+  try{
+    const r=await fetch("/api/cash-staff/context",{headers:{Authorization:"Bearer "+st.session?.access_token}});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(j.error||"No se pudo consultar el contexto de caja.");
+    return {isStaff:!!j.isStaff,ownerId:j.ownerId||st.u.id,staff:j.staff||null};
+  }catch(error){
+    console.warn("[M.A.R.C. cash context]",error);
+    return {isStaff:false,ownerId:st.u.id,staff:null};
+  }
 }
 async function openCashModal(){
   const ctx=await getCashStaffContext();

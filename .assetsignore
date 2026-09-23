@@ -1,0 +1,8 @@
+# Server-side code and deployment configuration — never publish as static assets
+functions/
+supabase/
+.github/
+docs/
+communications/
+wrangler.toml
+README.md

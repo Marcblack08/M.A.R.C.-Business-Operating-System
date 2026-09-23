@@ -2232,12 +2232,24 @@ async function cash(){
         </div>
       </section>
       <section class="cash-primary-actions">
-        ${open?"<button id=\"cashIncome\" class=\"cash-primary-action income\"><span>＋</span><b>Registrar<br>venta</b></button>":"<button id=\"openCashTop\" class=\"cash-primary-action income\"><span>＋</span><b>Abrir<br>caja</b></button>"}
-        ${open?"<button id=\"cashExpense\" class=\"cash-primary-action expense\"><span>−</span><b>Registrar<br>gasto</b></button>":"<button id=\"cashStaffLoginOpen2\" class=\"cash-primary-action staff\"><span>↪</span><b>Entrar<br>como cajero</b></button>"}
-        ${open?"<button id=\"cashSaleQuick\" class=\"cash-primary-action sale\"><span>🛒</span><b>Nueva<br>venta</b></button>":""}
-        ${isCashier?"<button id=\"cashStaffLogout\" class=\"cash-primary-action staff\"><span>↩</span><b>Salir<br>de caja</b></button>":""}
-        ${!isCashier?"<button id=\"cashStaff2\" class=\"cash-primary-action users\"><span>⚙</span><b>Administrar<br>cajeros</b></button>":""}${!isCashier?"<button id=\"cashStaffCreate\" class=\"cash-primary-action income\"><span>＋</span><b>Crear<br>cajero</b></button>":""}
+        ${open?"<button id=\"cashSaleQuick\" class=\"cash-primary-action sale cash-action-main\"><span>🛒</span><b>Nueva<br>venta</b><small>Seleccionar productos y cobrar</small></button>":"<button id=\"openCashTop\" class=\"cash-primary-action income cash-action-main\"><span>＋</span><b>Abrir<br>caja</b><small>Empieza el turno con efectivo inicial</small></button>"}
+        ${open?"<button id=\"cashExpense\" class=\"cash-primary-action expense\"><span>−</span><b>Registrar<br>gasto</b><small>Salida de dinero</small></button>":"<button id=\"cashStaffLoginOpen2\" class=\"cash-primary-action staff\"><span>↪</span><b>Entrar<br>como cajero</b><small>Usa el acceso asignado</small></button>"}
+        ${open?"<button id=\"cashHistoryQuick\" class=\"cash-primary-action users\"><span>▤</span><b>Ver<br>movimientos</b><small>Revisa ventas y gastos</small></button>":""}
+        ${isCashier?"<button id=\"cashStaffLogout\" class=\"cash-primary-action staff\"><span>↩</span><b>Salir<br>de caja</b><small>Volver al administrador</small></button>":""}
+        ${!isCashier?"<button id=\"cashStaff2\" class=\"cash-primary-action users\"><span>⚙</span><b>Administrar<br>cajeros</b><small>Accesos y contraseñas</small></button>":""}
+        ${!isCashier?"<button id=\"cashStaffCreate\" class=\"cash-primary-action income\"><span>＋</span><b>Crear<br>cajero</b><small>Nuevo usuario de caja</small></button>":""}
       </section>
+      <section class="cash-howto">
+        <div class="cash-howto-head"><div><div class="eyebrow2">GUÍA RÁPIDA</div><h3>¿Cómo uso la caja?</h3><p>La caja funciona como un punto de venta: primero abres el turno, luego agregas productos al carrito y finalmente cobras.</p></div><span class="cash-howto-badge">3 pasos</span></div>
+        <div class="cash-howto-steps">
+          <article><span>1</span><div><b>Abre la caja</b><small>Indica el efectivo inicial, por ejemplo S/ 100. Ese será el dinero con el que empiezas el turno.</small></div></article>
+          <article><span>2</span><div><b>Haz una venta</b><small>Pulsa <strong>Nueva venta</strong>, toca los productos, cambia cantidades y revisa el carrito. Luego pulsa <strong>Cobrar venta</strong>.</small></div></article>
+          <article><span>3</span><div><b>Cierra la caja</b><small>Al terminar, cuenta el efectivo que realmente tienes y pulsa <strong>Cerrar caja</strong>. M.A.R.C. compara lo contado con lo esperado.</small></div></article>
+        </div>
+        <details class="cash-howto-details"><summary>¿Y si tengo un gasto?</summary><p>Pulsa <strong>Registrar gasto</strong>, elige la categoría, escribe el concepto y el monto. El gasto se descuenta automáticamente del saldo esperado.</p></details>
+        <details class="cash-howto-details"><summary>¿Y si trabaja un cajero?</summary><p>El administrador crea el cajero. El cajero entra con su usuario y contraseña y puede trabajar la caja abierta. La administración de usuarios permanece en manos del administrador.</p></details>
+      </section>
+
       ${!isCashier?"<section id=\"cashStaffPanel\" class=\"card panel cash-login-panel hidden\" aria-hidden=\"true\"><div class=\"eyebrow2\">PERSONAL DE CAJA</div><h3>Entrar a caja</h3><p>Usa el usuario y la contraseña que te asignó el administrador.</p><form id=\"cashStaffForm\" autocomplete=\"on\"><label>Usuario<input id=\"cashStaffUsername\" name=\"username\" autocomplete=\"username\" autocapitalize=\"none\" required placeholder=\"Ej. juan\"></label><label>Contraseña<div class=\"password-field\"><input id=\"cashStaffPassword\" name=\"password\" type=\"password\" autocomplete=\"current-password\" required placeholder=\"Tu contraseña\"><button id=\"cashStaffPasswordToggle\" type=\"button\">◉</button></div></label><div id=\"cashStaffError\" class=\"cash-login-error\" role=\"alert\"></div><div style=\"display:flex;gap:8px;flex-wrap:wrap\"><button id=\"cashStaffSubmit\" class=\"primary\" type=\"submit\">Entrar a caja →</button><button id=\"cashStaffBack\" class=\"secondary\" type=\"button\">Cancelar</button></div></form></section>":""}
 
       <section class="cash-current-card">

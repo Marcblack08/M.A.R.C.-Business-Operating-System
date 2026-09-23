@@ -3937,9 +3937,6 @@ export default{
     if(url.pathname==="/api/marketing-video-start"){try{return await marketingVideoStart(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo iniciar el video.")},err?.status||500,headers)}}
     if(url.pathname==="/api/marketing-video-status"){try{return await marketingVideoStatus(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo consultar el video.")},err?.status||500,headers)}}
     if(url.pathname==="/api/marketing-image"){try{return await marketingImage(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo generar el banner con IA.")},err?.status||500,headers)}}
-    if(url.pathname==="/api/social/meta/connect"){
-      if(request.method!=="GET")return json({error:"Método no permitido"},405,headers);
-    }
     if(url.pathname==="/api/telegram/diagnostics"){return telegramDiagnostics(request,env)}
     if(url.pathname==="/api/telegram/setup"){
       if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);

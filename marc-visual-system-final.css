@@ -2923,3 +2923,108 @@ html:not([data-theme="dark"]):not([data-theme="color"]) .brand-image{
   0%,100%{transform:translateY(0)}
   50%{transform:translateY(-4px)}
 }
+
+/* ===== HOTFIX 19 — visual correction after mobile review ===== */
+@media screen and (max-width:1100px) and (orientation:portrait){
+  #auth.auth{
+    padding:12px 10px 24px!important;
+    gap:12px!important;
+  }
+  #auth.auth>.auth-visual{
+    min-height:370px!important;
+    height:370px!important;
+    padding:12px 14px 16px!important;
+    grid-template-rows:auto 218px auto!important;
+    gap:0!important;
+    border-radius:24px!important;
+    background:
+      radial-gradient(circle at 50% 45%,rgba(25,158,255,.22),transparent 42%),
+      linear-gradient(150deg,#082b4b 0%,#061a2f 65%,#061528 100%)!important;
+  }
+  #auth .auth-visual-brand{
+    height:28px!important;
+    margin:0!important;
+  }
+  #auth .auth-visual-brand b{font-size:12px!important}
+  #auth .auth-visual-brand small{font-size:6.5px!important}
+  #auth .auth-mascot-wrap{
+    height:218px!important;
+    min-height:218px!important;
+    flex-basis:218px!important;
+    margin:0!important;
+  }
+  #auth .auth-mascot{
+    width:218px!important;
+    height:218px!important;
+    max-width:none!important;
+    border-radius:50%!important;
+    filter:drop-shadow(0 10px 30px rgba(0,136,255,.34))!important;
+    animation:none!important;
+  }
+  #auth .auth-visual-copy{
+    padding:0 8px!important;
+    align-self:end!important;
+  }
+  #auth .auth-visual-copy>span{
+    font-size:6.5px!important;
+  }
+  #auth .auth-visual-copy h2{
+    font-size:25px!important;
+    margin:5px 0 5px!important;
+    line-height:1.03!important;
+  }
+  #auth .auth-visual-copy p{
+    font-size:7.5px!important;
+    line-height:1.4!important;
+    max-width:96%!important;
+  }
+  #auth .auth-visual-stats{display:none!important}
+
+  #auth.auth>.auth-card{
+    padding:20px 17px 17px!important;
+    border-radius:22px!important;
+    background:linear-gradient(180deg,rgba(8,28,47,.98),rgba(5,21,37,.98))!important;
+  }
+  #auth .auth-card-top{margin-bottom:11px!important}
+  #auth .auth-card-top .auth-mark{
+    width:40px!important;height:40px!important;border-radius:12px!important;
+  }
+  #auth .auth-card h1{
+    font-size:24px!important;
+    margin-bottom:6px!important;
+  }
+  #auth .auth-card p{
+    font-size:8px!important;
+    margin-bottom:12px!important;
+  }
+  #auth .google-login,#auth #authSubmit{
+    min-height:44px!important;
+    height:44px!important;
+    font-size:9px!important;
+  }
+  #auth .auth-divider{margin:11px 0!important}
+  #auth .auth-card input{
+    min-height:40px!important;
+    height:40px!important;
+    font-size:9.5px!important;
+  }
+}
+@media screen and (max-width:520px){
+  #auth.auth{padding:9px 9px 20px!important;gap:10px!important}
+  #auth.auth>.auth-visual{
+    min-height:342px!important;
+    height:342px!important;
+    grid-template-rows:auto 198px auto!important;
+    padding:11px 12px 14px!important;
+  }
+  #auth .auth-visual-brand{height:25px!important}
+  #auth .auth-mascot-wrap{
+    height:198px!important;
+    min-height:198px!important;
+    flex-basis:198px!important;
+  }
+  #auth .auth-mascot{width:198px!important;height:198px!important}
+  #auth .auth-visual-copy h2{font-size:23px!important}
+  #auth .auth-visual-copy p{font-size:7px!important}
+  #auth.auth>.auth-card{padding:18px 15px 15px!important}
+}

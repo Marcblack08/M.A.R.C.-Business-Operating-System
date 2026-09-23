@@ -3384,7 +3384,7 @@ async function clientPortalView(request,env){
     ...(reports||[]).map(r=>({id:"report-"+r.id,event_type:"REPORT",title:r.title||("Informe "+r.number),description:r.work_performed||r.conclusions||r.observations||null,created_at:r.created_at,metadata:{number:r.number,status:r.status,report_date:r.report_date,technician:r.technician}})),
     ...(history||[]).map(h=>({id:h.id,event_type:h.event_type,title:h.title,description:h.description,created_at:h.created_at,metadata:h.metadata||{}}))
   ].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
-  await sb(env,adminToken,"marc_clients?id=eq."+encodeURIComponent(cid),{method:"PATCH",body:{portal_last_seen_at:new Date().toISOString()}});
+  await sb(env,adminToken,"marc_clients?id=eq."+encodeURIComponent(cid)+"&user_id=eq."+encodeURIComponent(uid),{method:"PATCH",body:{portal_last_seen_at:new Date().toISOString()}});
   const c=company?.[0]||{};
   return json({
     ok:true,client:{id:cid,name:client.name,document_type:client.document_type,document_number:client.document_number,contact_name:client.contact_name,email:client.email,phone:client.phone,address:client.address},

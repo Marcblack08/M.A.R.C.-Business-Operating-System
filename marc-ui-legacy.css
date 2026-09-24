@@ -6082,3 +6082,48 @@ tr:hover td{background:rgba(36,152,255,.035)!important}
   *{scroll-behavior:auto!important;transition:none!important;animation:none!important}
 }
 
+
+/* =========================================================
+   M.A.R.C. — Dynamic Interaction Layer
+   Visual-only: motion, depth, feedback and responsive polish.
+   ========================================================= */
+:root{--marc-glow:rgba(36,152,255,.28);--marc-glow-2:rgba(72,213,255,.20)}
+body{background:radial-gradient(700px 420px at 82% -8%,rgba(36,152,255,.14),transparent 68%),radial-gradient(520px 380px at 8% 92%,rgba(72,213,255,.08),transparent 70%),linear-gradient(145deg,#06101b 0%,#081522 48%,#06101b 100%);background-attachment:fixed}
+body:before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;opacity:.28;background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px);background-size:34px 34px;mask-image:linear-gradient(to bottom,rgba(0,0,0,.8),transparent 90%)}
+.content{animation:marcPageIn .38s ease both}
+@keyframes marcPageIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.top{box-shadow:0 8px 30px rgba(0,0,0,.08)}
+.top:after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;background:linear-gradient(90deg,transparent,rgba(72,213,255,.45),rgba(36,152,255,.5),transparent);opacity:.65}
+.sidebar nav button{overflow:hidden;isolation:isolate}
+.sidebar nav button:before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(255,255,255,.06),transparent 55%);transform:translateX(-105%);transition:transform .28s ease;z-index:-1}
+.sidebar nav button:hover:before{transform:translateX(0)}
+.sidebar nav button.active{box-shadow:inset 3px 0 0 var(--marc-blue),0 8px 24px rgba(36,152,255,.07)}
+.card,.dashboard-panel,.client-history-panel,.client-portal-section,.ad-card,.ad-result{position:relative;overflow:hidden;transition:transform .22s ease,border-color .22s ease,box-shadow .22s ease}
+.card:before,.dashboard-panel:before,.ad-card:before,.ad-result:before{content:"";position:absolute;top:0;left:8%;right:8%;height:1px;background:linear-gradient(90deg,transparent,rgba(72,213,255,.5),transparent);opacity:.55}
+.card:hover,.dashboard-panel:hover,.ad-card:hover,.ad-result:hover{transform:translateY(-2px);border-color:rgba(72,213,255,.20);box-shadow:0 18px 48px rgba(0,0,0,.20)}
+.kpi-modern{position:relative;overflow:hidden;isolation:isolate}
+.kpi-modern:before{content:"";position:absolute;width:130px;height:130px;right:-52px;top:-62px;border-radius:50%;background:radial-gradient(circle,rgba(72,213,255,.17),transparent 68%);pointer-events:none;transition:transform .35s ease}
+.kpi-modern:after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.055) 48%,transparent 64%);transform:translateX(-120%);transition:transform .55s ease;pointer-events:none}
+.kpi-modern:hover:before{transform:scale(1.35)}.kpi-modern:hover:after{transform:translateX(120%)}
+.kpi-modern strong,.kpi-modern b{letter-spacing:-.025em}.kpi-modern:hover strong,.kpi-modern:hover b{text-shadow:0 0 22px rgba(72,213,255,.18)}
+button{-webkit-tap-highlight-color:transparent}
+button.primary,.topright>button,.ask,.notification-bell{transition:transform .16s ease,filter .16s ease,box-shadow .16s ease,border-color .16s ease!important}
+button.primary:hover{box-shadow:0 14px 32px rgba(22,140,255,.28)!important}
+button.primary:active,.topright>button:active,.ask:active{transform:translateY(1px) scale(.985)!important}
+input,select,textarea{transition:border-color .18s ease,box-shadow .18s ease,background .18s ease!important}
+input:hover,select:hover,textarea:hover{border-color:rgba(154,190,220,.28)!important}
+tbody tr{transition:background .16s ease,transform .16s ease}tbody tr:hover{transform:translateX(2px)}
+.chat{box-shadow:-26px 0 70px rgba(0,0,0,.25)}
+.chat header i{display:inline-block;width:7px;height:7px;margin-right:7px;border-radius:50%;background:#41e39b;box-shadow:0 0 0 0 rgba(65,227,155,.45);animation:marcOnline 2.2s infinite}
+@keyframes marcOnline{0%,70%,100%{box-shadow:0 0 0 0 rgba(65,227,155,0)}35%{box-shadow:0 0 0 6px rgba(65,227,155,.08)}}
+.chips button{transition:transform .16s ease,border-color .16s ease,background .16s ease!important}.chips button:hover{transform:translateY(-2px);border-color:rgba(72,213,255,.32);background:rgba(36,152,255,.08)}
+.notification-bell{position:relative}
+#notificationCount:not(:empty):not([data-count="0"]){animation:marcBadge .7s ease both}
+@keyframes marcBadge{0%{transform:scale(.65);opacity:.4}70%{transform:scale(1.12)}100%{transform:scale(1);opacity:1}}
+.modal-root .modal,.modal-root>div{animation:marcModalIn .2s ease both}
+@keyframes marcModalIn{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+*{scrollbar-width:thin;scrollbar-color:rgba(120,160,190,.35) transparent}
+*::-webkit-scrollbar{width:8px;height:8px}*::-webkit-scrollbar-track{background:transparent}*::-webkit-scrollbar-thumb{background:linear-gradient(180deg,rgba(72,213,255,.32),rgba(36,152,255,.25));border-radius:99px}
+@media(max-width:900px){.content{animation-duration:.28s}.card:hover,.dashboard-panel:hover,.ad-card:hover,.ad-result:hover{transform:none}.top{backdrop-filter:blur(20px)}}
+@media(max-width:600px){body:before{opacity:.18;background-size:28px 28px}.content{padding-bottom:90px}.kpi-modern:hover{transform:none}}
+@media(prefers-reduced-motion:reduce){.content,.modal-root .modal,.modal-root>div{animation:none!important}.chat header i,.kpi-modern:after{animation:none!important}}

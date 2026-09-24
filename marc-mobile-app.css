@@ -483,3 +483,74 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     padding-bottom:120px!important;
   }
 }
+
+/* =========================================================
+   GLOBAL MOBILE WORKSPACE SCROLL — all M.A.R.C. modules
+   One natural page, no trapped module viewport.
+   ========================================================= */
+@media(max-width:900px){
+  html,body{
+    width:100%;
+    min-height:100%;
+    height:auto!important;
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+    overscroll-behavior-y:auto!important;
+  }
+  #app.marc-immersive,
+  #app.marc-immersive .main,
+  #app.marc-immersive #content{
+    width:100%!important;
+    height:auto!important;
+    min-height:0!important;
+    max-height:none!important;
+    overflow-x:hidden!important;
+    overflow-y:visible!important;
+  }
+  #app.marc-immersive .main{
+    position:relative!important;
+    display:block!important;
+  }
+  #app.marc-immersive #content{
+    position:relative!important;
+    padding-bottom:128px!important;
+    contain:none!important;
+  }
+  /* View roots may grow with their content; scrolling belongs to the page. */
+  #app.marc-immersive #content > .dashboard-shell,
+  #app.marc-immersive #content > .cash-mobile-center,
+  #app.marc-immersive #content > .ad-studio,
+  #app.marc-immersive #content > .marc-module-panel,
+  #app.marc-immersive #content > .card,
+  #app.marc-immersive #content > .panel,
+  #app.marc-immersive #content > .toolbar,
+  #app.marc-immersive #content > .head{
+    height:auto!important;
+    max-height:none!important;
+  }
+  /* Keep intentional horizontal table scrolling intact. */
+  #app.marc-immersive #content .card.table,
+  #app.marc-immersive #content .scroll{
+    overflow-x:auto!important;
+    overflow-y:visible!important;
+    -webkit-overflow-scrolling:touch!important;
+  }
+  /* Forms and long workspaces must remain finger-scrollable. */
+  #app.marc-immersive #content form,
+  #app.marc-immersive #content .settings,
+  #app.marc-immersive #content .cols,
+  #app.marc-immersive #content .ad-studio,
+  #app.marc-immersive #content .marketing-share-center{
+    max-height:none!important;
+    height:auto!important;
+  }
+  /* Don't let a module inherit a desktop clipping rule. */
+  #app.marc-immersive #content > *{
+    max-height:none!important;
+  }
+}
+@media(max-width:560px){
+  #app.marc-immersive #content{
+    padding-bottom:132px!important;
+  }
+}

@@ -564,7 +564,7 @@ async function serviceOrders(){
 }
 function serviceOrderModal(row=null){
   const isEdit=!!row;
-  const close=modal(`<div class="modal-head"><div><div class="eyebrow2">ORDEN DE TRABAJO</div><h2>${isEdit?"Editar orden":"Nueva orden"}</h2><p>Registra el servicio, diagnóstico, trabajo y costo.</p></div><button class="close" id="serviceOrderClose">×</button></div>
+  const close=modal(`<div class="modal-head"><div><div class="eyebrow2">ORDEN DE TRABAJO</div><h2>${isEdit?"Editar orden":"Nueva orden"}</h2><p>Registra el servicio, materiales, diagnóstico, trabajo y costo.</p></div><button class="close" id="serviceOrderClose">×</button></div>
   <form id="serviceOrderForm">
   <div class="cols"><label>Cliente<select id="soClient"><option value="">Sin cliente</option></select></label><label>Tipo de servicio<input id="soType" placeholder="Mantenimiento CCTV, reparación, instalación…"></label></div>
   <label>Título<input id="soTitle" required placeholder="Ej. Mantenimiento preventivo CCTV"></label>
@@ -573,20 +573,43 @@ function serviceOrderModal(row=null){
   <div class="cols"><label>Diagnóstico<textarea id="soDiagnosis" rows="3"></textarea></label><label>Trabajo realizado<textarea id="soWork" rows="3"></textarea></label></div>
   <div class="cols"><label>Recomendaciones<textarea id="soRecommendations" rows="3"></textarea></label><label>Técnico<input id="soTechnician" placeholder="Nombre del técnico"></label></div>
   <div class="cols"><label>Mano de obra<input id="soLabor" type="number" min="0" step="0.01"></label><label>Transporte<input id="soTransport" type="number" min="0" step="0.01"></label></div>
+  <section class="card" style="margin-top:12px"><div class="toolbar"><div><b>Materiales utilizados</b><small>Productos y cantidades consumidas en el servicio.</small></div><button type="button" class="secondary" id="soAddMaterial">＋ Agregar</button></div><div id="soMaterialsList"></div></section>
   <div class="cols"><label>Materiales<input id="soMaterials" type="number" min="0" step="0.01"></label><label>Estado<select id="soStatus"><option>PENDIENTE</option><option>PROGRAMADA</option><option>EN_PROCESO</option><option>TERMINADA</option><option>ENTREGADA</option><option>CANCELADA</option></select></label></div>
   <label>Notas<textarea id="soNotes" rows="2"></textarea></label>
   <div id="soMsg" class="msg"></div><div class="modal-actions"><button type="button" class="secondary" id="serviceOrderCancel">Cancelar</button><button type="submit" class="primary">Guardar orden</button></div></form>`);
   $("#serviceOrderClose").onclick=close;$("#serviceOrderCancel").onclick=close;
+  let soProducts=[];
+  S.from("marc_inventory").select("id,name,sku,cost,price,stock").eq("user_id",st.u.id).eq("active",true).order("name").then(({data})=>{
+    soProducts=data||[];
+    if(row)loadServiceOrderMaterials(row.id);
+  });
+  const materialRows=[];
+  const renderMaterials=()=>{
+    const root=$("#soMaterialsList"); if(!root)return;
+    root.innerHTML=materialRows.length?materialRows.map((m,i)=>'<div class="cols so-material-row"><label>Producto<select data-mi="'+i+'" class="so-material-product"><option value="">Producto manual</option>'+soProducts.map(p=>'<option value="'+p.id+'" '+(m.inventory_id===p.id?"selected":"")+'>'+esc(p.name)+' · stock '+Number(p.stock||0)+'</option>').join("")+'</select></label><label>Cantidad<input data-mi="'+i+'" class="so-material-qty" type="number" min="0.001" step="0.001" value="'+Number(m.quantity||1)+'"></label><label>Costo unitario<input data-mi="'+i+'" class="so-material-cost" type="number" min="0" step="0.01" value="'+Number(m.unit_cost||0)+'"></label><button type="button" class="secondary so-material-remove" data-mi="'+i+'">Quitar</button></div>').join(""):'<div class="empty">Aún no hay materiales.</div>';
+    root.querySelectorAll(".so-material-product").forEach(el=>el.onchange=()=>{const m=materialRows[Number(el.dataset.mi)],p=soProducts.find(x=>x.id===el.value);m.inventory_id=el.value||null;if(p){m.name=p.name;m.unit_cost=Number(p.cost??p.price??0)}renderMaterials()});
+    root.querySelectorAll(".so-material-qty").forEach(el=>el.oninput=()=>materialRows[Number(el.dataset.mi)].quantity=Number(el.value||0));
+    root.querySelectorAll(".so-material-cost").forEach(el=>el.oninput=()=>materialRows[Number(el.dataset.mi)].unit_cost=Number(el.value||0));
+    root.querySelectorAll(".so-material-remove").forEach(el=>el.onclick=()=>{materialRows.splice(Number(el.dataset.mi),1);renderMaterials()});
+  };
+  $("#soAddMaterial").onclick=()=>{materialRows.push({inventory_id:null,name:"Material",quantity:1,unit_cost:0});renderMaterials()};renderMaterials();
+  async function loadServiceOrderMaterials(orderId){const r=await S.from("marc_service_order_materials").select("*").eq("user_id",st.u.id).eq("service_order_id",orderId).order("created_at");if(!r.error){materialRows.push(...(r.data||[]));renderMaterials()}}
   S.from("marc_clients").select("id,name").eq("user_id",st.u.id).order("name").then(({data})=>{const sel=$("#soClient");(data||[]).forEach(x=>{const o=document.createElement("option");o.value=x.id;o.textContent=x.name;if(row?.client_id===x.id)o.selected=true;sel.appendChild(o)})});
   if(row){
     $("#soType").value=row.service_type||"";$("#soTitle").value=row.title||"";$("#soLocation").value=row.location||"";$("#soDate").value=row.scheduled_at?new Date(row.scheduled_at).toISOString().slice(0,16):"";
     $("#soDescription").value=row.description||"";$("#soDiagnosis").value=row.diagnosis||"";$("#soWork").value=row.work_performed||"";$("#soRecommendations").value=row.recommendations||"";$("#soTechnician").value=row.technician||"";
     $("#soLabor").value=row.labor_cost||0;$("#soTransport").value=row.transport_cost||0;$("#soMaterials").value=row.materials_cost||0;$("#soStatus").value=row.status||"PENDIENTE";$("#soNotes").value=row.notes||"";
   }
-  $("#serviceOrderForm").onsubmit=async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;const labor=Number($("#soLabor").value||0),transport=Number($("#soTransport").value||0),materials=Number($("#soMaterials").value||0);
+  $("#serviceOrderForm").onsubmit=async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;const labor=Number($("#soLabor").value||0),transport=Number($("#soTransport").value||0),materials=materialRows.reduce((a,m)=>a+Number(m.quantity||0)*Number(m.unit_cost||0),0);
     const payload={user_id:st.u.id,client_id:$("#soClient").value||null,title:$("#soTitle").value.trim(),service_type:$("#soType").value.trim(),description:$("#soDescription").value.trim(),diagnosis:$("#soDiagnosis").value.trim(),work_performed:$("#soWork").value.trim(),recommendations:$("#soRecommendations").value.trim(),location:$("#soLocation").value.trim(),scheduled_at:$("#soDate").value?new Date($("#soDate").value).toISOString():null,technician:$("#soTechnician").value.trim(),status:$("#soStatus").value,labor_cost:labor,transport_cost:transport,materials_cost:materials,total:labor+transport+materials,notes:$("#soNotes").value.trim(),updated_at:new Date().toISOString()};
     if(!isEdit)payload.number="OT-"+Date.now().toString().slice(-8);
-    const q=isEdit?await S.from("marc_service_orders").update(payload).eq("id",row.id).eq("user_id",st.u.id):await S.from("marc_service_orders").insert(payload);
+    const q=isEdit?await S.from("marc_service_orders").update(payload).eq("id",row.id).eq("user_id",st.u.id):await S.from("marc_service_orders").insert(payload).select("id").single();
+    const orderId=isEdit?row.id:q.data?.id;
+    if(!q.error&&orderId){
+      await S.from("marc_service_order_materials").delete().eq("service_order_id",orderId).eq("user_id",st.u.id);
+      const clean=materialRows.filter(m=>String(m.name||"").trim()&&Number(m.quantity||0)>0).map(m=>({user_id:st.u.id,service_order_id:orderId,inventory_id:m.inventory_id||null,name:String(m.name).trim(),quantity:Number(m.quantity||0),unit_cost:Number(m.unit_cost||0)}));
+      if(clean.length){const mr=await S.from("marc_service_order_materials").insert(clean);if(mr.error){b.disabled=false;$("#soMsg").textContent=mr.error.message;$("#soMsg").className="msg error";return}}
+    }
     if(q.error){b.disabled=false;$("#soMsg").textContent=q.error.message;$("#soMsg").className="msg error";return}
     close();toast(isEdit?"Orden actualizada":"Orden creada","ok");serviceOrders();
   };

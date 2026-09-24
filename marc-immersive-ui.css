@@ -607,3 +607,119 @@
   #app.marc-immersive .marc-immersive-title .mit-icon{width:34px!important;height:34px!important;font-size:16px!important;border-radius:11px!important}
   #app.marc-immersive .marc-immersive-title b{font-size:11px!important}
 }
+
+
+/* ===== MOBILE HEADER FINAL CLEANUP =====
+   En móvil la cabecera debe ser una sola fila: Atrás · Inicio · Módulos · área actual.
+   Se eliminan etiquetas largas para evitar solapamientos y botones deformados.
+*/
+@media (max-width:900px){
+  #app.marc-immersive .top{
+    height:62px!important;
+    min-height:62px!important;
+    max-height:62px!important;
+    padding:7px 10px!important;
+    box-sizing:border-box!important;
+    overflow:hidden!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:flex-start!important;
+    gap:0!important;
+  }
+  #app.marc-immersive .brand-head{display:none!important}
+  #app.marc-immersive .topright{display:none!important}
+  #app.marc-immersive .marc-immersive-controls{
+    display:flex!important;
+    width:100%!important;
+    height:48px!important;
+    min-width:0!important;
+    flex:1 1 auto!important;
+    align-items:center!important;
+    gap:7px!important;
+    overflow:hidden!important;
+  }
+  #app.marc-immersive .marc-immersive-back,
+  #app.marc-immersive .marc-immersive-home,
+  #app.marc-immersive .marc-immersive-modules{
+    width:44px!important;
+    height:44px!important;
+    min-width:44px!important;
+    max-width:44px!important;
+    min-height:44px!important;
+    max-height:44px!important;
+    padding:0!important;
+    margin:0!important;
+    flex:0 0 44px!important;
+    display:grid!important;
+    place-items:center!important;
+    border-radius:13px!important;
+    font-size:19px!important;
+    line-height:1!important;
+    overflow:hidden!important;
+  }
+  #app.marc-immersive .marc-immersive-back span.label,
+  #app.marc-immersive .marc-immersive-home span.label,
+  #app.marc-immersive .marc-immersive-modules span.label{
+    display:none!important;
+  }
+  #app.marc-immersive .marc-immersive-back span:first-child,
+  #app.marc-immersive .marc-immersive-home span:first-child,
+  #app.marc-immersive .marc-immersive-modules span:first-child{
+    display:block!important;
+    width:auto!important;
+    white-space:nowrap!important;
+  }
+  #app.marc-immersive .marc-immersive-title{
+    display:flex!important;
+    min-width:0!important;
+    max-width:none!important;
+    flex:1 1 auto!important;
+    margin:0 0 0 3px!important;
+    gap:7px!important;
+    overflow:hidden!important;
+  }
+  #app.marc-immersive .marc-immersive-title .mit-icon{
+    width:34px!important;
+    height:34px!important;
+    min-width:34px!important;
+    border-radius:10px!important;
+    font-size:16px!important;
+  }
+  #app.marc-immersive .marc-immersive-title b{
+    font-size:11px!important;
+    line-height:1.1!important;
+    white-space:nowrap!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+  }
+  #app.marc-immersive .marc-immersive-title small{
+    display:block!important;
+    font-size:6px!important;
+    line-height:1!important;
+    white-space:nowrap!important;
+  }
+}
+@media (max-width:560px){
+  #app.marc-immersive .top{
+    height:58px!important;
+    min-height:58px!important;
+    max-height:58px!important;
+    padding:6px 8px!important;
+  }
+  #app.marc-immersive .marc-immersive-controls{
+    height:46px!important;
+    gap:5px!important;
+  }
+  #app.marc-immersive .marc-immersive-back,
+  #app.marc-immersive .marc-immersive-home,
+  #app.marc-immersive .marc-immersive-modules{
+    width:42px!important;
+    height:42px!important;
+    min-width:42px!important;
+    max-width:42px!important;
+    min-height:42px!important;
+    max-height:42px!important;
+    flex-basis:42px!important;
+    border-radius:12px!important;
+  }
+}

@@ -102,14 +102,22 @@
     if(current==="home")setTimeout(installHomeLauncher,30);
   }
 
+  let syncQueued=false;
+  function queueSync(){
+    if(syncQueued)return;
+    syncQueued=true;
+    requestAnimationFrame(()=>{syncQueued=false;sync()});
+  }
+
   function init(){
     buildOverlay();
     buildTopControls();
     const content=$("#content");
     if(content){
-      new MutationObserver(()=>{requestAnimationFrame(sync)}).observe(content,{childList:true,subtree:true});
+      new MutationObserver(queueSync).observe(content,{childList:true,subtree:true});
     }
-    new MutationObserver(()=>{requestAnimationFrame(sync)}).observe($("#page")||document.body,{childList:true,characterData:true,subtree:true});
+    const page=$("#page")||document.body;
+    new MutationObserver(queueSync).observe(page,{childList:true,characterData:true,subtree:true});
     document.addEventListener("keydown",e=>{
       if(e.key==="Escape"){closeModules();return}
       if(e.key==="Home"&&e.altKey){e.preventDefault();clickView("home")}

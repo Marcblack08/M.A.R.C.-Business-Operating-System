@@ -873,3 +873,294 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{
   }
   .modal-actions button{min-width:0;width:100%}
 }
+
+/* =========================================================
+   V3 MODULE POLISH — INVENTORY / POS / QUOTES
+   ========================================================= */
+
+/* INVENTORY */
+.inventory-summary{
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px!important;
+  margin-bottom:16px!important;
+}
+.inventory-summary>div{
+  min-height:108px!important;
+  padding:18px!important;
+  border:1px solid rgba(116,166,201,.13)!important;
+  border-radius:18px!important;
+  background:linear-gradient(145deg,rgba(10,30,46,.96),rgba(5,17,28,.96))!important;
+}
+.inventory-summary span{
+  display:block;
+  font-size:10px!important;
+  font-weight:850!important;
+  letter-spacing:.11em;
+  color:#7894aa!important;
+}
+.inventory-summary strong{
+  display:block;
+  margin-top:7px;
+  font-size:30px!important;
+  line-height:1!important;
+}
+.inventory-summary small{
+  display:block;
+  margin-top:8px;
+  color:#708ba0!important;
+}
+.inventory-toolbar-actions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.inventory-toolbar-actions button{
+  min-height:50px!important;
+}
+.inventory-cards{
+  padding:14px!important;
+  display:grid!important;
+  grid-template-columns:repeat(auto-fill,minmax(270px,1fr));
+  gap:12px!important;
+}
+.inventory-card{
+  padding:16px!important;
+  position:relative;
+  overflow:hidden;
+}
+.inventory-card::before{
+  content:"";
+  position:absolute;
+  inset:0 0 auto 0;
+  height:3px;
+  background:linear-gradient(90deg,#168cff,#18d6e8);
+  opacity:.7;
+}
+.inventory-photo{
+  width:66px!important;height:66px!important;
+  min-width:66px!important;
+  border-radius:15px!important;
+  background:#061522!important;
+  border:1px solid rgba(116,166,201,.12)!important;
+}
+.inventory-photo img{
+  width:100%;height:100%;
+  object-fit:contain;
+  border-radius:14px;
+}
+.inventory-card-name h3{
+  margin:0!important;
+  line-height:1.25!important;
+}
+.inventory-card-meta{
+  margin-top:15px!important;
+  padding-top:13px!important;
+  border-top:1px solid rgba(116,166,201,.09)!important;
+}
+.inventory-card-actions{
+  margin-top:14px!important;
+}
+.inventory-card-actions button{
+  min-height:48px!important;
+}
+.inventory-browser .empty{
+  padding:50px 20px!important;
+}
+
+/* POS / CASH WORKSTATION */
+#pos{
+  min-height:520px;
+}
+#posSearch{
+  min-height:58px!important;
+  padding:0 18px!important;
+  border-radius:16px!important;
+  font-size:15px!important;
+  background:#061522!important;
+  border-color:rgba(53,182,255,.22)!important;
+  box-shadow:0 10px 28px rgba(0,0,0,.12);
+}
+#posCats{
+  scrollbar-width:none;
+}
+#posCats::-webkit-scrollbar{display:none}
+#posProducts{
+  grid-template-columns:repeat(auto-fill,minmax(175px,1fr))!important;
+  align-content:start;
+}
+#posProducts>button{
+  min-height:205px!important;
+  padding:12px!important;
+  border-color:rgba(116,166,201,.14)!important;
+  background:linear-gradient(145deg,rgba(10,30,46,.98),rgba(5,17,28,.98))!important;
+  color:#eef7ff!important;
+  box-shadow:0 10px 25px rgba(0,0,0,.12);
+  transition:.16s ease;
+}
+#posProducts>button:hover:not(:disabled){
+  transform:translateY(-3px);
+  border-color:rgba(53,182,255,.42)!important;
+  box-shadow:0 16px 32px rgba(0,0,0,.2),0 0 26px rgba(22,140,255,.08);
+}
+#posProducts>button img,#posProducts>button>div{
+  height:112px!important;
+  border-radius:12px!important;
+  background:#071522!important;
+}
+#posProducts>button strong{
+  color:#58c6ff!important;
+  font-size:15px;
+}
+#posProducts>button small{
+  color:#7894aa!important;
+}
+#posCats .pos-cat{
+  background:rgba(255,255,255,.035)!important;
+  border-color:rgba(116,166,201,.15)!important;
+}
+#posCats .pos-cat:hover{
+  background:rgba(22,140,255,.12)!important;
+}
+#pos aside{
+  background:linear-gradient(180deg,rgba(9,29,45,.98),rgba(4,15,26,.98))!important;
+  border-color:rgba(53,182,255,.18)!important;
+  box-shadow:0 18px 45px rgba(0,0,0,.22);
+}
+#posCart{
+  scrollbar-width:thin;
+}
+#posCart>div{
+  padding:12px 4px!important;
+  border-bottom-color:rgba(116,166,201,.09)!important;
+}
+#posCart .pos-minus,#posCart .pos-plus{
+  width:42px!important;height:42px!important;
+  min-width:42px!important;
+  padding:0!important;
+}
+#posCart .pos-remove{
+  min-height:42px!important;
+}
+#posTotal{
+  color:#65d2ff!important;
+  font-size:25px!important;
+}
+#posReference{
+  min-height:50px!important;
+}
+#posCharge{
+  min-height:60px!important;
+  border-radius:15px!important;
+  font-size:15px!important;
+  font-weight:850!important;
+}
+@media(max-width:760px){
+  #pos{
+    grid-template-columns:1fr!important;
+    max-height:78svh!important;
+    overflow:auto!important;
+  }
+  #posProducts{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    max-height:34svh;
+  }
+  #posProducts>button{
+    min-height:175px!important;
+  }
+  #pos aside{
+    min-height:270px!important;
+    max-height:40svh;
+  }
+}
+@media(max-width:430px){
+  #posProducts{
+    grid-template-columns:1fr 1fr!important;
+    gap:7px!important;
+  }
+  #posProducts>button{
+    min-height:160px!important;
+    padding:8px!important;
+  }
+  #posProducts>button img,#posProducts>button>div{
+    height:82px!important;
+  }
+}
+
+/* QUOTES */
+.quote-card{
+  position:relative;
+  overflow:hidden;
+  padding:18px!important;
+}
+.quote-card::before{
+  content:"";
+  position:absolute;
+  left:0;top:0;bottom:0;
+  width:3px;
+  background:linear-gradient(180deg,#8d5cff,#168cff);
+  opacity:.8;
+}
+.quote-card-top{
+  align-items:center!important;
+}
+.quote-number{
+  font-size:12px!important;
+  font-weight:850!important;
+  color:#72cfff!important;
+  letter-spacing:.03em;
+}
+.quote-card>h3{
+  margin:15px 0 8px!important;
+  font-size:18px!important;
+}
+.quote-card>p{
+  color:#91a8bb!important;
+}
+.quote-card>strong{
+  font-size:18px!important;
+}
+.quote-card-actions{
+  display:grid!important;
+  grid-template-columns:1.2fr 1fr 1fr;
+  margin-top:16px!important;
+}
+.quote-card-actions button{
+  min-height:48px!important;
+}
+@media(max-width:560px){
+  .inventory-summary{
+    grid-template-columns:1fr!important;
+  }
+  .inventory-summary>div{
+    min-height:88px!important;
+  }
+  .inventory-toolbar-actions{
+    width:100%;
+  }
+  .inventory-toolbar-actions button{
+    flex:1;
+  }
+  .quote-card-actions{
+    grid-template-columns:1fr 1fr;
+  }
+  .quote-card-actions .danger{
+    grid-column:1/-1;
+  }
+}
+
+/* MODULE TRANSITION */
+@keyframes marcWindowIn{
+  from{opacity:0;transform:translateY(7px) scale(.995)}
+  to{opacity:1;transform:none}
+}
+.content:not(.view-switching)>.head,
+.content:not(.view-switching)>.card,
+.content:not(.view-switching)>.dashboard-shell,
+.content:not(.view-switching)>.cash-mobile-center,
+.content:not(.view-switching)>.ad-studio{
+  animation:marcWindowIn .18s ease both;
+}
+@media(prefers-reduced-motion:reduce){
+  .content:not(.view-switching)>*{animation:none!important}
+}

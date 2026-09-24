@@ -118,6 +118,33 @@ async function signInGoogle(e){
     if(label)label.textContent="Continuar con Google";
   }
 }
+function bindAuthControls(){
+  const google=$("#googleLogin");
+  if(google && !google.dataset.bound){
+    google.dataset.bound="1";
+    google.addEventListener("click",signInGoogle);
+  }
+  const form=$("#authForm");
+  if(form && !form.dataset.bound){
+    form.dataset.bound="1";
+    form.addEventListener("submit",submit);
+  }
+  const toggle=$("#passwordToggle");
+  if(toggle && !toggle.dataset.bound){
+    toggle.dataset.bound="1";
+    toggle.addEventListener("click",()=>{
+      const p=$("#password");
+      if(p){p.type=p.type==="password"?"text":"password";toggle.setAttribute("aria-label",p.type==="password"?"Mostrar contraseña":"Ocultar contraseña");}
+    });
+  }
+  const forgot=$("#forgotPassword");
+  if(forgot && !forgot.dataset.bound){
+    forgot.dataset.bound="1";
+    forgot.addEventListener("click",()=>mode("reset"));
+  }
+}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",bindAuthControls,{once:true});else bindAuthControls();
+
 async function handleAuthSession(s){if(!s?.user)return;const id=s.user.id;if(authEnteredSessionId===id && st.u?.id===id && !$("#app").classList.contains("hidden"))return;authEnteredSessionId=id;try{await enter(s)}catch(e){authEnteredSessionId=null;throw e}}function resetUiToLogin(message="",type=""){st.authEpoch++;st.u=null;st.session=null;st.cid=null;try{applyCashierMode(false)}catch{}$("#app").classList.add("hidden");$("#auth").classList.remove("hidden");mode("login");if(message)msg(message,type)}
 async function ensure(){const u=st.u;if(!u)return;await S.from("marc_accounts").upsert({id:u.id,display_name:u.email?.split("@")[0]||"Usuario"},{onConflict:"id"});const {data:t}=await S.from("marc_trials").select("id").eq("user_id",u.id).maybeSingle();if(!t)await S.from("marc_trials").insert({user_id:u.id});const {data:c}=await S.from("marc_conversations").select("id").eq("user_id",u.id).eq("channel","WEB").order("updated_at",{ascending:false}).limit(1).maybeSingle();st.cid=c?.id||(await S.from("marc_conversations").insert({user_id:u.id,channel:"WEB",title:"Conversación principal"}).select("id").single()).data?.id}
 async function enter(s){

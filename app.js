@@ -551,18 +551,32 @@ async function serviceOrders(){
   if(error)return toast(error.message,"err");
   const rows=data||[],c=$("#content");
   const counts=["PENDIENTE","PROGRAMADA","EN_PROCESO","TERMINADA"].map(x=>rows.filter(r=>r.status===x).length);
+  const revenue=rows.reduce((sum,r)=>sum+Number(r.revenue??0),0);
+  const costs=rows.reduce((sum,r)=>sum+Number(r.labor_cost??0)+Number(r.transport_cost??0)+Number(r.materials_cost??0)+Number(r.other_cost??0),0);
+  const profit=rows.reduce((sum,r)=>sum+Number(r.profit??(Number(r.revenue??0)-Number(r.labor_cost??0)-Number(r.transport_cost??0)-Number(r.materials_cost??0)-Number(r.other_cost??0)),0);
+  const margin=revenue>0?(profit/revenue)*100:0;
+  const formatPct=v=>Number(v||0).toLocaleString("es-PE",{minimumFractionDigits:1,maximumFractionDigits:1})+"%";
   c.innerHTML=`<div class="head"><div><div class="eyebrow2">SERVICIOS</div><h1>Órdenes de trabajo.</h1><p>Controla visitas, reparaciones, instalaciones y mantenimientos desde que entran hasta que se entregan.</p></div><button id="newServiceOrder" class="primary">＋ Nueva orden</button></div>
   <section class="client-summary"><div><span>PENDIENTES</span><strong>${counts[0]}</strong><small>Por atender</small></div><div><span>PROGRAMADAS</span><strong>${counts[1]}</strong><small>Con visita prevista</small></div><div><span>EN PROCESO</span><strong>${counts[2]}</strong><small>Trabajos activos</small></div><div><span>TERMINADAS</span><strong>${counts[3]}</strong><small>Trabajos cerrados</small></div></section>
+  <section class="service-profitability-summary">
+    <div><span>INGRESOS COBRADOS</span><strong>${money(revenue)}</strong><small>Importe registrado en las OT</small></div>
+    <div><span>COSTO TOTAL REAL</span><strong>${money(costs)}</strong><small>Mano de obra + transporte + materiales + otros</small></div>
+    <div><span>UTILIDAD ACUMULADA</span><strong class="${profit>=0?"ok":"out"}">${money(profit)}</strong><small>Ingresos menos todos los costos</small></div>
+    <div><span>MARGEN GLOBAL</span><strong>${margin>=0?"":"-"}${formatPct(Math.abs(margin))}</strong><small>${rows.length} órdenes analizadas</small></div>
+  </section>
   <section class="card table"><div class="toolbar"><div class="search"><input id="serviceOrderSearch" placeholder="Buscar orden, cliente, servicio o dirección…"></div><button id="serviceOrderRefresh" class="secondary">↻ Actualizar</button></div>
-  <div class="scroll"><table class="data"><thead><tr><th>Orden</th><th>Cliente</th><th>Servicio</th><th>Programación</th><th>Estado</th><th>Total</th><th></th></tr></thead><tbody id="serviceOrderRows"></tbody></table></div></section>`;
-  const draw=(items)=>$("#serviceOrderRows").innerHTML=items.map(r=>`<tr><td><b>${esc(r.number)}</b><br><small>${esc(r.title)}</small></td><td>${esc(r.marc_clients?.name||"Sin cliente")}</td><td>${esc(r.service_type||"Servicio")}</td><td>${r.scheduled_at?new Date(r.scheduled_at).toLocaleString("es-PE"):"—"}</td><td><span class="status-pill">${esc(r.status)}</span></td><td><b>${money(r.total)}</b></td><td><button class="secondary" data-service-order="${r.id}">Ver</button> <button class="secondary" data-service-photos="${r.id}">Fotos</button> <button class="secondary" data-service-checklist="${r.id}">Checklist</button> <button class="secondary" data-service-sign="${r.id}">Conformidad</button> <button class="secondary" data-service-report="${r.id}">Informe</button></td></tr>`).join("")||'<tr><td colspan="7" class="empty">No hay órdenes de trabajo todavía.</td></tr>';
+  <div class="scroll"><table class="data"><thead><tr><th>Orden</th><th>Cliente</th><th>Servicio</th><th>Programación</th><th>Estado</th><th>Cobrado</th><th>Costo real</th><th>Utilidad</th><th>Margen</th><th></th></tr></thead><tbody id="serviceOrderRows"></tbody></table></div></section>`;
+  const draw=(items)=>$("#serviceOrderRows").innerHTML=items.map(r=>{
+    const rev=Number(r.revenue??0),cost=Number(r.labor_cost??0)+Number(r.transport_cost??0)+Number(r.materials_cost??0)+Number(r.other_cost??0),p=Number(r.profit??(rev-cost)),m=rev>0?(p/rev)*100:0;
+    return `<tr><td><b>${esc(r.number)}</b><br><small>${esc(r.title)}</small></td><td>${esc(r.marc_clients?.name||"Sin cliente")}</td><td>${esc(r.service_type||"Servicio")}</td><td>${r.scheduled_at?new Date(r.scheduled_at).toLocaleString("es-PE"):"—"}</td><td><span class="status-pill">${esc(r.status)}</span></td><td><b>${money(rev)}</b></td><td>${money(cost)}</td><td><b class="${p>=0?"ok":"out"}">${money(p)}</b></td><td>${formatPct(m)}</td><td><button class="secondary" data-service-order="${r.id}">Ver</button> <button class="secondary" data-service-photos="${r.id}">Fotos</button> <button class="secondary" data-service-checklist="${r.id}">Checklist</button> <button class="secondary" data-service-sign="${r.id}">Conformidad</button> <button class="secondary" data-service-report="${r.id}">Informe</button></td></tr>`
+  }).join("")||'<tr><td colspan="10" class="empty">No hay órdenes de trabajo todavía.</td></tr>';
   draw(rows);
   $("#serviceOrderSearch").oninput=e=>{const q=e.target.value.toLowerCase();draw(rows.filter(r=>[r.number,r.title,r.service_type,r.location,r.marc_clients?.name].some(v=>String(v||"").toLowerCase().includes(q))))};
   $("#newServiceOrder").onclick=()=>serviceOrderModal();
   $("#serviceOrderRefresh").onclick=()=>serviceOrders();
   $("#serviceOrderRows").onclick=e=>{const rp=e.target.closest("[data-service-report]");if(rp){const r=rows.find(x=>x.id===rp.dataset.serviceReport);if(r)return serviceOrderReport(r)}const sg=e.target.closest("[data-service-sign]");if(sg){const r=rows.find(x=>x.id===sg.dataset.serviceSign);if(r)return serviceOrderSignatureModal(r)}const c=e.target.closest("[data-service-checklist]");if(c){const r=rows.find(x=>x.id===c.dataset.serviceChecklist);if(r)return serviceOrderChecklistModal(r)}const p=e.target.closest("[data-service-photos]");if(p){const r=rows.find(x=>x.id===p.dataset.servicePhotos);if(r)return serviceOrderPhotosModal(r)}const b=e.target.closest("[data-service-order]");if(b){const r=rows.find(x=>x.id===b.dataset.serviceOrder);if(r)serviceOrderModal(r)}};
 }
-async async function serviceOrderReport(order){
+async function serviceOrderReport(order){
  const close=modal('<div class="modal-head"><div><div class="eyebrow2">DOCUMENTO DE SERVICIO</div><h2>Informe / acta</h2><p>Incluye checklist, evidencias y conformidad del cliente.</p></div><button class="close" id="sorClose">×</button></div><div id="sorBody">Preparando documento…</div>');
  $("#sorClose").onclick=close;
  const [m,c,p]=await Promise.all([

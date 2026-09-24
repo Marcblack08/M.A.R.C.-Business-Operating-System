@@ -606,9 +606,11 @@ function serviceOrderModal(row=null){
     const q=isEdit?await S.from("marc_service_orders").update(payload).eq("id",row.id).eq("user_id",st.u.id):await S.from("marc_service_orders").insert(payload).select("id").single();
     const orderId=isEdit?row.id:q.data?.id;
     if(!q.error&&orderId){
+      if(!isEdit && q.data?.id){} else if(isEdit){}
       await S.from("marc_service_order_materials").delete().eq("service_order_id",orderId).eq("user_id",st.u.id);
       const clean=materialRows.filter(m=>String(m.name||"").trim()&&Number(m.quantity||0)>0).map(m=>({user_id:st.u.id,service_order_id:orderId,inventory_id:m.inventory_id||null,name:String(m.name).trim(),quantity:Number(m.quantity||0),unit_cost:Number(m.unit_cost||0)}));
       if(clean.length){const mr=await S.from("marc_service_order_materials").insert(clean);if(mr.error){b.disabled=false;$("#soMsg").textContent=mr.error.message;$("#soMsg").className="msg error";return}}
+      if(["TERMINADA","ENTREGADA"].includes($("#soStatus").value)){const cr=await S.rpc("marc_consume_service_order_materials",{p_order_id:orderId});if(cr.error){b.disabled=false;$("#soMsg").textContent=cr.error.message;$("#soMsg").className="msg error";return}}
     }
     if(q.error){b.disabled=false;$("#soMsg").textContent=q.error.message;$("#soMsg").className="msg error";return}
     close();toast(isEdit?"Orden actualizada":"Orden creada","ok");serviceOrders();

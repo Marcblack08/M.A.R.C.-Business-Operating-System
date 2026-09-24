@@ -343,3 +343,64 @@
   #app.marc-immersive #content > *{animation:none!important}
   .marc-module-card,.marc-immersive-back,.marc-immersive-modules,.marc-immersive-home{transition:none!important}
 }
+
+/* ===== MOBILE / TABLET TOUCH OVERRIDE ===== */
+#app.marc-immersive .brand-head{display:none!important}
+#app.marc-immersive .top{display:flex!important}
+#app.marc-immersive .marc-immersive-controls{order:0}
+#app.marc-immersive .topright{margin-left:auto}
+#app.marc-immersive #content{overflow:hidden}
+#app.marc-immersive .dashboard-shell{max-width:1280px;margin:0 auto}
+#app.marc-immersive .dashboard-hero{border-radius:26px!important}
+#app.marc-immersive .dashboard-kpis{gap:14px!important}
+#app.marc-immersive .kpi-modern{min-height:104px!important}
+#app.marc-immersive .hero-actions button,
+#app.marc-immersive .hero-actions .primary{min-height:52px!important}
+@media(max-width:900px){
+  #app.marc-immersive .top{height:64px!important;padding:8px 10px!important}
+  #app.marc-immersive .marc-immersive-controls{gap:6px}
+  #app.marc-immersive .marc-immersive-title{display:none}
+  #app.marc-immersive .marc-immersive-back,
+  #app.marc-immersive .marc-immersive-home,
+  #app.marc-immersive .marc-immersive-modules{
+    width:46px!important;height:46px!important;min-height:46px!important;
+    border-radius:14px!important;padding:0!important;font-size:18px!important;
+  }
+  #app.marc-immersive .topright .marc-quick-launch{display:none}
+  #app.marc-immersive .person{display:none!important}
+  #app.marc-immersive #content{
+    padding:14px 12px 42px!important;
+    min-height:calc(100svh - 64px);
+  }
+  #app.marc-immersive .dashboard-hero{
+    grid-template-columns:1fr!important;
+    padding:22px!important;
+    min-height:auto!important;
+  }
+  #app.marc-immersive .hero-visual{
+    min-height:170px!important;
+    order:-1;
+  }
+  #app.marc-immersive .hero-copy h1{font-size:30px!important}
+  #app.marc-immersive .hero-copy p{font-size:11px!important}
+  #app.marc-immersive .dashboard-kpis{grid-template-columns:1fr 1fr!important}
+  #app.marc-immersive .kpi-modern{padding:15px!important}
+  #app.marc-immersive .kpi-modern strong{font-size:22px!important}
+  #app.marc-immersive .marc-home-launcher-grid{grid-template-columns:repeat(2,1fr)!important}
+}
+@media(max-width:560px){
+  #app.marc-immersive .dashboard-hero{padding:18px!important;border-radius:20px!important}
+  #app.marc-immersive .hero-copy h1{font-size:25px!important}
+  #app.marc-immersive .hero-copy p{font-size:10px!important}
+  #app.marc-immersive .hero-actions{display:grid!important;grid-template-columns:1fr 1fr;gap:8px!important}
+  #app.marc-immersive .hero-actions button{width:100%!important;font-size:10px!important}
+  #app.marc-immersive .dashboard-kpis{gap:8px!important}
+  #app.marc-immersive .kpi-modern{min-height:88px!important;padding:11px!important;border-radius:16px!important}
+  #app.marc-immersive .kpi-modern .kpi-icon{width:32px!important;height:32px!important}
+  #app.marc-immersive .kpi-modern strong{font-size:19px!important}
+  #app.marc-immersive .kpi-modern span{font-size:8px!important}
+  #app.marc-immersive .kpi-modern small{font-size:6px!important}
+  #app.marc-immersive .marc-home-launcher{margin-top:12px!important;padding:14px!important}
+  #app.marc-immersive .marc-home-launcher-grid{grid-template-columns:1fr 1fr!important}
+  #app.marc-immersive .marc-home-launcher .marc-module-card{min-height:105px!important}
+}

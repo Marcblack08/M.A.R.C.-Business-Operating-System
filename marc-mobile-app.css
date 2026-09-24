@@ -325,3 +325,43 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   ::view-transition-old(root),::view-transition-new(root){animation:none!important}
   .marc-app-fab{animation:none!important}
 }
+
+/* ===== NAVIGATION RELIABILITY PATCH ===== */
+.marc-mobile-nav{
+  pointer-events:auto!important;
+  touch-action:manipulation!important;
+  z-index:9999!important;
+}
+.marc-mobile-nav button{
+  pointer-events:auto!important;
+  cursor:pointer!important;
+  user-select:none!important;
+  -webkit-user-select:none!important;
+  touch-action:manipulation!important;
+}
+#app.marc-immersive .marc-immersive-controls{
+  position:relative!important;
+  z-index:200!important;
+  pointer-events:auto!important;
+}
+#app.marc-immersive .marc-immersive-back,
+#app.marc-immersive .marc-immersive-home,
+#app.marc-immersive .marc-immersive-modules{
+  pointer-events:auto!important;
+  touch-action:manipulation!important;
+}
+@media(max-width:760px){
+  .marc-mobile-nav{
+    bottom:0!important;
+    min-height:68px!important;
+    padding-bottom:calc(8px + env(safe-area-inset-bottom))!important;
+  }
+  .marc-mobile-nav button{
+    min-height:52px!important;
+    position:relative!important;
+    z-index:10000!important;
+  }
+  .marc-app-fab{
+    z-index:9998!important;
+  }
+}

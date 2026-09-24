@@ -562,6 +562,16 @@ async function serviceOrders(){
   $("#serviceOrderRefresh").onclick=()=>serviceOrders();
   $("#serviceOrderRows").onclick=e=>{const b=e.target.closest("[data-service-order]");if(b){const r=rows.find(x=>x.id===b.dataset.serviceOrder);if(r)serviceOrderModal(r)}};
 }
+async function serviceOrderPhotosModal(order){
+  const close=modal('<div class="modal-head"><div><div class="eyebrow2">EVIDENCIA DEL SERVICIO</div><h2>'+esc(order.number||"Orden")+'</h2><p>Fotos antes, durante y después del trabajo.</p></div><button class="close" id="sopClose">×</button></div><div id="sopBody">Cargando…</div>');
+  $("#sopClose").onclick=close;
+  const render=async()=>{const r=await S.from("marc_service_order_photos").select("*").eq("user_id",st.u.id).eq("service_order_id",order.id).order("created_at",{ascending:false});if(r.error)return $("#sopBody").innerHTML='<div class="msg error">'+esc(r.error.message)+'</div>';
+    const rows=r.data||[];
+    $("#sopBody").innerHTML='<div class="toolbar"><label>Tipo <select id="sopType"><option>ANTES</option><option>DURANTE</option><option>DESPUES</option></select></label><label>Descripción <input id="sopCaption" placeholder="Ej. Conector dañado"></label><label>Fotos <input id="sopFiles" type="file" accept="image/*" multiple></label><button class="primary" id="sopUpload">Subir fotos</button></div><div class="client-cards">'+(rows.map(x=>'<article class="client-card"><img src="/api/service-order-photo?path='+encodeURIComponent(x.storage_path)+'" style="width:100%;max-height:220px;object-fit:cover;border-radius:14px"><b>'+esc(x.photo_type)+'</b><p>'+esc(x.caption||"Sin descripción")+'</p><small>'+new Date(x.created_at).toLocaleString("es-PE")+'</small></article>').join("")||'<div class="empty">Aún no hay evidencia fotográfica.</div>')+'</div>';
+    $("#sopUpload").onclick=async()=>{const files=[...($("#sopFiles").files||[])];if(!files.length)return toast("Selecciona al menos una foto","err");const btn=$("#sopUpload");btn.disabled=true;for(const file of files){const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,"_");const path=st.u.id+"/"+order.id+"/"+Date.now()+"_"+safe;const up=await S.storage.from("service-order-photos").upload(path,file,{upsert:false});if(up.error){btn.disabled=false;return toast(up.error.message,"err")}const ir=await S.from("marc_service_order_photos").insert({user_id:st.u.id,service_order_id:order.id,storage_path:path,photo_type:$("#sopType").value,caption:$("#sopCaption").value.trim()});if(ir.error){btn.disabled=false;return toast(ir.error.message,"err")}}toast("Fotos guardadas","ok");render()};
+  };
+  render();
+}
 function serviceOrderModal(row=null){
   const isEdit=!!row;
   const close=modal(`<div class="modal-head"><div><div class="eyebrow2">ORDEN DE TRABAJO</div><h2>${isEdit?"Editar orden":"Nueva orden"}</h2><p>Registra el servicio, materiales, diagnóstico, trabajo y costo.</p></div><button class="close" id="serviceOrderClose">×</button></div>

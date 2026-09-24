@@ -2337,6 +2337,7 @@ async function cash(){
     }catch(err){toast(err?.message||"No se pudo salir de la caja.","err")}
   };
   if(open&&!isCashier)$("#closeCashTop").onclick=async()=>{if(await ensureCashMaster())closeCashModal(open,expected)};
+  if(!open&&$("#openCashTop"))$("#openCashTop").onclick=()=>openCashModal();
   else if(!open&&$("#openCashTop"))$("#openCashTop").onclick=()=>openCashModal();
   if(open){
     if($("#cashExpense"))$("#cashExpense").onclick=()=>cashMovementModal(open,"EXPENSE");
@@ -2709,7 +2710,38 @@ async function marketing(){
   $p("adProduct").onchange=async()=>{currentProduct=list.find(p=>p.id===$p("adProduct").value)||null;currentImage=null;currentImageFile=null;currentAiImage=null;renderProductSummary();await renderCanvas()};
   $p("adProductSearch").oninput=()=>{const q=$p("adProductSearch").value.toLowerCase().trim(),sel=$p("adProduct"),matches=list.filter(p=>[p.name,p.sku,p.brand,p.model].join(" ").toLowerCase().includes(q));sel.innerHTML=matches.length?matches.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+(p.sku?" · "+esc(p.sku):"")+'</option>').join(""):'<option value="">Sin coincidencias</option>';currentProduct=matches[0]||null;renderProductSummary();renderCanvas()};
   $p("adImage").onchange=e=>preparePhoto(e.target.files?.[0]);
-  $p("adImageCamera").onchange=e=>preparePhoto(e.target.files?.[0]);
+  const openMARCWebCamera=async onFile=>{
+    if(!navigator.mediaDevices?.getUserMedia){
+      return toast("Tu navegador no permite abrir la cámara directamente. Usa Galería o la opción de cámara del dispositivo.","err");
+    }
+    let stream=null;
+    const close=modal('<div class="modal-head"><div><div class="eyebrow2">CÁMARA</div><h2>📷 Tomar foto</h2><p>Coloca el producto dentro del encuadre y captura la imagen.</p></div><button class="close" id="camClose">×</button></div><div class="marc-camera-capture"><video id="marcCameraVideo" autoplay playsinline muted></video><canvas id="marcCameraCanvas" hidden></canvas><div class="marc-camera-actions"><button type="button" class="secondary" id="camCancel">Cancelar</button><button type="button" class="primary" id="camShot">● Capturar</button></div><small id="marcCameraStatus">Solicitando acceso a la cámara…</small></div>');
+    const video=$("#marcCameraVideo"),shot=$("#camShot"),status=$("#marcCameraStatus");
+    const stop=()=>{if(stream)stream.getTracks().forEach(t=>t.stop());close()};
+    $("#camClose").onclick=stop;$("#camCancel").onclick=stop;
+    try{
+      stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1920},height:{ideal:1080}},audio:false});
+      video.srcObject=stream;
+      status.textContent="Cámara lista · toca Capturar";
+    }catch(err){
+      stop();
+      const input=$p("adImageCamera");
+      if(input){input.onchange=e=>preparePhoto(e.target.files?.[0]);input.click();}
+      else toast("No se pudo acceder a la cámara. Revisa el permiso del navegador.","err");
+      return;
+    }
+    shot.onclick=async()=>{
+      if(!video.videoWidth)return toast("La cámara todavía no está lista.","err");
+      const canvas=$("#marcCameraCanvas"),scale=Math.min(1,1600/video.videoWidth);
+      canvas.width=Math.round(video.videoWidth*scale);canvas.height=Math.round(video.videoHeight*scale);
+      canvas.getContext("2d").drawImage(video,0,0,canvas.width,canvas.height);
+      const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/jpeg",.9));
+      if(!blob)return toast("No se pudo capturar la foto.","err");
+      const file=new File([blob],"marc-camera-"+Date.now()+".jpg",{type:"image/jpeg"});
+      await onFile(file);stop();toast("Foto capturada correctamente","ok");
+    };
+  };
+  $p("adImageCamera").onclick=e=>{e.preventDefault();openMARCWebCamera(preparePhoto)};
   const prepareReferencePhoto=async file=>{
     if(!file)return;
     if(!/^image\/(jpeg|png|webp)$/.test(file.type))return toast("Usa una imagen JPG, PNG o WEBP.","err");
@@ -2721,7 +2753,7 @@ async function marketing(){
     const state=$p("adPhotoState");if(state)state.textContent="✓ Foto de referencia lista. M.A.R.C. la usará para identificar datos cuando generes la publicidad.";
   };
   $p("adReferenceImage").onchange=e=>prepareReferencePhoto(e.target.files?.[0]);
-  $p("adReferenceCamera").onchange=e=>prepareReferencePhoto(e.target.files?.[0]);
+  $p("adReferenceCamera").onclick=e=>{e.preventDefault();openMARCWebCamera(prepareReferencePhoto)};
   const photoDrop=$p("adPhotoDrop");
   if(photoDrop){
     ["dragenter","dragover"].forEach(ev=>photoDrop.addEventListener(ev,e=>{e.preventDefault();photoDrop.classList.add("dragging")}));

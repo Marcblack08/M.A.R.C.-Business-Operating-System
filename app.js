@@ -3255,8 +3255,54 @@ function describeAuthFailure(search,hash){
   if(hash.get("access_token"))return "Google devolvió un token, pero Supabase no pudo completar la sesión.";
   return "Google regresó a M.A.R.C. sin código, token ni sesión.";
 }
+function marcQuickLauncher(){
+  const overlay=$("#marcQuickOverlay"),grid=$("#marcQuickGrid"),search=$("#marcQuickSearch");
+  if(!overlay||!grid)return;
+  const actions=[
+    {icon:"⌂",title:"Inicio",desc:"Resumen general del negocio",run:()=>view("home")},
+    {icon:"◉",title:"Nuevo cliente",desc:"Crear una ficha de cliente",run:()=>marcQuickView("clients","#new")},
+    {icon:"▣",title:"Nuevo producto",desc:"Agregar producto al inventario",run:()=>marcQuickView("inventory","#new")},
+    {icon:"▤",title:"Nueva cotización",desc:"Crear una propuesta para un cliente",run:()=>marcQuickView("quotes","#new")},
+    {icon:"✦",title:"Cotización con IA",desc:"Crear una cotización guiada",run:()=>marcQuickView("quotes","#aiNew")},
+    {icon:"🛒",title:"Nueva venta",desc:"Abrir el POS y cobrar",run:()=>marcQuickView("cash","#cashSaleQuick")},
+    {icon:"＋",title:"Abrir caja",desc:"Iniciar un turno de caja",run:()=>marcQuickView("cash","#openCashTop")},
+    {icon:"−",title:"Registrar gasto",desc:"Registrar una salida de caja",run:()=>marcQuickView("cash","#cashExpense")},
+    {icon:"✧",title:"Publicidad",desc:"Crear una pieza para un producto",run:()=>view("marketing")},
+    {icon:"⚙",title:"Configuración",desc:"Empresa, logo y datos comerciales",run:()=>view("settings")},
+    {icon:"⌕",title:"Buscar en inventario",desc:"Entrar directo al buscador",run:()=>marcQuickView("inventory","#search")},
+    {icon:"💬",title:"Preguntar a M.A.R.C.",desc:"Abrir el asistente operativo",run:()=>openChat()}
+  ];
+  const draw=(filter="")=>{
+    const q=String(filter||"").trim().toLowerCase();
+    const list=actions.filter(a=>(a.title+" "+a.desc).toLowerCase().includes(q));
+    grid.innerHTML=list.length?list.map(a=>"<button type=\"button\" class=\"marc-quick-item\" data-quick-index=\""+actions.indexOf(a)+"\"><span class=\"qi-icon\">"+a.icon+"</span><span><b>"+esc(a.title)+"</b><small>"+esc(a.desc)+"</small></span></button>").join(""):"<div class=\"marc-quick-empty\">No encontré una acción con ese nombre.</div>";
+    grid.querySelectorAll("[data-quick-index]").forEach(b=>b.onclick=async()=>{
+      const action=actions[Number(b.dataset.quickIndex)];
+      if(!action)return;
+      closeQuick();
+      try{await action.run()}catch(err){toast(err?.message||"No se pudo abrir esa sección.","err")}
+    });
+  };
+  const openQuick=()=>{draw(search?.value||"");overlay.classList.add("open");overlay.setAttribute("aria-hidden","false");setTimeout(()=>search?.focus(),30)};
+  const closeQuick=()=>{overlay.classList.remove("open");overlay.setAttribute("aria-hidden","true")};
+  const handleKey=e=>{
+    if(e.key==="/"&&!["INPUT","TEXTAREA","SELECT"].includes(document.activeElement?.tagName)){e.preventDefault();openQuick()}
+    if(e.key==="Escape"&&overlay.classList.contains("open"))closeQuick();
+  };
+  window.marcQuickOpen=openQuick;window.marcQuickClose=closeQuick;
+  $("#marcQuickOpen").onclick=openQuick;$("#marcQuickClose").onclick=closeQuick;
+  overlay.addEventListener("click",e=>{if(e.target===overlay)closeQuick()});
+  search?.addEventListener("input",e=>draw(e.target.value));
+  document.addEventListener("keydown",handleKey);draw();
+}
+function marcQuickView(viewName,selector){
+  view(viewName);
+  setTimeout(()=>{const el=$(selector);if(el){el.focus?.();if(selector==="#search"&&el.scrollIntoView)el.scrollIntoView({behavior:"smooth",block:"center"});else el.click?.()}},320);
+}
+
 function wire(){
   initTheme();
+  marcQuickLauncher();
   const portalToken=new URLSearchParams(location.search).get("cliente_token");
   if(portalToken){
     renderClientPortal(portalToken);

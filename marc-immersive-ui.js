@@ -56,9 +56,9 @@
     if(!brand)return;
     const controls=document.createElement("div");
     controls.className="marc-immersive-controls";
-    controls.innerHTML='<button type="button" class="marc-immersive-back" id="marcImmersiveBack" title="Volver al inicio"><span>←</span><span class="label">Volver</span></button>'+
-      '<button type="button" class="marc-immersive-home" id="marcImmersiveHome" title="Ir al inicio"><span>⌂</span><span class="label">Inicio</span></button>'+
-      '<button type="button" class="marc-immersive-modules" id="marcImmersiveModules" title="Abrir módulos"><span>☷</span><span class="label">Módulos</span></button>'+
+    controls.innerHTML='<button type="button" class="marc-immersive-back" id="marcImmersiveBack" title="Volver al inicio" aria-label="Volver al inicio"><span>←</span></button>'+
+      '<button type="button" class="marc-immersive-home" id="marcImmersiveHome" title="Ir al inicio" aria-label="Ir al inicio"><span>⌂</span></button>'+
+      '<button type="button" class="marc-immersive-modules" id="marcImmersiveModules" title="Abrir módulos" aria-label="Abrir módulos"><span>☷</span></button>'+
       '<div class="marc-immersive-title"><span class="mit-icon" id="marcImmersiveIcon">⌂</span><div><b id="marcImmersiveName">Inicio</b><small>Área de trabajo</small></div></div>';
     brand.parentNode.insertBefore(controls,brand);
     $("#marcImmersiveBack").onclick=()=>clickView("home");

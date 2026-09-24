@@ -604,17 +604,24 @@ async function defaultChecklistForService(type,title){
  ];
 }
 async function serviceOrderSignatureModal(order){
- const close=modal('<div class="modal-head"><div><div class="eyebrow2">CONFORMIDAD DEL CLIENTE</div><h2>'+esc(order.number||"Orden")+'</h2><p>Registra la aceptación del trabajo realizado.</p></div><button class="close" id="sosClose">×</button></div><div id="sosBody"><label>Nombre del cliente o representante<input id="sosName" placeholder="Nombre completo"></label><label>Documento / referencia<input id="sosDoc" placeholder="Opcional"></label><label>Conformidad<select id="sosResult"><option>CONFORME</option><option>CONFORME_CON_OBSERVACIONES</option><option>NO_CONFORME</option></select></label><label>Observaciones<textarea id="sosNotes" rows="4"></textarea></label><div class="msg">Conformidad digital registrada. La firma manuscrita podrá incorporarse después.</div><div class="modal-actions"><button class="secondary" id="sosCancel">Cancelar</button><button class="primary" id="sosSave">Registrar conformidad</button></div></div>');
+ const close=modal('<div class="modal-head"><div><div class="eyebrow2">FIRMA DEL CLIENTE</div><h2>'+esc(order.number||"Orden")+'</h2><p>Firma directamente en la pantalla del celular, tablet o computadora.</p></div><button class="close" id="sosClose">×</button></div><div id="sosBody"><label>Nombre del cliente o representante<input id="sosName" placeholder="Nombre completo"></label><label>Documento / referencia<input id="sosDoc" placeholder="Opcional"></label><label>Resultado<select id="sosResult"><option>CONFORME</option><option>CONFORME_CON_OBSERVACIONES</option><option>NO_CONFORME</option></select></label><label>Observaciones<textarea id="sosNotes" rows="3"></textarea></label><div style="border:1px solid var(--border,#ccc);border-radius:14px;padding:8px;background:#fff"><canvas id="sosCanvas" width="900" height="280" style="width:100%;height:auto;touch-action:none"></canvas></div><div class="modal-actions"><button class="secondary" id="sosClear">Limpiar firma</button><button class="secondary" id="sosCancel">Cancelar</button><button class="primary" id="sosSave">Firmar y entregar</button></div></div>');
  $("#sosClose").onclick=close;$("#sosCancel").onclick=close;
- $("#sosSave").onclick=async()=>{const b=$("#sosSave");const name=$("#sosName").value.trim();if(!name)return toast("Indica quién recibe o valida el servicio","err");b.disabled=true;
- const text="Conformidad: "+$("#sosResult").value+" · Cliente/representante: "+name+($("#sosDoc").value.trim()?" · Ref: "+$("#sosDoc").value.trim():"")+($("#sosNotes").value.trim()?" · "+$("#sosNotes").value.trim():"");
- const r=await S.from("marc_client_history").insert({user_id:st.u.id,client_id:order.client_id||null,event_type:"SERVICE_CONFORMITY",title:"Conformidad "+(order.number||"OT"),description:text,visible_to_client:true,metadata:{service_order_id:order.id,result:$("#sosResult").value}});
- if(r.error){b.disabled=false;return toast(r.error.message,"err")}
- const u=await S.from("marc_service_orders").update({status:"ENTREGADA",completed_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq("id",order.id).eq("user_id",st.u.id);
- if(u.error){b.disabled=false;return toast(u.error.message,"err")}
- toast("Conformidad registrada y OT entregada","ok");close();serviceOrders();
+ const canvas=$("#sosCanvas"),ctx=canvas.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height);ctx.strokeStyle="#111";ctx.lineWidth=4;ctx.lineCap="round";let drawing=false,moved=false;
+ const point=e=>{const r=canvas.getBoundingClientRect(),t=e.touches?.[0]||e;return{x:(t.clientX-r.left)*canvas.width/r.width,y:(t.clientY-r.top)*canvas.height/r.height}};
+ const down=e=>{e.preventDefault();drawing=true;moved=true;const p=point(e);ctx.beginPath();ctx.moveTo(p.x,p.y)};
+ const move=e=>{if(!drawing)return;e.preventDefault();const p=point(e);ctx.lineTo(p.x,p.y);ctx.stroke()};
+ const up=e=>{drawing=false};
+ canvas.addEventListener("pointerdown",down);canvas.addEventListener("pointermove",move);window.addEventListener("pointerup",up);
+ $("#sosClear").onclick=()=>{ctx.clearRect(0,0,canvas.width,canvas.height);ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height)};
+ $("#sosSave").onclick=async()=>{const b=$("#sosSave"),name=$("#sosName").value.trim();if(!name)return toast("Indica el nombre del firmante","err");if(!moved)return toast("Solicita la firma del cliente","err");b.disabled=true;const path=st.u.id+"/"+order.id+"/signature-"+Date.now()+".png";const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/png"));const up=await S.storage.from("service-order-photos").upload(path,blob,{contentType:"image/png",upsert:false});if(up.error){b.disabled=false;return toast(up.error.message,"err")};
+ const text="Conformidad: "+$("#sosResult").value+" · Firmado por: "+name+($("#sosDoc").value.trim()?" · Ref: "+$("#sosDoc").value.trim():"")+($("#sosNotes").value.trim()?" · "+$("#sosNotes").value.trim():"");
+ const h=await S.from("marc_client_history").insert({user_id:st.u.id,client_id:order.client_id||null,event_type:"SERVICE_CONFORMITY",title:"Conformidad firmada "+(order.number||"OT"),description:text,visible_to_client:true,metadata:{service_order_id:order.id,result:$("#sosResult").value,signature_path:path}});
+ if(h.error){b.disabled=false;return toast(h.error.message,"err")};
+ const u=await S.from("marc_service_orders").update({status:"ENTREGADA",completed_at:new Date().toISOString(),customer_signature_path:path,customer_signature_name:name,customer_signature_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq("id",order.id).eq("user_id",st.u.id);
+ if(u.error){b.disabled=false;return toast(u.error.message,"err")};toast("Firma registrada y OT entregada","ok");close();serviceOrders();
  };
 }
+
 function serviceOrderChecklistModal(order){
  const close=modal('<div class="modal-head"><div><div class="eyebrow2">CHECKLIST TÉCNICO</div><h2>'+esc(order.number||"Orden")+'</h2><p>Verifica cada punto antes de entregar el servicio.</p></div><button class="close" id="socClose">×</button></div><div id="socBody">Cargando…</div>');
  $("#socClose").onclick=close;

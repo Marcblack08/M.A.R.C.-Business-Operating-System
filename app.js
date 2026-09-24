@@ -3263,7 +3263,7 @@ function wire(){
   $("#menu").onclick=()=>$("#sidebar").classList.toggle("open");
   $("#mobileScrim").onclick=()=>$("#sidebar").classList.remove("open");
   $("#marcMobileFab")?.addEventListener("click",()=>{
-    if(typeof window.marcQuickOpen?.click==="function")return window.marcQuickOpen.click();
+    if(typeof $("#marcQuickOpen")?.click==="function")return $("#marcQuickOpen").click();
     if(typeof openChat==="function")return openChat();
   });
   document.addEventListener("click",e=>{

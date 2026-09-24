@@ -6437,3 +6437,89 @@ tbody tr{transition:background .16s ease,transform .16s ease}tbody tr:hover{tran
   .ad-source-tabs{grid-template-columns:1fr}
   .ad-photo-actions{grid-template-columns:1fr}
 }
+
+
+/* =========================================================
+   M.A.R.C. — Live Dashboard Experience
+   Presentation only. Uses data already loaded by home().
+   ========================================================= */
+.dashboard-pulse{
+  position:relative;
+  overflow:hidden;
+  padding:22px;
+  border:1px solid rgba(118,163,192,.14);
+  border-radius:22px;
+  background:
+    radial-gradient(420px 180px at 100% 0,rgba(36,152,255,.10),transparent 72%),
+    linear-gradient(145deg,rgba(13,31,47,.98),rgba(7,19,31,.98));
+  box-shadow:0 18px 48px rgba(0,0,0,.14);
+}
+.dashboard-pulse:before{
+  content:"";
+  position:absolute;
+  left:-100px;bottom:-150px;
+  width:340px;height:340px;border:1px solid rgba(72,213,255,.10);
+  border-radius:50%;
+  box-shadow:0 0 0 42px rgba(72,213,255,.018),0 0 0 84px rgba(72,213,255,.012);
+  pointer-events:none;
+}
+.pulse-head{
+  position:relative;z-index:1;
+  display:flex;justify-content:space-between;align-items:flex-end;gap:14px;
+  margin-bottom:15px;
+}
+.pulse-head h2{margin:4px 0 4px;color:#edf7ff;font-size:18px;letter-spacing:-.03em}
+.pulse-head p{margin:0;color:#7f97aa;font-size:8px}
+.pulse-live{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:7px 10px;border:1px solid rgba(65,227,155,.16);
+  border-radius:999px;background:rgba(65,227,155,.05);
+  color:#8de8b6;font-size:7px;font-weight:800;white-space:nowrap;
+}
+.pulse-live i{
+  width:6px;height:6px;border-radius:50%;background:#41e39b;
+  box-shadow:0 0 0 0 rgba(65,227,155,.35);
+  animation:marcPulseLive 2s infinite;
+}
+@keyframes marcPulseLive{
+  0%,100%{box-shadow:0 0 0 0 rgba(65,227,155,0)}
+  45%{box-shadow:0 0 0 5px rgba(65,227,155,.08)}
+}
+.pulse-grid{position:relative;z-index:1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.pulse-card{
+  position:relative;overflow:hidden;display:flex;align-items:center;gap:12px;
+  min-height:105px;padding:14px;
+  border:1px solid rgba(118,163,192,.13);border-radius:16px;
+  background:rgba(255,255,255,.025);
+  transition:transform .2s ease,border-color .2s ease,background .2s ease;
+}
+.pulse-card:hover{transform:translateY(-3px);border-color:rgba(72,213,255,.24);background:rgba(255,255,255,.04)}
+.pulse-card:after{
+  content:"";position:absolute;right:-35px;top:-55px;width:120px;height:120px;border-radius:50%;
+  background:radial-gradient(circle,rgba(72,213,255,.12),transparent 68%);
+}
+.pulse-card-icon{
+  position:relative;z-index:1;flex:none;width:42px;height:42px;
+  display:grid;place-items:center;border-radius:13px;
+  color:#fff;font-size:17px;font-weight:900;
+}
+.pulse-card-blue .pulse-card-icon{background:linear-gradient(145deg,#147bea,#43c9ff);box-shadow:0 9px 24px rgba(20,123,234,.22)}
+.pulse-card-cyan .pulse-card-icon{background:linear-gradient(145deg,#08a9c7,#42e2d5);box-shadow:0 9px 24px rgba(8,169,199,.18)}
+.pulse-card-violet .pulse-card-icon{background:linear-gradient(145deg,#725ce8,#ad82ff);box-shadow:0 9px 24px rgba(114,92,232,.20)}
+.pulse-card-copy{position:relative;z-index:1;min-width:0}
+.pulse-card-copy span{display:block;color:#7e96a9;font-size:7px;font-weight:800;letter-spacing:.09em;text-transform:uppercase}
+.pulse-card-copy strong{display:block;margin-top:4px;color:#f1f8ff;font-size:21px;letter-spacing:-.035em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pulse-card-copy small{display:block;margin-top:4px;color:#7f97aa;font-size:7px;line-height:1.4}
+@media(max-width:800px){
+  .pulse-grid{grid-template-columns:1fr}
+  .pulse-card{min-height:88px}
+}
+@media(max-width:520px){
+  .dashboard-pulse{padding:15px;border-radius:17px}
+  .pulse-head{align-items:flex-start;flex-direction:column}
+  .pulse-live{align-self:flex-start}
+}
+@media(prefers-reduced-motion:reduce){
+  .pulse-live i{animation:none}
+  .pulse-card{transition:none}
+}

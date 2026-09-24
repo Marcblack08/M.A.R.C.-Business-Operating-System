@@ -91,7 +91,7 @@
     const next=map[page]||"home";
     if(next!==current){current=next;homeLauncherReady=false}
     const app=$("#app");
-    const immersive=current!=="home";
+    const immersive=true;
     app?.classList.toggle("marc-immersive",immersive);
     const m=modules.find(x=>x.view===current)||modules[0];
     const name=$("#marcImmersiveName"),icon=$("#marcImmersiveIcon");

@@ -504,3 +504,92 @@ button,a,[role="button"]{
     transition:transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease,filter .16s ease;
   }
 }
+
+/* MOBILE/QUICK DOCK */
+.mobile-bottom-nav{
+  position:fixed;
+  z-index:120;
+  left:50%;
+  bottom:14px;
+  transform:translateX(-50%);
+  width:min(900px,calc(100vw - 32px));
+  min-height:76px;
+  padding:9px;
+  display:flex;
+  align-items:stretch;
+  justify-content:center;
+  gap:7px;
+  border:1px solid rgba(93,178,255,.24);
+  border-radius:22px;
+  background:rgba(4,16,29,.90);
+  box-shadow:0 20px 55px rgba(0,0,0,.42),0 0 35px rgba(22,140,255,.08);
+  backdrop-filter:blur(22px);
+}
+.mobile-bottom-nav button{
+  flex:1;
+  min-width:78px;
+  min-height:58px;
+  border:1px solid transparent;
+  border-radius:16px;
+  background:transparent;
+  color:#819ab1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:3px;
+  font-weight:750;
+  transition:.16s ease;
+}
+.mobile-bottom-nav button span{font-size:21px;line-height:1}
+.mobile-bottom-nav button b{font-size:10px;white-space:nowrap}
+.mobile-bottom-nav button:hover{
+  color:#fff;
+  background:rgba(22,140,255,.08);
+}
+.mobile-bottom-nav button.active{
+  color:#fff;
+  border-color:rgba(53,182,255,.28);
+  background:linear-gradient(145deg,rgba(22,140,255,.24),rgba(24,214,232,.06));
+  box-shadow:0 8px 22px rgba(22,140,255,.12);
+}
+@media(max-width:900px){
+  .mobile-bottom-nav{
+    width:calc(100vw - 18px);
+    bottom:9px;
+    min-height:70px;
+    border-radius:20px;
+    padding:7px;
+    gap:4px;
+  }
+  .mobile-bottom-nav button{
+    min-width:0;
+    min-height:54px;
+    border-radius:14px;
+  }
+  .mobile-bottom-nav button span{font-size:20px}
+  .mobile-bottom-nav button b{font-size:9px}
+  .content{padding-bottom:105px!important}
+}
+@media(max-width:520px){
+  .mobile-bottom-nav button:nth-child(6){display:none}
+  .mobile-bottom-nav button:nth-child(7){display:none}
+  .mobile-bottom-nav button b{font-size:10px}
+}
+@media(min-width:901px){
+  .mobile-bottom-nav{
+    left:auto;
+    right:26px;
+    transform:none;
+    width:auto;
+    max-width:620px;
+    min-height:64px;
+    bottom:18px;
+  }
+  .mobile-bottom-nav button{
+    min-width:82px;
+    min-height:48px;
+  }
+  .content{padding-bottom:108px!important}
+}
+body.cashier-mode .mobile-bottom-nav button:not([data-view="cash"]){display:none}

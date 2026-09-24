@@ -310,6 +310,10 @@ async function home(){
   const sixMonthCollected=monthly.reduce((s,m)=>s+m.collected,0);
   const maxGain=Math.max(1,...monthly.map(m=>m.projected));
   const quoteTotal=validFinance.reduce((sum,x)=>sum+Number(x.total||0),0);
+  const quoteCount=validFinance.length;
+  const collectionRate=current.sales>0?Math.max(0,Math.min(100,(current.collected/current.sales)*100)):0;
+  const averageQuote=quoteCount>0?quoteTotal/quoteCount:0;
+  const topInventory=inventory.filter(x=>Number(x.stock)>0).sort((a,b)=>Number(b.stock||0)-Number(a.stock||0)).slice(0,4);
 
   c.innerHTML=`
     <div class="dashboard-shell">
@@ -425,40 +429,19 @@ async function home(){
 
       <section class="dashboard-pulse">
         <div class="pulse-head">
-          <div>
-            <div class="panel-eyebrow">PULSO OPERATIVO</div>
-            <h2>Lo importante, en una sola vista</h2>
-            <p>Lectura rápida del estado actual de tu operación.</p>
-          </div>
+          <div><div class="panel-eyebrow">PULSO OPERATIVO</div><h2>Lo importante, en una sola vista</h2><p>Lectura rápida del estado actual de tu operación.</p></div>
           <span class="pulse-live"><i></i> Datos actuales</span>
         </div>
         <div class="pulse-grid">
-          <article class="pulse-card pulse-card-blue">
-            <div class="pulse-card-icon">◈</div>
-            <div class="pulse-card-copy">
-              <span>Volumen comercial</span>
-              <strong>\${money(quoteTotal)}</strong>
-              <small>\${validFinance.length} cotizaciones válidas en el período cargado</small>
-            </div>
-          </article>
-          <article class="pulse-card pulse-card-cyan">
-            <div class="pulse-card-icon">▦</div>
-            <div class="pulse-card-copy">
-              <span>Inventario activo</span>
-              <strong>\${inventory.length}</strong>
-              <small>\${totalStock} unidades registradas · \${low.length} requieren atención</small>
-            </div>
-          </article>
-          <article class="pulse-card pulse-card-violet">
-            <div class="pulse-card-icon">✓</div>
-            <div class="pulse-card-copy">
-              <span>Cobranza del mes</span>
-              <strong>\${money(current.collected)}</strong>
-              <small>\${current.sales>0?Math.round((current.collected/current.sales)*100):0}% de las ventas del mes</small>
-            </div>
-          </article>
+          <article class="pulse-card pulse-card-blue"><div class="pulse-card-icon">◈</div><div class="pulse-card-copy"><span>Volumen comercial</span><strong>${money(quoteTotal)}</strong><small>${quoteCount} cotizaciones válidas · promedio ${money(averageQuote)}</small></div></article>
+          <article class="pulse-card pulse-card-cyan"><div class="pulse-card-icon">▦</div><div class="pulse-card-copy"><span>Inventario activo</span><strong>${inventory.length}</strong><small>${totalStock} unidades · ${low.length} requieren atención</small></div></article>
+          <article class="pulse-card pulse-card-violet"><div class="pulse-card-icon">✓</div><div class="pulse-card-copy"><span>Cobranza del mes</span><strong>${money(current.collected)}</strong><small>${Math.round(collectionRate)}% de las ventas del mes</small></div></article>
         </div>
-      </section>
+        <div class="pulse-detail-grid">
+          <article class="pulse-detail"><div class="pulse-detail-head"><div><span>RENDIMIENTO</span><b>Ventas vs. cobrado</b></div><strong>${Math.round(collectionRate)}%</strong></div><div class="pulse-progress"><i style="width:${collectionRate}%"></i></div><div class="pulse-detail-meta"><span>Ventas <b>${money(current.sales)}</b></span><span>Cobrado <b>${money(current.collected)}</b></span></div></article>
+          <article class="pulse-detail"><div class="pulse-detail-head"><div><span>STOCK ACTIVO</span><b>Mayor disponibilidad</b></div><button id="pulseInventory" class="panel-link">Inventario →</button></div><div class="stock-mini-list">${topInventory.map(x=>`<div><span>${esc(x.name)}</span><b>${Number(x.stock||0)} ${esc(x.unit||"UND")}</b></div>`).join("")||"<div class=\"stock-mini-empty\">Sin productos con stock disponible.</div>"}</div></article>
+        </div>
+      </section>      </section>
     </div>
   `;
 
@@ -474,6 +457,7 @@ async function home(){
   $("#heroQuote").onclick=quoteModal;
   $("#openInventory").onclick=inventory;
   $("#openQuotes").onclick=quotes;
+  $("#pulseInventory")?.addEventListener("click",inventory);
   $$(".quick-modern-grid button",c).forEach(b=>b.onclick=()=>b.dataset.q==="client"?clientModal():b.dataset.q==="inventory"?inventoryModal():b.dataset.q==="quote"?quoteModal():b.dataset.q==="marketing"?marketing():b.dataset.q==="cash"?cash():openChat());
 }
 

@@ -668,3 +668,14 @@ button[data-ops-lock="1"]{cursor:wait}
   .service-profitability-summary strong{font-size:17px}
   .service-profitability-summary small{font-size:7px}
 }
+
+/* ===== Dashboard · rentabilidad de OT ===== */
+.ot-profit-dashboard{margin-top:14px}
+.ot-profit-dashboard .finance-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.ot-profit-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}
+.ot-profit-grid>div{padding:16px;border:1px solid rgba(34,143,225,.16);border-radius:16px;background:linear-gradient(145deg,#f8fcff,#eef7ff)}
+.ot-profit-grid span{display:block;font-size:9px;letter-spacing:.08em;font-weight:900;color:#718398}
+.ot-profit-grid strong{display:block;margin-top:6px;font-size:22px;color:#0b2744}
+.ot-profit-grid small{display:block;margin-top:5px;color:#7c8da0;font-size:8px}
+.ot-profit-grid strong.ok{color:#11875c}.ot-profit-grid strong.out{color:#d6455d}
+@media(max-width:760px){.ot-profit-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.ot-profit-grid>div{padding:12px}.ot-profit-grid strong{font-size:17px}.ot-profit-dashboard .finance-heading{display:block}}

@@ -139,3 +139,86 @@ button,.primary,.icon,input,select,textarea{
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.001ms!important;transition-duration:.001ms!important}
 }
+/* M.A.R.C. app integration layer */
+.marc-app-actionbar{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:10px;
+  margin:0 0 16px;
+}
+.marc-app-action{
+  min-height:64px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding:12px 14px;
+  border:1px solid rgba(80,170,255,.18);
+  border-radius:16px;
+  background:linear-gradient(145deg,rgba(14,45,72,.92),rgba(7,24,42,.96));
+  color:inherit;
+  font-weight:700;
+  cursor:pointer;
+  box-shadow:0 8px 24px rgba(0,0,0,.14);
+  transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease;
+}
+.marc-app-action:hover{transform:translateY(-2px);border-color:rgba(80,180,255,.42);box-shadow:0 12px 30px rgba(0,100,220,.14)}
+.marc-app-action:active{transform:scale(.98)}
+.marc-app-action .ico{font-size:22px;line-height:1}
+.marc-app-action small{display:block;opacity:.68;font-size:11px;font-weight:500}
+.marc-app-fab{
+  position:fixed;
+  right:22px;
+  bottom:22px;
+  z-index:120;
+  width:62px;
+  height:62px;
+  border:0;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:27px;
+  color:#fff;
+  background:linear-gradient(145deg,#168cff,#0758c9);
+  box-shadow:0 14px 38px rgba(0,90,220,.38),0 0 0 5px rgba(35,150,255,.10);
+  cursor:pointer;
+}
+.marc-app-fab:active{transform:scale(.94)}
+.marc-mobile-nav{
+  display:none;
+}
+@media(max-width:760px){
+  .marc-app-actionbar{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:9px;
+    margin-bottom:14px;
+  }
+  .marc-app-action{min-height:72px;border-radius:18px;padding:11px}
+  .marc-app-action .ico{font-size:24px}
+  .marc-app-fab{right:16px;bottom:82px;width:60px;height:60px}
+  .marc-mobile-nav{
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
+    position:fixed;
+    left:0;right:0;bottom:0;
+    z-index:110;
+    min-height:64px;
+    padding:7px 8px calc(7px + env(safe-area-inset-bottom));
+    background:rgba(5,18,32,.94);
+    border-top:1px solid rgba(100,180,255,.16);
+    backdrop-filter:blur(18px);
+    -webkit-backdrop-filter:blur(18px);
+    box-shadow:0 -12px 30px rgba(0,0,0,.24);
+  }
+  .marc-mobile-nav button{
+    border:0;background:transparent;color:inherit;
+    border-radius:14px;min-height:50px;
+    display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    gap:3px;font-size:20px;
+  }
+  .marc-mobile-nav button span{font-size:10px;opacity:.72}
+  .marc-mobile-nav button.active{background:rgba(30,130,230,.15);color:#55b8ff}
+  .content{padding-bottom:92px!important}
+}

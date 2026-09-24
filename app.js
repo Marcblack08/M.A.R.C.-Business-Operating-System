@@ -3355,10 +3355,10 @@ function wire(){
   $("#menu").onclick=()=>$("#sidebar").classList.toggle("open");
   $("#mobileScrim").onclick=()=>$("#sidebar").classList.remove("open");
   document.addEventListener("click",e=>{
-    const b=e.target.closest?.(".sidebar nav button[data-view]");
+    const b=e.target.closest?.(".sidebar nav button[data-view],.mobile-bottom-nav button[data-view]");
     if(!b)return;
     e.preventDefault();
-    if(b.dataset.view==="settings")return companySettings();
+    if(b.dataset.view==="settings"){title("settings");return companySettings();}
     view(b.dataset.view);
   },true);
   $("#chatForm").onsubmit=e=>{e.preventDefault();const v=$("#chatInput").value.trim();if(v){$("#chatInput").value="";chatSend(v)}};

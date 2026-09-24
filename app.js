@@ -573,10 +573,24 @@ async function serviceOrderPhotosModal(order){
   };
   render();
 }
-async function serviceOrderChecklistModal(order){
+async function defaultChecklistForService(type){
+ const t=String(type||"").toLowerCase();
+ if(/cctv|camara|cámara|dvr|nvr|seguridad/.test(t)) return ["Inspección física de cámaras","Limpieza de lentes y carcasa","Revisión de conectores y cableado","Verificación de DVR/NVR","Verificación de disco y grabación","Prueba de visión nocturna","Prueba de acceso remoto","Prueba de reproducción"];
+ if(/red|wifi|internet|router|switch|cableado/.test(t)) return ["Revisión de router/switch","Estado de cableado y conectores","Prueba de enlace","Prueba de velocidad","Verificación de direccionamiento","Revisión de cobertura Wi-Fi","Prueba de estabilidad"];
+ if(/comput|laptop|pc|impresora|servidor/.test(t)) return ["Inspección física","Limpieza interna/externa","Prueba de almacenamiento","Prueba de memoria","Prueba de temperatura","Prueba de sistema operativo","Prueba de periféricos","Verificación de respaldo"];
+ if(/instal|montaje/.test(t)) return ["Verificación del material instalado","Fijación y montaje","Cableado y terminaciones","Alimentación eléctrica","Configuración del equipo","Prueba funcional","Entrega y explicación al cliente"];
+ if(/manten|prevent|correctiv|repar/.test(t)) return ["Inspección inicial","Diagnóstico","Limpieza","Ajustes y correcciones","Prueba funcional","Verificación final","Recomendaciones al cliente"];
+ return ["Inspección inicial","Diagnóstico","Ejecución del servicio","Prueba funcional","Verificación final","Recomendaciones al cliente"];
+}
+function serviceOrderChecklistModal(order){
  const close=modal('<div class="modal-head"><div><div class="eyebrow2">CHECKLIST TÉCNICO</div><h2>'+esc(order.number||"Orden")+'</h2><p>Verifica cada punto antes de entregar el servicio.</p></div><button class="close" id="socClose">×</button></div><div id="socBody">Cargando…</div>');
  $("#socClose").onclick=close;
  const r=await S.from("marc_service_checklists").select("*").eq("user_id",st.u.id).eq("service_order_id",order.id).order("created_at");
+ if(!r.error && !(r.data||[]).length){
+   const defaults=defaultChecklistForService(order.service_type||order.title);
+   const seed=defaults.map(item=>({user_id:st.u.id,service_order_id:order.id,item,result:"PENDIENTE"}));
+   if(seed.length) await S.from("marc_service_checklists").insert(seed);
+ }
  const rows=r.data||[];
  const body=$("#socBody");
  body.innerHTML='<div class="toolbar"><input id="socItem" placeholder="Nuevo punto de verificación"><button class="primary" id="socAdd">＋ Agregar</button></div><div id="socList">'+(rows.map((x,i)=>'<div class="cols"><label style="flex:2"><input class="soc-note" data-id="'+x.id+'" value="'+esc(x.item)+'"></label><select class="soc-result" data-id="'+x.id+'"><option '+(x.result==="PENDIENTE"?"selected":"")+'>PENDIENTE</option><option '+(x.result==="OK"?"selected":"")+'>OK</option><option '+(x.result==="NO_OK"?"selected":"")+'>NO_OK</option><option '+(x.result==="NO_APLICA"?"selected":"")+'>NO_APLICA</option></select><input class="soc-comment" data-id="'+x.id+'" placeholder="Observación" value="'+esc(x.notes||"")+'"><button class="secondary soc-save" data-id="'+x.id+'">Guardar</button></div>').join("")||'<div class="empty">No hay puntos de verificación.</div>')+'</div>';

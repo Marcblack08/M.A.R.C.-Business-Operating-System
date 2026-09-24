@@ -81,7 +81,7 @@ async function signInCashStaff(e){
   }
 }
 
-async function signInGoogle(e){
+async async function signInGoogle(e){
   e?.preventDefault();
   e?.stopPropagation();
   const b=$("#googleLogin");

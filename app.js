@@ -273,7 +273,7 @@ async function view(x){
 }
 async function home(){
   const c=$("#content");
-  const [cl,iv,qt]=await Promise.all([
+  const [cl,iv,qt,so]=await Promise.all([
     S.from("marc_clients").select("*",{count:"exact"}).eq("user_id",st.u.id),
     S.from("marc_inventory").select("*").eq("user_id",st.u.id).eq("active",true).order("name"),
     S.from("marc_quotes").select("*").eq("user_id",st.u.id).is("deleted_at",null).order("created_at",{ascending:false}).limit(120)
@@ -281,6 +281,7 @@ async function home(){
 
   const inventory=iv.data||[];
   const quotes=qt.data||[];
+  const serviceOrdersData=so.data||[];
   const low=inventory.filter(x=>Number(x.stock)<=Number(x.min_stock));
   const totalStock=inventory.reduce((sum,x)=>sum+Number(x.stock||0),0);
   const recent=quotes.slice(0,4);
@@ -307,6 +308,11 @@ async function home(){
   const sixMonthCollected=monthly.reduce((s,m)=>s+m.collected,0);
   const maxGain=Math.max(1,...monthly.map(m=>m.projected));
   const quoteTotal=validFinance.reduce((sum,x)=>sum+Number(x.total||0),0);
+  const otRevenue=serviceOrdersData.reduce((sum,r)=>sum+Number(r.revenue??0),0);
+  const otCosts=serviceOrdersData.reduce((sum,r)=>sum+Number(r.labor_cost??0)+Number(r.transport_cost??0)+Number(r.materials_cost??0)+Number(r.other_cost??0),0);
+  const otProfit=serviceOrdersData.reduce((sum,r)=>sum+Number(r.profit??(Number(r.revenue??0)-Number(r.labor_cost??0)-Number(r.transport_cost??0)-Number(r.materials_cost??0)-Number(r.other_cost??0)),0);
+  const otMargin=otRevenue>0?(otProfit/otRevenue)*100:0;
+  const activeOT=serviceOrdersData.filter(r=>!["ENTREGADA","CANCELADA"].includes(String(r.status||"").toUpperCase())).length;
 
   c.innerHTML=`
     <div class="dashboard-shell">
@@ -430,6 +436,13 @@ async function home(){
     heroLogo.classList.remove("has-company-logo");
     heroLogo.classList.add("is-marc-brand");
   }
+  const otPanel=document.createElement("section");
+  otPanel.className="dashboard-panel ot-profit-dashboard";
+  otPanel.innerHTML='<div class="finance-heading"><div><div class="panel-eyebrow">OPERACIONES</div><h2>Rentabilidad de trabajos</h2><p>Las órdenes de trabajo forman parte del control financiero de M.A.R.C.</p></div><button id="openServiceOrdersFromHome" class="panel-link">Ver órdenes →</button></div><div class="ot-profit-grid"><div><span>COBRADO</span><strong>'+money(otRevenue)+'</strong><small>Total registrado en OT</small></div><div><span>COSTOS</span><strong>'+money(otCosts)+'</strong><small>Todos los costos reales</small></div><div><span>UTILIDAD</span><strong class="'+(otProfit>=0?"ok":"out")+'">'+money(otProfit)+'</strong><small>Resultado acumulado</small></div><div><span>MARGEN</span><strong>'+otMargin.toFixed(1)+'%</strong><small>'+serviceOrdersData.length+' OT registradas · '+activeOT+' activas</small></div></div>';
+  const financeDash=c.querySelector(".finance-dashboard");
+  if(financeDash)financeDash.before(otPanel);
+  $("#openServiceOrdersFromHome").onclick=()=>serviceOrders();
+
   $("#askHome").onclick=openChat;
   $("#heroQuote").onclick=quoteModal;
   $("#openInventory").onclick=inventory;

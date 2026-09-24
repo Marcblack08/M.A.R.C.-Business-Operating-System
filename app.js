@@ -2337,7 +2337,6 @@ async function cash(){
     }catch(err){toast(err?.message||"No se pudo salir de la caja.","err")}
   };
   if(open&&!isCashier)$("#closeCashTop").onclick=async()=>{if(await ensureCashMaster())closeCashModal(open,expected)};
-  if(!open&&$("#openCashTop"))$("#openCashTop").onclick=()=>openCashModal();
   else if(!open&&$("#openCashTop"))$("#openCashTop").onclick=()=>openCashModal();
   if(open){
     if($("#cashExpense"))$("#cashExpense").onclick=()=>cashMovementModal(open,"EXPENSE");

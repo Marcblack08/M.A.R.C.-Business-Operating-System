@@ -61,9 +61,9 @@
       '<button type="button" class="marc-immersive-modules" id="marcImmersiveModules" title="Abrir módulos" aria-label="Abrir módulos"><span>☷</span></button>'+
       '<div class="marc-immersive-title"><span class="mit-icon" id="marcImmersiveIcon">⌂</span><div><b id="marcImmersiveName">Inicio</b><small>Área de trabajo</small></div></div>';
     brand.parentNode.insertBefore(controls,brand);
-    $("#marcImmersiveBack").onclick=()=>clickView("home");
-    $("#marcImmersiveHome").onclick=()=>clickView("home");
-    $("#marcImmersiveModules").onclick=openModules;
+    $("#marcImmersiveBack").onclick=(e)=>{e.preventDefault();e.stopPropagation();clickView(current==="home"?"home":"home")};
+    $("#marcImmersiveHome").onclick=(e)=>{e.preventDefault();e.stopPropagation();clickView("home")};
+    $("#marcImmersiveModules").onclick=(e)=>{e.preventDefault();e.stopPropagation();openModules()};
   }
 
   function installHomeLauncher(){

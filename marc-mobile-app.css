@@ -393,3 +393,49 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   #app.marc-immersive .marc-immersive-controls{grid-template-columns:42px 42px 42px minmax(0,1fr)!important;gap:4px!important}
   #app.marc-immersive .marc-immersive-back,#app.marc-immersive .marc-immersive-home,#app.marc-immersive .marc-immersive-modules{width:42px!important;min-width:42px!important;max-width:42px!important;height:42px!important;min-height:42px!important;max-height:42px!important}
 }
+/* PHONE-STYLE APP NAVIGATION */
+.marc-mobile-nav{
+  align-items:stretch!important;
+  background:rgba(5,18,31,.96)!important;
+  border-top:1px solid rgba(75,177,255,.20)!important;
+  box-shadow:0 -10px 35px rgba(0,0,0,.28)!important;
+  backdrop-filter:blur(18px)!important;
+  -webkit-backdrop-filter:blur(18px)!important;
+  padding:6px max(8px,env(safe-area-inset-left)) calc(6px + env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-right))!important;
+  gap:5px!important;
+}
+.marc-mobile-nav button{
+  min-height:58px!important;
+  border:0!important;
+  border-radius:15px!important;
+  background:transparent!important;
+  color:#8da5b8!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:3px!important;
+  font-size:9px!important;
+  font-weight:700!important;
+  position:relative!important;
+}
+.marc-mobile-nav button .nav-icon{
+  display:block!important;
+  font-size:23px!important;
+  line-height:22px!important;
+  font-weight:500!important;
+}
+.marc-mobile-nav button.active{
+  color:#69bdff!important;
+  background:rgba(30,132,229,.15)!important;
+}
+.marc-mobile-nav button.active::after{
+  left:30%!important;right:30%!important;bottom:3px!important;
+  height:3px!important;background:#4aaeff!important;
+}
+.marc-mobile-nav button:active{transform:scale(.94)!important}
+@media(max-width:560px){
+  .marc-mobile-nav{gap:3px!important}
+  .marc-mobile-nav button{min-height:56px!important;border-radius:14px!important;font-size:8px!important}
+  .marc-mobile-nav button .nav-icon{font-size:22px!important}
+}

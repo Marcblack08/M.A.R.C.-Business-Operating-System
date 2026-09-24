@@ -1,0 +1,433 @@
+
+/* =========================================================
+   M.A.R.C. POS REDESIGN — 2026-09-23
+   Caja inspirada en la propuesta visual aprobada:
+   dark navy + cyan/blue, tarjetas compactas, acciones claras.
+   Solo afecta el módulo de Caja.
+   ========================================================= */
+
+.cash-mobile-center{
+  --pos-bg:#061426;
+  --pos-surface:#0b1d31;
+  --pos-surface-2:#102943;
+  --pos-line:#214463;
+  --pos-text:#f4f8fc;
+  --pos-muted:#91a9bd;
+  --pos-blue:#168cff;
+  --pos-blue-2:#0a66df;
+  --pos-green:#18d97b;
+  --pos-purple:#853cff;
+  --pos-red:#ff4052;
+  max-width:1180px;
+  margin:0 auto;
+  padding:6px 0 48px;
+  color:var(--pos-text);
+}
+
+/* Main cash canvas */
+.cash-mobile-center::before{
+  content:"";
+  position:fixed;
+  z-index:-1;
+  inset:62px 0 0;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at 78% 10%,rgba(18,133,255,.08),transparent 32%),
+    linear-gradient(180deg,#071526 0%,#06111f 100%);
+}
+
+/* Header / hero */
+.cash-mobile-center .cash-hero{
+  position:relative;
+  min-height:205px;
+  overflow:hidden;
+  display:flex;
+  align-items:center;
+  padding:28px 330px 28px 32px;
+  border:1px solid #1e5279;
+  border-radius:24px;
+  background:
+    radial-gradient(circle at 82% 50%,rgba(20,141,255,.23),transparent 27%),
+    linear-gradient(135deg,#07192d 0%,#0b2947 62%,#0b4c78 100%);
+  box-shadow:0 20px 55px rgba(0,0,0,.24),inset 0 1px rgba(255,255,255,.05);
+}
+.cash-mobile-center .cash-hero-copy{position:relative;z-index:2;max-width:620px}
+.cash-mobile-center .cash-hero-eyebrow{
+  color:#58b8ff;
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:.16em;
+  margin-bottom:9px;
+}
+.cash-mobile-center .cash-hero h1{
+  margin:0 0 8px;
+  color:#fff;
+  font-size:34px;
+  line-height:1;
+  letter-spacing:-.04em;
+}
+.cash-mobile-center .cash-hero p{
+  margin:0;
+  color:#b8cee0;
+  font-size:11px;
+  line-height:1.55;
+}
+.cash-mobile-center .cash-hero-status{
+  position:absolute;
+  top:18px;
+  right:20px;
+  z-index:4;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  padding:7px 11px;
+  border-radius:999px;
+  background:#0d2a43;
+  border:1px solid #2c5977;
+  color:#b9d4e8;
+  font-size:9px;
+  font-weight:900;
+}
+.cash-mobile-center .cash-hero-status i{
+  width:7px;height:7px;border-radius:50%;background:#ffb400;
+  box-shadow:0 0 0 4px rgba(255,180,0,.12);
+}
+.cash-mobile-center .cash-hero-status:has(+ .cash-hero-visual) i{}
+.cash-mobile-center .cash-hero-visual{
+  position:absolute;
+  right:45px;
+  bottom:-20px;
+  width:230px;
+  height:230px;
+  display:grid;
+  place-items:center;
+  pointer-events:none;
+}
+.cash-mobile-center .cash-hero-ring{
+  position:absolute;
+  width:205px;height:205px;
+  border-radius:50%;
+  border:1px solid rgba(46,175,255,.28);
+  box-shadow:0 0 55px rgba(17,137,255,.12),inset 0 0 40px rgba(17,137,255,.08);
+}
+.cash-mobile-center .cash-register-icon{
+  position:relative;
+  width:110px;height:86px;
+  border-radius:13px;
+  border:3px solid #43b8ff;
+  background:linear-gradient(145deg,#123f63,#071d31);
+  box-shadow:0 15px 35px rgba(0,0,0,.35),0 0 28px rgba(30,154,255,.2);
+}
+.cash-mobile-center .cash-register-icon::before{
+  content:"";
+  position:absolute;
+  left:17px;right:17px;top:-27px;height:27px;
+  border:3px solid #43b8ff;
+  border-bottom:0;
+  border-radius:8px 8px 0 0;
+  background:#0d2e4a;
+}
+.cash-mobile-center .cash-paper{
+  position:absolute;
+  left:30px;top:-20px;
+  width:50px;height:31px;
+  background:#f4f7fa;
+  border-radius:2px;
+  transform:rotate(-2deg);
+}
+.cash-mobile-center .cash-paper span{display:block;height:2px;margin:5px 6px;background:#7e93a7}
+.cash-mobile-center .cash-screen{
+  position:absolute;left:18px;top:19px;width:35px;height:19px;
+  border-radius:3px;background:#05111d;border:2px solid #56c2ff;
+}
+.cash-mobile-center .cash-keys{
+  position:absolute;right:14px;top:17px;width:31px;
+  display:grid;grid-template-columns:repeat(3,1fr);gap:3px;
+}
+.cash-mobile-center .cash-keys i{height:6px;border-radius:2px;background:#47baff}
+
+/* Primary actions */
+.cash-mobile-center .cash-primary-actions{
+  display:grid;
+  grid-template-columns:1.35fr 1fr 1fr;
+  gap:12px;
+  margin:16px 0;
+}
+.cash-mobile-center .cash-primary-action{
+  min-height:116px!important;
+  border-radius:17px!important;
+  border:1px solid var(--pos-line)!important;
+  color:#fff!important;
+  background:linear-gradient(145deg,#0b2035,#09192a)!important;
+  box-shadow:0 10px 28px rgba(0,0,0,.2)!important;
+  padding:18px!important;
+  transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease,filter .16s ease;
+}
+.cash-mobile-center .cash-primary-action:hover{
+  transform:translateY(-2px);
+  border-color:#3c79a6!important;
+  box-shadow:0 16px 34px rgba(0,0,0,.28)!important;
+}
+.cash-mobile-center .cash-primary-action:active{transform:translateY(0) scale(.99)}
+.cash-mobile-center .cash-primary-action>span{font-size:27px;margin-bottom:8px}
+.cash-mobile-center .cash-primary-action>b{font-size:17px;line-height:1.05}
+.cash-mobile-center .cash-primary-action>small{color:#9db4c8!important;font-size:9px;margin-top:6px}
+.cash-mobile-center .cash-primary-action.sale{
+  background:linear-gradient(145deg,#168cff,#0862dc)!important;
+  border-color:#43adff!important;
+  box-shadow:0 12px 30px rgba(14,125,245,.26)!important;
+}
+.cash-mobile-center .cash-primary-action.sale small{color:#e4f3ff!important}
+.cash-mobile-center .cash-primary-action.income{
+  background:linear-gradient(145deg,#087df0,#075bc5)!important;
+  border-color:#38a7ff!important;
+}
+.cash-mobile-center .cash-primary-action.expense{
+  background:linear-gradient(145deg,#7b2dff,#5e20ca)!important;
+  border-color:#a871ff!important;
+}
+.cash-mobile-center .cash-primary-action.staff{
+  background:linear-gradient(145deg,#10263d,#0a1a2b)!important;
+}
+
+/* Opening state: the first action must be unmistakable */
+.cash-mobile-center .cash-primary-action.cash-action-main{
+  min-height:128px!important;
+}
+.cash-mobile-center #openCashTop{
+  cursor:pointer;
+}
+.cash-mobile-center #openCashTop b{font-size:19px}
+
+/* Quick how-to panel */
+.cash-mobile-center .cash-howto{
+  margin:0 0 16px;
+  padding:20px;
+  border-radius:19px;
+  border:1px solid var(--pos-line);
+  background:linear-gradient(145deg,#0b1f34,#09192a);
+  box-shadow:0 10px 30px rgba(0,0,0,.18);
+}
+.cash-mobile-center .cash-howto-head h3{color:#fff}
+.cash-mobile-center .cash-howto-head p,
+.cash-mobile-center .cash-howto-details p{color:#8fa8bd}
+.cash-mobile-center .cash-howto-badge{
+  background:#102f4d;
+  border:1px solid #275b81;
+  color:#58b9ff;
+}
+.cash-mobile-center .cash-howto-steps article{
+  border-color:#1e3d59;
+  background:#0c2136;
+}
+.cash-mobile-center .cash-howto-steps article>span{
+  background:linear-gradient(145deg,#168cff,#0964d9);
+  box-shadow:0 5px 15px rgba(15,130,240,.22);
+}
+
+/* Current status */
+.cash-mobile-center .cash-current-card{
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:20px;
+  padding:20px;
+  margin-bottom:14px;
+  border-radius:19px;
+  border:1px solid var(--pos-line);
+  background:#0b1e32;
+  box-shadow:0 10px 30px rgba(0,0,0,.18);
+}
+.cash-mobile-center .cash-current-label{color:#7fa1ba;font-size:8px;font-weight:900;letter-spacing:.12em}
+.cash-mobile-center .cash-status-pill{
+  display:inline-flex!important;
+  align-items:center;gap:5px;
+  margin-left:7px;padding:5px 8px;border-radius:999px;
+  font-size:8px!important;letter-spacing:0!important;
+}
+.cash-mobile-center .cash-status-pill.on{background:#093b2a;color:#20df86;border:1px solid #146b4b}
+.cash-mobile-center .cash-status-pill.off{background:#3a2411;color:#ffbd58;border:1px solid #704919}
+.cash-mobile-center .cash-current-detail{
+  display:flex;align-items:center;gap:9px;margin-top:11px;
+}
+.cash-mobile-center .cash-current-detail>span{color:#45b5ff}
+.cash-mobile-center .cash-current-detail small{display:block;color:#7893aa;font-size:8px}
+.cash-mobile-center .cash-current-detail b{display:block;color:#e9f4fb;font-size:11px;margin-top:2px}
+.cash-mobile-center .cash-current-balance{
+  min-width:190px;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;
+}
+.cash-mobile-center .cash-current-balance small{color:#7893aa;font-size:8px;font-weight:800}
+.cash-mobile-center .cash-current-balance strong{color:#18dc7d;font-size:26px;line-height:1;margin:6px 0 10px}
+.cash-mobile-center .cash-close-btn{min-height:42px!important;border-radius:11px!important}
+
+/* Day summary */
+.cash-mobile-center .cash-day-summary,
+.cash-mobile-center .cash-quick-section,
+.cash-mobile-center .cash-report-panel,
+.cash-mobile-center .cash-movements,
+.cash-mobile-center .cash-closed-empty{
+  border-color:#1c3b56!important;
+  background:linear-gradient(145deg,#0b1d30,#091828)!important;
+  color:#edf6fc;
+}
+.cash-mobile-center .cash-section-title b{color:#eaf5fd}
+.cash-mobile-center .cash-section-title>span,
+.cash-mobile-center .cash-section-title button{color:#7898b1}
+.cash-mobile-center .cash-day-grid{gap:10px}
+.cash-mobile-center .cash-day{
+  background:#0d2338!important;
+  border-color:#1d405d!important;
+  border-radius:14px!important;
+}
+.cash-mobile-center .cash-day strong{color:#fff}
+.cash-mobile-center .cash-day.income strong{color:#18db7b}
+.cash-mobile-center .cash-day.expense strong{color:#ff6372}
+.cash-mobile-center .cash-day.sales strong{color:#45b4ff}
+
+/* Quick actions */
+.cash-mobile-center .cash-quick-grid button{
+  background:#0c2136!important;
+  border-color:#1d405c!important;
+  color:#e6f2fb!important;
+  border-radius:13px!important;
+}
+.cash-mobile-center .cash-quick-grid button:hover{
+  border-color:#3d80ad!important;
+  background:#102a44!important;
+}
+
+/* Reports and tables */
+.cash-mobile-center .cash-report-summary>div{
+  background:#0d2338!important;
+  border-color:#1e415d!important;
+}
+.cash-mobile-center .cash-report-summary span{color:#7895ac}
+.cash-mobile-center .cash-report-summary strong{color:#f4f8fc}
+.cash-mobile-center .cash-chart-track{background:#122c44}
+.cash-mobile-center .cash-chart-month span,
+.cash-mobile-center .cash-chart-col>b,
+.cash-mobile-center .finance-subtitle{color:#7895ac!important}
+.cash-mobile-center .cash-movements .scroll{border-color:#1e405a}
+.cash-mobile-center .cash-movements .data th{background:#102840;color:#91abc0}
+.cash-mobile-center .cash-movements .data td{border-color:#18364e;color:#d9e8f2}
+
+/* Closed state: center the empty state like the proposal */
+.cash-mobile-center .cash-closed-empty{
+  min-height:220px;
+  display:grid;
+  place-items:center;
+  border-radius:19px;
+}
+.cash-mobile-center .cash-closed-empty .empty-state{
+  max-width:430px;
+  padding:30px;
+  text-align:center;
+}
+.cash-mobile-center .cash-closed-empty .empty-state>span{
+  display:grid;place-items:center;
+  width:70px;height:70px;margin:0 auto 14px;
+  border-radius:18px;
+  background:#0e3151;
+  border:1px solid #27628b;
+  color:#39adff;
+  font-size:32px;
+  box-shadow:0 0 35px rgba(24,140,255,.12);
+}
+.cash-mobile-center .cash-closed-empty .empty-state>b{display:block;color:#f4f8fc;font-size:19px}
+.cash-mobile-center .cash-closed-empty .empty-state>small{display:block;color:#7f9bb0;margin-top:6px;line-height:1.5}
+
+/* Modals: align opening / sale / expense screens with the proposal */
+#modal .modal{
+  border-radius:20px!important;
+}
+#modal .modal-head h2{letter-spacing:-.02em}
+#modal .modal-actions .primary{
+  background:linear-gradient(145deg,#168cff,#0866dc)!important;
+  border-color:#2d9fff!important;
+}
+#modal .modal-actions .secondary{
+  background:#10253a!important;
+  color:#dbeaf5!important;
+  border-color:#28465f!important;
+}
+#modal input,#modal select,#modal textarea{
+  border-radius:11px!important;
+}
+
+/* Touch / phone layout */
+@media(max-width:780px){
+  .cash-mobile-center{
+    padding:2px 0 100px;
+    margin:0;
+  }
+  .cash-mobile-center::before{
+    inset:62px 0 0;
+    position:fixed;
+  }
+  .cash-mobile-center .cash-hero{
+    min-height:185px;
+    padding:22px 150px 22px 18px;
+    border-radius:20px;
+  }
+  .cash-mobile-center .cash-hero h1{font-size:25px}
+  .cash-mobile-center .cash-hero p{font-size:9px;max-width:240px}
+  .cash-mobile-center .cash-hero-status{top:12px;right:12px}
+  .cash-mobile-center .cash-hero-visual{
+    right:-22px;bottom:-4px;width:155px;height:155px;
+  }
+  .cash-mobile-center .cash-hero-ring{width:140px;height:140px}
+  .cash-mobile-center .cash-register-icon{transform:scale(.78)}
+  .cash-mobile-center .cash-primary-actions{
+    grid-template-columns:1fr 1fr;
+    gap:9px;
+    margin:11px 0;
+  }
+  .cash-mobile-center .cash-primary-action{
+    min-height:104px!important;
+    padding:14px!important;
+    border-radius:15px!important;
+  }
+  .cash-mobile-center .cash-primary-action.cash-action-main{
+    grid-column:1/-1;
+    min-height:122px!important;
+  }
+  .cash-mobile-center .cash-primary-action>span{font-size:24px}
+  .cash-mobile-center .cash-primary-action>b{font-size:15px}
+  .cash-mobile-center .cash-primary-action>small{font-size:8px}
+  .cash-mobile-center .cash-howto{
+    padding:14px;
+    border-radius:16px;
+  }
+  .cash-mobile-center .cash-current-card{
+    grid-template-columns:1fr;
+    padding:15px;
+  }
+  .cash-mobile-center .cash-current-balance{
+    min-width:0;
+    align-items:flex-start;
+    padding-top:5px;
+  }
+  .cash-mobile-center .cash-day-grid{
+    grid-template-columns:1fr 1fr!important;
+  }
+  .cash-mobile-center .cash-quick-grid{
+    grid-template-columns:1fr 1fr!important;
+  }
+}
+
+/* Very small phones */
+@media(max-width:390px){
+  .cash-mobile-center .cash-hero{
+    padding-right:126px;
+  }
+  .cash-mobile-center .cash-hero h1{font-size:23px}
+  .cash-mobile-center .cash-hero-visual{right:-38px}
+  .cash-mobile-center .cash-primary-action.cash-action-main{min-height:116px!important}
+  .cash-mobile-center .cash-day-grid,
+  .cash-mobile-center .cash-quick-grid{gap:7px}
+}
+
+/* If the app is in the existing light theme, keep Caja intentionally dark. */
+html:not([data-theme="dark"]) .cash-mobile-center,
+html[data-theme="color"] .cash-mobile-center{
+  color:var(--pos-text);
+}

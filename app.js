@@ -3262,6 +3262,18 @@ function wire(){
   $("#exitConversation").onclick=closeChat;
   $("#menu").onclick=()=>$("#sidebar").classList.toggle("open");
   $("#mobileScrim").onclick=()=>$("#sidebar").classList.remove("open");
+  $("#marcMobileFab")?.addEventListener("click",()=>{
+    if(typeof window.marcQuickOpen?.click==="function")return window.marcQuickOpen.click();
+    if(typeof openChat==="function")return openChat();
+  });
+  document.addEventListener("click",e=>{
+    const b=e.target.closest?.(".marc-mobile-nav button[data-view]");
+    if(!b)return;
+    e.preventDefault();
+    $(".marc-mobile-nav button[data-view]").forEach(x=>x.classList.toggle("active",x===b));
+    if(b.dataset.view==="settings")return companySettings();
+    view(b.dataset.view);
+  },true);
   document.addEventListener("click",e=>{
     const b=e.target.closest?.(".sidebar nav button[data-view]");
     if(!b)return;

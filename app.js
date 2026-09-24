@@ -422,6 +422,43 @@ async function home(){
           `).join("")||'<div class="empty-state"><span>◌</span><b>Aún no hay actividad</b><small>Tu actividad aparecerá aquí.</small></div>'}
         </div>
       </section>
+
+      <section class="dashboard-pulse">
+        <div class="pulse-head">
+          <div>
+            <div class="panel-eyebrow">PULSO OPERATIVO</div>
+            <h2>Lo importante, en una sola vista</h2>
+            <p>Lectura rápida del estado actual de tu operación.</p>
+          </div>
+          <span class="pulse-live"><i></i> Datos actuales</span>
+        </div>
+        <div class="pulse-grid">
+          <article class="pulse-card pulse-card-blue">
+            <div class="pulse-card-icon">◈</div>
+            <div class="pulse-card-copy">
+              <span>Volumen comercial</span>
+              <strong>\${money(quoteTotal)}</strong>
+              <small>\${validFinance.length} cotizaciones válidas en el período cargado</small>
+            </div>
+          </article>
+          <article class="pulse-card pulse-card-cyan">
+            <div class="pulse-card-icon">▦</div>
+            <div class="pulse-card-copy">
+              <span>Inventario activo</span>
+              <strong>\${inventory.length}</strong>
+              <small>\${totalStock} unidades registradas · \${low.length} requieren atención</small>
+            </div>
+          </article>
+          <article class="pulse-card pulse-card-violet">
+            <div class="pulse-card-icon">✓</div>
+            <div class="pulse-card-copy">
+              <span>Cobranza del mes</span>
+              <strong>\${money(current.collected)}</strong>
+              <small>\${current.sales>0?Math.round((current.collected/current.sales)*100):0}% de las ventas del mes</small>
+            </div>
+          </article>
+        </div>
+      </section>
     </div>
   `;
 

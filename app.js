@@ -1,5 +1,31 @@
 (()=>{const C=window.MARC_CONFIG,S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"implicit"}});const st={u:null,session:null,view:"home",cid:null,authEpoch:0};let authListenerSession=null,authTimer=null,authEnteredSessionId=null;S.auth.onAuthStateChange((ev,s)=>{authListenerSession=s||null;console.info("[M.A.R.C. auth]",ev,!!s,s?.user?.id||"");if(s?.user){clearTimeout(authTimer);authTimer=setTimeout(()=>handleAuthSession(s),0)}else if(ev==="SIGNED_OUT"){clearTimeout(authTimer);authTimer=setTimeout(()=>resetUiToLogin(),0)}});const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)],esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])),money=v=>new Intl.NumberFormat("es-PE",{style:"currency",currency:"PEN"}).format(Number(v||0)),toast=(t,c="")=>{const e=document.createElement("div");e.className="toast "+c;e.textContent=t;$("#toast").appendChild(e);setTimeout(()=>e.remove(),2600)},initials=n=>String(n||"M").split(/\s+/).slice(0,2).map(x=>x[0]?.toUpperCase()).join("");let authMode="login",recoveryMode=new URLSearchParams(location.search).get("recovery")==="1"||/type=recovery/i.test(location.hash);
 function msg(t,c=""){const e=$("#authMsg");e.textContent=t;e.className="msg "+c}
+async function logoutMARC(e){
+  e?.preventDefault();
+  e?.stopPropagation();
+  const b=$("#logout");
+  if(b?.dataset.busy==="1")return;
+  if(b)b.dataset.busy="1";
+  try{
+    if(b){b.disabled=true;b.setAttribute("aria-busy","true");}
+    clearTimeout(authTimer);
+    sessionStorage.removeItem("marc_google_oauth_pending");
+    sessionStorage.removeItem("marc_cash_owner_session");
+    localStorage.removeItem("marc_password_reset_cooldown");
+    await S.auth.signOut({scope:"local"});
+    resetUiToLogin("Sesión cerrada correctamente.","ok");
+  }catch(err){
+    console.error("[M.A.R.C. logout]",err);
+    resetUiToLogin();
+    msg(err?.message||"No se pudo cerrar la sesión. Vuelve a intentarlo.","error");
+  }finally{
+    if(b){b.disabled=false;b.removeAttribute("aria-busy");delete b.dataset.busy;}
+  }
+}
+document.addEventListener("click",e=>{
+  const target=e.target?.closest?.("#logout");
+  if(target){logoutMARC(e);}
+});
 const THEME_KEY="marc_theme";
 function applyTheme(theme,save=true){
   const t=["light","dark","color"].includes(theme)?theme:"light";

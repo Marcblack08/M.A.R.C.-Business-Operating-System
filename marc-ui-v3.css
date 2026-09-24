@@ -1,0 +1,98 @@
+/* M.A.R.C. UI V3 — visual rebuild
+   Presentation layer only. Do not add business logic here.
+*/
+:root{
+  --v3-bg:#07111f;--v3-surface:#0d1a2b;--v3-surface-2:#122238;--v3-border:rgba(148,190,230,.14);
+  --v3-text:#edf6ff;--v3-muted:#91a7bd;--v3-accent:#27a7ff;--v3-accent-2:#55d6c2;
+  --v3-danger:#ff6678;--v3-warning:#ffc857;--v3-radius:18px;--v3-radius-sm:12px;
+  --v3-shadow:0 18px 50px rgba(0,0,0,.28);--v3-focus:0 0 0 3px rgba(39,167,255,.18);
+}
+*{box-sizing:border-box}
+html,body{min-height:100%;background:var(--v3-bg)}
+body{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--v3-text);line-height:1.45}
+button,input,textarea,select{font:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:none;box-shadow:var(--v3-focus)}
+.hidden{display:none!important}
+
+/* App shell */
+.app{background:var(--v3-bg);color:var(--v3-text)}
+.sidebar{background:rgba(9,23,39,.94)!important;border-right:1px solid var(--v3-border)!important;backdrop-filter:blur(18px)}
+.sidebar .brand{padding:22px 20px!important;border-bottom:1px solid var(--v3-border)!important}
+.sidebar nav{padding:14px 12px!important;gap:6px!important}
+.sidebar nav button{min-height:46px!important;border-radius:12px!important;border:1px solid transparent!important;color:var(--v3-muted)!important;background:transparent!important;transition:.18s ease!important}
+.sidebar nav button:hover{background:rgba(39,167,255,.08)!important;color:var(--v3-text)!important}
+.sidebar nav button.active{background:linear-gradient(90deg,rgba(39,167,255,.18),rgba(85,214,194,.06))!important;border-color:rgba(39,167,255,.22)!important;color:#fff!important}
+.side-footer{border-top:1px solid var(--v3-border)!important;padding:14px!important}
+.main{background:radial-gradient(circle at 75% -10%,rgba(39,167,255,.09),transparent 34%),var(--v3-bg)!important}
+.top{height:72px!important;background:rgba(7,17,31,.84)!important;border-bottom:1px solid var(--v3-border)!important;backdrop-filter:blur(18px)}
+.content{padding:28px!important;max-width:1600px;margin:0 auto}
+
+/* Global controls */
+button.primary,.primary{min-height:46px!important;padding:0 18px!important;border:1px solid rgba(39,167,255,.45)!important;border-radius:12px!important;background:linear-gradient(135deg,#168ee5,#27a7ff)!important;color:white!important;font-weight:700!important;box-shadow:0 8px 24px rgba(39,167,255,.16)!important}
+button.primary:hover,.primary:hover{filter:brightness(1.07);transform:translateY(-1px)}
+button:not(.primary):not(.icon):not(.logout){border-radius:11px}
+input,textarea,select{min-height:44px;border:1px solid var(--v3-border);border-radius:11px;background:#091726;color:var(--v3-text);padding:10px 12px}
+textarea{min-height:100px}
+label{color:var(--v3-muted)}
+table{border-collapse:separate!important;border-spacing:0!important;width:100%}
+th{background:#0b192a!important;color:#9eb6cc!important;font-size:12px!important;text-transform:uppercase;letter-spacing:.04em}
+td,th{border-bottom:1px solid var(--v3-border)!important;padding:12px 14px!important}
+tr:hover td{background:rgba(39,167,255,.035)!important}
+
+/* Login */
+#auth{background:radial-gradient(circle at 15% 10%,rgba(39,167,255,.15),transparent 32%),radial-gradient(circle at 90% 90%,rgba(85,214,194,.08),transparent 30%),var(--v3-bg)!important}
+#auth .auth-visual,#auth .auth-card{border:1px solid var(--v3-border)!important;background:rgba(13,26,43,.82)!important;box-shadow:var(--v3-shadow)!important;backdrop-filter:blur(22px)}
+#auth .auth-card{border-radius:24px!important}
+#auth .auth-visual{border-radius:24px!important}
+#auth h1,#auth h2{letter-spacing:-.035em}
+#auth .auth-form{gap:14px!important}
+#auth .auth-form label{display:flex;flex-direction:column;gap:7px}
+#auth .auth-switch button,#auth .auth-link{color:#67c4ff!important}
+
+/* Cards / dashboards */
+.card,.panel,.module-card,.kpi-modern,.dashboard-card,.stat-card,.metric-card{border:1px solid var(--v3-border)!important;background:linear-gradient(145deg,rgba(18,34,56,.94),rgba(10,24,40,.94))!important;border-radius:var(--v3-radius)!important;box-shadow:0 12px 35px rgba(0,0,0,.14)!important}
+.dashboard-hero{border:1px solid var(--v3-border)!important;border-radius:24px!important;background:linear-gradient(135deg,rgba(20,55,88,.9),rgba(10,27,45,.94))!important;box-shadow:var(--v3-shadow)!important}
+.dashboard-hero h1{letter-spacing:-.04em!important}
+.kpi-modern{padding:18px!important}
+
+/* Modals */
+.modal-root{background:rgba(0,0,0,.62)!important;backdrop-filter:blur(7px)}
+.modal,.modal-card,.modal-content,.dialog{border:1px solid var(--v3-border)!important;border-radius:20px!important;background:#0d1a2b!important;box-shadow:0 28px 90px rgba(0,0,0,.5)!important}
+.modal header,.modal-header{border-bottom:1px solid var(--v3-border)!important}
+
+/* Chat */
+.chat{background:#091726!important;border-left:1px solid var(--v3-border)!important;box-shadow:-20px 0 60px rgba(0,0,0,.24)!important}
+.chat header{border-bottom:1px solid var(--v3-border)!important}
+.messages{scrollbar-width:thin}
+.chat textarea{background:#071321!important}
+
+/* Quick launcher */
+.marc-quick-overlay{background:rgba(0,0,0,.68)!important;backdrop-filter:blur(8px)}
+.marc-quick-panel{background:#0d1a2b!important;border:1px solid var(--v3-border)!important;border-radius:22px!important;box-shadow:0 30px 90px rgba(0,0,0,.5)!important}
+.marc-quick-search{background:#071321!important}
+
+/* Mobile */
+@media(max-width:900px){
+  .sidebar{width:min(310px,88vw)!important}
+  .content{padding:18px!important}
+  .top{height:64px!important}
+  .topright .theme-toggle,.topright .notification-bell,.topright .marc-quick-launch,.topright .ask{display:none!important}
+  .brand-head{min-width:0!important}
+  .brand-head strong{max-width:36vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .content,.content>*{max-width:100%!important}
+  .grid,.dashboard-grid,.cards-grid{grid-template-columns:1fr!important}
+  table{min-width:680px}
+  .table-wrap,.table-responsive{overflow-x:auto;max-width:100%}
+}
+@media(max-width:560px){
+  .content{padding:12px!important}
+  .top{padding-inline:10px!important}
+  .brand-head small{display:none!important}
+  .card,.panel,.module-card,.kpi-modern,.dashboard-card,.stat-card,.metric-card{border-radius:15px!important}
+  .modal,.modal-card,.modal-content,.dialog{width:calc(100% - 20px)!important;max-height:90svh!important;border-radius:18px!important}
+  button.primary,.primary{min-height:48px!important}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}
+}

@@ -3355,7 +3355,7 @@ function wire(){
   $("#menu").onclick=()=>$("#sidebar").classList.toggle("open");
   $("#mobileScrim").onclick=()=>$("#sidebar").classList.remove("open");
   document.addEventListener("click",e=>{
-    const b=e.target.closest?.(".sidebar nav button[data-view]");
+    const b=e.target.closest?.(".sidebar nav button[data-view],.mobile-bottom-nav button[data-view]");
     if(!b)return;
     e.preventDefault();
     if(b.dataset.view==="settings")return companySettings();

@@ -248,15 +248,16 @@ function closeChat(){
   $("#chat").classList.add("closed");
   $("#app").classList.add("chat-closed");
 }
-function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",suppliers:"Proveedores",quotes:"Cotizaciones",marketing:"Publicidad",settings:"Configuración",cash:"Cierre de caja"}[x]||"Inicio";$$(".sidebar nav button, #mobileNav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
+function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",suppliers:"Proveedores",quotes:"Cotizaciones",marketing:"Publicidad",settings:"Configuración",cash:"Cierre de caja"}[x]||"Inicio";$$(".sidebar nav button, #mobileNav button, #marcNavHome").forEach(b=>b.classList.toggle("active",b.dataset.view===x||b.id==="marcNavHome"&&x==="home"))}
 let __viewBusy=false;
-async function view(x){
+async function view(x,opts={}){
   if(__viewBusy&&st.view===x)return;
+  if(!opts.fromHistory&&st.view&&st.view!==x){__marcViewHistory.push(st.view);if(__marcViewHistory.length>20)__marcViewHistory.shift();}
   const content=$("#content");
   const run=async()=>{
     st.view=x;title(x);$("#sidebar").classList.remove("open");document.body.style.overflow="";
     if(window.innerWidth<=780)window.scrollTo(0,0);
-    $$(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x));
+    $(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x)); $("#marcNavHome")?.classList.toggle("active",x==="home");
     if(x==="home")return home();if(x==="clients")return clients();if(x==="inventory")return inventory();
     if(x==="suppliers"){if(window.marcSupplierCenter)return window.marcSupplierCenter();let tries=0;const wait=()=>{if(window.marcSupplierCenter)return window.marcSupplierCenter();if(++tries<30)return setTimeout(wait,100);return toast("No se pudo cargar el Centro de Proveedores. Recarga la aplicación.","err")};return wait();}
     if(x==="quotes")return quotes();if(x==="marketing")return marketing();if(x==="cash")return cash();return settings();
@@ -3263,6 +3264,25 @@ function wire(){
   $("#exitConversation").onclick=closeChat;
   $("#menu").onclick=()=>$("#sidebar").classList.toggle("open");
   $("#mobileScrim").onclick=()=>$("#sidebar").classList.remove("open");
+  const __marcViewHistory=[];
+  const __marcGoBack=async()=>{
+    if($("#chat")?.classList.contains("open"))return closeChat();
+    const previous=__marcViewHistory.pop();
+    if(previous&&previous!==st.view)return view(previous,{fromHistory:true});
+    if(st.view!=="home")return view("home",{fromHistory:true});
+    if(history.length>1)return history.back();
+    return toast("Ya estás en Inicio.","ok");
+  };
+  window.MARCGoBack=__marcGoBack;
+  $("#marcNavBack")?.addEventListener("click",e=>{e.preventDefault();__marcGoBack()});
+  $("#marcNavHome")?.addEventListener("click",e=>{e.preventDefault();view("home")});
+  $("#marcNavModules")?.addEventListener("click",e=>{
+    e.preventDefault();
+    $("#marcImmersiveModules")?.click();
+  });
+  $("#marcNavAssistant")?.addEventListener("click",e=>{e.preventDefault();openChat()});
+  $("#marcNavExit")?.addEventListener("click",e=>{e.preventDefault();$("#logout")?.click()});
+
   $("#marcMobileFab")?.addEventListener("click",()=>{
     if(typeof $("#marcQuickOpen")?.click==="function")return $("#marcQuickOpen").click();
     if(typeof openChat==="function")return openChat();

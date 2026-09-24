@@ -222,3 +222,106 @@ button,.primary,.icon,input,select,textarea{
   .marc-mobile-nav button.active{background:rgba(30,130,230,.15);color:#55b8ff}
   .content{padding-bottom:92px!important}
 }
+
+
+/* =========================================================
+   M.A.R.C. FLUID MOTION SYSTEM — performance/touch layer
+   ========================================================= */
+html{scroll-behavior:smooth}
+button,.primary,.secondary,.icon,.marc-app-action,.marc-app-fab,
+.marc-mobile-nav button,.marc-module-card,.marc-quick-btn{
+  transition:transform .16s cubic-bezier(.2,.8,.2,1),
+             box-shadow .18s ease,
+             border-color .18s ease,
+             background-color .18s ease,
+             opacity .18s ease;
+}
+button:active,.primary:active,.secondary:active,.icon:active,
+.marc-app-action:active,.marc-module-card:active,.marc-quick-btn:active{
+  transform:scale(.975);
+}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{
+  outline:2px solid rgba(70,184,255,.72);
+  outline-offset:2px;
+}
+#content.view-switching{
+  pointer-events:none;
+  opacity:.72;
+}
+#content.view-switching>*{
+  animation:marc-fluid-enter .18s ease both;
+}
+@keyframes marc-fluid-enter{
+  from{opacity:0;transform:translateY(6px)}
+  to{opacity:1;transform:none}
+}
+::view-transition-old(root){
+  animation:marc-root-out .12s ease both;
+}
+::view-transition-new(root){
+  animation:marc-root-in .20s cubic-bezier(.2,.8,.2,1) both;
+}
+@keyframes marc-root-out{to{opacity:.82}}
+@keyframes marc-root-in{
+  from{opacity:.82;transform:translateY(4px)}
+  to{opacity:1;transform:none}
+}
+.marc-mobile-nav button{
+  position:relative;
+  -webkit-tap-highlight-color:transparent;
+}
+.marc-mobile-nav button::after{
+  content:"";
+  position:absolute;
+  left:25%;
+  right:25%;
+  bottom:3px;
+  height:3px;
+  border-radius:99px;
+  background:#55b8ff;
+  transform:scaleX(0);
+  transition:transform .18s ease;
+}
+.marc-mobile-nav button.active::after{transform:scaleX(1)}
+.marc-app-fab{
+  will-change:transform;
+  animation:marc-fab-in .28s cubic-bezier(.2,.8,.2,1) both;
+}
+@keyframes marc-fab-in{
+  from{opacity:0;transform:scale(.72)}
+  to{opacity:1;transform:scale(1)}
+}
+.marc-quick-overlay,
+.modal-root{
+  overscroll-behavior:contain;
+}
+@media(max-width:760px){
+  html{scroll-behavior:auto}
+  body{
+    -webkit-text-size-adjust:100%;
+    text-rendering:optimizeLegibility;
+  }
+  .content>*{
+    contain:layout paint;
+  }
+  .content .card,.content .panel,.content .client-card,
+  .content .inventory-card,.content .quote-card,.content .supplier-card{
+    will-change:auto;
+  }
+  .marc-app-action:hover,.marc-app-fab:hover,.marc-module-card:hover{
+    transform:none;
+  }
+  .marc-app-action:active,.marc-app-fab:active,.marc-module-card:active{
+    transform:scale(.97);
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  button,.primary,.secondary,.icon,.marc-app-action,.marc-app-fab,
+  .marc-mobile-nav button,.marc-module-card,.marc-quick-btn{
+    transition:none!important;
+  }
+  #content.view-switching>*{animation:none!important}
+  ::view-transition-old(root),::view-transition-new(root){animation:none!important}
+  .marc-app-fab{animation:none!important}
+}

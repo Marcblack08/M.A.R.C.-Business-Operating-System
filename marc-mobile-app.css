@@ -439,3 +439,47 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .marc-mobile-nav button{min-height:56px!important;border-radius:14px!important;font-size:8px!important}
   .marc-mobile-nav button .nav-icon{font-size:22px!important}
 }
+
+/* CASH SCROLL FIX — the cash workspace must use the phone's natural page scroll */
+#app.marc-immersive #content{
+  overflow:visible!important;
+  overflow-x:hidden!important;
+  overflow-y:visible!important;
+  height:auto!important;
+  max-height:none!important;
+  min-height:0!important;
+}
+#app.marc-immersive #content > .cash-mobile-center{
+  overflow:visible!important;
+  height:auto!important;
+  max-height:none!important;
+  min-height:0!important;
+  padding-bottom:120px!important;
+  touch-action:pan-y!important;
+  -webkit-overflow-scrolling:touch;
+}
+#app.marc-immersive #content > .cash-mobile-center *{
+  touch-action:pan-y;
+}
+#app.marc-immersive .cash-mobile-center button,
+#app.marc-immersive .cash-mobile-center input,
+#app.marc-immersive .cash-mobile-center select,
+#app.marc-immersive .cash-mobile-center textarea{
+  touch-action:manipulation;
+}
+@media(max-width:900px){
+  html,body{
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+    height:auto!important;
+    min-height:100%!important;
+  }
+  #app.marc-immersive .main{
+    overflow:visible!important;
+    height:auto!important;
+    min-height:100svh!important;
+  }
+  #app.marc-immersive #content{
+    padding-bottom:120px!important;
+  }
+}

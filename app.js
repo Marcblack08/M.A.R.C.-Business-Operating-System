@@ -258,7 +258,7 @@ async function view(x){
     if(window.innerWidth<=780)window.scrollTo(0,0);
     $$(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x));
     if(x==="home")return home();if(x==="clients")return clients();if(x==="inventory")return inventory();
-    if(x==="suppliers"){if(window.marcSupplierCenter)return window.marcSupplierCenter();let tries=0;const wait=()=>{if(window.marcSupplierCenter)return window.marcSupplierCenter();if(++tries<30)return setTimeout(wait,100);return toast("No se pudo cargar el Centro de Proveedores. Recarga la aplicación.","err")};return wait();}
+    if(x==="suppliers"){if(window.marcSupplierCenter)return window.marcSupplierCenter();return toast("No se pudo cargar el Centro de Proveedores. Recarga la aplicación.","err");}
     if(x==="quotes")return quotes();if(x==="marketing")return marketing();if(x==="cash")return cash();return settings();
   };
   __viewBusy=true;
@@ -3358,7 +3358,6 @@ function wire(){
     const b=e.target.closest?.(".sidebar nav button[data-view]");
     if(!b)return;
     e.preventDefault();
-    if(b.dataset.view==="suppliers"&&typeof window.marcSupplierCenter==="function")return window.marcSupplierCenter();
     if(b.dataset.view==="settings")return companySettings();
     view(b.dataset.view);
   },true);
@@ -3427,7 +3426,7 @@ function wire(){
 // API pública mínima para módulos auxiliares (proveedores, notificaciones y herramientas visuales).
 // Mantiene el núcleo encapsulado y evita que cada módulo dependa de variables internas sueltas.
 window.MARC=window.MARC||{};
-Object.assign(window.MARC,{view,openChat,closeChat,toast});
+Object.assign(window.MARC,{view,openChat,closeChat,toast,supabase:S});
 window.view=view;
 window.openChat=openChat;
 window.closeChat=closeChat;

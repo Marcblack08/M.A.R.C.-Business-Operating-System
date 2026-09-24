@@ -587,3 +587,23 @@
     display:none!important;
   }
 }
+
+/* ===== CLEAN TOUCH HEADER / SESSION ===== */
+.marc-module-session{display:flex;justify-content:center;margin-top:16px;padding-top:15px;border-top:1px solid rgba(78,184,255,.16)}
+.marc-session-exit{min-height:44px;padding:0 20px;border:1px solid rgba(255,95,111,.45);border-radius:13px;background:rgba(255,61,84,.10);color:#ff9aa6;font-weight:900;font-size:10px}
+#app.marc-immersive #menu{display:none!important}
+#app.marc-immersive .topright{display:flex!important;margin-left:auto!important}
+@media(max-width:900px){
+  #app.marc-immersive .topright{display:none!important}
+  #app.marc-immersive .top{justify-content:flex-start!important}
+  #app.marc-immersive .marc-immersive-controls{width:100%!important;flex:none!important}
+  #app.marc-immersive .marc-immersive-controls .marc-immersive-title{display:flex!important;margin-left:4px!important}
+  #app.marc-immersive .marc-immersive-title b{font-size:12px!important}
+  #app.marc-immersive .marc-immersive-title small{display:block!important;font-size:6px!important}
+}
+@media(max-width:560px){
+  #app.marc-immersive .marc-immersive-controls{gap:5px!important}
+  #app.marc-immersive .marc-immersive-back,#app.marc-immersive .marc-immersive-home,#app.marc-immersive .marc-immersive-modules{width:43px!important;height:43px!important;min-height:43px!important;flex:none!important}
+  #app.marc-immersive .marc-immersive-title .mit-icon{width:34px!important;height:34px!important;font-size:16px!important;border-radius:11px!important}
+  #app.marc-immersive .marc-immersive-title b{font-size:11px!important}
+}

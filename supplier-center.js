@@ -5,6 +5,9 @@
   // session through the public config and a dedicated client for this feature.
   let client=null;
   function sb(){
+    // Reutilizar el cliente principal evita crear un segundo ciclo de autenticación
+    // en la misma pestaña (auto-refresh, storage y BroadcastChannel compartidos).
+    if(window.MARC?.supabase)return window.MARC.supabase;
     if(client)return client;
     if(!window.MARC_CONFIG||!window.supabase?.createClient)return null;
     client=window.supabase.createClient(window.MARC_CONFIG.supabaseUrl,window.MARC_CONFIG.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
@@ -33,10 +36,13 @@
 
   async function loadCenter(){
     const S=sb(); if(!S)return;
+    const {data:{session}}=await S.auth.getSession();
+    if(!session)return;
+    const uid=session.user.id;
     const [s,c,i]=await Promise.all([
-      S.from("marc_suppliers").select("*").eq("active",true).order("name"),
-      S.from("marc_supplier_catalogs").select("*").order("created_at",{ascending:false}),
-      S.from("marc_supplier_catalog_items").select("id,name,sku,supplier_price,supplier_cost,markup_pct,status,catalog_id,supplier_id,inventory_id,image_url,brand,model,category").order("created_at",{ascending:false})
+      S.from("marc_suppliers").select("*").eq("user_id",uid).eq("active",true).order("name"),
+      S.from("marc_supplier_catalogs").select("*").eq("user_id",uid).order("created_at",{ascending:false}),
+      S.from("marc_supplier_catalog_items").select("id,name,sku,supplier_price,supplier_cost,markup_pct,status,catalog_id,supplier_id,inventory_id,image_url,brand,model,category").eq("user_id",uid).order("created_at",{ascending:false})
     ]);
     if(s.error||c.error||i.error){console.error(s.error||c.error||i.error);return}
     document.querySelector("#scSuppliers").textContent=(s.data||[]).length;

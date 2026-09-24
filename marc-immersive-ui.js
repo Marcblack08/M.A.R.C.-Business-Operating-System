@@ -32,10 +32,12 @@
     el.innerHTML='<section class="marc-module-panel" role="dialog" aria-modal="true" aria-labelledby="marcModuleTitle">'+
       '<div class="marc-module-head"><div><h2 id="marcModuleTitle">Módulos de M.A.R.C.</h2><p>Elige dónde quieres trabajar. Cada área ocupa toda la pantalla.</p></div>'+
       '<button type="button" class="marc-module-close" id="marcModuleClose" aria-label="Cerrar módulos">×</button></div>'+
-      '<div class="marc-module-grid">'+modules.filter(m=>m.view!=="home").map(moduleCard).join("")+'</div></section>';
+      '<div class="marc-module-grid">'+modules.filter(m=>m.view!=="home").map(moduleCard).join("")+'</div><div class="marc-module-session"><button type="button" id="marcImmersiveLogout" class="marc-session-exit">↪ Cerrar sesión</button></div></section>';
     document.body.appendChild(el);
     el.addEventListener("click",e=>{
       if(e.target===el||e.target.closest("#marcModuleClose")){el.classList.remove("open");return}
+      const logout=e.target.closest("#marcImmersiveLogout");
+      if(logout){document.querySelector("#logout")?.click();el.classList.remove("open");return}
       const b=e.target.closest("[data-marc-module]");
       if(!b)return;
       const v=b.dataset.marcModule;

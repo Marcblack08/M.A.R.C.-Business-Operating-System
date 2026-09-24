@@ -573,14 +573,20 @@ async function serviceOrderPhotosModal(order){
   };
   render();
 }
-async function defaultChecklistForService(type){
- const t=String(type||"").toLowerCase();
- if(/cctv|camara|cámara|dvr|nvr|seguridad/.test(t)) return ["Inspección física de cámaras","Limpieza de lentes y carcasa","Revisión de conectores y cableado","Verificación de DVR/NVR","Verificación de disco y grabación","Prueba de visión nocturna","Prueba de acceso remoto","Prueba de reproducción"];
- if(/red|wifi|internet|router|switch|cableado/.test(t)) return ["Revisión de router/switch","Estado de cableado y conectores","Prueba de enlace","Prueba de velocidad","Verificación de direccionamiento","Revisión de cobertura Wi-Fi","Prueba de estabilidad"];
- if(/comput|laptop|pc|impresora|servidor/.test(t)) return ["Inspección física","Limpieza interna/externa","Prueba de almacenamiento","Prueba de memoria","Prueba de temperatura","Prueba de sistema operativo","Prueba de periféricos","Verificación de respaldo"];
- if(/instal|montaje/.test(t)) return ["Verificación del material instalado","Fijación y montaje","Cableado y terminaciones","Alimentación eléctrica","Configuración del equipo","Prueba funcional","Entrega y explicación al cliente"];
- if(/manten|prevent|correctiv|repar/.test(t)) return ["Inspección inicial","Diagnóstico","Limpieza","Ajustes y correcciones","Prueba funcional","Verificación final","Recomendaciones al cliente"];
- return ["Inspección inicial","Diagnóstico","Ejecución del servicio","Prueba funcional","Verificación final","Recomendaciones al cliente"];
+async function defaultChecklistForService(type,title){
+ return [
+  "Confirmar solicitud, alcance y objetivo del trabajo",
+  "Inspección inicial y registro del estado encontrado",
+  "Verificar herramientas, materiales y recursos necesarios",
+  "Verificar condiciones de seguridad antes de intervenir",
+  "Ejecutar el trabajo según el alcance acordado",
+  "Realizar pruebas funcionales o de calidad",
+  "Verificar que el resultado cumpla lo solicitado",
+  "Registrar incidencias, pendientes o trabajos adicionales",
+  "Tomar evidencia del trabajo realizado",
+  "Explicar el resultado y recomendaciones al cliente",
+  "Confirmar conformidad y cierre del servicio"
+ ];
 }
 function serviceOrderChecklistModal(order){
  const close=modal('<div class="modal-head"><div><div class="eyebrow2">CHECKLIST TÉCNICO</div><h2>'+esc(order.number||"Orden")+'</h2><p>Verifica cada punto antes de entregar el servicio.</p></div><button class="close" id="socClose">×</button></div><div id="socBody">Cargando…</div>');

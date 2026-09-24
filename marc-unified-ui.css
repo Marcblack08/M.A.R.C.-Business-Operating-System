@@ -304,3 +304,15 @@
   .content{padding-inline:9px!important}
   .marc-quick-item{min-height:66px}
 }
+
+/* ===== CAMERA CAPTURE ===== */
+.marc-camera-capture{display:flex;flex-direction:column;gap:12px}
+.marc-camera-capture video{width:100%;max-height:min(58vh,520px);object-fit:cover;border-radius:20px;background:#05070a;border:1px solid var(--line,#dfe5ec)}
+.marc-camera-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+.marc-camera-actions button{min-height:48px}
+.marc-camera-capture>small{text-align:center;opacity:.68}
+@media(max-width:600px){
+  .marc-camera-capture video{max-height:58vh;border-radius:16px}
+  .marc-camera-actions{display:grid;grid-template-columns:1fr 1.4fr}
+  .marc-camera-actions button{width:100%}
+}

@@ -245,7 +245,7 @@ function closeChat(){
   $("#chat").classList.add("closed");
   $("#app").classList.add("chat-closed");
 }
-function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",suppliers:"Proveedores",quotes:"Cotizaciones",settings:"Configuración",cash:"Cierre de caja"}[x]||"Inicio";$$(".sidebar nav button, #mobileNav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
+function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",suppliers:"Proveedores",quotes:"Cotizaciones",service_orders:"Órdenes de trabajo",settings:"Configuración",cash:"Cierre de caja"}[x]||"Inicio";$$(".sidebar nav button, #mobileNav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
 let __viewBusy=false;
 async function view(x){
   if(__viewBusy&&st.view===x)return;
@@ -256,7 +256,7 @@ async function view(x){
     $$(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x));
     if(x==="home")return home();if(x==="clients")return clients();if(x==="inventory")return inventory();
     if(x==="suppliers"){if(window.marcSupplierCenter)return window.marcSupplierCenter();return toast("No se pudo cargar el Centro de Proveedores. Recarga la aplicación.","err");}
-    if(x==="quotes")return quotes();if(x==="cash")return cash();return settings();
+    if(x==="quotes")return quotes();if(x==="service_orders")return serviceOrders();if(x==="cash")return cash();return settings();
   };
   __viewBusy=true;
   content?.classList.add("view-switching");
@@ -546,6 +546,51 @@ function aiQuoteModal(){
   };
 }
 
+async function serviceOrders(){
+  const {data,error}=await S.from("marc_service_orders").select("*,marc_clients(name)").eq("user_id",st.u.id).order("created_at",{ascending:false});
+  if(error)return toast(error.message,"err");
+  const rows=data||[],c=$("#content");
+  const counts=["PENDIENTE","PROGRAMADA","EN_PROCESO","TERMINADA"].map(x=>rows.filter(r=>r.status===x).length);
+  c.innerHTML=`<div class="head"><div><div class="eyebrow2">SERVICIOS</div><h1>Órdenes de trabajo.</h1><p>Controla visitas, reparaciones, instalaciones y mantenimientos desde que entran hasta que se entregan.</p></div><button id="newServiceOrder" class="primary">＋ Nueva orden</button></div>
+  <section class="client-summary"><div><span>PENDIENTES</span><strong>${counts[0]}</strong><small>Por atender</small></div><div><span>PROGRAMADAS</span><strong>${counts[1]}</strong><small>Con visita prevista</small></div><div><span>EN PROCESO</span><strong>${counts[2]}</strong><small>Trabajos activos</small></div><div><span>TERMINADAS</span><strong>${counts[3]}</strong><small>Trabajos cerrados</small></div></section>
+  <section class="card table"><div class="toolbar"><div class="search"><input id="serviceOrderSearch" placeholder="Buscar orden, cliente, servicio o dirección…"></div><button id="serviceOrderRefresh" class="secondary">↻ Actualizar</button></div>
+  <div class="scroll"><table class="data"><thead><tr><th>Orden</th><th>Cliente</th><th>Servicio</th><th>Programación</th><th>Estado</th><th>Total</th><th></th></tr></thead><tbody id="serviceOrderRows"></tbody></table></div></section>`;
+  const draw=(items)=>$("#serviceOrderRows").innerHTML=items.map(r=>`<tr><td><b>${esc(r.number)}</b><br><small>${esc(r.title)}</small></td><td>${esc(r.marc_clients?.name||"Sin cliente")}</td><td>${esc(r.service_type||"Servicio")}</td><td>${r.scheduled_at?new Date(r.scheduled_at).toLocaleString("es-PE"):"—"}</td><td><span class="status-pill">${esc(r.status)}</span></td><td><b>${money(r.total)}</b></td><td><button class="secondary" data-service-order="${r.id}">Ver</button></td></tr>`).join("")||'<tr><td colspan="7" class="empty">No hay órdenes de trabajo todavía.</td></tr>';
+  draw(rows);
+  $("#serviceOrderSearch").oninput=e=>{const q=e.target.value.toLowerCase();draw(rows.filter(r=>[r.number,r.title,r.service_type,r.location,r.marc_clients?.name].some(v=>String(v||"").toLowerCase().includes(q))))};
+  $("#newServiceOrder").onclick=()=>serviceOrderModal();
+  $("#serviceOrderRefresh").onclick=()=>serviceOrders();
+  $("#serviceOrderRows").onclick=e=>{const b=e.target.closest("[data-service-order]");if(b){const r=rows.find(x=>x.id===b.dataset.serviceOrder);if(r)serviceOrderModal(r)}};
+}
+function serviceOrderModal(row=null){
+  const isEdit=!!row;
+  const close=modal(`<div class="modal-head"><div><div class="eyebrow2">ORDEN DE TRABAJO</div><h2>${isEdit?"Editar orden":"Nueva orden"}</h2><p>Registra el servicio, diagnóstico, trabajo y costo.</p></div><button class="close" id="serviceOrderClose">×</button></div>
+  <form id="serviceOrderForm">
+  <div class="cols"><label>Cliente<select id="soClient"><option value="">Sin cliente</option></select></label><label>Tipo de servicio<input id="soType" placeholder="Mantenimiento CCTV, reparación, instalación…"></label></div>
+  <label>Título<input id="soTitle" required placeholder="Ej. Mantenimiento preventivo CCTV"></label>
+  <div class="cols"><label>Dirección / ubicación<input id="soLocation"></label><label>Fecha y hora<input id="soDate" type="datetime-local"></label></div>
+  <label>Descripción / solicitud<textarea id="soDescription" rows="3"></textarea></label>
+  <div class="cols"><label>Diagnóstico<textarea id="soDiagnosis" rows="3"></textarea></label><label>Trabajo realizado<textarea id="soWork" rows="3"></textarea></label></div>
+  <div class="cols"><label>Recomendaciones<textarea id="soRecommendations" rows="3"></textarea></label><label>Técnico<input id="soTechnician" placeholder="Nombre del técnico"></label></div>
+  <div class="cols"><label>Mano de obra<input id="soLabor" type="number" min="0" step="0.01"></label><label>Transporte<input id="soTransport" type="number" min="0" step="0.01"></label></div>
+  <div class="cols"><label>Materiales<input id="soMaterials" type="number" min="0" step="0.01"></label><label>Estado<select id="soStatus"><option>PENDIENTE</option><option>PROGRAMADA</option><option>EN_PROCESO</option><option>TERMINADA</option><option>ENTREGADA</option><option>CANCELADA</option></select></label></div>
+  <label>Notas<textarea id="soNotes" rows="2"></textarea></label>
+  <div id="soMsg" class="msg"></div><div class="modal-actions"><button type="button" class="secondary" id="serviceOrderCancel">Cancelar</button><button type="submit" class="primary">Guardar orden</button></div></form>`);
+  $("#serviceOrderClose").onclick=close;$("#serviceOrderCancel").onclick=close;
+  S.from("marc_clients").select("id,name").eq("user_id",st.u.id).order("name").then(({data})=>{const sel=$("#soClient");(data||[]).forEach(x=>{const o=document.createElement("option");o.value=x.id;o.textContent=x.name;if(row?.client_id===x.id)o.selected=true;sel.appendChild(o)})});
+  if(row){
+    $("#soType").value=row.service_type||"";$("#soTitle").value=row.title||"";$("#soLocation").value=row.location||"";$("#soDate").value=row.scheduled_at?new Date(row.scheduled_at).toISOString().slice(0,16):"";
+    $("#soDescription").value=row.description||"";$("#soDiagnosis").value=row.diagnosis||"";$("#soWork").value=row.work_performed||"";$("#soRecommendations").value=row.recommendations||"";$("#soTechnician").value=row.technician||"";
+    $("#soLabor").value=row.labor_cost||0;$("#soTransport").value=row.transport_cost||0;$("#soMaterials").value=row.materials_cost||0;$("#soStatus").value=row.status||"PENDIENTE";$("#soNotes").value=row.notes||"";
+  }
+  $("#serviceOrderForm").onsubmit=async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;const labor=Number($("#soLabor").value||0),transport=Number($("#soTransport").value||0),materials=Number($("#soMaterials").value||0);
+    const payload={user_id:st.u.id,client_id:$("#soClient").value||null,title:$("#soTitle").value.trim(),service_type:$("#soType").value.trim(),description:$("#soDescription").value.trim(),diagnosis:$("#soDiagnosis").value.trim(),work_performed:$("#soWork").value.trim(),recommendations:$("#soRecommendations").value.trim(),location:$("#soLocation").value.trim(),scheduled_at:$("#soDate").value?new Date($("#soDate").value).toISOString():null,technician:$("#soTechnician").value.trim(),status:$("#soStatus").value,labor_cost:labor,transport_cost:transport,materials_cost:materials,total:labor+transport+materials,notes:$("#soNotes").value.trim(),updated_at:new Date().toISOString()};
+    if(!isEdit)payload.number="OT-"+Date.now().toString().slice(-8);
+    const q=isEdit?await S.from("marc_service_orders").update(payload).eq("id",row.id).eq("user_id",st.u.id):await S.from("marc_service_orders").insert(payload);
+    if(q.error){b.disabled=false;$("#soMsg").textContent=q.error.message;$("#soMsg").className="msg error";return}
+    close();toast(isEdit?"Orden actualizada":"Orden creada","ok");serviceOrders();
+  };
+}
 async function clients(){
   const {data,error}=await S.from("marc_clients").select("*").eq("user_id",st.u.id).order("name");
   if(error)return toast(error.message,"err");

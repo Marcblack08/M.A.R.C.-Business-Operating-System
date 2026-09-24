@@ -274,6 +274,7 @@ async function view(x){
     __viewBusy=false;
   }
 }
+window.MARCView=window.MARCView||view;
 async function home(){
   const c=$("#content");
   const [cl,iv,qt]=await Promise.all([

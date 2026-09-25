@@ -346,7 +346,7 @@ async function home(){
         </div>
         <div class="hero-visual" aria-hidden="true">
           <div class="hero-visual-ring"></div>
-          <div class="hero-visual-logo is-marc-brand" id="heroBrandLogo"><img src="assets/marc-brand-logo.jpg" alt="M.A.R.C."></div>
+          <div class="hero-visual-logo is-marc-brand" id="heroBrandLogo" aria-label="M.A.R.C."><span>M</span><b>A.R.C.</b></div>
           <div class="hero-visual-caption">M.A.R.C. · TU MAYORDOMO DIGITAL</div>
         </div>
       </section>

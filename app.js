@@ -111,6 +111,70 @@ function bindAuthControls(){
 bindAuthControls();
 async function handleAuthSession(s){if(!s?.user)return;const id=s.user.id;if(authEnteredSessionId===id && st.u?.id===id && !$("#app").classList.contains("hidden"))return;authEnteredSessionId=id;try{await enter(s)}catch(e){authEnteredSessionId=null;throw e}}function resetUiToLogin(message="",type=""){st.authEpoch++;st.u=null;st.session=null;st.cid=null;try{applyCashierMode(false)}catch{}$("#app").classList.add("hidden");$("#auth").classList.remove("hidden");mode("login");if(message)msg(message,type)}
 async function ensure(){const u=st.u;if(!u)return;await S.from("marc_accounts").upsert({id:u.id,display_name:u.email?.split("@")[0]||"Usuario"},{onConflict:"id"});const {data:t}=await S.from("marc_trials").select("id").eq("user_id",u.id).maybeSingle();if(!t)await S.from("marc_trials").insert({user_id:u.id});const {data:c}=await S.from("marc_conversations").select("id").eq("user_id",u.id).eq("channel","WEB").order("updated_at",{ascending:false}).limit(1).maybeSingle();st.cid=c?.id||(await S.from("marc_conversations").insert({user_id:u.id,channel:"WEB",title:"Conversación principal"}).select("id").single()).data?.id}
+const ECOSYSTEM_KEY="marc_ecosystem";
+const ECOSYSTEMS={
+  technician:{label:"Ecosistema Técnico",icon:"🛠️",desc:"Servicios, órdenes, agenda, materiales y rentabilidad."},
+  business:{label:"Tienda / Negocio",icon:"🏪",desc:"Ventas, productos, compras, proveedores y caja."},
+  mixed:{label:"Ecosistema Mixto",icon:"🔄",desc:"Herramientas técnicas y comerciales juntas."}
+};
+function normalizeEcosystem(v){return Object.prototype.hasOwnProperty.call(ECOSYSTEMS,v)?v:null}
+function currentEcosystem(){
+  return normalizeEcosystem(st.ecosystem)||normalizeEcosystem(localStorage.getItem(ECOSYSTEM_KEY))||null;
+}
+function ecosystemAllows(viewName){
+  const map={
+    suppliers:["business","mixed"],
+    service_orders:["technician","mixed"],
+    agenda:["technician","mixed"]
+  };
+  return !map[viewName]||map[viewName].includes(currentEcosystem());
+}
+function applyEcosystemUI(key){
+  key=normalizeEcosystem(key)||"technician";
+  st.ecosystem=key;
+  document.documentElement.dataset.ecosystem=key;
+  localStorage.setItem(ECOSYSTEM_KEY,key);
+  const meta=ECOSYSTEMS[key];
+  $("#sidebar nav button[data-ecosystems]").forEach(b=>{
+    const allowed=String(b.dataset.ecosystems||"").split(",").includes(key);
+    b.hidden=!allowed;
+    b.setAttribute("aria-hidden",String(!allowed));
+  });
+  const badge=$("#ecosystemBadge");
+  if(badge){badge.textContent=meta.icon+" "+meta.label;badge.title=meta.desc}
+  const chooser=$("#ecosystemChooser");
+  if(chooser){chooser.classList.add("hidden");chooser.setAttribute("aria-hidden","true")}
+}
+async function saveEcosystem(key){
+  key=normalizeEcosystem(key);
+  if(!key)return;
+  applyEcosystemUI(key);
+  try{
+    const nextData={...(st.u?.user_metadata||{}),marc_ecosystem:key};
+    const {data,error}=await S.auth.updateUser({data:nextData});
+    if(!error&&data?.user)st.u=data.user;
+  }catch(e){
+    console.warn("[M.A.R.C. ecosystem] No se pudo guardar en perfil; se conserva localmente.",e);
+  }
+}
+async function chooseEcosystem(key){
+  await saveEcosystem(key);
+  const chooser=$("#ecosystemChooser");
+  if(chooser){chooser.classList.add("hidden");chooser.setAttribute("aria-hidden","true")}
+  await view("home");
+  toast("Espacio configurado: "+ECOSYSTEMS[key].label,"ok");
+}
+async function ensureEcosystem(){
+  const fromProfile=normalizeEcosystem(st.u?.user_metadata?.marc_ecosystem);
+  const saved=fromProfile||normalizeEcosystem(localStorage.getItem(ECOSYSTEM_KEY));
+  if(saved){applyEcosystemUI(saved);return true}
+  const chooser=$("#ecosystemChooser");
+  if(!chooser)return true;
+  chooser.classList.remove("hidden");
+  chooser.setAttribute("aria-hidden","false");
+  return false;
+}
+
 async function enter(s){
   if(!s?.user)return;
   const epoch=++st.authEpoch;
@@ -131,6 +195,10 @@ async function enter(s){
     }
     applyCashierMode(!!cashCtx.isStaff);
     app.classList.remove("hidden");
+    if(!cashCtx.isStaff){
+      const ready=await ensureEcosystem();
+      if(!ready)return;
+    }
     await loadBrandLogo();
     await view(cashCtx.isStaff?"cash":"home");
     if(cashCtx.isStaff) toast("Bienvenido, "+(cashCtx.staff?.display_name||"cajero")+" · caja lista","ok");
@@ -265,6 +333,10 @@ function closeChat(){
 function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",suppliers:"Proveedores",quotes:"Cotizaciones",service_orders:"Órdenes de trabajo",settings:"Configuración",cash:"Cierre de caja",agenda:"Agenda técnica"}[x]||"Inicio";$$(".sidebar nav button, #mobileNav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
 let __viewBusy=false;
 async function view(x){
+  if(!ecosystemAllows(x)&&x!=="home"){
+    toast("Esta sección pertenece a otro ecosistema.","err");
+    return view("home");
+  }
   if(__viewBusy&&st.view===x)return;
   const content=$("#content");
   const run=async()=>{
@@ -2744,6 +2816,8 @@ function marcQuickView(viewName,selector){
 function wire(){
   initTheme();
   marcQuickLauncher();
+  $("#ecosystemChooser [data-ecosystem-choice]").forEach(b=>b.addEventListener("click",()=>chooseEcosystem(b.dataset.ecosystemChoice)));
+  $("#ecosystemChooser")?.addEventListener("click",e=>{if(e.target.id==="ecosystemChooser")e.currentTarget.classList.add("hidden")});
   const portalToken=new URLSearchParams(location.search).get("cliente_token");
   if(portalToken){
     renderClientPortal(portalToken);

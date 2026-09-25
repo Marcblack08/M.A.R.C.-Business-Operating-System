@@ -187,22 +187,43 @@ async function saveEcosystem(key){
 async function chooseEcosystem(key){
   key=normalizeEcosystem(key);
   if(!key)return;
-  const allowed=await canSwitchEcosystem();
-  // La selección inicial siempre está permitida; los cambios posteriores quedan
-  // habilitados para MASTER y para planes con acceso mixto.
+
+  // PRIMER INGRESO: no dependemos de ninguna consulta de red para responder al clic.
+  // El usuario debe poder entrar al ecosistema inmediatamente.
   const current=normalizeEcosystem(st.u?.user_metadata?.marc_ecosystem)||normalizeEcosystem(localStorage.getItem(ECOSYSTEM_KEY));
-  if(current && current!==key && !allowed && hasMixedAccess()===false){
-    // Usuarios no mixtos conservan su ecosistema contratado.
-    toast("Tu plan actual no incluye cambio de ecosistema.","err");
-    return;
+  if(current && current!==key){
+    // Los cambios posteriores sí respetan la licencia: MASTER y planes Mixto pueden
+    // cambiar libremente. La validación se hace con límite de tiempo para no congelar UI.
+    let allowed=isMasterAccount()||hasMixedAccess();
+    if(!allowed){
+      try{
+        const result=await Promise.race([
+          S.from("marc_user_roles").select("role,active").eq("user_id",st.u?.id).eq("role","MASTER").eq("active",true).maybeSingle(),
+          new Promise(resolve=>setTimeout(()=>resolve({timeout:true}),1800))
+        ]);
+        allowed=!result?.timeout && result?.data?.role==="MASTER";
+      }catch(_){allowed=false}
+    }
+    if(!allowed){
+      toast("Tu plan actual no incluye cambio de ecosistema.","err");
+      return;
+    }
   }
+
+  // Cambio visual inmediato: cerrar selector y mostrar la aplicación ANTES de guardar.
   applyEcosystemUI(key);
   const chooser=$("#ecosystemChooser");
   if(chooser){chooser.classList.add("hidden");chooser.setAttribute("aria-hidden","true")}
   const app=$("#app"); if(app)app.classList.remove("hidden");
-  await view("home");
-  void saveEcosystem(key);
-  toast("Espacio configurado: "+ECOSYSTEMS[key].label,"ok");
+
+  try{
+    await view("home");
+    void saveEcosystem(key);
+    toast("Espacio configurado: "+ECOSYSTEMS[key].label,"ok");
+  }catch(err){
+    console.error("[M.A.R.C. ecosystem] No se pudo abrir el espacio",err);
+    toast("El espacio se seleccionó, pero hubo un error cargando el inicio. Recarga la página.","err");
+  }
 }
 async function ensureEcosystem(){
   const fromProfile=normalizeEcosystem(st.u?.user_metadata?.marc_ecosystem);

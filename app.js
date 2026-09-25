@@ -293,7 +293,8 @@ async function home(){
   const [cl,iv,qt,so]=await Promise.all([
     S.from("marc_clients").select("*",{count:"exact"}).eq("user_id",st.u.id),
     S.from("marc_inventory").select("*").eq("user_id",st.u.id).eq("active",true).order("name"),
-    S.from("marc_quotes").select("*").eq("user_id",st.u.id).is("deleted_at",null).order("created_at",{ascending:false}).limit(120)
+    S.from("marc_quotes").select("*").eq("user_id",st.u.id).is("deleted_at",null).order("created_at",{ascending:false}).limit(120),
+    S.from("marc_service_orders").select("*").eq("user_id",st.u.id).order("created_at",{ascending:false}).limit(500)
   ]);
 
   const inventory=iv.data||[];

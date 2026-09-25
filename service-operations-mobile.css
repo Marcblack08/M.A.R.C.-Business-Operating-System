@@ -1,0 +1,76 @@
+/* M.A.R.C. · Service operations mobile polish · 2026-09-25 */
+.service-mobile-cards{display:none}
+.agenda-mobile-stack{display:none}
+
+@media(max-width:780px){
+  .service-order-browser{overflow:visible!important}
+  .service-order-browser .scroll{display:none!important}
+  .service-mobile-cards{display:grid;gap:10px}
+  .service-mobile-card{
+    display:grid;gap:12px;padding:14px;border:1px solid rgba(79,171,235,.20);
+    border-radius:18px;background:#fff;box-shadow:0 8px 22px rgba(8,48,79,.07)
+  }
+  .service-mobile-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .service-mobile-title{min-width:0}
+  .service-mobile-title b{display:block;font-size:13px;color:#10283d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .service-mobile-title small{display:block;margin-top:3px;color:#7890a4;font-size:9px}
+  .service-mobile-status{flex:none;padding:5px 8px;border-radius:999px;background:#edf6ff;color:#1d75b9;font-size:8px;font-weight:900}
+  .service-mobile-client{font-size:10px;color:#536d82}
+  .service-mobile-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .service-mobile-metric{padding:9px;border-radius:12px;background:#f6faff;border:1px solid #e3eef7}
+  .service-mobile-metric span{display:block;font-size:7px;color:#8298aa;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
+  .service-mobile-metric b{display:block;margin-top:3px;font-size:11px;color:#173149}
+  .service-mobile-profit b{color:#168458}
+  .service-mobile-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+  .service-mobile-actions button{min-height:38px!important;font-size:9px!important;padding:7px 8px!important}
+  .service-mobile-actions button:first-child{grid-column:1/-1}
+  .service-mobile-actions button:last-child{grid-column:1/-1}
+
+  .agenda-mobile-stack{display:grid;gap:12px}
+  .agenda-mobile-section{
+    border-radius:20px;padding:14px;background:#fff;border:1px solid rgba(79,171,235,.18);
+    box-shadow:0 8px 22px rgba(8,48,79,.06)
+  }
+  .agenda-mobile-section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+  .agenda-mobile-section-head h3{margin:0;font-size:14px;color:#10283d}
+  .agenda-mobile-section-head small{color:#8298aa;font-size:8px}
+  .agenda-mobile-list{display:grid;gap:8px}
+  .agenda-mobile-item{
+    display:grid;gap:8px;padding:11px;border-radius:14px;background:#f7fbff;border:1px solid #e4eef6
+  }
+  .agenda-mobile-item-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+  .agenda-mobile-item-top b{font-size:11px;color:#173149}
+  .agenda-mobile-pill{font-size:7px;font-weight:900;padding:5px 7px;border-radius:999px;background:#eaf7ff;color:#1b79b8;white-space:nowrap}
+  .agenda-mobile-item p{margin:0;font-size:9px;line-height:1.45;color:#61798e}
+  .agenda-mobile-item small{font-size:8px;color:#8298aa}
+  .agenda-mobile-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .agenda-mobile-actions button{min-height:36px!important;font-size:9px!important;padding:7px!important}
+  .agenda-mobile-actions button.full{grid-column:1/-1}
+  .agenda-mobile-due{border-color:rgba(226,146,30,.25);background:#fffaf1}
+  .agenda-mobile-due .agenda-mobile-pill{background:#fff1d7;color:#a76a00}
+  .agenda-mobile-table{display:none!important}
+
+  .service-profitability-summary,.client-summary{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important
+  }
+  .service-profitability-summary>div,.client-summary>div{min-width:0!important;padding:12px!important;border-radius:15px!important}
+  .service-profitability-summary strong,.client-summary strong{font-size:20px!important}
+  .service-profitability-summary span,.client-summary span{font-size:7px!important}
+  .service-profitability-summary small,.client-summary small{font-size:8px!important}
+  .head{gap:10px!important}
+  .head-actions{display:grid!important;grid-template-columns:1fr 1fr!important;width:100%!important}
+  .head-actions button{width:100%!important;min-height:42px!important;font-size:9px!important}
+  .service-order-browser .toolbar{display:grid!important;grid-template-columns:1fr!important;gap:8px!important}
+  .service-order-browser .toolbar .search{width:100%!important}
+  #serviceOrderSearch{width:100%!important;min-height:42px!important}
+}
+
+@media(max-width:430px){
+  .service-mobile-card,.agenda-mobile-section{padding:12px}
+  .service-mobile-grid{gap:6px}
+  .service-mobile-metric{padding:8px}
+  .service-mobile-actions{gap:6px}
+  .service-profitability-summary>div,.client-summary>div{padding:10px!important}
+  .service-profitability-summary strong,.client-summary strong{font-size:18px!important}
+  .head-actions{grid-template-columns:1fr!important}
+}

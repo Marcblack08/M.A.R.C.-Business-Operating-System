@@ -1,0 +1,23 @@
+/* Ecosystem shell laboratory — image-light visual system.
+   Loaded only by the isolated ecosystem branch. */
+.auth-mascot-css,
+.hero-visual-logo{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  border-radius:50%!important;
+  background:
+    radial-gradient(circle at 35% 30%,#29c8ff 0 4%,transparent 5%),
+    radial-gradient(circle at 50% 50%,#0b3152 0 48%,#06182b 49% 64%,#0b9df0 65% 66%,#061426 67%)!important;
+  border:2px solid rgba(54,192,255,.72)!important;
+  box-shadow:0 0 0 8px rgba(14,135,225,.07),0 0 35px rgba(0,149,255,.24)!important;
+}
+.auth-mascot-css span,
+.hero-visual-logo span{
+  font-weight:950!important;
+  color:#fff!important;
+  text-shadow:0 0 18px rgba(38,191,255,.75)!important;
+  font-family:Arial,sans-serif!important;
+}
+.auth-mascot-css span{font-size:clamp(55px,12vw,105px)!important}
+.hero-visual-logo span{font-size:64px!important}

@@ -330,7 +330,20 @@ function closeChat(){
   $("#chat").classList.add("closed");
   $("#app").classList.add("chat-closed");
 }
-function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",suppliers:"Proveedores",quotes:"Cotizaciones",service_orders:"Órdenes de trabajo",settings:"Configuración",cash:"Cierre de caja",agenda:"Agenda técnica"}[x]||"Inicio";$$(".sidebar nav button, #mobileNav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
+async function finances(){
+  const el=$("#content"); if(!el)return;
+  el.innerHTML=`<section class="section-head"><div><span class="eyebrow">CONTROL FINANCIERO</span><h2>Finanzas</h2><p>Ingresos, gastos y resultado de tus trabajos. Sin POS.</p></div></section>
+  <div class="stats-grid"><article class="stat-card"><small>Ingresos</small><strong id="finIncome">S/ 0.00</strong></article><article class="stat-card"><small>Costos</small><strong id="finExpense">S/ 0.00</strong></article><article class="stat-card"><small>Resultado</small><strong id="finResult">S/ 0.00</strong></article></div>
+  <div class="card"><div class="card-head"><div><b>Resumen financiero</b><small>La utilidad detallada por trabajo está en Órdenes de trabajo.</small></div></div><div class="empty-state">Este módulo será el control financiero ligero para técnicos. La Caja/POS queda reservada para Tienda / Negocio.</div></div>`;
+  const {data,error}=await S.from("marc_service_orders").select("revenue,total,labor_cost,transport_cost,materials_cost,other_cost").eq("user_id",st.u.id).limit(1000);
+  if(error)throw error;
+  const rows=data||[];
+  const income=rows.reduce((n,r)=>n+Number(r.revenue||r.total||0),0);
+  const expense=rows.reduce((n,r)=>n+Number(r.labor_cost||0)+Number(r.transport_cost||0)+Number(r.materials_cost||0)+Number(r.other_cost||0),0);
+  $("#finIncome").textContent=money(income);$("#finExpense").textContent=money(expense);$("#finResult").textContent=money(income-expense);
+}
+
+function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",suppliers:"Proveedores",quotes:"Cotizaciones",service_orders:"Órdenes de trabajo",settings:"Configuración",cash:"Cierre de caja",agenda:"Agenda técnica",finances:"Finanzas"}[x]||"Inicio";$$(".sidebar nav button, #mobileNav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
 let __viewBusy=false;
 async function view(x){
   if(!ecosystemAllows(x)&&x!=="home"){
@@ -345,7 +358,7 @@ async function view(x){
     $$(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x));
     if(x==="home")return home();if(x==="clients")return clients();if(x==="inventory")return inventory();
     if(x==="suppliers"){if(window.marcSupplierCenter)return window.marcSupplierCenter();return toast("No se pudo cargar el Centro de Proveedores. Recarga la aplicación.","err");}
-    if(x==="quotes")return quotes();if(x==="service_orders")return serviceOrders();if(x==="agenda")return agenda();if(x==="cash")return cash();return settings();
+    if(x==="quotes")return quotes();if(x==="service_orders")return serviceOrders();if(x==="agenda")return agenda();if(x==="finances")return finances();if(x==="cash")return cash();return settings();
   };
   __viewBusy=true;
   content?.classList.add("view-switching");

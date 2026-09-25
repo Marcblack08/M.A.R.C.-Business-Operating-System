@@ -4096,3 +4096,109 @@ html[data-theme="color"] .auth-card{border-color:#d9d0f2;background:#ffffffed}
   .modal-root>.modal:has(.cash-pos-modal) .cash-pos-product-grid{grid-auto-rows:minmax(110px,auto)!important}
   .modal-root>.modal:has(.cash-pos-modal) .cash-pos-product-grid>*{min-height:110px!important}
 }
+
+
+/* POS móvil v3 · scroll natural, sin cajas gigantes ni scroll atrapado */
+@media(max-width:780px){
+  .modal-root>.modal:has(.cash-pos-modal){
+    padding:0!important;
+    width:100%!important;
+    height:100dvh!important;
+    max-height:100dvh!important;
+    overflow:hidden!important;
+    background:#071626!important;
+  }
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-modal{
+    width:100%!important;
+    height:100dvh!important;
+    max-width:none!important;
+    display:flex!important;
+    flex-direction:column!important;
+  }
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-head{
+    flex:0 0 auto!important;
+    min-height:78px!important;
+    margin:0!important;
+    padding:12px 14px!important;
+    border-radius:0!important;
+  }
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-layout{
+    display:block!important;
+    flex:1 1 auto!important;
+    width:100%!important;
+    height:auto!important;
+    min-height:0!important;
+    max-height:none!important;
+    padding:10px!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+    -webkit-overflow-scrolling:touch!important;
+    overscroll-behavior-y:contain!important;
+    scrollbar-width:thin!important;
+  }
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-products{
+    display:flex!important;
+    height:auto!important;
+    min-height:0!important;
+    overflow:visible!important;
+    gap:9px!important;
+  }
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-products .cash-product-search{
+    flex:0 0 44px!important;
+    height:44px!important;
+    position:sticky!important;
+    top:0!important;
+    z-index:4!important;
+    font-size:14px!important;
+  }
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-cats{
+    flex:0 0 auto!important;
+    min-height:40px!important;
+    position:sticky!important;
+    top:50px!important;
+    z-index:3!important;
+    padding:3px 0 7px!important;
+    background:#071626!important;
+  }
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-product-grid{
+    display:grid!important;
+    flex:none!important;
+    height:auto!important;
+    min-height:118px!important;
+    max-height:none!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    grid-auto-rows:minmax(118px,auto)!important;
+    align-content:start!important;
+    overflow:visible!important;
+    padding:2px!important;
+  }
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-product-grid>*{
+    min-width:0!important;
+    min-height:118px!important;
+    max-height:none!important;
+  }
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-cart{
+    width:100%!important;
+    height:auto!important;
+    min-height:300px!important;
+    margin-top:12px!important;
+    overflow:visible!important;
+    padding:12px!important;
+    border-radius:17px!important;
+  }
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-cart-list{
+    height:auto!important;
+    min-height:70px!important;
+    max-height:240px!important;
+    overflow-y:auto!important;
+    -webkit-overflow-scrolling:touch!important;
+  }
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-cart-total input{font-size:14px!important;min-height:38px!important;height:38px!important}
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-charge{min-height:44px!important;height:44px!important}
+}
+@media(max-width:380px){
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-layout{padding:8px!important}
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-product-grid{grid-auto-rows:minmax(108px,auto)!important}
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-product-grid>*{min-height:108px!important}
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-cart{min-height:285px!important}
+}

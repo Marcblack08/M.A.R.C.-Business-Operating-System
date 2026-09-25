@@ -3934,3 +3934,37 @@ html[data-theme="color"] .auth-card{border-color:#d9d0f2;background:#ffffffed}
  .cash-howto-badge{display:inline-block;margin-top:10px}
  .cash-howto-steps{grid-template-columns:1fr}
 }
+
+
+/* Caja jerárquica · apertura por nivel de operación */
+.cash-type-modal,.cash-open-modal{max-width:760px;margin:auto}
+.cash-type-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:8px 0 16px}
+.cash-type-card{position:relative;display:grid;grid-template-columns:auto 1fr auto;gap:10px 12px;align-items:start;text-align:left;padding:18px!important;border:1px solid var(--line);border-radius:22px!important;background:linear-gradient(145deg,var(--panel),rgba(11,115,230,.045));color:var(--text);transition:transform .16s,box-shadow .16s,border-color .16s,background .16s}
+.cash-type-card:hover{transform:translateY(-2px);border-color:#38a8ff;box-shadow:0 14px 32px rgba(10,80,150,.16)}
+.cash-type-card:focus-visible{outline:2px solid #21a5ff;outline-offset:2px}
+.cash-type-card.cash-type-full{border-color:rgba(33,150,243,.55);box-shadow:0 0 0 1px rgba(33,150,243,.08),0 10px 28px rgba(10,80,150,.1)}
+.cash-type-icon{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;font-size:22px;background:linear-gradient(145deg,#0b73e6,#0759bd);color:#fff;box-shadow:0 8px 18px rgba(7,89,189,.22)}
+.cash-type-sales .cash-type-icon{background:linear-gradient(145deg,#0ea875,#087b59)}
+.cash-type-card>div strong{display:block;font-size:18px;line-height:1.1;margin:2px 0 4px}
+.cash-type-card>div small{display:block;color:var(--muted);font-size:11px;line-height:1.4}
+.cash-type-card>i{font-style:normal;font-size:22px;color:#1595f4;padding-top:4px}
+.cash-type-card ul{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;margin:4px 0 0;padding:12px 0 0;border-top:1px solid var(--line);list-style:none}
+.cash-type-card li{font-size:10px;color:var(--muted);position:relative;padding-left:15px}
+.cash-type-card li:before{content:'✓';position:absolute;left:0;color:#16a7f5;font-weight:900}
+.cash-type-note,.cash-open-info{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border:1px solid rgba(33,150,243,.25);border-radius:15px;background:rgba(33,150,243,.055);color:var(--muted);margin-top:8px}
+.cash-type-note>span,.cash-open-info>span{color:#1595f4;font-size:17px;line-height:1}
+.cash-type-note b{display:block;color:var(--text);font-size:11px;margin-bottom:2px}
+.cash-type-note small,.cash-open-info small{font-size:10px;line-height:1.4}
+.cash-open-type-pill{display:flex;align-items:center;gap:10px;padding:12px 14px;margin:4px 0 14px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(145deg,var(--panel),rgba(11,115,230,.04))}
+.cash-open-type-pill>span{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:#0b73e6;color:#fff}
+.cash-open-type-pill b{display:block;font-size:12px}
+.cash-open-type-pill small{display:block;color:var(--muted);font-size:10px;margin-top:2px}
+.cash-open-type-pill>div{flex:1}
+@media(max-width:680px){
+  .cash-type-grid{grid-template-columns:1fr}
+  .cash-type-card{padding:15px!important}
+  .cash-type-card ul{grid-template-columns:1fr 1fr}
+  .cash-open-type-pill{align-items:flex-start;flex-wrap:wrap}
+  .cash-open-type-pill>div{min-width:0}
+  .cash-open-type-pill>#changeCashType{margin-left:auto}
+}

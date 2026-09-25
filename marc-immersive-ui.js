@@ -6,7 +6,8 @@
     {view:"inventory",icon:"▦",title:"Inventario",desc:"Productos y existencias",tone:"orange"},
     {view:"clients",icon:"◉",title:"Clientes",desc:"Contactos e historial",tone:"purple"},
     {view:"quotes",icon:"▤",title:"Cotizaciones",desc:"Propuestas y PDF",tone:"pink"},
-    {view:"marketing",icon:"✦",title:"Publicidad",desc:"Campañas y anuncios",tone:"cyan"},
+    {view:"service_orders",icon:"🛠",title:"Órdenes de trabajo",desc:"Trabajos, costos y rentabilidad",tone:"cyan"},
+    {view:"agenda",icon:"📅",title:"Agenda técnica",desc:"Citas y mantenimientos",tone:"teal"},
     {view:"suppliers",icon:"🏭",title:"Proveedores",desc:"Compras y abastecimiento",tone:"slate"},
     {view:"settings",icon:"⚙",title:"Configuración",desc:"Empresa y sistema",tone:"red"}
   ];
@@ -88,7 +89,7 @@
     const page=$("#page")?.textContent?.trim()||"Inicio";
     const map={
       "Inicio":"home","Clientes":"clients","Inventario":"inventory","Proveedores":"suppliers",
-      "Cotizaciones":"quotes","Publicidad":"marketing","Cierre de caja":"cash","Configuración":"settings"
+      "Cotizaciones":"quotes","Órdenes de trabajo":"service_orders","Agenda técnica":"agenda","Cierre de caja":"cash","Configuración":"settings"
     };
     const next=map[page]||"home";
     if(next!==current){current=next;homeLauncherReady=false}

@@ -124,6 +124,7 @@
       linear-gradient(150deg,#0a3150,#061a2e 68%,#041426)!important;
   }
   #auth .auth-visual-brand{
+    order:1!important;
     height:42px!important;
     justify-content:center!important;
     align-items:center!important;
@@ -134,6 +135,7 @@
   #auth .auth-visual-brand b{font-size:21px!important;letter-spacing:.13em!important}
   #auth .auth-visual-brand small{font-size:5.5px!important;letter-spacing:.17em!important}
   #auth .auth-mascot-wrap{
+    order:2!important;
     width:100%!important;
     height:166px!important;
     min-height:166px!important;
@@ -144,6 +146,7 @@
   }
   #auth .auth-mascot{width:160px!important;height:160px!important}
   #auth .auth-visual-copy{
+    order:3!important;
     align-self:center!important;
     text-align:center!important;
     margin:0!important;

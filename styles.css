@@ -4009,3 +4009,90 @@ html[data-theme="color"] .auth-card{border-color:#d9d0f2;background:#ffffffed}
   .cash-pos-cart{height:52%;min-height:230px;padding:12px!important;border-radius:16px!important}
   .cash-pos-cart-head b{font-size:17px}.cash-pos-cart-total>div b{font-size:17px}.cash-pos-cart-total>div strong{font-size:23px}
 }
+
+
+/* POS móvil v2 · dimensiones específicas para teléfonos */
+@media(max-width:780px){
+  .modal-root>.modal:has(.cash-pos-modal){
+    padding:0!important;
+    width:100%!important;
+    height:100dvh!important;
+    max-height:100dvh!important;
+    overflow:hidden!important;
+    background:#071626!important;
+  }
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-modal{
+    width:100%!important;
+    height:100dvh!important;
+    max-width:none!important;
+    display:flex!important;
+    flex-direction:column!important;
+  }
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-head{
+    flex:0 0 auto!important;
+    min-height:78px!important;
+    margin:0!important;
+    padding:12px 14px!important;
+    border-radius:0!important;
+  }
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-head h2{font-size:18px!important;margin:2px 0 4px!important}
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-head p{font-size:10px!important;line-height:1.3!important;max-width:calc(100% - 58px)!important}
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-head .close{width:44px!important;height:44px!important;min-width:44px!important}
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-layout{
+    flex:1 1 auto!important;
+    height:auto!important;
+    min-height:0!important;
+    max-height:none!important;
+    grid-template-columns:1fr!important;
+    grid-template-rows:minmax(0,56%) minmax(0,44%)!important;
+    gap:8px!important;
+    padding:8px!important;
+    border-radius:0!important;
+    overflow:hidden!important;
+  }
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-products{
+    height:auto!important;
+    min-height:0!important;
+    overflow:hidden!important;
+  }
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-products .cash-product-search{
+    flex:0 0 44px!important;height:44px!important;font-size:14px!important;
+  }
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-cats{flex:0 0 40px!important;min-height:40px!important}
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-product-grid{
+    flex:1 1 auto!important;
+    min-height:0!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    grid-auto-rows:minmax(118px,auto)!important;
+    align-content:start!important;
+    overflow-y:auto!important;
+    -webkit-overflow-scrolling:touch!important;
+    padding:2px!important;
+  }
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-product-grid>*{
+    min-width:0!important;
+    min-height:118px!important;
+    max-height:155px!important;
+  }
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-cart{
+    height:auto!important;
+    min-height:0!important;
+    overflow:hidden!important;
+    padding:11px!important;
+    border-radius:16px!important;
+  }
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-cart-head{flex:0 0 auto!important;padding-bottom:8px!important}
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-cart-head b{font-size:16px!important}
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-cart-list{flex:1 1 auto!important;min-height:42px!important;overflow-y:auto!important;margin:7px 0!important}
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-cart-total{flex:0 0 auto!important;padding-top:8px!important}
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-cart-total>div b{font-size:16px!important}
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-cart-total>div strong{font-size:22px!important}
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-cart-total label{font-size:9px!important}
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-cart-total input{height:38px!important;min-height:38px!important;font-size:14px!important;padding:8px 10px!important}
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-charge{height:42px!important;min-height:42px!important;padding:9px!important;margin-top:7px!important;font-size:13px!important}
+}
+@media(max-width:380px){
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-layout{grid-template-rows:minmax(0,54%) minmax(0,46%)!important}
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-product-grid{grid-auto-rows:minmax(110px,auto)!important}
+  .modal-root>.modal:has(.cash-pos-modal) .cash-pos-product-grid>*{min-height:110px!important}
+}

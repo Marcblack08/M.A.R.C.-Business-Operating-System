@@ -468,6 +468,14 @@ async function home(){
   $$(".quick-modern-grid button",c).forEach(b=>b.onclick=()=>b.dataset.q==="client"?clientModal():b.dataset.q==="inventory"?inventoryModal():b.dataset.q==="quote"?quoteModal():b.dataset.q==="cash"?cash():openChat());
 }
 
+function quoteModal(){
+  view("quotes");
+  setTimeout(()=>{
+    const b=$("#new");
+    if(b)b.click();
+  },320);
+}
+
 function modal(html){
   const root=$("#modal");
   if(!root)throw new Error("No existe el contenedor de modal.");

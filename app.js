@@ -665,7 +665,7 @@ async function serviceOrders(){
     return '<article class="service-mobile-card"><div class="service-mobile-top"><div class="service-mobile-title"><b>'+esc(r.number||"OT")+' · '+esc(r.title||"Servicio")+'</b><small>'+esc(r.service_type||"Servicio")+'</small></div><span class="service-mobile-status">'+esc(r.status||"PENDIENTE")+'</span></div><div class="service-mobile-client">👤 '+esc(r.marc_clients?.name||"Sin cliente")+(r.location?" · 📍 "+esc(r.location):"")+'</div><div class="service-mobile-grid"><div class="service-mobile-metric"><span>Cobrado</span><b>'+money(rev)+'</b></div><div class="service-mobile-metric"><span>Costo real</span><b>'+money(cost)+'</b></div><div class="service-mobile-metric service-mobile-profit"><span>Utilidad</span><b>'+money(p)+'</b></div><div class="service-mobile-metric"><span>Margen</span><b>'+formatPct(m)+'</b></div></div><small>'+(r.scheduled_at?"📅 "+esc(new Date(r.scheduled_at).toLocaleString("es-PE",{dateStyle:"medium",timeStyle:"short"})):"Sin programación")+'</small>'+cardActions(r)+'</article>';
   };
   draw(rows);
-  $("#serviceOrderSearch").oninput=e=>{const q=e.target.value.toLowerCase();draw(rows.filter(r=>[r.number,r.title,r.service_type,r.location,r.marc_clients?.name].some(v=>String(v||"").toLowerCase().includes(q)))};
+  $("#serviceOrderSearch").oninput=e=>{const q=e.target.value.toLowerCase();draw(rows.filter(r=>[r.number,r.title,r.service_type,r.location,r.marc_clients?.name].some(v=>String(v||"").toLowerCase().includes(q))))};
   $("#newServiceOrder").onclick=()=>serviceOrderModal();
   $("#serviceOrderRefresh").onclick=()=>serviceOrders();
   const handle=e=>{

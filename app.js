@@ -145,23 +145,63 @@ function applyEcosystemUI(key){
   const chooser=$("#ecosystemChooser");
   if(chooser){chooser.classList.add("hidden");chooser.setAttribute("aria-hidden","true")}
 }
+function isMasterAccount(){
+  const email=String(st.u?.email||"").trim().toLowerCase();
+  return email==="joachinbeltranmarcdonald50@gmail.com";
+}
+function hasMixedAccess(){
+  const meta=st.u?.user_metadata||{};
+  const values=[meta.marc_plan,meta.plan,meta.subscription_plan,meta.marc_ecosystem_plan,meta.marc_ecosystem_access,meta.ecosystem_plan,meta.ecosystem_access]
+    .map(v=>String(v||"").toLowerCase());
+  return values.some(v=>v.includes("mixed")||v.includes("mixto"));
+}
+async function canSwitchEcosystem(){
+  if(isMasterAccount()||hasMixedAccess())return true;
+  try{
+    const {data}=await S.from("marc_user_roles").select("role,active").eq("user_id",st.u?.id).eq("role","MASTER").eq("active",true).maybeSingle();
+    return data?.role==="MASTER";
+  }catch(_){return false}
+}
+function openEcosystemChooser(){
+  const chooser=$("#ecosystemChooser");
+  if(!chooser)return;
+  chooser.classList.remove("hidden");
+  chooser.setAttribute("aria-hidden","false");
+}
 async function saveEcosystem(key){
   key=normalizeEcosystem(key);
   if(!key)return;
   applyEcosystemUI(key);
+  // No bloqueamos la interfaz esperando Supabase: el cambio visual es inmediato.
   try{
     const nextData={...(st.u?.user_metadata||{}),marc_ecosystem:key};
-    const {data,error}=await S.auth.updateUser({data:nextData});
-    if(!error&&data?.user)st.u=data.user;
+    const result=await Promise.race([
+      S.auth.updateUser({data:nextData}),
+      new Promise(resolve=>setTimeout(()=>resolve({timeout:true}),2500))
+    ]);
+    if(!result?.timeout&&!result?.error&&result?.data?.user)st.u=result.data.user;
   }catch(e){
     console.warn("[M.A.R.C. ecosystem] No se pudo guardar en perfil; se conserva localmente.",e);
   }
 }
 async function chooseEcosystem(key){
-  await saveEcosystem(key);
+  key=normalizeEcosystem(key);
+  if(!key)return;
+  const allowed=await canSwitchEcosystem();
+  // La selección inicial siempre está permitida; los cambios posteriores quedan
+  // habilitados para MASTER y para planes con acceso mixto.
+  const current=normalizeEcosystem(st.u?.user_metadata?.marc_ecosystem)||normalizeEcosystem(localStorage.getItem(ECOSYSTEM_KEY));
+  if(current && current!==key && !allowed && hasMixedAccess()===false){
+    // Usuarios no mixtos conservan su ecosistema contratado.
+    toast("Tu plan actual no incluye cambio de ecosistema.","err");
+    return;
+  }
+  applyEcosystemUI(key);
   const chooser=$("#ecosystemChooser");
   if(chooser){chooser.classList.add("hidden");chooser.setAttribute("aria-hidden","true")}
+  const app=$("#app"); if(app)app.classList.remove("hidden");
   await view("home");
+  void saveEcosystem(key);
   toast("Espacio configurado: "+ECOSYSTEMS[key].label,"ok");
 }
 async function ensureEcosystem(){
@@ -2829,7 +2869,9 @@ function marcQuickView(viewName,selector){
 function wire(){
   initTheme();
   marcQuickLauncher();
-  $("#ecosystemChooser [data-ecosystem-choice]").forEach(b=>b.addEventListener("click",()=>chooseEcosystem(b.dataset.ecosystemChoice)));
+  $("#ecosystemChooser [data-ecosystem-choice]").forEach(b=>b.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();void chooseEcosystem(b.dataset.ecosystemChoice);}));
+  const ecosystemBadge=$("#ecosystemBadge");
+  if(ecosystemBadge){ecosystemBadge.addEventListener("click",async()=>{if(await canSwitchEcosystem())openEcosystemChooser();else toast("El cambio de ecosistema está disponible para planes Mixto y cuenta maestra.","err")});}
   const portalToken=new URLSearchParams(location.search).get("cliente_token");
   if(portalToken){
     renderClientPortal(portalToken);

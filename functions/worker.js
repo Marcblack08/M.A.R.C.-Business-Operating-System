@@ -3489,6 +3489,44 @@ async function marketingAi(request,env){
 }
 
 
+async function contentAi(request,env){
+  if(request.method!=="POST")return json({error:"Método no permitido"},405);
+  const {token,user}=await authUser(request,env);
+  const access=await entitlement(env,token,user.id);
+  if(!(await rateLimit(env,"ai:"+user.id+":content",20,3600)))return json({error:"Has alcanzado el límite temporal de generación de contenido. Intenta nuevamente más tarde."},429,corsHeaders(request,env));
+  if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request,env));
+  if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request,env));
+  const body=await request.json().catch(()=>({}));
+  const contentType=String(body?.contentType||"Guía práctica").trim().slice(0,80);
+  const audience=String(body?.audience||"público general").trim().slice(0,120);
+  const topic=String(body?.topic||"").trim().slice(0,300);
+  const keywords=String(body?.keywords||"").trim().slice(0,600);
+  const goal=String(body?.goal||"").trim().slice(0,800);
+  const cta=String(body?.cta||"").trim().slice(0,300);
+  const tone=String(body?.tone||"profesional, práctico y claro").trim().slice(0,180);
+  if(!topic)return json({error:"Indica el tema del artículo."},400,corsHeaders(request,env));
+  const systemText=[
+    "Eres el editor de contenidos de M.A.R.C., un sistema para profesionales, técnicos, tiendas y negocios.",
+    "Crea contenido útil, original y concreto. No inventes estadísticas, precios, normas, certificaciones, resultados ni datos que no estén sustentados.",
+    "El artículo debe enseñar algo real y accionable, no ser publicidad vacía. Si el tema requiere una advertencia técnica, inclúyela.",
+    "Usa español latino claro. Evita relleno, frases genéricas y exageraciones. El contenido debe poder publicarse en un blog profesional.",
+    "Devuelve SOLO JSON válido con exactamente estos campos: title, seo_title, meta_description, slug, outline, article, social_post, hashtags.",
+    "outline debe ser un arreglo de 4 a 8 subtítulos. article debe incluir título, introducción, secciones con subtítulos y cierre. social_post debe ser una publicación breve para redes que invite a leer el artículo. hashtags debe ser un arreglo de 4 a 10 etiquetas."
+  ].join("\n");
+  const userText=["TIPO: "+contentType,"PÚBLICO: "+audience,"TEMA: "+topic,"PALABRAS CLAVE: "+keywords,"OBJETIVO DEL CONTENIDO: "+goal,"LLAMADA A LA ACCIÓN: "+cta,"TONO: "+tone].join("\n");
+  let out;
+  try{out=await geminiGenerate(env,{messages:[{role:"system",content:systemText},{role:"user",content:userText}]},{json:true,maxTokens:2800})}
+  catch(err){throw Object.assign(new Error("Gemini: "+String(err?.message||"Error de API").slice(0,800)),{status:err?.status||502,details:err?.details||null})}
+  const responseText=out?.candidates?.[0]?.content?.parts?.map(x=>x.text||"").join("")||"";
+  if(!responseText)throw Object.assign(new Error("Gemini devolvió una respuesta vacía."),{status:502});
+  let parsed;try{parsed=extractJson(responseText)}catch{throw Object.assign(new Error("La IA devolvió un formato de artículo no válido."),{status:502})}
+  const slugSource=String(parsed?.slug||parsed?.title||topic).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,90);
+  const content={title:String(parsed?.title||topic).trim().slice(0,180),seo_title:String(parsed?.seo_title||parsed?.title||topic).trim().slice(0,180),meta_description:String(parsed?.meta_description||"").trim().slice(0,320),slug:slugSource||"articulo-marc",outline:Array.isArray(parsed?.outline)?parsed.outline.map(x=>String(x).trim()).filter(Boolean).slice(0,8):[],article:String(parsed?.article||"").trim().slice(0,20000),social_post:String(parsed?.social_post||"").trim().slice(0,2000),hashtags:Array.isArray(parsed?.hashtags)?parsed.hashtags.map(x=>String(x).trim()).filter(Boolean).slice(0,10):[]};
+  await incrementAiUsage(env,token,user.id,access);
+  await audit(env,token,user.id,"CONTENT",null,"GENERATE_ARTICLE",{contentType,audience,topic},"WEB");
+  return json({status:"GENERATED",content,entitlement:access},200,corsHeaders(request,env));
+}
+
 function b64u(bytes){
   let s=""; for(const b of bytes)s+=String.fromCharCode(b);
   return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
@@ -3984,6 +4022,7 @@ export default{
         return json({error:safeClientError(err,"No se pudo generar la cotización con IA.")},err?.status||500,headers);
       }
     }
+    if(url.pathname==="/api/content-ai"){try{return await contentAi(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo generar el artículo.")},err?.status||500,headers)}}
     if(url.pathname==="/api/marketing-ai"){try{return await marketingAi(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo generar la publicidad.")},err?.status||500,headers)}}
     if(url.pathname==="/api/marketing-video-start"){try{return await marketingVideoStart(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo iniciar el video.")},err?.status||500,headers)}}
     if(url.pathname==="/api/marketing-video-status"){try{return await marketingVideoStatus(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo consultar el video.")},err?.status||500,headers)}}

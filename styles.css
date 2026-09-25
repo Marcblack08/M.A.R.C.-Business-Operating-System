@@ -3934,3 +3934,7 @@ html[data-theme="color"] .auth-card{border-color:#d9d0f2;background:#ffffffed}
  .cash-howto-badge{display:inline-block;margin-top:10px}
  .cash-howto-steps{grid-template-columns:1fr}
 }
+
+/* Ecosystem switcher */
+.ecosystem-badge{cursor:pointer!important;border:1px solid rgba(40,150,230,.35)!important;background:rgba(7,35,58,.65)!important;color:inherit!important;border-radius:10px!important;padding:5px 9px!important;font:inherit!important;}
+.ecosystem-badge:hover{border-color:rgba(40,170,255,.75)!important;box-shadow:0 0 14px rgba(0,140,255,.12)!important}

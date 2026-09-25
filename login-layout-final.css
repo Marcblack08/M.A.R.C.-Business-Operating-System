@@ -643,3 +643,80 @@
  #auth.auth>.auth-card .google-login,#auth.auth>.auth-card #authSubmit{height:50px!important;min-height:50px!important;font-size:14px!important}
  #auth.auth>.auth-card input{height:50px!important;min-height:50px!important;font-size:13px!important}
 }
+
+/* M.A.R.C. LOGIN REFERENCE — rebuilt visual layer */
+#auth.auth-reference{min-height:100svh!important;display:block!important;padding:26px 18px 48px!important;box-sizing:border-box!important;background:#020f20!important;overflow:auto!important}
+#auth.auth-reference .auth-reference-shell{width:min(980px,100%)!important;margin:auto!important;display:flex!important;flex-direction:column!important;gap:20px!important}
+#auth.auth-reference .auth-reference-hero,#auth.auth-reference .auth-reference-card{box-sizing:border-box!important;border:1px solid rgba(35,150,255,.55)!important;border-radius:30px!important;background:linear-gradient(145deg,#052542,#031426)!important;box-shadow:0 22px 65px rgba(0,0,0,.38),0 0 35px rgba(0,127,255,.10)!important;overflow:hidden!important}
+#auth.auth-reference .auth-reference-hero{padding:25px 38px 30px!important}
+#auth.auth-reference .auth-reference-brand{text-align:center!important;color:#fff!important;font-size:58px!important;font-weight:950!important;letter-spacing:.16em!important;line-height:.9!important}
+#auth.auth-reference .auth-reference-brand small{display:block!important;margin-top:10px!important;color:#14b7f5!important;font-size:14px!important;letter-spacing:.28em!important}
+#auth.auth-reference .auth-reference-hero-body{display:grid!important;grid-template-columns:1fr 1.05fr!important;align-items:center!important;gap:24px!important;margin-top:8px!important}
+#auth.auth-reference .auth-reference-mascot-wrap{display:flex!important;align-items:center!important;justify-content:center!important;min-height:355px!important}
+#auth.auth-reference .auth-reference-mascot{width:355px!important;height:355px!important;object-fit:contain!important;border-radius:50%!important;filter:drop-shadow(0 0 24px rgba(0,150,255,.4))!important}
+#auth.auth-reference .auth-reference-message>span{color:#16b9f4!important;font-size:15px!important;font-weight:850!important;letter-spacing:.17em!important}
+#auth.auth-reference .auth-reference-message h2{margin:12px 0 22px!important;color:#fff!important;font-size:46px!important;line-height:1.02!important;letter-spacing:-.045em!important}
+#auth.auth-reference .auth-reference-message h2 strong{color:#16c5ff!important}
+#auth.auth-reference .auth-reference-features{display:grid!important;gap:12px!important}
+#auth.auth-reference .auth-reference-features>div{display:flex!important;align-items:center!important;gap:14px!important;color:#e5f2ff!important;font-size:16px!important;line-height:1.15!important}
+#auth.auth-reference .auth-reference-features b{width:56px!important;height:56px!important;min-width:56px!important;display:grid!important;place-items:center!important;border:1px solid rgba(20,164,255,.7)!important;border-radius:15px!important;background:#08365bd0!important;color:#8fd5ff!important;font-size:18px!important}
+#auth.auth-reference .auth-reference-card{padding:38px 44px 30px!important}
+#auth.auth-reference .auth-reference-card-head{display:grid!important;grid-template-columns:92px 1fr!important;gap:24px!important;align-items:center!important;margin-bottom:27px!important}
+#auth.auth-reference .auth-reference-mark{width:92px!important;height:92px!important;display:grid!important;place-items:center!important;border-radius:20px!important;border:1px solid rgba(24,167,255,.65)!important;background:linear-gradient(145deg,#0a3155,#041a2e)!important;color:#fff!important;font-size:46px!important;font-weight:900!important;line-height:.8!important}
+#auth.auth-reference .auth-reference-mark span{display:block!important;font-size:12px!important;letter-spacing:.16em!important;margin-top:-8px!important}
+#auth.auth-reference .auth-card h1{margin:7px 0 9px!important;color:#fff!important;font-size:40px!important;line-height:1!important;letter-spacing:-.04em!important}
+#auth.auth-reference .auth-card p{margin:0!important;color:#a9c5dc!important;font-size:16px!important}
+#auth.auth-reference .eyebrow{color:#13baf6!important;font-size:14px!important;font-weight:900!important;letter-spacing:.18em!important}
+#auth.auth-reference .google-login,#auth.auth-reference #authSubmit{height:66px!important;min-height:66px!important;border-radius:16px!important;background:linear-gradient(105deg,#12baf0,#075ff0)!important;border:0!important;color:#fff!important;font-size:21px!important;font-weight:850!important;box-shadow:0 12px 28px rgba(0,111,255,.22)!important}
+#auth.auth-reference .google-login{margin-bottom:21px!important}
+#auth.auth-reference .auth-divider{display:flex!important;align-items:center!important;gap:18px!important;color:#5ea6d6!important;font-size:13px!important;font-weight:800!important;letter-spacing:.08em!important;text-transform:uppercase!important;margin:0 0 21px!important}
+#auth.auth-reference .auth-divider:before,#auth.auth-reference .auth-divider:after{content:""!important;height:1px!important;flex:1!important;background:#2f7db56e!important}
+#auth.auth-reference .auth-form{display:grid!important;gap:18px!important}
+#auth.auth-reference .auth-form label{display:grid!important;gap:9px!important;color:#fff!important;font-size:16px!important;font-weight:800!important}
+#auth.auth-reference .auth-form input{height:64px!important;min-height:64px!important;width:100%!important;box-sizing:border-box!important;border:1px solid #2484d1bf!important;border-radius:15px!important;background:#021426!important;color:#fff!important;padding:0 18px!important;font-size:17px!important;outline:none!important}
+#auth.auth-reference .auth-form input::placeholder{color:#69869f!important}
+#auth.auth-reference .password-field{position:relative!important}
+#auth.auth-reference .password-field input{padding-right:55px!important}
+#auth.auth-reference .password-field button{position:absolute!important;right:13px!important;top:50%!important;transform:translateY(-50%)!important;border:0!important;background:none!important;color:#83bce6!important;font-size:21px!important;cursor:pointer!important}
+#auth.auth-reference .auth-form-row{display:grid!important;gap:14px!important}
+#auth.auth-reference .auth-submit-arrow{float:right!important;font-size:30px!important;line-height:.7!important}
+#auth.auth-reference .auth-link{border:0!important;background:none!important;color:#14baf5!important;font-size:17px!important;font-weight:800!important;cursor:pointer!important}
+#auth.auth-reference .auth-switch{margin-top:8px!important;padding-top:22px!important;border-top:1px solid #3675a14d!important;text-align:center!important;color:#b5cce0!important;font-size:17px!important}
+#auth.auth-reference .auth-switch button{border:0!important;background:none!important;color:#15bdf8!important;font-size:17px!important;font-weight:850!important;cursor:pointer!important}
+#auth.auth-reference .auth-foot{justify-content:center!important;color:#6f96b3!important;font-size:10px!important;margin-top:22px!important}
+@media(max-width:700px){
+#auth.auth-reference{padding:10px 9px 28px!important}
+#auth.auth-reference .auth-reference-shell{gap:10px!important}
+#auth.auth-reference .auth-reference-hero{padding:17px 13px 18px!important;border-radius:23px!important}
+#auth.auth-reference .auth-reference-brand{font-size:29px!important;letter-spacing:.13em!important}
+#auth.auth-reference .auth-reference-brand small{font-size:7px!important;margin-top:6px!important}
+#auth.auth-reference .auth-reference-hero-body{grid-template-columns:1fr!important;gap:4px!important}
+#auth.auth-reference .auth-reference-mascot-wrap{min-height:205px!important}
+#auth.auth-reference .auth-reference-mascot{width:190px!important;height:190px!important}
+#auth.auth-reference .auth-reference-message{text-align:center!important}
+#auth.auth-reference .auth-reference-message>span{font-size:8px!important;letter-spacing:.16em!important}
+#auth.auth-reference .auth-reference-message h2{font-size:28px!important;margin:6px 0 12px!important}
+#auth.auth-reference .auth-reference-features{width:min(100%,340px)!important;margin:auto!important;gap:7px!important;text-align:left!important}
+#auth.auth-reference .auth-reference-features>div{font-size:10px!important;gap:9px!important}
+#auth.auth-reference .auth-reference-features b{width:34px!important;height:34px!important;min-width:34px!important;border-radius:9px!important;font-size:11px!important}
+#auth.auth-reference .auth-reference-card{padding:21px 16px 18px!important;border-radius:23px!important}
+#auth.auth-reference .auth-reference-card-head{grid-template-columns:48px 1fr!important;gap:12px!important;margin-bottom:17px!important}
+#auth.auth-reference .auth-reference-mark{width:48px!important;height:48px!important;border-radius:12px!important;font-size:24px!important}
+#auth.auth-reference .auth-reference-mark span{font-size:7px!important;margin-top:-4px!important}
+#auth.auth-reference .eyebrow{font-size:7px!important;letter-spacing:.16em!important}
+#auth.auth-reference .auth-card h1{font-size:24px!important;margin:4px 0 5px!important}
+#auth.auth-reference .auth-card p{font-size:8px!important;line-height:1.3!important}
+#auth.auth-reference .google-login,#auth.auth-reference #authSubmit{height:50px!important;min-height:50px!important;border-radius:12px!important;font-size:14px!important}
+#auth.auth-reference .google-login{margin-bottom:13px!important}
+#auth.auth-reference .auth-divider{font-size:7px!important;gap:8px!important;margin-bottom:13px!important}
+#auth.auth-reference .auth-form{gap:11px!important}
+#auth.auth-reference .auth-form label{font-size:9px!important;gap:5px!important}
+#auth.auth-reference .auth-form input{height:47px!important;min-height:47px!important;border-radius:11px!important;font-size:10px!important;padding:0 12px!important}
+#auth.auth-reference .password-field input{padding-right:42px!important}
+#auth.auth-reference .password-field button{right:8px!important;font-size:15px!important}
+#auth.auth-reference .auth-form-row{gap:9px!important}
+#auth.auth-reference .auth-submit-arrow{font-size:22px!important}
+#auth.auth-reference .auth-link,#auth.auth-reference .auth-switch,#auth.auth-reference .auth-switch button{font-size:9px!important}
+#auth.auth-reference .auth-switch{padding-top:13px!important}
+#auth.auth-reference .auth-foot{font-size:6px!important;margin-top:13px!important}
+}

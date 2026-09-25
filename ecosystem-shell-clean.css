@@ -1,0 +1,88 @@
+/* M.A.R.C. ecosystem shell — image-light visual layer.
+   Functional images (product/service photos, documents) are not affected. */
+
+.auth-marc-orb{
+  width:clamp(145px,42vw,220px);
+  aspect-ratio:1;
+  border-radius:50%;
+  display:grid;
+  place-items:center;
+  align-content:center;
+  gap:1px;
+  position:relative;
+  color:#fff;
+  background:
+    radial-gradient(circle at 50% 42%,#173c5e 0%,#071a2e 58%,#041120 100%);
+  border:2px solid rgba(35,174,255,.78);
+  box-shadow:
+    0 0 0 8px rgba(24,151,235,.08),
+    0 0 35px rgba(0,142,255,.25),
+    inset 0 0 35px rgba(30,165,255,.10);
+}
+.auth-marc-orb::before,
+.auth-marc-orb::after{
+  content:"";
+  position:absolute;
+  border:1px solid rgba(72,193,255,.18);
+  border-radius:50%;
+  inset:12%;
+}
+.auth-marc-orb::after{inset:23%;border-color:rgba(72,193,255,.12)}
+.auth-marc-orb span{
+  font-size:clamp(42px,12vw,70px);
+  line-height:.9;
+  font-weight:900;
+  letter-spacing:-.08em;
+  text-shadow:0 0 18px rgba(40,190,255,.55);
+}
+.auth-marc-orb b{
+  font-size:clamp(14px,4vw,22px);
+  letter-spacing:.18em;
+}
+.auth-marc-orb small{
+  font-size:5px;
+  letter-spacing:.2em;
+  opacity:.75;
+}
+
+/* Home hero: information remains, decorative photo is replaced by a brand mark. */
+.hero-visual-logo{
+  position:relative;
+  width:180px;
+  height:180px;
+  border-radius:50%;
+  display:grid;
+  place-items:center;
+  align-content:center;
+  background:radial-gradient(circle,#123b5d,#06192c 68%,#041120);
+  border:2px solid rgba(40,181,255,.72);
+  box-shadow:0 0 0 9px rgba(24,151,235,.07),0 0 38px rgba(0,142,255,.20);
+}
+.hero-visual-logo::before{
+  content:"";
+  position:absolute;
+  inset:14%;
+  border:1px solid rgba(75,192,255,.2);
+  border-radius:50%;
+}
+.hero-visual-logo span{
+  font-size:58px;
+  font-weight:900;
+  line-height:.8;
+  color:#fff;
+  text-shadow:0 0 20px rgba(40,190,255,.45);
+}
+.hero-visual-logo b{
+  margin-top:6px;
+  font-size:17px;
+  letter-spacing:.16em;
+  color:#fff;
+}
+.hero-visual-logo img{display:none!important}
+
+@media(max-width:780px){
+  .auth-marc-orb{width:150px}
+  .hero-visual-logo{width:130px;height:130px}
+  .hero-visual-logo span{font-size:43px}
+  .hero-visual-logo b{font-size:13px}
+}

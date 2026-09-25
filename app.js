@@ -1,31 +1,5 @@
 (()=>{const C=window.MARC_CONFIG,S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"implicit"}});const st={u:null,session:null,view:"home",cid:null,authEpoch:0};let authListenerSession=null,authTimer=null,authEnteredSessionId=null;S.auth.onAuthStateChange((ev,s)=>{authListenerSession=s||null;console.info("[M.A.R.C. auth]",ev,!!s,s?.user?.id||"");if(s?.user){clearTimeout(authTimer);authTimer=setTimeout(()=>handleAuthSession(s),0)}else if(ev==="SIGNED_OUT"){clearTimeout(authTimer);authTimer=setTimeout(()=>resetUiToLogin(),0)}});const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)],esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])),money=v=>new Intl.NumberFormat("es-PE",{style:"currency",currency:"PEN"}).format(Number(v||0)),toast=(t,c="")=>{const e=document.createElement("div");e.className="toast "+c;e.textContent=t;$("#toast").appendChild(e);setTimeout(()=>e.remove(),2600)},initials=n=>String(n||"M").split(/\s+/).slice(0,2).map(x=>x[0]?.toUpperCase()).join("");let authMode="login",recoveryMode=new URLSearchParams(location.search).get("recovery")==="1"||/type=recovery/i.test(location.hash);
 function msg(t,c=""){const e=$("#authMsg");e.textContent=t;e.className="msg "+c}
-async function logoutMARC(e){
-  e?.preventDefault();
-  e?.stopPropagation();
-  const b=$("#logout");
-  if(b?.dataset.busy==="1")return;
-  if(b)b.dataset.busy="1";
-  try{
-    if(b){b.disabled=true;b.setAttribute("aria-busy","true");}
-    clearTimeout(authTimer);
-    sessionStorage.removeItem("marc_google_oauth_pending");
-    sessionStorage.removeItem("marc_cash_owner_session");
-    localStorage.removeItem("marc_password_reset_cooldown");
-    await S.auth.signOut({scope:"local"});
-    resetUiToLogin("Sesión cerrada correctamente.","ok");
-  }catch(err){
-    console.error("[M.A.R.C. logout]",err);
-    resetUiToLogin();
-    msg(err?.message||"No se pudo cerrar la sesión. Vuelve a intentarlo.","error");
-  }finally{
-    if(b){b.disabled=false;b.removeAttribute("aria-busy");delete b.dataset.busy;}
-  }
-}
-document.addEventListener("click",e=>{
-  const target=e.target?.closest?.("#logout");
-  if(target){logoutMARC(e);}
-});
 const THEME_KEY="marc_theme";
 function applyTheme(theme,save=true){
   const t=["light","dark","color"].includes(theme)?theme:"light";
@@ -81,7 +55,7 @@ async function signInCashStaff(e){
   }
 }
 
-async async function signInGoogle(e){
+async function signInGoogle(e){
   e?.preventDefault();
   e?.stopPropagation();
   const b=$("#googleLogin");
@@ -118,33 +92,6 @@ async async function signInGoogle(e){
     if(label)label.textContent="Continuar con Google";
   }
 }
-function bindAuthControls(){
-  const google=$("#googleLogin");
-  if(google && !google.dataset.bound){
-    google.dataset.bound="1";
-    google.addEventListener("click",signInGoogle);
-  }
-  const form=$("#authForm");
-  if(form && !form.dataset.bound){
-    form.dataset.bound="1";
-    form.addEventListener("submit",submit);
-  }
-  const toggle=$("#passwordToggle");
-  if(toggle && !toggle.dataset.bound){
-    toggle.dataset.bound="1";
-    toggle.addEventListener("click",()=>{
-      const p=$("#password");
-      if(p){p.type=p.type==="password"?"text":"password";toggle.setAttribute("aria-label",p.type==="password"?"Mostrar contraseña":"Ocultar contraseña");}
-    });
-  }
-  const forgot=$("#forgotPassword");
-  if(forgot && !forgot.dataset.bound){
-    forgot.dataset.bound="1";
-    forgot.addEventListener("click",()=>mode("reset"));
-  }
-}
-if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",bindAuthControls,{once:true});else bindAuthControls();
-
 async function handleAuthSession(s){if(!s?.user)return;const id=s.user.id;if(authEnteredSessionId===id && st.u?.id===id && !$("#app").classList.contains("hidden"))return;authEnteredSessionId=id;try{await enter(s)}catch(e){authEnteredSessionId=null;throw e}}function resetUiToLogin(message="",type=""){st.authEpoch++;st.u=null;st.session=null;st.cid=null;try{applyCashierMode(false)}catch{}$("#app").classList.add("hidden");$("#auth").classList.remove("hidden");mode("login");if(message)msg(message,type)}
 async function ensure(){const u=st.u;if(!u)return;await S.from("marc_accounts").upsert({id:u.id,display_name:u.email?.split("@")[0]||"Usuario"},{onConflict:"id"});const {data:t}=await S.from("marc_trials").select("id").eq("user_id",u.id).maybeSingle();if(!t)await S.from("marc_trials").insert({user_id:u.id});const {data:c}=await S.from("marc_conversations").select("id").eq("user_id",u.id).eq("channel","WEB").order("updated_at",{ascending:false}).limit(1).maybeSingle();st.cid=c?.id||(await S.from("marc_conversations").insert({user_id:u.id,channel:"WEB",title:"Conversación principal"}).select("id").single()).data?.id}
 async function enter(s){

@@ -174,3 +174,15 @@ begin
  return jsonb_build_object('next_due_at',v_next);
 end; $$;
 grant execute on function public.marc_complete_maintenance(uuid,uuid) to authenticated;
+
+-- Foreign-key covering indexes
+create index if not exists marc_service_order_materials_inventory_idx on public.marc_service_order_materials(inventory_id);
+create index if not exists marc_service_checklists_service_order_fk_idx on public.marc_service_checklists(service_order_id);
+create index if not exists marc_service_order_documents_service_order_fk_idx on public.marc_service_order_documents(service_order_id);
+create index if not exists marc_service_order_documents_user_fk_idx on public.marc_service_order_documents(user_id);
+create index if not exists marc_appointments_client_fk_idx on public.marc_appointments(client_id);
+create index if not exists marc_appointments_service_order_fk_idx on public.marc_appointments(service_order_id);
+create index if not exists marc_maintenance_plans_client_fk_idx on public.marc_maintenance_plans(client_id);
+create index if not exists marc_maintenance_plans_service_order_fk_idx on public.marc_maintenance_plans(service_order_id);
+create index if not exists marc_maintenance_occurrences_plan_fk_idx on public.marc_maintenance_occurrences(plan_id);
+create index if not exists marc_maintenance_occurrences_service_order_fk_idx on public.marc_maintenance_occurrences(service_order_id);

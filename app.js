@@ -500,13 +500,14 @@ function clientModal(existing=null){
       '<label>Nombre o empresa<input name="name" required value="'+esc(existing?.name||"")+'" placeholder="Ej. Juan Pérez"></label>'+
       '<label>Persona de contacto<input name="contact_name" value="'+esc(existing?.contact_name||"")+'" placeholder="Nombre del contacto"></label>'+
       '<label>Documento<input name="document_number" value="'+esc(existing?.document_number||"")+'" placeholder="DNI / RUC"></label>'+
-      '<label>Teléfono<input name="phone" value="'+esc(existing?.phone||"")+'" placeholder="+51 999 999 999"></label>'+
+      '<label>Teléfono<input name="phone" value="'+esc(existing?.phone||"")+'" placeholder="+51 999 999 999"></label><label>Teléfono secundario<input name="secondary_phone" value="'+esc(existing?.secondary_phone||"")+'" placeholder="Contacto alternativo"></label><label>Rol del contacto<input name="contact_role" value="'+esc(existing?.contact_role||"")+'" placeholder="Administrador, propietario, encargado…"></label>'+
       '<label>Correo<input type="email" name="email" value="'+esc(existing?.email||"")+'" placeholder="cliente@correo.com"></label>'+
-      '<label>Dirección<input name="address" value="'+esc(existing?.address||"")+'" placeholder="Dirección"></label>'+
-      '<label style="grid-column:1/-1">Notas y condiciones<textarea name="notes" rows="4" placeholder="Condiciones, preferencias, acuerdos…">'+esc(existing?.notes||"")+'</textarea></label>'+
+      '<label>Dirección<input name="address" value="'+esc(existing?.address||"")+'" placeholder="Dirección"></label><label>Razón social<input name="tax_name" value="'+esc(existing?.tax_name||"")+'" placeholder="Para documentos"></label><label>Dirección fiscal<input name="tax_address" value="'+esc(existing?.tax_address||"")+'" placeholder="Dirección fiscal"></label><label>Canal preferido<select name="preferred_channel"><option value="WHATSAPP">WhatsApp</option><option value="LLAMADA">Llamada</option><option value="EMAIL">Correo</option><option value="OTRO">Otro</option></select></label>'+
+      '<label style="grid-column:1/-1">Notas y condiciones<textarea name="notes" rows="4" placeholder="Condiciones, preferencias, acuerdos…">'+esc(existing?.notes||"")+'</textarea></label><label style="grid-column:1/-1">Notas técnicas del cliente<textarea name="service_notes" rows="3" placeholder="Accesos, equipos instalados, restricciones, datos útiles para técnicos…">'+esc(existing?.service_notes||"")+'</textarea></label>'+
       '<div class="modal-actions" style="grid-column:1/-1"><button type="button" class="secondary" id="clientCancel">Cancelar</button><button type="submit" class="primary" id="clientSave">'+(isEdit?"Guardar cambios":"Crear cliente")+'</button></div>'+
     '</form>'
   );
+  $("#clientForm [name=preferred_channel]").value=existing?.preferred_channel||"WHATSAPP";
   $("#clientClose").onclick=close;
   $("#clientCancel").onclick=close;
   $("#clientForm").onsubmit=async e=>{
@@ -514,7 +515,7 @@ function clientModal(existing=null){
     const b=$("#clientSave");b.disabled=true;
     try{
       const d=new FormData(e.currentTarget);
-      const payload={name:String(d.get("name")||"").trim(),contact_name:String(d.get("contact_name")||"").trim()||null,document_number:String(d.get("document_number")||"").trim()||null,phone:String(d.get("phone")||"").trim()||null,email:String(d.get("email")||"").trim()||null,address:String(d.get("address")||"").trim()||null,notes:String(d.get("notes")||"").trim()||null,updated_at:new Date().toISOString()};
+      const payload={name:String(d.get("name")||"").trim(),contact_name:String(d.get("contact_name")||"").trim()||null,document_number:String(d.get("document_number")||"").trim()||null,phone:String(d.get("phone")||"").trim()||null,email:String(d.get("email")||"").trim()||null,address:String(d.get("address")||"").trim()||null,secondary_phone:String(d.get("secondary_phone")||"").trim()||null,contact_role:String(d.get("contact_role")||"").trim()||null,tax_name:String(d.get("tax_name")||"").trim()||null,tax_address:String(d.get("tax_address")||"").trim()||null,preferred_channel:String(d.get("preferred_channel")||"WHATSAPP"),service_notes:String(d.get("service_notes")||"").trim()||null,notes:String(d.get("notes")||"").trim()||null,updated_at:new Date().toISOString()};
       if(!payload.name)throw new Error("Escribe el nombre del cliente.");
       let result;
       if(isEdit)result=await S.from("marc_clients").update(payload).eq("id",existing.id).eq("user_id",st.u.id);

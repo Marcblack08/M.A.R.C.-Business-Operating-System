@@ -290,3 +290,241 @@
   #auth .auth-switch{margin-top:9px!important}
   #auth .auth-foot{margin-top:10px!important}
 }
+
+
+/* =========================================================
+   AGREED LOGIN COMPOSITION — FINAL SOURCE OF TRUTH
+   Visual-only. Authentication DOM, IDs and JavaScript untouched.
+   ========================================================= */
+
+#auth.auth{
+  min-height:100svh!important;
+  box-sizing:border-box!important;
+  background:
+    radial-gradient(circle at 8% 10%,rgba(24,184,255,.16),transparent 28%),
+    radial-gradient(circle at 92% 8%,rgba(35,92,220,.13),transparent 28%),
+    linear-gradient(145deg,#071f35 0%,#051426 55%,#030d1b 100%)!important;
+}
+
+/* Desktop: hero and login are two balanced panels, not one giant banner. */
+@media screen and (min-width:901px){
+  #auth.auth{
+    display:grid!important;
+    grid-template-columns:minmax(420px,680px) minmax(380px,500px)!important;
+    align-items:center!important;
+    justify-content:center!important;
+    gap:clamp(35px,6vw,90px)!important;
+    padding:42px 6vw!important;
+  }
+  #auth.auth>.auth-visual{
+    width:100%!important;
+    min-height:560px!important;
+    height:560px!important;
+    padding:22px!important;
+    border-radius:28px!important;
+    display:grid!important;
+    grid-template-rows:42px 330px 1fr!important;
+    align-items:center!important;
+    overflow:hidden!important;
+  }
+  #auth .auth-visual-brand{
+    height:42px!important;
+    justify-content:center!important;
+    text-align:center!important;
+  }
+  #auth .auth-visual-brand .logo{display:none!important}
+  #auth .auth-visual-brand b{font-size:34px!important;letter-spacing:.12em!important}
+  #auth .auth-visual-brand small{font-size:7px!important}
+  #auth .auth-mascot-wrap{
+    width:100%!important;height:330px!important;
+    min-height:330px!important;
+    margin:0!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+  }
+  #auth .auth-mascot{width:300px!important;height:300px!important}
+  #auth .auth-visual-copy{
+    align-self:center!important;
+    text-align:center!important;
+    padding:0 25px!important;
+  }
+  #auth .auth-visual-copy h2{font-size:38px!important;line-height:1!important;margin:7px 0!important}
+  #auth .auth-visual-copy p{font-size:10px!important;max-width:520px!important;margin:auto!important}
+  #auth .auth-visual-stats{display:none!important}
+  #auth.auth>.auth-card{
+    width:100%!important;
+    max-width:500px!important;
+    padding:27px!important;
+    border-radius:26px!important;
+  }
+}
+
+/* Tablet + phone: single clean vertical composition. */
+@media screen and (max-width:900px) and (orientation:portrait){
+  #auth.auth{
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:stretch!important;
+    justify-content:flex-start!important;
+    width:100%!important;
+    min-height:100svh!important;
+    padding:0 10px 22px!important;
+    gap:10px!important;
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+  }
+
+  #auth.auth>.auth-visual{
+    order:1!important;
+    width:100%!important;
+    min-height:285px!important;
+    height:285px!important;
+    max-height:285px!important;
+    padding:0 12px 10px!important;
+    margin:0!important;
+    border-radius:0 0 24px 24px!important;
+    border:1px solid rgba(65,184,238,.25)!important;
+    border-top:0!important;
+    display:grid!important;
+    grid-template-rows:40px 155px 90px!important;
+    gap:0!important;
+    overflow:hidden!important;
+    background:
+      radial-gradient(circle at 50% 40%,rgba(24,164,235,.24),transparent 40%),
+      linear-gradient(150deg,#0a3150 0%,#061a2e 68%,#041426 100%)!important;
+    box-shadow:0 16px 42px rgba(0,0,0,.20)!important;
+  }
+
+  #auth .auth-visual-brand{
+    height:40px!important;
+    margin:0!important;
+    justify-content:center!important;
+    align-items:center!important;
+    text-align:center!important;
+  }
+  #auth .auth-visual-brand .logo{display:none!important}
+  #auth .auth-visual-brand b{
+    font-size:21px!important;
+    line-height:1!important;
+    letter-spacing:.13em!important;
+  }
+  #auth .auth-visual-brand small{
+    display:block!important;
+    font-size:5.5px!important;
+    margin-top:2px!important;
+    letter-spacing:.17em!important;
+  }
+
+  #auth .auth-mascot-wrap{
+    width:100%!important;
+    height:155px!important;
+    min-height:155px!important;
+    flex:none!important;
+    margin:0!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+  }
+  #auth .auth-mascot{
+    width:150px!important;
+    height:150px!important;
+    filter:drop-shadow(0 10px 25px rgba(0,137,255,.30))!important;
+  }
+
+  #auth .auth-visual-copy{
+    width:100%!important;
+    align-self:center!important;
+    margin:0!important;
+    padding:0 8px!important;
+    text-align:center!important;
+  }
+  #auth .auth-visual-copy>span{
+    font-size:5.5px!important;
+    letter-spacing:.20em!important;
+  }
+  #auth .auth-visual-copy h2{
+    font-size:22px!important;
+    line-height:1.02!important;
+    margin:4px 0 5px!important;
+  }
+  #auth .auth-visual-copy p{
+    font-size:6.8px!important;
+    line-height:1.35!important;
+    max-width:340px!important;
+    margin:0 auto!important;
+  }
+  #auth .auth-visual-stats{display:none!important}
+
+  #auth.auth>.auth-card{
+    order:2!important;
+    width:100%!important;
+    max-width:520px!important;
+    margin:0 auto!important;
+    padding:19px 16px 15px!important;
+    border-radius:22px!important;
+    background:linear-gradient(145deg,rgba(11,39,59,.96),rgba(4,20,35,.99))!important;
+    border:1px solid rgba(66,181,235,.27)!important;
+    box-shadow:0 20px 55px rgba(0,0,0,.32)!important;
+  }
+  #auth .auth-card-top{margin-bottom:10px!important}
+  #auth .auth-card-top .auth-mark{
+    width:39px!important;height:39px!important;
+    border-radius:11px!important;
+  }
+  #auth .auth-card h1{
+    font-size:24px!important;
+    line-height:1.06!important;
+    margin:6px 0 5px!important;
+  }
+  #auth .auth-card p{
+    font-size:8.5px!important;
+    margin-bottom:11px!important;
+  }
+  #auth .google-login,#auth #authSubmit{
+    min-height:46px!important;
+    height:46px!important;
+    border-radius:13px!important;
+  }
+  #auth .auth-divider{margin:9px 0!important;font-size:7.5px!important}
+  #auth .auth-form{gap:7px!important}
+  #auth .auth-form label{font-size:7.5px!important}
+  #auth .auth-card input{
+    min-height:44px!important;
+    height:44px!important;
+    border-radius:12px!important;
+  }
+  #auth .auth-switch{font-size:8px!important;margin-top:9px!important}
+  #auth .auth-foot{font-size:6.5px!important;margin-top:11px!important}
+}
+
+/* Small phones: preserve the same composition, only scale it down. */
+@media screen and (max-width:430px) and (orientation:portrait){
+  #auth.auth{padding-left:8px!important;padding-right:8px!important;gap:9px!important}
+  #auth.auth>.auth-visual{
+    min-height:270px!important;height:270px!important;max-height:270px!important;
+    grid-template-rows:38px 146px 86px!important;
+    padding-bottom:7px!important;
+  }
+  #auth .auth-visual-brand{height:38px!important}
+  #auth .auth-visual-brand b{font-size:19px!important}
+  #auth .auth-visual-brand small{font-size:5px!important}
+  #auth .auth-mascot-wrap{height:146px!important;min-height:146px!important}
+  #auth .auth-mascot{width:138px!important;height:138px!important}
+  #auth .auth-visual-copy h2{font-size:20px!important}
+  #auth .auth-visual-copy p{font-size:6.2px!important}
+  #auth.auth>.auth-card{padding:17px 14px 13px!important}
+}
+
+@media screen and (max-width:360px) and (orientation:portrait){
+  #auth.auth>.auth-visual{
+    min-height:255px!important;height:255px!important;max-height:255px!important;
+    grid-template-rows:35px 137px 83px!important;
+  }
+  #auth .auth-visual-brand{height:35px!important}
+  #auth .auth-visual-brand b{font-size:18px!important}
+  #auth .auth-mascot-wrap{height:137px!important;min-height:137px!important}
+  #auth .auth-mascot{width:128px!important;height:128px!important}
+  #auth .auth-visual-copy h2{font-size:19px!important}
+  #auth .auth-card h1{font-size:22px!important}
+}

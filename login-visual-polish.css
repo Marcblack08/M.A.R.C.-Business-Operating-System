@@ -1,212 +1,181 @@
-/* M.A.R.C. LOGIN — SINGLE CLEAN VISUAL LAYER
-   This file is intentionally the only login-specific override.
-   Authentication markup, IDs and JavaScript are untouched. */
-
+/* M.A.R.C. LOGIN — agreed visual reference
+   Functional auth behavior is untouched. */
 #auth.auth{
   min-height:100svh!important;
   box-sizing:border-box!important;
   position:relative!important;
   overflow-x:hidden!important;
   background:
-    radial-gradient(circle at 12% 10%,rgba(20,183,255,.15),transparent 28%),
-    radial-gradient(circle at 88% 12%,rgba(35,92,220,.13),transparent 28%),
-    linear-gradient(145deg,#071f35 0%,#051426 56%,#030d1b 100%)!important;
+    radial-gradient(circle at 13% 12%,rgba(23,175,240,.18),transparent 30%),
+    radial-gradient(circle at 88% 8%,rgba(40,82,220,.15),transparent 29%),
+    linear-gradient(145deg,#061f35 0%,#051426 56%,#030d1b 100%)!important;
 }
-#auth .auth-visual,
-#auth .auth-card{
+#auth .auth-visual,#auth .auth-card{
   box-sizing:border-box!important;
-  background:linear-gradient(145deg,rgba(10,39,61,.96),rgba(3,19,34,.98))!important;
-  border:1px solid rgba(65,184,238,.26)!important;
-  box-shadow:0 24px 65px rgba(0,0,0,.30),0 0 35px rgba(0,137,255,.06)!important;
+  background:linear-gradient(145deg,rgba(8,39,63,.96),rgba(3,18,33,.985))!important;
+  border:1px solid rgba(64,182,238,.28)!important;
+  box-shadow:0 24px 70px rgba(0,0,0,.34),0 0 42px rgba(0,136,255,.08)!important;
 }
 #auth .auth-mascot{
+  width:100%!important;height:100%!important;
   object-fit:contain!important;
-  filter:drop-shadow(0 10px 28px rgba(0,137,255,.30))!important;
+  border-radius:50%!important;
+  filter:drop-shadow(0 14px 32px rgba(0,126,255,.28))!important;
 }
-#auth .google-login,
-#auth #authSubmit{
-  min-height:48px!important;
+#auth .google-login,#auth #authSubmit{
+  min-height:50px!important;
+  height:50px!important;
   border-radius:14px!important;
-  background:linear-gradient(105deg,#12b8f4,#0878e9 62%,#155bd3)!important;
+  background:linear-gradient(105deg,#12baf4,#0878e9 62%,#155bd3)!important;
   box-shadow:0 12px 28px rgba(0,119,235,.22)!important;
 }
 #auth .auth-card input{
-  min-height:46px!important;
-  border-radius:12px!important;
-  background:rgba(2,18,32,.78)!important;
-  border-color:rgba(70,145,190,.30)!important;
+  min-height:48px!important;height:48px!important;
+  border-radius:13px!important;
+  background:rgba(2,18,32,.80)!important;
+  border-color:rgba(70,145,190,.32)!important;
 }
 #auth .auth-card input:focus{
-  border-color:#24b9ff!important;
+  border-color:#23b9ff!important;
   box-shadow:0 0 0 4px rgba(36,185,255,.09)!important;
 }
 
-/* DESKTOP */
-@media (min-width:901px){
+/* Desktop */
+@media (min-width:1101px){
   #auth.auth{
     display:grid!important;
-    grid-template-columns:minmax(440px,650px) minmax(390px,500px)!important;
+    grid-template-columns:minmax(500px,680px) minmax(400px,500px)!important;
     align-items:center!important;
     justify-content:center!important;
-    gap:clamp(36px,6vw,86px)!important;
-    padding:42px 5vw!important;
+    gap:clamp(38px,5vw,82px)!important;
+    padding:45px 5vw!important;
   }
   #auth .auth-visual{
     width:100%!important;
-    height:560px!important;
-    min-height:560px!important;
-    padding:24px!important;
-    border-radius:28px!important;
+    height:590px!important;min-height:590px!important;
+    padding:22px!important;border-radius:30px!important;
     display:grid!important;
-    grid-template-rows:44px 325px 1fr!important;
+    grid-template-rows:42px 365px 1fr!important;
     overflow:hidden!important;
   }
   #auth .auth-visual-brand{
-    height:44px!important;
-    justify-content:center!important;
-    text-align:center!important;
+    height:42px!important;
+    justify-content:center!important;text-align:center!important;
   }
   #auth .auth-visual-brand .logo{display:none!important}
   #auth .auth-visual-brand b{font-size:34px!important;letter-spacing:.12em!important}
   #auth .auth-visual-brand small{font-size:7px!important}
   #auth .auth-mascot-wrap{
-    height:325px!important;
-    min-height:325px!important;
-    display:flex!important;
-    align-items:center!important;
-    justify-content:center!important;
-    margin:0!important;
+    width:100%!important;height:365px!important;min-height:365px!important;
+    margin:0!important;display:flex!important;
+    align-items:center!important;justify-content:center!important;
   }
-  #auth .auth-mascot{width:300px!important;height:300px!important}
+  #auth .auth-mascot{width:330px!important;height:330px!important}
   #auth .auth-visual-copy{
-    text-align:center!important;
-    align-self:center!important;
-    padding:0 25px!important;
+    align-self:center!important;text-align:center!important;padding:0 28px!important;
   }
-  #auth .auth-visual-copy h2{font-size:38px!important;line-height:1!important;margin:7px 0!important}
-  #auth .auth-visual-copy p{font-size:10px!important;max-width:520px!important;margin:auto!important}
+  #auth .auth-visual-copy>span{font-size:8px!important;letter-spacing:.20em!important}
+  #auth .auth-visual-copy h2{font-size:42px!important;line-height:.99!important;margin:7px 0!important}
+  #auth .auth-visual-copy p{font-size:10px!important;line-height:1.45!important;max-width:540px!important;margin:auto!important}
   #auth .auth-visual-stats{display:none!important}
   #auth .auth-card{
-    width:100%!important;
-    max-width:500px!important;
-    padding:28px!important;
-    border-radius:26px!important;
+    width:100%!important;max-width:500px!important;
+    padding:30px!important;border-radius:28px!important;
   }
   #auth .auth-card h1{font-size:30px!important;line-height:1.05!important}
 }
 
-/* MOBILE / TABLET PORTRAIT */
-@media (max-width:900px) and (orientation:portrait){
+/* Any viewport up to 1100px uses the vertical mobile/tablet composition.
+   This intentionally does NOT depend on orientation so Android "desktop
+   site" / unusual CSS viewport scaling cannot force the desktop grid. */
+@media (max-width:1100px){
   #auth.auth{
     display:flex!important;
     flex-direction:column!important;
     align-items:stretch!important;
     justify-content:flex-start!important;
-    padding:0 10px 20px!important;
+    width:100%!important;min-width:0!important;
+    min-height:100svh!important;
+    padding:0 10px 22px!important;
     gap:10px!important;
-    overflow-y:auto!important;
+    overflow-x:hidden!important;overflow-y:auto!important;
   }
   #auth .auth-visual{
     order:1!important;
     width:100%!important;
-    height:300px!important;
-    min-height:300px!important;
-    max-height:300px!important;
+    height:392px!important;min-height:392px!important;max-height:392px!important;
     margin:0!important;
-    padding:0 10px 8px!important;
-    border-radius:0 0 24px 24px!important;
+    padding:0 14px 14px!important;
+    border-radius:0 0 26px 26px!important;
     border-top:0!important;
     display:grid!important;
-    grid-template-rows:42px 166px 92px!important;
+    grid-template-rows:50px 245px 97px!important;
     overflow:hidden!important;
     background:
-      radial-gradient(circle at 50% 42%,rgba(20,165,235,.24),transparent 40%),
-      linear-gradient(150deg,#0a3150,#061a2e 68%,#041426)!important;
+      radial-gradient(circle at 50% 40%,rgba(25,170,240,.24),transparent 41%),
+      linear-gradient(150deg,#0a3150 0%,#061a2e 70%,#041426 100%)!important;
   }
   #auth .auth-visual-brand{
     order:1!important;
-    height:42px!important;
-    justify-content:center!important;
-    align-items:center!important;
-    text-align:center!important;
-    margin:0!important;
+    height:50px!important;
+    justify-content:center!important;align-items:center!important;
+    text-align:center!important;margin:0!important;
   }
   #auth .auth-visual-brand .logo{display:none!important}
-  #auth .auth-visual-brand b{font-size:21px!important;letter-spacing:.13em!important}
-  #auth .auth-visual-brand small{font-size:5.5px!important;letter-spacing:.17em!important}
+  #auth .auth-visual-brand b{font-size:25px!important;letter-spacing:.14em!important}
+  #auth .auth-visual-brand small{font-size:6px!important;letter-spacing:.18em!important}
   #auth .auth-mascot-wrap{
     order:2!important;
-    width:100%!important;
-    height:166px!important;
-    min-height:166px!important;
-    margin:0!important;
-    display:flex!important;
-    align-items:center!important;
-    justify-content:center!important;
+    width:100%!important;height:245px!important;min-height:245px!important;
+    margin:0!important;display:flex!important;
+    align-items:center!important;justify-content:center!important;
+    background:radial-gradient(circle,rgba(19,140,230,.16),transparent 63%)!important;
   }
-  #auth .auth-mascot{width:160px!important;height:160px!important}
+  #auth .auth-mascot{width:235px!important;height:235px!important}
   #auth .auth-visual-copy{
     order:3!important;
-    align-self:center!important;
-    text-align:center!important;
-    margin:0!important;
-    padding:0 8px!important;
+    align-self:center!important;text-align:center!important;
+    margin:0!important;padding:0 10px!important;
   }
-  #auth .auth-visual-copy>span{font-size:6px!important;letter-spacing:.19em!important}
-  #auth .auth-visual-copy h2{font-size:22px!important;line-height:1.02!important;margin:4px 0 5px!important}
-  #auth .auth-visual-copy p{font-size:7px!important;line-height:1.35!important;max-width:340px!important;margin:auto!important}
+  #auth .auth-visual-copy>span{font-size:6.5px!important;letter-spacing:.21em!important}
+  #auth .auth-visual-copy h2{font-size:27px!important;line-height:1.0!important;margin:5px 0 6px!important}
+  #auth .auth-visual-copy p{font-size:7.5px!important;line-height:1.4!important;max-width:360px!important;margin:0 auto!important}
   #auth .auth-visual-stats{display:none!important}
   #auth .auth-card{
     order:2!important;
-    width:100%!important;
-    max-width:520px!important;
+    width:100%!important;max-width:520px!important;
     margin:0 auto!important;
-    padding:19px 16px 15px!important;
-    border-radius:22px!important;
+    padding:22px 17px 16px!important;
+    border-radius:23px!important;
   }
-  #auth .auth-card-top{margin-bottom:10px!important}
-  #auth .auth-card-top .auth-mark{width:39px!important;height:39px!important;border-radius:11px!important}
-  #auth .auth-card h1{font-size:24px!important;line-height:1.06!important;margin:6px 0 5px!important}
-  #auth .auth-card p{font-size:8.5px!important;margin-bottom:11px!important}
-  #auth .google-login,#auth #authSubmit{height:46px!important;min-height:46px!important}
-  #auth .auth-divider{margin:9px 0!important;font-size:7.5px!important}
-  #auth .auth-form{gap:7px!important}
-  #auth .auth-form label{font-size:7.5px!important}
-  #auth .auth-card input{height:44px!important;min-height:44px!important}
-  #auth .auth-switch{font-size:8px!important;margin-top:9px!important}
-  #auth .auth-foot{font-size:6.5px!important;margin-top:11px!important}
+  #auth .auth-card-top{margin-bottom:11px!important}
+  #auth .auth-card-top .auth-mark{width:40px!important;height:40px!important;border-radius:12px!important}
+  #auth .auth-card h1{font-size:26px!important;line-height:1.04!important;margin:7px 0 5px!important}
+  #auth .auth-card p{font-size:9px!important;line-height:1.45!important;margin-bottom:13px!important}
+  #auth .google-login,#auth #authSubmit{height:48px!important;min-height:48px!important}
+  #auth .auth-divider{margin:11px 0!important;font-size:8px!important}
+  #auth .auth-form{gap:9px!important}
+  #auth .auth-form label{font-size:8px!important}
+  #auth .auth-card input{height:46px!important;min-height:46px!important}
+  #auth .auth-switch{font-size:8.5px!important;margin-top:10px!important}
+  #auth .auth-foot{font-size:7px!important;margin-top:12px!important}
 }
 
-/* SMALL PHONES — same design, only scaled */
-@media (max-width:430px) and (orientation:portrait){
+/* Small phones: same reference composition, scaled proportionally. */
+@media (max-width:430px){
   #auth.auth{padding-left:8px!important;padding-right:8px!important;gap:9px!important}
   #auth .auth-visual{
-    height:280px!important;
-    min-height:280px!important;
-    max-height:280px!important;
-    grid-template-rows:38px 151px 91px!important;
+    height:355px!important;min-height:355px!important;max-height:355px!important;
+    grid-template-rows:44px 220px 91px!important;
+    padding-bottom:10px!important;
   }
-  #auth .auth-visual-brand{height:38px!important}
-  #auth .auth-visual-brand b{font-size:19px!important}
-  #auth .auth-mascot-wrap{height:151px!important;min-height:151px!important}
-  #auth .auth-mascot{width:145px!important;height:145px!important}
-  #auth .auth-visual-copy h2{font-size:20px!important}
-  #auth .auth-visual-copy p{font-size:6.4px!important}
-  #auth .auth-card{padding:17px 14px 13px!important}
-  #auth .auth-card h1{font-size:23px!important}
-}
-
-@media (max-width:360px) and (orientation:portrait){
-  #auth .auth-visual{
-    height:265px!important;
-    min-height:265px!important;
-    max-height:265px!important;
-    grid-template-rows:36px 143px 86px!important;
-  }
-  #auth .auth-visual-brand{height:36px!important}
-  #auth .auth-visual-brand b{font-size:18px!important}
-  #auth .auth-mascot-wrap{height:143px!important;min-height:143px!important}
-  #auth .auth-mascot{width:136px!important;height:136px!important}
-  #auth .auth-visual-copy h2{font-size:19px!important}
-  #auth .auth-card h1{font-size:22px!important}
+  #auth .auth-visual-brand{height:44px!important}
+  #auth .auth-visual-brand b{font-size:22px!important}
+  #auth .auth-visual-brand small{font-size:5.5px!important}
+  #auth .auth-mascot-wrap{height:220px!important;min-height:220px!important}
+  #auth .auth-mascot{width:210px!important;height:210px!important}
+  #auth .auth-visual-copy h2{font-size:24px!important}
+  #auth .auth-visual-copy p{font-size:7px!important}
+  #auth .auth-card{padding:19px 15px 14px!important}
+  #auth .auth-card h1{font-size:24px!important}
 }

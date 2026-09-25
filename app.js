@@ -346,7 +346,7 @@ async function home(){
         </div>
         <div class="hero-visual" aria-hidden="true">
           <div class="hero-visual-ring"></div>
-          <div class="hero-visual-logo is-marc-brand" id="heroBrandLogo"><img src="assets/marc-brand-logo.jpg" alt="M.A.R.C."></div>
+          <div class="hero-visual-logo is-marc-brand" id="heroBrandLogo" aria-label="M.A.R.C."><span>M</span></div>
           <div class="hero-visual-caption">M.A.R.C. · TU MAYORDOMO DIGITAL</div>
         </div>
       </section>
@@ -450,7 +450,7 @@ async function home(){
   if(heroLogo){
     // El hero pertenece a M.A.R.C.; el logo de la empresa queda reservado para
     // Configuración, cotizaciones, PDF y publicidad. Nunca debe dominar el dashboard.
-    heroLogo.innerHTML='<img src="assets/marc-brand-mark.svg" alt="M.A.R.C.">';
+    heroLogo.innerHTML='<span>M</span>';
     heroLogo.classList.remove("has-company-logo");
     heroLogo.classList.add("is-marc-brand");
   }

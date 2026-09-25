@@ -522,3 +522,29 @@
   #auth.auth>.auth-card h1{font-size:26px!important}
   #auth.auth>.auth-card .google-login,#auth.auth>.auth-card #authSubmit{height:50px!important;min-height:50px!important}
 }
+
+/* FINAL MOBILE SCALE TUNING — reference proportions */
+@media (max-width:600px){
+  #auth.auth{min-height:100svh!important;padding:12px 10px 26px!important;gap:10px!important;}
+  #auth.auth>.auth-visual{width:min(100%,430px)!important;padding:14px 14px 16px!important;grid-template-rows:36px 205px auto!important;}
+  #auth.auth>.auth-visual .auth-mascot-wrap{height:205px!important;min-height:205px!important;}
+  #auth.auth>.auth-visual .auth-mascot{width:190px!important;height:190px!important;}
+  #auth.auth>.auth-visual .auth-visual-copy{padding:0 4px!important;}
+  #auth.auth>.auth-visual .auth-visual-copy h2{font-size:27px!important;}
+  #auth.auth>.auth-card{width:min(100%,430px)!important;padding:22px 17px 17px!important;}
+  #auth.auth>.auth-card h1{font-size:26px!important;}
+  #auth.auth>.auth-card>p{font-size:9px!important;}
+  #auth.auth>.auth-card .google-login,#auth.auth>.auth-card #authSubmit{height:50px!important;min-height:50px!important;}
+  #auth.auth>.auth-card input{height:48px!important;min-height:48px!important;}
+}
+@media (max-width:380px){
+  #auth.auth{padding-left:8px!important;padding-right:8px!important;}
+  #auth.auth>.auth-visual{grid-template-rows:32px 185px auto!important;padding:12px 11px 14px!important;}
+  #auth.auth>.auth-visual .auth-mascot-wrap{height:185px!important;min-height:185px!important;}
+  #auth.auth>.auth-visual .auth-mascot{width:172px!important;height:172px!important;}
+  #auth.auth>.auth-visual .auth-visual-copy h2{font-size:24px!important;}
+  #auth.auth>.auth-visual .auth-feature-list{margin-top:8px!important;gap:6px!important;}
+  #auth.auth>.auth-visual .auth-feature-list span{font-size:9px!important;}
+  #auth.auth>.auth-card{padding:19px 14px 15px!important;}
+  #auth.auth>.auth-card h1{font-size:23px!important;}
+}

@@ -454,3 +454,71 @@
     min-height:48px!important;
   }
 }
+
+/* 20260925 REFERENCE DESIGN — visual only; auth IDs/handlers preserved */
+#auth.auth>.auth-visual{
+  background:
+    radial-gradient(circle at 30% 45%,rgba(0,153,255,.20),transparent 32%),
+    linear-gradient(145deg,rgba(5,37,67,.98),rgba(2,17,33,.99))!important;
+  border:1px solid rgba(41,159,255,.55)!important;
+  box-shadow:0 20px 55px rgba(0,0,0,.35),0 0 35px rgba(0,126,255,.10),inset 0 1px 0 rgba(255,255,255,.04)!important;
+}
+#auth.auth>.auth-visual .auth-feature-list{
+  display:grid!important;
+  gap:10px!important;
+  margin:16px auto 0!important;
+  width:min(100%,440px)!important;
+  text-align:left!important;
+}
+#auth.auth>.auth-visual .auth-feature-list>div{
+  display:flex!important;
+  align-items:center!important;
+  gap:12px!important;
+}
+#auth.auth>.auth-visual .auth-feature-list b{
+  width:42px!important;height:42px!important;min-width:42px!important;
+  display:grid!important;place-items:center!important;
+  border:1px solid rgba(35,157,255,.55)!important;
+  border-radius:12px!important;
+  background:rgba(7,46,80,.72)!important;
+  color:#77c9ff!important;
+  font-size:20px!important;
+  box-shadow:inset 0 0 16px rgba(0,132,255,.08)!important;
+}
+#auth.auth>.auth-visual .auth-feature-list span{
+  color:#d6e8f5!important;
+  font-size:13px!important;
+  line-height:1.18!important;
+}
+#auth.auth>.auth-card{
+  background:linear-gradient(145deg,rgba(4,27,48,.985),rgba(2,16,30,.995))!important;
+  border:1px solid rgba(41,159,255,.45)!important;
+  box-shadow:0 20px 55px rgba(0,0,0,.38),0 0 32px rgba(0,126,255,.08)!important;
+}
+#auth.auth>.auth-card .auth-mark{
+  box-shadow:0 0 20px rgba(0,145,255,.22)!important;
+}
+#auth.auth>.auth-card .google-login,
+#auth.auth>.auth-card #authSubmit{
+  background:linear-gradient(105deg,#10b9f3 0%,#087de9 58%,#1658e1 100%)!important;
+  box-shadow:0 10px 28px rgba(0,126,255,.24)!important;
+}
+#auth.auth>.auth-card input{
+  background:rgba(2,16,29,.92)!important;
+  border:1px solid rgba(42,130,205,.55)!important;
+}
+@media(max-width:600px){
+  #auth.auth>.auth-visual{
+    padding:14px 12px 15px!important;
+    grid-template-rows:34px 205px auto!important;
+  }
+  #auth.auth>.auth-visual .auth-mascot-wrap{height:205px!important;min-height:205px!important}
+  #auth.auth>.auth-visual .auth-mascot{width:190px!important;height:190px!important}
+  #auth.auth>.auth-visual .auth-visual-copy h2{font-size:27px!important}
+  #auth.auth>.auth-visual .auth-feature-list{gap:7px!important;margin-top:10px!important}
+  #auth.auth>.auth-visual .auth-feature-list b{width:34px!important;height:34px!important;min-width:34px!important;font-size:16px!important;border-radius:10px!important}
+  #auth.auth>.auth-visual .auth-feature-list span{font-size:10px!important}
+  #auth.auth>.auth-card{padding:22px 16px 18px!important}
+  #auth.auth>.auth-card h1{font-size:26px!important}
+  #auth.auth>.auth-card .google-login,#auth.auth>.auth-card #authSubmit{height:50px!important;min-height:50px!important}
+}

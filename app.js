@@ -327,7 +327,7 @@ async function home(){
   const quoteTotal=validFinance.reduce((sum,x)=>sum+Number(x.total||0),0);
   const otRevenue=serviceOrdersData.reduce((sum,r)=>sum+Number(r.revenue??0),0);
   const otCosts=serviceOrdersData.reduce((sum,r)=>sum+Number(r.labor_cost??0)+Number(r.transport_cost??0)+Number(r.materials_cost??0)+Number(r.other_cost??0),0);
-  const otProfit=serviceOrdersData.reduce((sum,r)=>sum+Number(r.profit??(Number(r.revenue??0)-Number(r.labor_cost??0)-Number(r.transport_cost??0)-Number(r.materials_cost??0)-Number(r.other_cost??0)),0);
+  const otProfit=serviceOrdersData.reduce((sum,r)=>sum+Number(r.profit??(Number(r.revenue??0)-Number(r.labor_cost??0)-Number(r.transport_cost??0)-Number(r.materials_cost??0)-Number(r.other_cost??0))),0);
   const otMargin=otRevenue>0?(otProfit/otRevenue)*100:0;
   const activeOT=serviceOrdersData.filter(r=>!["ENTREGADA","CANCELADA"].includes(String(r.status||"").toUpperCase())).length;
 
@@ -583,7 +583,7 @@ async function serviceOrders(){
   const counts=["PENDIENTE","PROGRAMADA","EN_PROCESO","TERMINADA"].map(x=>rows.filter(r=>r.status===x).length);
   const revenue=rows.reduce((sum,r)=>sum+Number(r.revenue??0),0);
   const costs=rows.reduce((sum,r)=>sum+Number(r.labor_cost??0)+Number(r.transport_cost??0)+Number(r.materials_cost??0)+Number(r.other_cost??0),0);
-  const profit=rows.reduce((sum,r)=>sum+Number(r.profit??(Number(r.revenue??0)-Number(r.labor_cost??0)-Number(r.transport_cost??0)-Number(r.materials_cost??0)-Number(r.other_cost??0)),0);
+  const profit=rows.reduce((sum,r)=>sum+Number(r.profit??(Number(r.revenue??0)-Number(r.labor_cost??0)-Number(r.transport_cost??0)-Number(r.materials_cost??0)-Number(r.other_cost??0))),0);
   const margin=revenue>0?(profit/revenue)*100:0;
   const formatPct=v=>Number(v||0).toLocaleString("es-PE",{minimumFractionDigits:1,maximumFractionDigits:1})+"%";
   c.innerHTML=`<div class="head"><div><div class="eyebrow2">SERVICIOS</div><h1>Órdenes de trabajo.</h1><p>Controla visitas, reparaciones, instalaciones y mantenimientos desde que entran hasta que se entregan.</p></div><button id="newServiceOrder" class="primary">＋ Nueva orden</button></div>
@@ -623,7 +623,7 @@ async function serviceOrderReport(order){
  const html='<div class="card" style="padding:20px"><h2>'+esc(order.title||"Servicio")+'</h2><p><b>Orden:</b> '+esc(order.number||"")+' · <b>Estado:</b> '+esc(order.status||"")+'</p><p><b>Cliente:</b> '+esc(order.marc_clients?.name||"Sin cliente")+' · <b>Técnico:</b> '+esc(order.technician||"")+'</p><p><b>Ubicación:</b> '+esc(order.location||"")+'</p><hr><h3>Descripción</h3><p>'+esc(order.description||"—")+'</p><h3>Diagnóstico</h3><p>'+esc(order.diagnosis||"—")+'</p><h3>Trabajo realizado</h3><p>'+esc(order.work_performed||"—")+'</p><h3>Recomendaciones</h3><p>'+esc(order.recommendations||"—")+'</p><h3>Checklist</h3><ul>'+checks.map(x=>'<li><b>'+esc(x.result)+'</b> — '+esc(x.item)+(x.notes?' · '+esc(x.notes):"")+'</li>').join("")+'</ul><h3>Materiales</h3><table style="width:100%;border-collapse:collapse"><tr><th>Material</th><th>Cant.</th><th>Costo</th></tr>'+mats.map(x=>'<tr><td>'+esc(x.name)+'</td><td>'+x.quantity+'</td><td>'+money(Number(x.total||0))+'</td></tr>').join("")+'</table><h3>Costos</h3><p>Mano de obra: '+money(order.labor_cost)+' · Transporte: '+money(order.transport_cost)+' · Materiales: '+money(order.materials_cost)+' · <b>Total: '+money(order.total)+'</b></p><h3>Evidencia fotográfica</h3><div>'+evidence+'</div><h3>Conformidad del cliente</h3><p><b>Firmante:</b> '+esc(order.customer_signature_name||"No registrada")+' · <b>Fecha:</b> '+esc(order.customer_signature_at?new Date(order.customer_signature_at).toLocaleString("es-PE"):"No registrada")+'</p>'+(signatureUrl?'<div><img src="'+signatureUrl+'" style="width:360px;max-width:100%;height:120px;object-fit:contain;border-bottom:1px solid #333"></div>':'<p>No hay firma registrada.</p>')+'<div class="modal-actions"><button class="secondary" id="sorClose2">Cerrar</button><button class="primary" id="sorPrint">Imprimir / Guardar PDF</button></div></div>';
  $("#sorBody").innerHTML=html;
  $("#sorClose2").onclick=close;
- $("#sorPrint").onclick=()=>{const w=window.open("","_blank");if(!w)return toast("El navegador bloqueó la ventana. Permite ventanas emergentes.","err");const printable=html.replace(/<div class="modal-actions">[\\s\\S]*?<\\/div>\\s*<\\/div>$/,"");w.document.write('<html><head><title>'+esc(order.number||"Informe")+'</title><style>@page{size:A4;margin:16mm}body{font-family:Arial;padding:10px;line-height:1.45;color:#111}h1,h2,h3{margin:12px 0 6px}table{margin:10px 0;border-collapse:collapse}th,td{border:1px solid #ccc;padding:7px;text-align:left}img{break-inside:avoid}figure{break-inside:avoid}hr{margin:18px 0}</style></head><body>'+printable+'</body></html>');w.document.close();w.focus();setTimeout(()=>w.print(),700)};
+ $("#sorPrint").onclick=()=>{const w=window.open("","_blank");if(!w)return toast("El navegador bloqueó la ventana. Permite ventanas emergentes.","err");const printable=html.replace(/<div class="modal-actions">[\s\S]*?<\/div>\s*<\/div>$/,"");w.document.write('<html><head><title>'+esc(order.number||"Informe")+'</title><style>@page{size:A4;margin:16mm}body{font-family:Arial;padding:10px;line-height:1.45;color:#111}h1,h2,h3{margin:12px 0 6px}table{margin:10px 0;border-collapse:collapse}th,td{border:1px solid #ccc;padding:7px;text-align:left}img{break-inside:avoid}figure{break-inside:avoid}hr{margin:18px 0}</style></head><body>'+printable+'</body></html>');w.document.close();w.focus();setTimeout(()=>w.print(),700)};
 }
 
 function serviceOrderPhotosModal(order){
@@ -671,7 +671,7 @@ async function serviceOrderSignatureModal(order){
  };
 }
 
-function serviceOrderChecklistModal(order){
+async function serviceOrderChecklistModal(order){
  const close=modal('<div class="modal-head"><div><div class="eyebrow2">CHECKLIST TÉCNICO</div><h2>'+esc(order.number||"Orden")+'</h2><p>Verifica cada punto antes de entregar el servicio.</p></div><button class="close" id="socClose">×</button></div><div id="socBody">Cargando…</div>');
  $("#socClose").onclick=close;
  const r=await S.from("marc_service_checklists").select("*").eq("user_id",st.u.id).eq("service_order_id",order.id).order("created_at");
@@ -2597,4 +2597,179 @@ function downloadCashExcel(report){
   toast("Excel generado correctamente","ok");
 }
 
-async 
+const authBootSnapshot={
+  searchKeys:[...new URLSearchParams(location.search).keys()],
+  hashKeys:[...new URLSearchParams(String(location.hash||"").replace(/^#/,"")).keys()]
+};
+function authDiag(prefix,extra=""){
+  const s=authBootSnapshot;
+  return prefix+" · URL search: "+(s.searchKeys.length?s.searchKeys.join(", "):"vacío")+" · URL hash: "+(s.hashKeys.length?s.hashKeys.join(", "):"vacío")+(extra?" · "+extra:"");
+}
+function cleanAuthUrl(){
+  try{
+    const clean=new URL(location.href);
+    clean.search="";
+    clean.hash="";
+    history.replaceState({},document.title,clean.pathname);
+  }catch{}
+}
+function authCallbackParams(){
+  const search=new URLSearchParams(location.search);
+  const hash=new URLSearchParams(String(location.hash||"").replace(/^#/,""));
+  return {search,hash};
+}
+function describeAuthFailure(search,hash){
+  const error=hash.get("error_description")||search.get("error_description")||hash.get("error")||search.get("error");
+  if(error)return decodeURIComponent(String(error).replace(/\+/g," "));
+  if(search.get("code"))return "Supabase devolvió un código OAuth, pero no se pudo crear la sesión.";
+  if(hash.get("access_token"))return "Google devolvió un token, pero Supabase no pudo completar la sesión.";
+  return "Google regresó a M.A.R.C. sin código, token ni sesión.";
+}
+function marcQuickLauncher(){
+  const overlay=$("#marcQuickOverlay"),grid=$("#marcQuickGrid"),search=$("#marcQuickSearch");
+  if(!overlay||!grid)return;
+  const actions=[
+    {icon:"⌂",title:"Inicio",desc:"Resumen general del negocio",run:()=>view("home")},
+    {icon:"◉",title:"Nuevo cliente",desc:"Crear una ficha de cliente",run:()=>marcQuickView("clients","#new")},
+    {icon:"▣",title:"Nuevo producto",desc:"Agregar producto al inventario",run:()=>marcQuickView("inventory","#new")},
+    {icon:"▤",title:"Nueva cotización",desc:"Crear una propuesta para un cliente",run:()=>marcQuickView("quotes","#new")},
+    {icon:"✦",title:"Cotización con IA",desc:"Crear una cotización guiada",run:()=>marcQuickView("quotes","#aiNew")},
+    {icon:"🛒",title:"Nueva venta",desc:"Abrir el POS y cobrar",run:()=>marcQuickView("cash","#cashSaleQuick")},
+    {icon:"＋",title:"Abrir caja",desc:"Iniciar un turno de caja",run:()=>marcQuickView("cash","#openCashTop")},
+    {icon:"−",title:"Registrar gasto",desc:"Registrar una salida de caja",run:()=>marcQuickView("cash","#cashExpense")},
+    {icon:"⚙",title:"Configuración",desc:"Empresa, logo y datos comerciales",run:()=>view("settings")},
+    {icon:"⌕",title:"Buscar en inventario",desc:"Entrar directo al buscador",run:()=>marcQuickView("inventory","#search")},
+    {icon:"💬",title:"Preguntar a M.A.R.C.",desc:"Abrir el asistente operativo",run:()=>openChat()}
+  ];
+  const draw=(filter="")=>{
+    const q=String(filter||"").trim().toLowerCase();
+    const list=actions.filter(a=>(a.title+" "+a.desc).toLowerCase().includes(q));
+    grid.innerHTML=list.length?list.map(a=>"<button type=\"button\" class=\"marc-quick-item\" data-quick-index=\""+actions.indexOf(a)+"\"><span class=\"qi-icon\">"+a.icon+"</span><span><b>"+esc(a.title)+"</b><small>"+esc(a.desc)+"</small></span></button>").join(""):"<div class=\"marc-quick-empty\">No encontré una acción con ese nombre.</div>";
+    grid.querySelectorAll("[data-quick-index]").forEach(b=>b.onclick=async()=>{
+      const action=actions[Number(b.dataset.quickIndex)];
+      if(!action)return;
+      closeQuick();
+      try{await action.run()}catch(err){toast(err?.message||"No se pudo abrir esa sección.","err")}
+    });
+  };
+  const openQuick=()=>{draw(search?.value||"");overlay.classList.add("open");overlay.setAttribute("aria-hidden","false");setTimeout(()=>search?.focus(),30)};
+  const closeQuick=()=>{overlay.classList.remove("open");overlay.setAttribute("aria-hidden","true")};
+  const handleKey=e=>{
+    if(e.key==="/"&&!["INPUT","TEXTAREA","SELECT"].includes(document.activeElement?.tagName)){e.preventDefault();openQuick()}
+    if(e.key==="Escape"&&overlay.classList.contains("open"))closeQuick();
+  };
+  window.marcQuickOpen=openQuick;window.marcQuickClose=closeQuick;
+  $("#marcQuickOpen").onclick=openQuick;$("#marcQuickClose").onclick=closeQuick;
+  overlay.addEventListener("click",e=>{if(e.target===overlay)closeQuick()});
+  search?.addEventListener("input",e=>draw(e.target.value));
+  document.addEventListener("keydown",handleKey);draw();
+}
+function marcQuickView(viewName,selector){
+  view(viewName);
+  setTimeout(()=>{const el=$(selector);if(el){el.focus?.();if(selector==="#search"&&el.scrollIntoView)el.scrollIntoView({behavior:"smooth",block:"center"});else el.click?.()}},320);
+}
+
+function wire(){
+  initTheme();
+  marcQuickLauncher();
+  const portalToken=new URLSearchParams(location.search).get("cliente_token");
+  if(portalToken){
+    renderClientPortal(portalToken);
+    return;
+  }
+  const toggleTheme=()=>cycleTheme();
+  $("#themeToggle").onclick=toggleTheme;
+  $("#authThemeToggle").onclick=toggleTheme;
+  mode("login");
+  if($("#googleLogin")){ $("#googleLogin").type="button"; $("#googleLogin").onclick=signInGoogle; }
+  $("#authForm").onsubmit=submit;
+  $("#passwordToggle").onclick=()=>{const i=$("#password"),b=$("#passwordToggle");if(!i)return;i.type=i.type==="password"?"text":"password";b.textContent=i.type==="password"?"◉":"◎"};
+  $("#signupMode").onclick=()=>{mode(authMode==="signup"?"login":"signup");$("#signupMode").textContent=authMode==="signup"?"Volver a iniciar sesión":"Crear cuenta";$("#authForm")?.reset()};
+  $("#forgotPassword").onclick=()=>{mode("reset");$("#signupMode").textContent="Volver a iniciar sesión"};
+  $("#logout").onclick=async()=>{resetUiToLogin();await S.auth.signOut();};
+  $("#askTop").onclick=openChat;
+  $("#closeChat").onclick=closeChat;
+  $("#exitConversation").onclick=closeChat;
+  $("#menu").onclick=()=>$("#sidebar").classList.toggle("open");
+  $("#mobileScrim").onclick=()=>$("#sidebar").classList.remove("open");
+  document.addEventListener("click",e=>{
+    const b=e.target.closest?.(".sidebar nav button[data-view]");
+    if(!b)return;
+    e.preventDefault();
+    if(b.dataset.view==="settings")return companySettings();
+    view(b.dataset.view);
+  },true);
+  $("#chatForm").onsubmit=e=>{e.preventDefault();const v=$("#chatInput").value.trim();if(v){$("#chatInput").value="";chatSend(v)}};
+  $("#chatInput").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("#chatForm").requestSubmit()}};
+  $$(".chips button").forEach(b=>b.onclick=()=>{$("#chatInput").value=b.dataset.q;$("#chatInput").focus()});
+
+  const bootAuth=async()=>{
+    const {search,hash}=authCallbackParams();
+    const code=search.get("code");
+    const error=hash.get("error_description")||search.get("error_description")||hash.get("error")||search.get("error");
+    const oauthPending=sessionStorage.getItem("marc_google_oauth_pending")==="1";
+
+    if(error){
+      sessionStorage.removeItem("marc_google_oauth_pending");
+      throw new Error(decodeURIComponent(String(error).replace(/\+/g," ")));
+    }
+
+    // Browser-first SPA: Google OAuth uses the implicit callback so the
+    // session does not depend on a PKCE verifier surviving navigation.
+    // This prevents "PKCE code verifier not found" on worker/preview hosts.
+    if(code){
+      const currentFromCode=await S.auth.getSession();
+      if(currentFromCode.data?.session){
+        sessionStorage.removeItem("marc_google_oauth_pending");
+        cleanAuthUrl();
+        await handleAuthSession(currentFromCode.data.session);
+        return;
+      }
+    }
+
+    const current=await S.auth.getSession();
+    if(current.error)throw current.error;
+    if(current.data?.session){
+      sessionStorage.removeItem("marc_google_oauth_pending");
+      cleanAuthUrl();
+      await handleAuthSession(current.data.session);
+      return;
+    }
+
+    await new Promise(r=>setTimeout(r,900));
+    const retry=await S.auth.getSession();
+    if(retry.error)throw retry.error;
+    if(retry.data?.session){
+      sessionStorage.removeItem("marc_google_oauth_pending");
+      cleanAuthUrl();
+      await handleAuthSession(retry.data.session);
+      return;
+    }
+
+    // No hay sesión: la pantalla de acceso ya comunica el estado.
+    // No mostramos diagnósticos técnicos debajo del botón de Google.
+    msg("");
+  };
+
+  bootAuth().catch(e=>{
+    console.error("[M.A.R.C. auth error]",e);
+    sessionStorage.removeItem("marc_google_oauth_pending");
+    const raw=String(e?.message||"");
+    const friendly=/pkce|code verifier|verifier not found|oauth/i.test(raw)
+      ? "No se pudo completar el acceso con Google. Vuelve a pulsar «Continuar con Google» e inténtalo nuevamente."
+      : (raw||"No se pudo completar el acceso. Inténtalo nuevamente.");
+    msg(friendly,"error");
+  });
+}
+// API pública mínima para módulos auxiliares (proveedores, notificaciones y herramientas visuales).
+// Mantiene el núcleo encapsulado y evita que cada módulo dependa de variables internas sueltas.
+window.MARC=window.MARC||{};
+Object.assign(window.MARC,{view,openChat,closeChat,toast,supabase:S});
+window.view=view;
+window.openChat=openChat;
+window.closeChat=closeChat;
+window.toast=toast;
+Object.defineProperty(window,"st",{configurable:true,get:()=>st});
+
+wire()})();
+window.addEventListener("DOMContentLoaded",()=>{if($("#cashStaffLogin"))$("#cashStaffLogin").onclick=signInCashStaff});

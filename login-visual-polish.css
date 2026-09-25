@@ -202,3 +202,91 @@
   #auth .auth-mascot{width:165px!important;height:165px!important}
   #auth .auth-card h1{font-size:23px!important}
 }
+
+
+/* ===== MOBILE FINAL COMPOSITION =====
+   Keeps the login controls/IDs untouched. Only visual proportions change. */
+@media screen and (max-width:520px) and (orientation:portrait){
+  #auth.auth{
+    padding:0 8px 18px!important;
+    gap:9px!important;
+  }
+  #auth.auth>.auth-visual{
+    height:300px!important;
+    min-height:300px!important;
+    max-height:300px!important;
+    grid-template-rows:42px 166px 92px!important;
+    padding:0 10px 8px!important;
+    border-radius:0 0 23px 23px!important;
+  }
+  #auth .auth-visual-brand{
+    height:42px!important;
+  }
+  #auth .auth-visual-brand b{
+    font-size:21px!important;
+    letter-spacing:.12em!important;
+  }
+  #auth .auth-visual-brand small{
+    font-size:6px!important;
+  }
+  #auth .auth-mascot-wrap{
+    height:166px!important;
+    min-height:166px!important;
+    flex-basis:166px!important;
+  }
+  #auth .auth-mascot{
+    width:160px!important;
+    height:160px!important;
+  }
+  #auth .auth-visual-copy{
+    padding:0 8px!important;
+    align-self:center!important;
+  }
+  #auth .auth-visual-copy>span{
+    font-size:6px!important;
+    letter-spacing:.19em!important;
+  }
+  #auth .auth-visual-copy h2{
+    font-size:22px!important;
+    line-height:1!important;
+    margin:4px 0 5px!important;
+  }
+  #auth .auth-visual-copy p{
+    font-size:7px!important;
+    line-height:1.35!important;
+    max-width:330px!important;
+  }
+
+  #auth.auth>.auth-card{
+    padding:18px 14px 14px!important;
+    border-radius:21px!important;
+  }
+  #auth .auth-card-top{margin-bottom:10px!important}
+  #auth .auth-card-top .auth-mark{
+    width:38px!important;
+    height:38px!important;
+    border-radius:11px!important;
+  }
+  #auth .auth-card h1{
+    font-size:24px!important;
+    margin:7px 0 5px!important;
+  }
+  #auth .auth-card p{
+    font-size:8.5px!important;
+    margin-bottom:11px!important;
+  }
+  #auth .google-login,#auth #authSubmit{
+    min-height:46px!important;
+  }
+  #auth .auth-card input{
+    min-height:44px!important;
+  }
+  #auth .auth-form{
+    gap:7px!important;
+  }
+  #auth .auth-divider{
+    margin:9px 0!important;
+  }
+  #auth .auth-switch{margin-top:9px!important}
+  #auth .auth-foot{margin-top:10px!important}
+}

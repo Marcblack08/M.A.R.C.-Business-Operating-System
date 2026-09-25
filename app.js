@@ -2107,21 +2107,86 @@ async function getCashStaffContext(){
 async function openCashModal(){
   const ctx=await getCashStaffContext();
   if(!ctx.ownerId)return toast("No se encontró la caja administradora.","err");
-  const close=modal('<div class="modal-head"><div><h2>＋ Abrir caja</h2><p>Indica cuánto efectivo queda en la caja al comenzar.</p></div><button class="close" id="x">×</button></div><form id="cashOpenForm"><label>Efectivo inicial<input name="amount" type="number" min="0" step="0.01" required placeholder="0.00"></label><label>Nota opcional<textarea name="notes" rows="2" placeholder="Turno, caja o referencia…"></textarea></label><div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Abrir caja</button></div></form>');
-  $("#x").onclick=close;$("#cancel").onclick=close;
+
+  const typeClose=modal('<div class="cash-type-modal">'+
+    '<div class="modal-head"><div><div class="eyebrow2">NUEVA APERTURA</div><h2>＋ Abrir caja</h2><p>Selecciona el nivel de control que tendrá esta caja durante la jornada.</p></div><button class="close" id="cashTypeClose">×</button></div>'+
+    '<div class="cash-type-grid">'+
+      '<button type="button" class="cash-type-card cash-type-full" data-cash-type="FULL">'+
+        '<span class="cash-type-icon">▣</span><div><strong>Caja completa</strong><small>Controla toda la operación de dinero.</small></div><i>→</i>'+
+        '<ul><li>Ventas y cobros</li><li>Gastos y egresos</li><li>Ingresos adicionales</li><li>Retiros y control general</li></ul>'+
+      '</button>'+
+      '<button type="button" class="cash-type-card cash-type-sales" data-cash-type="SALES">'+
+        '<span class="cash-type-icon">🛒</span><div><strong>Caja de ventas</strong><small>Enfocada solamente en ventas y cobros.</small></div><i>→</i>'+
+        '<ul><li>Ventas</li><li>Cobros</li><li>Devoluciones</li><li>Operación rápida</li></ul>'+
+      '</button>'+
+    '</div>'+
+    '<div class="cash-type-note"><span>ⓘ</span><div><b>El tipo queda registrado en el historial.</b><small>Así podrás distinguir posteriormente una caja completa de una caja dedicada a ventas.</small></div></div>'+
+  '</div>');
+  $("#cashTypeClose").onclick=typeClose;
+
+  $$(".cash-type-card",$("#modal")).forEach(card=>card.onclick=async()=>{
+    const cashType=card.dataset.cashType==="SALES"?"SALES":"FULL";
+    typeClose();
+    await openCashForm(cashType);
+  });
+}
+
+async function openCashForm(cashType="FULL"){
+  const title=cashType==="SALES"?"Abrir caja de ventas":"Abrir caja completa";
+  const eyebrow=cashType==="SALES"?"CAJA DE VENTAS":"CAJA COMPLETA";
+  const description=cashType==="SALES"
+    ?"Registra el efectivo inicial de la caja dedicada a ventas y cobros."
+    :"Registra el efectivo inicial de la caja que controlará toda la operación.";
+  const helper=cashType==="SALES"
+    ?"Esta caja se utilizará para ventas, cobros y devoluciones."
+    :"Esta caja permitirá registrar ventas, gastos, ingresos adicionales y retiros.";
+
+  const close=modal('<div class="cash-open-modal">'+
+    '<div class="modal-head"><div><div class="eyebrow2">'+eyebrow+'</div><h2>＋ '+title+'</h2><p>'+description+'</p></div><button class="close" id="x">×</button></div>'+
+    '<div class="cash-open-type-pill"><span>'+(cashType==="SALES"?"🛒":"▣")+'</span><div><b>'+(cashType==="SALES"?"Caja de ventas":"Caja completa")+'</b><small>'+helper+'</small></div><button type="button" class="secondary" id="changeCashType">Cambiar</button></div>'+
+    '<form id="cashOpenForm">'+
+      '<label>Efectivo inicial<input name="amount" type="number" min="0" step="0.01" required placeholder="0.00" autofocus></label>'+
+      '<label>Fecha y hora<input name="opened_at" type="datetime-local" value="'+new Date().toISOString().slice(0,16)+'" disabled></label>'+
+      '<label>Responsable<input value="'+esc(ctxDisplayName())+'" disabled></label>'+
+      '<label>Observaciones (opcional)<textarea name="notes" rows="2" placeholder="Turno, caja o referencia…"></textarea></label>'+
+      '<div class="cash-open-info"><span>ⓘ</span><small>'+helper+' El tipo de caja quedará guardado en el historial.</small></div>'+
+      '<div class="modal-actions"><button type="button" class="secondary" id="cancel">Cancelar</button><button class="primary">Abrir caja</button></div>'+
+    '</form>'+
+  '</div>');
+  $("#x").onclick=close;
+  $("#cancel").onclick=close;
+  $("#changeCashType").onclick=()=>{close();openCashModal()};
+
   $("#cashOpenForm").onsubmit=async e=>{
-    e.preventDefault();const b=e.currentTarget.querySelector("button.primary");b.disabled=true;
+    e.preventDefault();
+    const b=e.currentTarget.querySelector("button.primary");
+    b.disabled=true;
     try{
-      const amount=Number(new FormData(e.currentTarget).get("amount")||0);
+      const d=new FormData(e.currentTarget);
+      const amount=Number(d.get("amount")||0);
       if(amount<0)throw new Error("El efectivo inicial no puede ser negativo.");
-      const notes=String(new FormData(e.currentTarget).get("notes")||"").trim()||null;
-      const {data:opened,error}=await S.rpc("marc_cash_open",{p_opening_amount:amount,p_notes:notes});
+      const notes=String(d.get("notes")||"").trim()||null;
+      const {data:opened,error}=await S.rpc("marc_cash_open",{
+        p_opening_amount:amount,
+        p_notes:notes,
+        p_cash_type:cashType
+      });
       if(error)throw error;
       if(!opened?.id)throw new Error("Supabase no confirmó la apertura de caja.");
-      close();toast("Caja abierta correctamente","ok");await cash();
-    }catch(err){toast(err.message||"No se pudo abrir la caja.","err");b.disabled=false}
+      close();
+      toast((cashType==="SALES"?"Caja de ventas":"Caja completa")+" abierta correctamente","ok");
+      await cash();
+    }catch(err){
+      toast(err.message||"No se pudo abrir la caja.","err");
+      b.disabled=false;
+    }
   };
 }
+
+function ctxDisplayName(){
+  return String(st.u?.user_metadata?.full_name||st.u?.user_metadata?.name||st.u?.email||"Usuario").trim();
+}
+
 async function closeCashModal(open,expected){
   const ctx=await getCashStaffContext();
   if(ctx.isStaff)return toast("Solo el administrador puede cerrar la caja.","err");

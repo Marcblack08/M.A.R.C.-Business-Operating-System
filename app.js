@@ -2817,7 +2817,6 @@ function wire(){
   initTheme();
   marcQuickLauncher();
   $("#ecosystemChooser [data-ecosystem-choice]").forEach(b=>b.addEventListener("click",()=>chooseEcosystem(b.dataset.ecosystemChoice)));
-  $("#ecosystemChooser")?.addEventListener("click",e=>{if(e.target.id==="ecosystemChooser")e.currentTarget.classList.add("hidden")});
   const portalToken=new URLSearchParams(location.search).get("cliente_token");
   if(portalToken){
     renderClientPortal(portalToken);

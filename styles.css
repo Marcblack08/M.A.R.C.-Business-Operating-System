@@ -3968,3 +3968,44 @@ html[data-theme="color"] .auth-card{border-color:#d9d0f2;background:#ffffffed}
   .cash-open-type-pill>div{min-width:0}
   .cash-open-type-pill>#changeCashType{margin-left:auto}
 }
+
+
+/* POS · mismo lenguaje visual de Caja + diseño móvil estable */
+.cash-pos-modal{width:100%;max-width:1080px;color:#e8f3ff}
+.cash-pos-modal .cash-pos-head{background:linear-gradient(145deg,#10243a,#0b1b2d)!important;border:1px solid #174466!important;border-radius:20px 20px 0 0!important;padding:20px 22px!important;color:#e8f3ff!important}
+.cash-pos-modal .cash-pos-head h2{color:#f2f8ff!important;margin:4px 0 6px!important;font-size:24px!important}
+.cash-pos-modal .cash-pos-head p{color:#8fa9bd!important;margin:0!important}
+.cash-pos-modal .cash-pos-head .close{background:#172c40!important;color:#d9e9f8!important;border:1px solid #244863!important;width:54px;height:54px;border-radius:15px!important;font-size:28px!important}
+.cash-pos-layout{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(320px,.85fr);gap:14px;max-height:72vh;min-height:560px;padding:14px;background:#071626;border:1px solid #123752;border-top:0;border-radius:0 0 20px 20px;overflow:hidden}
+.cash-pos-products{min-width:0;display:flex;flex-direction:column;gap:10px;min-height:0}
+.cash-pos-products .cash-product-search{height:48px;background:#091b2c!important;border:1px solid #1a4967!important;color:#e8f3ff!important;border-radius:14px!important;padding:0 15px!important}
+.cash-pos-products .cash-product-search::placeholder{color:#638199!important}
+.cash-pos-cats{display:flex;gap:8px;overflow-x:auto;padding:2px 0 5px;scrollbar-width:none}
+.cash-pos-cats::-webkit-scrollbar{display:none}
+.cash-pos-cats .pos-cat{background:#0b2033!important;border:1px solid #194762!important;color:#8eb0c7!important;padding:8px 13px!important;border-radius:999px!important;white-space:nowrap}
+.cash-pos-cats .pos-cat:hover,.cash-pos-cats .pos-cat:focus{background:#0c73d9!important;color:#fff!important;border-color:#149cf5!important}
+.cash-pos-product-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;overflow:auto;padding:2px;min-height:0}
+.cash-pos-product-grid>*{background:linear-gradient(145deg,#0b2033,#091a2b)!important;border:1px solid #174762!important;color:#e6f2fc!important;border-radius:16px!important;box-shadow:0 8px 20px rgba(0,0,0,.18)}
+.cash-pos-cart{border:1px solid #174762!important;border-radius:20px!important;padding:15px!important;display:flex;flex-direction:column;min-height:0;background:linear-gradient(145deg,#0c2135,#091a2b)!important;color:#e8f3ff!important}
+.cash-pos-cart-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding-bottom:12px;border-bottom:1px solid #173d56}
+.cash-pos-cart-head b{display:block;font-size:20px;color:#f1f7ff}
+.cash-pos-cart-head small{display:block;color:#7e9bb0;margin-top:3px}
+.cash-pos-cart-list{overflow:auto;flex:1;margin:10px 0;min-height:90px}
+.cash-pos-cart-total{border-top:1px solid #173d56;padding-top:12px}
+.cash-pos-cart-total>div{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.cash-pos-cart-total>div b{font-size:20px}.cash-pos-cart-total>div strong{font-size:28px;color:#edf7ff}
+.cash-pos-cart-total label{display:block;color:#91aabd;font-size:11px}
+.cash-pos-cart-total input{width:100%;margin-top:6px!important;background:#071725!important;border:1px solid #1b4c69!important;color:#edf7ff!important;border-radius:13px!important;padding:13px!important}
+.cash-pos-charge{width:100%!important;margin-top:10px!important;padding:14px!important;border-radius:14px!important;background:linear-gradient(90deg,#0ea8f0,#145ee8)!important;color:#fff!important;font-size:15px!important;font-weight:900}
+@media(max-width:760px){
+  .cash-pos-modal{max-width:none}
+  .cash-pos-modal .cash-pos-head{padding:16px 14px!important;border-radius:16px 16px 0 0!important}
+  .cash-pos-modal .cash-pos-head h2{font-size:19px!important}
+  .cash-pos-modal .cash-pos-head p{font-size:10px!important;max-width:78%}
+  .cash-pos-modal .cash-pos-head .close{width:46px;height:46px;font-size:25px}
+  .cash-pos-layout{grid-template-columns:1fr;gap:10px;min-height:0;max-height:none;height:calc(100dvh - 150px);padding:10px;border-radius:0 0 16px 16px;overflow:hidden}
+  .cash-pos-products{height:48%;min-height:220px}
+  .cash-pos-product-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .cash-pos-cart{height:52%;min-height:230px;padding:12px!important;border-radius:16px!important}
+  .cash-pos-cart-head b{font-size:17px}.cash-pos-cart-total>div b{font-size:17px}.cash-pos-cart-total>div strong{font-size:23px}
+}

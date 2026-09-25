@@ -191,9 +191,10 @@ async function chooseEcosystem(key){
   // PRIMER INGRESO: no dependemos de ninguna consulta de red para responder al clic.
   // El usuario debe poder entrar al ecosistema inmediatamente.
   const current=normalizeEcosystem(st.u?.user_metadata?.marc_ecosystem)||normalizeEcosystem(localStorage.getItem(ECOSYSTEM_KEY));
-  if(current && current!==key){
-    // Los cambios posteriores sí respetan la licencia: MASTER y planes Mixto pueden
-    // cambiar libremente. La validación se hace con límite de tiempo para no congelar UI.
+  const chooserIsOpen=!!$("#ecosystemChooser") && !$("#ecosystemChooser").classList.contains("hidden");
+  if(current && current!==key && !chooserIsOpen){
+    // Solo se aplican restricciones cuando el usuario ya está dentro y quiere
+    // cambiar de ecosistema. La pantalla inicial siempre debe responder al clic.
     let allowed=isMasterAccount()||hasMixedAccess();
     if(!allowed){
       try{
@@ -2890,7 +2891,19 @@ function marcQuickView(viewName,selector){
 function wire(){
   initTheme();
   marcQuickLauncher();
-  $("#ecosystemChooser [data-ecosystem-choice]").forEach(b=>b.addEventListener("click",e=>{e.preventDefault();e.stopPropagation();void chooseEcosystem(b.dataset.ecosystemChoice);}));
+  $("#ecosystemChooser [data-ecosystem-choice]").forEach(b=>{
+    b.type="button";
+    b.onclick=e=>{e.preventDefault();e.stopPropagation();chooseEcosystem(b.dataset.ecosystemChoice);};
+  });
+  // Fallback por delegación: garantiza que el selector siga funcionando aunque
+  // otro módulo vuelva a pintar el DOM del selector.
+  document.addEventListener("click",e=>{
+    const b=e.target.closest?.("#ecosystemChooser [data-ecosystem-choice]");
+    if(!b)return;
+    e.preventDefault();
+    e.stopPropagation();
+    chooseEcosystem(b.dataset.ecosystemChoice);
+  },true);
   const ecosystemBadge=$("#ecosystemBadge");
   if(ecosystemBadge){ecosystemBadge.addEventListener("click",async()=>{if(await canSwitchEcosystem())openEcosystemChooser();else toast("El cambio de ecosistema está disponible para planes Mixto y cuenta maestra.","err")});}
   const portalToken=new URLSearchParams(location.search).get("cliente_token");

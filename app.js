@@ -2836,8 +2836,10 @@ function wire(){
     return;
   }
   const toggleTheme=()=>cycleTheme();
-  $("#themeToggle").onclick=toggleTheme;
-  $("#authThemeToggle").onclick=toggleTheme;
+  const themeToggle=$("#themeToggle");
+  if(themeToggle)themeToggle.onclick=toggleTheme;
+  const authThemeToggle=$("#authThemeToggle");
+  if(authThemeToggle)authThemeToggle.onclick=toggleTheme;
   mode("login");
   if($("#googleLogin")){ $("#googleLogin").type="button"; $("#googleLogin").onclick=signInGoogle; }
   $("#authForm").onsubmit=submit;

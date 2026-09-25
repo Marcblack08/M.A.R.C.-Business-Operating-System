@@ -4202,3 +4202,11 @@ html[data-theme="color"] .auth-card{border-color:#d9d0f2;background:#ffffffed}
   .modal-root>.modal:has(.cash-pos-modal) .cash-pos-product-grid>*{min-height:108px!important}
   .modal-root>.modal:has(.cash-pos-modal) .cash-pos-cart{min-height:285px!important}
 }
+
+
+/* Microcopy POS · joven, natural y útil */
+.cash-pos-empty{min-height:118px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:5px;padding:18px;border:1px dashed #245675;border-radius:16px;background:rgba(10,31,49,.72);color:#dceaf5}
+.cash-pos-empty>span{font-size:24px;line-height:1;margin-bottom:3px}
+.cash-pos-empty>b{font-size:14px}
+.cash-pos-empty>small{max-width:270px;color:#7f9bae;font-size:10px;line-height:1.4}
+.cash-pos-empty-cart{min-height:100px;border-style:solid;background:rgba(7,23,37,.55)}

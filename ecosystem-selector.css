@@ -1,0 +1,108 @@
+.ecosystem-badge{
+  display:inline-flex;
+  align-items:center;
+  max-width:220px;
+  padding:7px 10px;
+  border:1px solid rgba(37,166,244,.22);
+  border-radius:999px;
+  background:rgba(13,47,75,.08);
+  color:#2376ad;
+  font-size:8px;
+  font-weight:800;
+  white-space:nowrap;
+}
+.ecosystem-chooser{
+  position:fixed;
+  inset:0;
+  z-index:10000;
+  display:grid;
+  place-items:center;
+  padding:20px;
+  background:rgba(2,12,24,.78);
+  backdrop-filter:blur(14px);
+}
+.ecosystem-chooser.hidden{display:none!important}
+.ecosystem-chooser-card{
+  width:min(760px,100%);
+  padding:28px;
+  border:1px solid rgba(57,181,255,.25);
+  border-radius:28px;
+  background:linear-gradient(145deg,#092943,#061725);
+  color:#eef8ff;
+  box-shadow:0 30px 100px rgba(0,0,0,.45);
+}
+.ecosystem-chooser-kicker{
+  color:#26b7ff;
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:.18em;
+}
+.ecosystem-chooser-card h2{
+  margin:8px 0 6px;
+  font-size:clamp(25px,5vw,38px);
+  letter-spacing:-.045em;
+}
+.ecosystem-chooser-card>p{
+  margin:0;
+  color:#9eb8cc;
+  font-size:11px;
+  line-height:1.55;
+}
+.ecosystem-choice-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:12px;
+  margin-top:22px;
+}
+.ecosystem-choice-grid button{
+  min-height:190px;
+  padding:18px;
+  text-align:left;
+  border:1px solid rgba(81,190,255,.18);
+  border-radius:19px;
+  background:rgba(4,22,37,.72);
+  color:#eef8ff;
+  transition:transform .18s ease,border-color .18s ease,background .18s ease;
+}
+.ecosystem-choice-grid button:hover,
+.ecosystem-choice-grid button:focus-visible{
+  transform:translateY(-2px);
+  border-color:rgba(49,185,255,.65);
+  background:rgba(9,42,67,.95);
+  outline:none;
+}
+.ecosystem-choice-grid button>span{
+  display:block;
+  font-size:28px;
+  margin-bottom:18px;
+}
+.ecosystem-choice-grid button b{
+  display:block;
+  font-size:13px;
+  margin-bottom:7px;
+}
+.ecosystem-choice-grid button small{
+  display:block;
+  color:#91adc2;
+  font-size:9px;
+  line-height:1.5;
+}
+.ecosystem-chooser-note{
+  margin-top:16px;
+  color:#7192a9;
+  font-size:8px;
+  text-align:center;
+}
+[data-ecosystem="technician"] .ecosystem-badge{border-color:rgba(37,166,244,.3)}
+[data-ecosystem="business"] .ecosystem-badge{border-color:rgba(46,190,128,.3);color:#238b63}
+[data-ecosystem="mixed"] .ecosystem-badge{border-color:rgba(155,117,255,.3);color:#7453bd}
+@media(max-width:780px){
+  .ecosystem-badge{display:none}
+  .ecosystem-chooser{padding:12px}
+  .ecosystem-chooser-card{padding:20px;border-radius:22px}
+  .ecosystem-choice-grid{grid-template-columns:1fr;gap:9px}
+  .ecosystem-choice-grid button{min-height:0;padding:15px;display:grid;grid-template-columns:42px 1fr;column-gap:10px;align-items:center}
+  .ecosystem-choice-grid button>span{grid-row:span 2;margin:0;font-size:25px}
+  .ecosystem-choice-grid button b{margin:0}
+  .ecosystem-choice-grid button small{grid-column:2}
+}

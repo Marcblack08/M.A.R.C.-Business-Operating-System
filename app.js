@@ -465,7 +465,7 @@ async function finances(){
   $("#finIncome").textContent=money(income);$("#finExpense").textContent=money(expense);$("#finResult").textContent=money(income-expense);
 }
 
-function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",suppliers:"Proveedores",quotes:"Cotizaciones",service_orders:"Órdenes de trabajo",settings:"Configuración",cash:"Caja",agenda:"Agenda técnica",finances:"Finanzas",sales:"Ventas / POS",purchases:"Compras",receivables:"Créditos y cobros",assets:"Equipos y activos",maintenance:"Mantenimientos",contracts:"Contratos",reports:"Reportes"}[x]||"Inicio";$(".sidebar nav button, #mobileNav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
+function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",suppliers:"Proveedores",quotes:"Cotizaciones",service_orders:"Órdenes de trabajo",settings:"Configuración",cash:"Caja",agenda:"Agenda técnica",finances:"Finanzas",sales:"Ventas / POS",purchases:"Compras",receivables:"Créditos y cobros",assets:"Equipos y activos",maintenance:"Mantenimientos",contracts:"Contratos",reports:"Reportes"}[x]||"Inicio";$$(".sidebar nav button, #mobileNav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
 async function sales(){
   const c=$("#content"); if(!c)return;
   const [{data:products,error:pe},{data:salesRows,error:se},{data:clientsRows}]=await Promise.all([

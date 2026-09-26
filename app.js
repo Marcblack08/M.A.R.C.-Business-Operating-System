@@ -1217,7 +1217,7 @@ async function serviceOrderChecklistModal(order){
  $("#socAdd").onclick=async()=>{const item=$("#socItem").value.trim();if(!item)return;const z=await S.from("marc_service_checklists").insert({user_id:st.u.id,service_order_id:order.id,item});if(z.error)return toast(z.error.message,"err");serviceOrderChecklistModal(order)};
  body.querySelectorAll(".soc-save").forEach(b=>b.onclick=async()=>{const id=b.dataset.id;const result=body.querySelector('.soc-result[data-id="'+id+'"]').value;const item=body.querySelector('.soc-note[data-id="'+id+'"]').value.trim();const notes=body.querySelector('.soc-comment[data-id="'+id+'"]').value.trim();const z=await S.from("marc_service_checklists").update({item,result,notes,updated_at:new Date().toISOString()}).eq("id",id).eq("user_id",st.u.id);if(z.error)return toast(z.error.message,"err");toast("Checklist actualizado","ok")});
 }
-function serviceOrderModal(row=null){
+async function serviceOrderModal(row=null){
   const isEdit=!!row;
   const close=modal(`<div class="modal-head"><div><div class="eyebrow2">ORDEN DE TRABAJO</div><h2>${isEdit?"Editar orden":"Nueva orden"}</h2><p>Registra el servicio, materiales, diagnóstico, trabajo y costo.</p></div><button class="close" id="serviceOrderClose">×</button></div>
   <form id="serviceOrderForm">

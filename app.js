@@ -941,20 +941,28 @@ async function maintenanceExecuteModal(plan){
  if(!plan?.id)return;
  const {data:occ,error}=await S.from("marc_maintenance_occurrences").select("*").eq("plan_id",plan.id).eq("user_id",st.u.id).neq("status","COMPLETADA").order("scheduled_at",{ascending:true}).limit(1).maybeSingle();
  if(error)return toast(error.message,"err");
- const assets=plan.marc_assets?[plan.marc_assets]:[];
- const close=modal('<div class="modal-head"><div><div class="eyebrow2">EJECUTAR MANTENIMIENTO</div><h2>'+esc(plan.title)+'</h2><p>Registra la visita y, si corresponde, vincúlala a una orden de trabajo.</p></div><button class="close" id="maintenanceExecClose">×</button></div><form id="maintenanceExecForm" class="form-grid"><label>Cliente<input value="'+esc(plan.marc_clients?.name||"Sin cliente")+'" disabled></label><label>Equipo<input value="'+esc(assets[0]?.name||"Sin equipo vinculado")+'" disabled></label><label>Fecha realizada<input name="completed_at" type="datetime-local" required></label><label>Orden de trabajo (opcional)<input name="service_order_id" placeholder="UUID de la OT"></label><label style="grid-column:1/-1">Notas de ejecución<textarea name="notes" rows="4" placeholder="Qué se revisó, qué se encontró, recomendaciones…"></textarea></label><div class="modal-actions" style="grid-column:1/-1"><button type="button" class="secondary" id="maintenanceExecCancel">Cancelar</button><button class="primary">✓ Completar mantenimiento</button></div></form>');
+ const close=modal('<div class="modal-head"><div><div class="eyebrow2">EJECUTAR MANTENIMIENTO</div><h2>'+esc(plan.title)+'</h2><p>Abre una OT para ejecutar el trabajo con materiales, fotos, checklist y conformidad, o ciérralo directamente.</p></div><button class="close" id="maintenanceExecClose">×</button></div><div class="card" style="padding:18px"><p style="margin-top:0"><b>'+esc(plan.marc_clients?.name||"Cliente sin asignar")+'</b></p><p style="margin-bottom:6px">'+esc(plan.marc_assets?[plan.marc_assets.name,plan.marc_assets.brand,plan.marc_assets.model].filter(Boolean).join(" · "):"Sin equipo vinculado")+'</p><small>Programado: '+esc(occ?.scheduled_at?new Date(occ.scheduled_at).toLocaleString("es-PE",{dateStyle:"medium",timeStyle:"short"}):"Sin ocurrencia pendiente")+'</small></div><form id="maintenanceExecForm" class="form-grid"><label>Fecha realizada<input name="completed_at" type="datetime-local" required></label><label style="grid-column:1/-1">Notas de ejecución<textarea name="notes" rows="4" placeholder="Qué se revisará o ejecutará…"></textarea></label><div class="modal-actions" style="grid-column:1/-1"><button type="button" class="secondary" id="maintenanceExecCancel">Cerrar</button><button type="button" class="secondary" id="maintenanceCreateOT">🛠 Crear OT y abrir</button><button class="primary">✓ Completar sin OT</button></div></form>');
  $("#maintenanceExecClose").onclick=close;$("#maintenanceExecCancel").onclick=close;
  $("#maintenanceExecForm [name=completed_at]").value=new Date().toISOString().slice(0,16);
+ $("#maintenanceCreateOT").onclick=async()=>{
+   const b=$("#maintenanceCreateOT");b.disabled=true;
+   try{
+     if(!occ?.id)throw new Error("No existe una ocurrencia pendiente para este plan.");
+     const d=new FormData($("#maintenanceExecForm"));
+     const payload={user_id:st.u.id,client_id:plan.client_id||null,asset_id:plan.asset_id||null,title:plan.title||"Mantenimiento",service_type:plan.service_type||"Mantenimiento preventivo",description:"Mantenimiento generado desde el plan recurrente.",location:plan.location||null,scheduled_at:occ.scheduled_at||plan.next_due_at,technician:plan.technician||"",status:"PROGRAMADA",notes:String(d.get("notes")||"").trim()||null,updated_at:new Date().toISOString(),number:"OT-"+Date.now().toString().slice(-8)};
+     const q=await S.from("marc_service_orders").insert(payload).select("*").single();
+     if(q.error)throw q.error;
+     const link=await S.from("marc_maintenance_occurrences").update({service_order_id:q.data.id,notes:String(d.get("notes")||"").trim()||null,updated_at:new Date().toISOString()}).eq("id",occ.id).eq("user_id",st.u.id);
+     if(link.error)throw link.error;
+     close();serviceOrderModal(q.data);
+   }catch(err){toast(err.message||"No se pudo crear la OT.","err");b.disabled=false}
+ };
  $("#maintenanceExecForm").onsubmit=async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{
-  if(!occ?.id)throw new Error("No existe una ocurrencia pendiente para este plan.");
-  const d=new FormData(e.currentTarget), orderId=String(d.get("service_order_id")||"").trim()||null;
-  const r=await S.rpc("marc_complete_maintenance",{p_occurrence_id:occ.id,p_service_order_id:orderId,p_completed_at:new Date(String(d.get("completed_at"))).toISOString(),p_notes:String(d.get("notes")||"").trim()||null});
-  if(r.error)throw r.error;
-  if(d.get("notes"))await S.from("marc_maintenance_occurrences").update({notes:String(d.get("notes")).trim()}).eq("id",occ.id).eq("user_id",st.u.id);
-  if(plan.marc_assets?.id){
-   await S.from("marc_assets").update({last_service_at:new Date(String(d.get("completed_at"))).toISOString(),next_service_at:r.data?.next_due_at||null,updated_at:new Date().toISOString()}).eq("id",plan.marc_assets.id).eq("user_id",st.u.id);
-  }
-  close();toast("Mantenimiento completado; próxima visita programada.","ok");maintenance();
+   if(!occ?.id)throw new Error("No existe una ocurrencia pendiente para este plan.");
+   const d=new FormData(e.currentTarget);
+   const r=await S.rpc("marc_complete_maintenance",{p_occurrence_id:occ.id,p_completed_at:new Date(String(d.get("completed_at"))).toISOString(),p_notes:String(d.get("notes")||"").trim()||null});
+   if(r.error)throw r.error;
+   close();toast("Mantenimiento completado; próxima visita programada.","ok");maintenance();
  }catch(err){toast(err.message||"No se pudo completar el mantenimiento.","err");b.disabled=false}};
 }
 function maintenancePlanModal(existing=null){
@@ -1259,7 +1267,14 @@ function serviceOrderModal(row=null){
       if(!lockedMaterials)await S.from("marc_service_order_materials").delete().eq("service_order_id",orderId).eq("user_id",st.u.id);
       const clean=lockedMaterials?[]:materialRows.filter(m=>String(m.name||"").trim()&&Number(m.quantity||0)>0).map(m=>({user_id:st.u.id,service_order_id:orderId,inventory_id:m.inventory_id||null,name:String(m.name).trim(),quantity:Number(m.quantity||0),unit_cost:Number(m.unit_cost||0)}));
       if(clean.length){const mr=await S.from("marc_service_order_materials").insert(clean);if(mr.error){b.disabled=false;$("#soMsg").textContent=mr.error.message;$("#soMsg").className="msg error";return}}
-      if(["TERMINADA","ENTREGADA"].includes($("#soStatus").value)){const cr=await S.rpc("marc_consume_service_order_materials",{p_order_id:orderId});if(cr.error){b.disabled=false;$("#soMsg").textContent=cr.error.message;$("#soMsg").className="msg error";return}}
+      if(["TERMINADA","ENTREGADA"].includes($("#soStatus").value)){const cr=await S.rpc("marc_consume_service_order_materials",{p_order_id:orderId});if(cr.error){b.disabled=false;$("#soMsg").textContent=cr.error.message;$("#soMsg").className="msg error";return}
+        const linked=await S.from("marc_maintenance_occurrences").select("id").eq("user_id",st.u.id).eq("service_order_id",orderId).neq("status","COMPLETADA").limit(1).maybeSingle();
+        if(linked.error){b.disabled=false;$("#soMsg").textContent=linked.error.message;$("#soMsg").className="msg error";return}
+        if(linked.data?.id){
+          const done=await S.rpc("marc_complete_maintenance",{p_occurrence_id:linked.data.id,p_service_order_id:orderId,p_completed_at:new Date().toISOString(),p_notes:$("#soNotes").value.trim()||null});
+          if(done.error){b.disabled=false;$("#soMsg").textContent=done.error.message;$("#soMsg").className="msg error";return}
+        }
+      }
     }
     if(q.error){b.disabled=false;$("#soMsg").textContent=q.error.message;$("#soMsg").className="msg error";return}
     close();toast(isEdit?"Orden actualizada":"Orden creada","ok");serviceOrders();

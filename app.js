@@ -135,7 +135,7 @@ function applyEcosystemUI(key){
   document.documentElement.dataset.ecosystem=key;
   localStorage.setItem(ECOSYSTEM_KEY,key);
   const meta=ECOSYSTEMS[key];
-  $("#sidebar nav button[data-ecosystems]").forEach(b=>{
+  Array.from(document.querySelectorAll("#sidebar nav button[data-ecosystems]")).forEach(b=>{
     const allowed=String(b.dataset.ecosystems||"").split(",").includes(key);
     b.hidden=!allowed;
     b.setAttribute("aria-hidden",String(!allowed));
@@ -2913,7 +2913,7 @@ function wire(){
   marcQuickLauncher();
   // El selector de ecosistemas tiene un único controlador global,
   // instalado antes de que los módulos visuales carguen sus propios listeners.
-  $("#ecosystemChooser [data-ecosystem-choice]").forEach(b=>{b.type="button";});
+  Array.from(document.querySelectorAll("#ecosystemChooser [data-ecosystem-choice]")).forEach(b=>{b.type="button";});
   const ecosystemBadge=$("#ecosystemBadge");
   if(ecosystemBadge){ecosystemBadge.addEventListener("click",async()=>{if(await canSwitchEcosystem())openEcosystemChooser();else toast("El cambio de ecosistema está disponible para planes Mixto y cuenta maestra.","err")});}
   const portalToken=new URLSearchParams(location.search).get("cliente_token");

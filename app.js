@@ -119,7 +119,7 @@ const ECOSYSTEMS={
 };
 function normalizeEcosystem(v){return Object.prototype.hasOwnProperty.call(ECOSYSTEMS,v)?v:null}
 function currentEcosystem(){
-  return normalizeEcosystem(st.ecosystem)||normalizeEcosystem(localStorage.getItem(ECOSYSTEM_KEY))||null;
+  return normalizeEcosystem(st.ecosystem)||normalizeEcosystem(safeStorageGet(ECOSYSTEM_KEY))||null;
 }
 function ecosystemAllows(viewName){
   const map={
@@ -161,17 +161,21 @@ function isMasterAccount(){
   const email=String(st.u?.email||"").trim().toLowerCase();
   return email==="joachinbeltranmarcdonald50@gmail.com";
 }
-function hasMixedAccess(){
-  const meta=st.u?.user_metadata||{};
-  const values=[meta.marc_plan,meta.plan,meta.subscription_plan,meta.marc_ecosystem_plan,meta.marc_ecosystem_access,meta.ecosystem_plan,meta.ecosystem_access]
-    .map(v=>String(v||"").toLowerCase());
-  return values.some(v=>v.includes("mixed")||v.includes("mixto"));
-}
 async function canSwitchEcosystem(){
-  if(isMasterAccount()||hasMixedAccess())return true;
+  // La autorización de cambio no se basa en user_metadata: Supabase indica que
+  // user_metadata es editable por el propio usuario y no debe usarse para
+  // autorización sensible. El permiso real se consulta en la tabla de roles.
+  if(isMasterAccount())return true;
   try{
-    const {data}=await S.from("marc_user_roles").select("role,active").eq("user_id",st.u?.id).eq("role","MASTER").eq("active",true).maybeSingle();
-    return data?.role==="MASTER";
+    const {data,error}=await S.from("marc_user_roles")
+      .select("role,active")
+      .eq("user_id",st.u?.id)
+      .eq("active",true);
+    if(error)return false;
+    return (data||[]).some(r=>{
+      const role=String(r?.role||"").trim().toUpperCase();
+      return role==="MASTER"||role==="MIXED"||role==="MIXTO";
+    });
   }catch(_){return false}
 }
 function openEcosystemChooser(){

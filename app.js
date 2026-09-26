@@ -188,16 +188,18 @@ async function saveEcosystem(key){
   key=normalizeEcosystem(key);
   if(!key)return;
   try{applyEcosystemUI(key)}catch(e){console.error("[M.A.R.C. ecosystem] Error visual no bloqueante",e)}
-  // No bloqueamos la interfaz esperando Supabase: el cambio visual es inmediato.
+  // La selección inicial queda marcada como configurada. Esto evita que una cuenta
+  // antigua, que ya tenga un ecosistema guardado por versiones anteriores, quede
+  // atrapada en un ecosistema sin volver a mostrar el selector.
   try{
-    const nextData={...(st.u?.user_metadata||{}),marc_ecosystem:key};
+    const nextData={...(st.u?.user_metadata||{}),marc_ecosystem:key,marc_ecosystem_configured:true};
     const result=await Promise.race([
       S.auth.updateUser({data:nextData}),
       new Promise(resolve=>setTimeout(()=>resolve({timeout:true}),2500))
     ]);
     if(!result?.timeout&&!result?.error&&result?.data?.user)st.u=result.data.user;
   }catch(e){
-    console.warn("[M.A.R.C. ecosystem] No se pudo guardar en perfil; se conserva localmente.",e);
+    console.warn("[M.A.R.C. ecosystem] No se pudo guardar la configuración en perfil; se conserva localmente.",e);
   }
 }
 async function chooseEcosystem(key){
@@ -263,11 +265,23 @@ window.MARC=window.MARC||{};
 window.MARC.chooseEcosystem=chooseEcosystem;
 
 async function ensureEcosystem(){
-  const fromProfile=normalizeEcosystem(st.u?.user_metadata?.marc_ecosystem);
+  const profile=st.u?.user_metadata||{};
+  const configured=profile.marc_ecosystem_configured===true;
+  const fromProfile=normalizeEcosystem(profile.marc_ecosystem);
   const saved=fromProfile||normalizeEcosystem(safeStorageGet(ECOSYSTEM_KEY));
-  if(saved){applyEcosystemUI(saved);return true}
+
+  // Las versiones anteriores guardaban "marc_ecosystem" sin una marca que
+  // distinguiera una configuración real de un valor heredado. Si la cuenta no
+  // tiene la nueva marca, mostramos una sola vez el selector para que pueda
+  // escoger Técnico, Tienda/Negocio o Mixto.
+  if(configured&&saved){
+    applyEcosystemUI(saved);
+    return true;
+  }
+
   const chooser=$("#ecosystemChooser");
   if(!chooser)return true;
+  chooser.style.pointerEvents="auto";
   chooser.classList.remove("hidden");
   chooser.setAttribute("aria-hidden","false");
   return false;

@@ -186,44 +186,65 @@ async function saveEcosystem(key){
 }
 async function chooseEcosystem(key){
   key=normalizeEcosystem(key);
-  if(!key){console.error("[M.A.R.C.] Ecosistema inválido:",key);return}
+  if(!key){console.error("[M.A.R.C.] Ecosistema inválido:",key);return false}
 
   const chooser=$("#ecosystemChooser");
   const app=$("#app");
   const auth=$("#auth");
+  const content=$("#content");
 
-  // Entrada inicial: no hacemos ninguna consulta ni esperamos ninguna operación.
-  // Primero cambiamos la pantalla, después cargamos el contenido.
-  applyEcosystemUI(key);
+  // PASO 1 — cambio de pantalla 100% síncrono.
+  // Ninguna consulta, permiso, Supabase, módulo externo o await puede impedir
+  // que el selector desaparezca y que la aplicación quede visible.
+  st.ecosystem=key;
+  localStorage.setItem(ECOSYSTEM_KEY,key);
+  document.documentElement.dataset.ecosystem=key;
+
   if(chooser){
     chooser.classList.add("hidden");
     chooser.setAttribute("aria-hidden","true");
+    chooser.style.pointerEvents="none";
   }
   if(auth)auth.classList.add("hidden");
   if(app)app.classList.remove("hidden");
+  applyEcosystemUI(key);
 
-  st.ecosystem=key;
-  localStorage.setItem(ECOSYSTEM_KEY,key);
-
-  const content=$("#content");
   if(content){
     content.innerHTML='<section class="card" style="padding:28px"><h2 style="margin:0 0 8px">Cargando '+ECOSYSTEMS[key].label+'…</h2><p style="margin:0;color:var(--muted,#71849a)">Preparando tu espacio de trabajo.</p></section>';
   }
 
-  // Guardado en segundo plano: jamás bloquea la entrada.
+  console.info("[M.A.R.C. ecosystem] Seleccionado:",key);
+
+  // PASO 2 — persistencia sin bloquear la navegación.
   void saveEcosystem(key);
 
+  // PASO 3 — render del inicio. El selector ya está cerrado aunque esto falle.
   try{
     await view("home");
     toast("Espacio configurado: "+ECOSYSTEMS[key].label,"ok");
   }catch(err){
     console.error("[M.A.R.C. ecosystem] Error cargando inicio:",err);
     if(content){
-      content.innerHTML='<section class="card" style="padding:28px"><h2 style="margin:0 0 8px">Espacio seleccionado</h2><p style="margin:0;color:var(--muted,#71849a)">El ecosistema está activo. Recarga si el contenido no termina de cargar.</p></section>';
+      content.innerHTML='<section class="card" style="padding:28px"><h2 style="margin:0 0 8px">Espacio seleccionado</h2><p style="margin:0;color:var(--muted,#71849a)">El ecosistema está activo. No se pudo cargar el panel inicial.</p></section>';
     }
-    toast("El ecosistema se seleccionó, pero hubo un error cargando el inicio.","err");
+    toast("Ecosistema activo; hubo un error cargando el inicio.","err");
   }
+  return true;
 }
+
+// Control único y aislado del selector.
+// Se registra fuera de wire() para que un fallo de otro módulo no deje el selector
+// sin interacción. Además intercepta el click antes de los listeners genéricos.
+document.addEventListener("click",e=>{
+  const b=e.target?.closest?.("#ecosystemChooser [data-ecosystem-choice]");
+  if(!b)return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  void chooseEcosystem(b.dataset.ecosystemChoice);
+},{capture:true});
+
+window.MARC=window.MARC||{};
+window.MARC.chooseEcosystem=chooseEcosystem;
 
 async function ensureEcosystem(){
   const fromProfile=normalizeEcosystem(st.u?.user_metadata?.marc_ecosystem);
@@ -2890,19 +2911,9 @@ function marcQuickView(viewName,selector){
 function wire(){
   initTheme();
   marcQuickLauncher();
-  $("#ecosystemChooser [data-ecosystem-choice]").forEach(b=>{
-    b.type="button";
-    b.onclick=e=>{e.preventDefault();e.stopPropagation();chooseEcosystem(b.dataset.ecosystemChoice);};
-  });
-  // Fallback por delegación: garantiza que el selector siga funcionando aunque
-  // otro módulo vuelva a pintar el DOM del selector.
-  document.addEventListener("click",e=>{
-    const b=e.target.closest?.("#ecosystemChooser [data-ecosystem-choice]");
-    if(!b)return;
-    e.preventDefault();
-    e.stopPropagation();
-    chooseEcosystem(b.dataset.ecosystemChoice);
-  },true);
+  // El selector de ecosistemas tiene un único controlador global,
+  // instalado antes de que los módulos visuales carguen sus propios listeners.
+  $("#ecosystemChooser [data-ecosystem-choice]").forEach(b=>{b.type="button";});
   const ecosystemBadge=$("#ecosystemBadge");
   if(ecosystemBadge){ecosystemBadge.addEventListener("click",async()=>{if(await canSwitchEcosystem())openEcosystemChooser();else toast("El cambio de ecosistema está disponible para planes Mixto y cuenta maestra.","err")});}
   const portalToken=new URLSearchParams(location.search).get("cliente_token");

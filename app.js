@@ -551,7 +551,7 @@ async function view(x){
     st.view=x;title(x);$("#sidebar").classList.remove("open");document.body.style.overflow="";
     if(window.innerWidth<=780)window.scrollTo(0,0);
     $$(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x));
-    if(x==="home")return home();if(x==="clients")return clients();if(x==="inventory")return inventory();
+    if(x==="home")return currentEcosystem()==="technician"?technicianDashboard():home();if(x==="clients")return clients();if(x==="inventory")return inventory();
     if(x==="suppliers"){if(window.marcSupplierCenter)return window.marcSupplierCenter();return toast("No se pudo cargar el Centro de Proveedores. Recarga la aplicación.","err");}
     if(x==="quotes")return quotes();if(x==="service_orders")return serviceOrders();if(x==="agenda")return agenda();if(x==="finances")return finances();if(x==="cash")return cash();
     if(["sales","purchases","receivables","assets","maintenance","contracts","reports"].includes(x))return moduleHub(x);
@@ -914,6 +914,33 @@ function maintenancePlanModal(existing=null){
  $("#maintenanceForm [name=next_due_at]").value=existing?.next_due_at?new Date(existing.next_due_at).toISOString().slice(0,16):new Date(Date.now()+7*86400000).toISOString().slice(0,16);
  S.from("marc_clients").select("id,name").eq("user_id",st.u.id).order("name").then(({data})=>{const sel=$("#maintenanceForm [name=client_id]");(data||[]).forEach(x=>{const o=document.createElement("option");o.value=x.id;o.textContent=x.name;o.selected=x.id===existing?.client_id;sel.appendChild(o)})});
  $("#maintenanceForm").onsubmit=async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{const d=new FormData(e.currentTarget);const payload={user_id:st.u.id,client_id:String(d.get("client_id")||"")||null,title:String(d.get("title")||"").trim(),service_type:String(d.get("service_type")||"").trim()||null,interval_months:Number(d.get("interval_months")||6),next_due_at:new Date(String(d.get("next_due_at"))).toISOString(),technician:String(d.get("technician")||"").trim()||null,location:String(d.get("location")||"").trim()||null,notes:String(d.get("notes")||"").trim()||null,updated_at:new Date().toISOString()};const r=isEdit?await S.from("marc_maintenance_plans").update(payload).eq("id",existing.id).eq("user_id",st.u.id):await S.from("marc_maintenance_plans").insert(payload).select("id").single();if(r.error)throw r.error;if(!isEdit&&r.data?.id){const o=await S.from("marc_maintenance_occurrences").insert({user_id:st.u.id,plan_id:r.data.id,scheduled_at:payload.next_due_at,status:"PROGRAMADA"});if(o.error)throw o.error}close();toast(isEdit?"Plan actualizado":"Mantenimiento recurrente creado","ok");agenda()}catch(err){toast(err.message||"No se pudo guardar el plan","err");b.disabled=false}};
+}
+async function technicianDashboard(){
+  const c=$("#content"); if(!c)return;
+  const [ot,maint,clients,inventory]=await Promise.all([
+    S.from("marc_service_orders").select("id,status,revenue,profit,scheduled_at").eq("user_id",st.u.id).order("created_at",{ascending:false}).limit(100),
+    S.from("marc_maintenance_plans").select("id,title,next_due_at,active").eq("user_id",st.u.id).eq("active",true).order("next_due_at").limit(50),
+    S.from("marc_clients").select("id,name").eq("user_id",st.u.id).order("name").limit(500),
+    S.from("marc_inventory").select("id,name,stock,min_stock").eq("user_id",st.u.id).eq("active",true).order("name").limit(1000)
+  ]);
+  if(ot.error||maint.error||clients.error||inventory.error)return home();
+  const orders=ot.data||[],plans=maint.data||[],stock=inventory.data||[];
+  const today=new Date(); today.setHours(0,0,0,0);
+  const due=plans.filter(x=>x.next_due_at&&new Date(x.next_due_at)<=new Date(Date.now()+30*86400000));
+  const pending=orders.filter(x=>["PENDIENTE","PROGRAMADA","EN_PROCESO"].includes(x.status));
+  const revenue=orders.reduce((n,x)=>n+Number(x.revenue||0),0),profit=orders.reduce((n,x)=>n+Number(x.profit||0),0);
+  c.innerHTML='<div class="head"><div><div class="eyebrow2">ECOSISTEMA TÉCNICO</div><h1>Centro de operaciones.</h1><p>Del cliente al trabajo, del trabajo al material y del material a la rentabilidad.</p></div><button id="newOTQuick" class="primary">＋ Nueva orden</button></div>'+
+  '<section class="client-summary"><div><span>ÓRDENES ACTIVAS</span><strong>'+pending.length+'</strong><small>Por atender o en proceso</small></div><div><span>MANTENIMIENTOS PRÓXIMOS</span><strong>'+due.length+'</strong><small>Dentro de 30 días</small></div><div><span>INGRESOS OT</span><strong>'+money(revenue)+'</strong><small>Órdenes recientes</small></div><div><span>UTILIDAD OT</span><strong class="'+(profit>=0?"ok":"out")+'">'+money(profit)+'</strong><small>Rentabilidad registrada</small></div></section>'+
+  '<div class="module-related-grid tech-dashboard-grid">'+
+  '<button data-tech-view="service_orders"><b>🛠️ Órdenes de trabajo</b><small>'+pending.length+' activas · diagnóstico, materiales, evidencias y conformidad.</small><span>Entrar →</span></button>'+
+  '<button data-tech-view="assets"><b>🧰 Equipos y activos</b><small>Registra equipos instalados y su historial técnico por cliente.</small><span>Entrar →</span></button>'+
+  '<button data-tech-view="maintenance"><b>🔧 Mantenimientos</b><small>'+due.length+' planes requieren atención próxima.</small><span>Entrar →</span></button>'+
+  '<button data-tech-view="clients"><b>👥 Clientes</b><small>'+clients.data?.length||0+' clientes disponibles para trabajar.</small><span>Entrar →</span></button>'+
+  '<button data-tech-view="inventory"><b>📦 Materiales</b><small>'+stock.filter(x=>Number(x.stock)<=Number(x.min_stock)).length+' productos en stock bajo.</small><span>Entrar →</span></button>'+
+  '<button data-tech-view="reports"><b>📊 Rentabilidad</b><small>Consulta ingresos, costos y utilidad de tus servicios.</small><span>Entrar →</span></button>'+
+  '</div>';
+  $("#newOTQuick").onclick=()=>serviceOrderModal();
+  c.querySelectorAll("[data-tech-view]").forEach(b=>b.onclick=()=>view(b.dataset.techView));
 }
 async function serviceOrders(){
   const {data,error}=await S.from("marc_service_orders").select("*,marc_clients(name)").eq("user_id",st.u.id).order("created_at",{ascending:false});

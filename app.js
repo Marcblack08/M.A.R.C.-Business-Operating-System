@@ -981,9 +981,23 @@ async function assets(){
 }
 async function assetModal(row,clientsRows){
   const editing=!!row,id=row?.id||"";
-  const history=editing?await S.from("marc_service_orders").select("id,number,title,status").eq("user_id",st.u.id).eq("asset_id",id).order("created_at",{ascending:false}).limit(20):{data:[]};
-  const serviceHistory=history.data||[];
-  const close=modal('<div class="modal-head"><div><div class="eyebrow2">FICHA TÉCNICA</div><h2>'+(editing?"Equipo / activo":"Nuevo equipo / activo")+'</h2><p>Identificación, ubicación, garantía y trazabilidad.</p></div><button class="close" id="assetClose">×</button></div>'+
+  const [so,mp]=editing?await Promise.all([
+    S.from("marc_service_orders").select("id,number,title,status,scheduled_at,revenue,profit,materials_cost,technician").eq("user_id",st.u.id).eq("asset_id",id).order("created_at",{ascending:false}).limit(100),
+    S.from("marc_maintenance_plans").select("id,title,next_due_at,last_completed_at,active,interval_months,technician").eq("user_id",st.u.id).eq("asset_id",id).order("next_due_at").limit(50)
+  ]):[{data:[]},{data:[]}];
+  const serviceHistory=so.data||[],plans=mp.data||[];
+  const orderIds=serviceHistory.map(x=>x.id);
+  const [matRes,photoRes]=orderIds.length?await Promise.all([
+    S.from("marc_service_order_materials").select("service_order_id,name,quantity,unit_cost,total").eq("user_id",st.u.id).in("service_order_id",orderIds),
+    S.from("marc_service_order_photos").select("service_order_id,photo_type,caption,storage_path,created_at").eq("user_id",st.u.id).in("service_order_id",orderIds).order("created_at",{ascending:false}).limit(100)
+  ]):[{data:[]},{data:[]}];
+  const mats=matRes.data||[],photos=photoRes.data||[];
+  const revenue=serviceHistory.reduce((n,x)=>n+Number(x.revenue||0),0);
+  const profit=serviceHistory.reduce((n,x)=>n+Number(x.profit||0),0);
+  const materialCost=mats.reduce((n,x)=>n+Number(x.total||Number(x.quantity||0)*Number(x.unit_cost||0)),0);
+  const activePlans=plans.filter(x=>x.active).length;
+  const close=modal('<div class="modal-head"><div><div class="eyebrow2">FICHA TÉCNICA</div><h2>'+esc(row?.name||"Nuevo equipo / activo")+'</h2><p>Identificación, operación, mantenimiento e historial económico del activo.</p></div><button class="close" id="assetClose">×</button></div>'+
+  (editing?'<section class="client-summary" style="margin-bottom:18px"><div><span>ÓRDENES</span><strong>'+serviceHistory.length+'</strong><small>Trabajos vinculados</small></div><div><span>MANTENIMIENTOS</span><strong>'+activePlans+'</strong><small>Planes activos</small></div><div><span>INGRESOS</span><strong>'+money(revenue)+'</strong><small>Servicios registrados</small></div><div><span>UTILIDAD</span><strong class="'+(profit>=0?"ok":"out")+'">'+money(profit)+'</strong><small>Rentabilidad del activo</small></div></section>':"")+
   '<form id="assetForm" class="form-grid">'+
   '<label>Nombre del equipo<input name="name" required value="'+esc(row?.name||"")+'" placeholder="Ej. DVR principal, cámara PTZ, aire acondicionado…"></label>'+
   '<label>Tipo<input name="asset_type" value="'+esc(row?.asset_type||"EQUIPO")+'" placeholder="CCTV, RED, COMPUTACIÓN…"></label>'+
@@ -1001,19 +1015,26 @@ async function assetModal(row,clientsRows){
   '<label class="full">Notas técnicas<textarea name="notes" rows="4" placeholder="Características, IP, ubicación exacta, observaciones…">'+esc(row?.notes||"")+'</textarea></label>'+
   '<div class="full" style="display:flex;gap:10px;justify-content:flex-end"><button type="button" class="secondary" id="assetCancel">Cancelar</button><button class="primary" type="submit">'+(editing?"Guardar cambios":"Registrar equipo")+'</button></div>'+
   '</form>'+
-  (editing?'<section class="card" style="margin-top:18px;padding:18px"><div class="panel-title-row"><div><div class="panel-eyebrow">HISTORIAL DE OT</div><h3>Trabajos vinculados</h3></div></div><p style="margin:8px 0">🛠️ '+serviceHistory.length+' órdenes de trabajo asociadas.</p>'+serviceHistory.slice(0,8).map(x=>'<div class="list-row"><b>'+esc(x.number||"OT")+'</b><span>'+esc(x.title||"Servicio")+' · '+esc(x.status||"")+'</span></div>').join("")+'</section>':""));
+  (editing?'<div class="asset-history-panels">'+
+    '<section class="card" style="margin-top:18px;padding:18px"><div class="panel-title-row"><div><div class="panel-eyebrow">HISTORIAL DE SERVICIOS</div><h3>Órdenes de trabajo</h3></div><span>'+serviceHistory.length+'</span></div><div class="list">'+(serviceHistory.slice(0,12).map(x=>'<div class="list-row"><div><b>'+esc(x.number||"OT")+'</b><br><small>'+esc(x.title||"Servicio")+' · '+esc(x.status||"")+'</small></div><span>'+money(x.revenue)+' · utilidad '+money(x.profit)+'</span></div>').join("")||'<div class="empty">No hay órdenes vinculadas.</div>')+'</div></section>'+
+    '<section class="card" style="margin-top:18px;padding:18px"><div class="panel-title-row"><div><div class="panel-eyebrow">MANTENIMIENTO PROGRAMADO</div><h3>Planes del equipo</h3></div><span>'+plans.length+'</span></div><div class="list">'+(plans.map(x=>'<div class="list-row"><div><b>'+esc(x.title)+'</b><br><small>'+esc(x.technician||"Sin técnico")+' · cada '+Number(x.interval_months||0)+' meses</small></div><span>'+new Date(x.next_due_at).toLocaleDateString("es-PE")+'</span></div>').join("")||'<div class="empty">No hay planes vinculados.</div>')+'</div></section>'+
+    '<section class="card" style="margin-top:18px;padding:18px"><div class="panel-title-row"><div><div class="panel-eyebrow">MATERIALES Y COSTOS</div><h3>Consumo asociado</h3></div><span>'+money(materialCost)+'</span></div><div class="list">'+(mats.slice(0,15).map(x=>'<div class="list-row"><div><b>'+esc(x.name)+'</b><br><small>'+Number(x.quantity||0)+' × '+money(x.unit_cost)+'</small></div><span>'+money(x.total||Number(x.quantity||0)*Number(x.unit_cost||0))+'</span></div>').join("")||'<div class="empty">No hay materiales registrados.</div>')+'</div></section>'+
+    '<section class="card" style="margin-top:18px;padding:18px"><div class="panel-title-row"><div><div class="panel-eyebrow">EVIDENCIA</div><h3>Fotografías de trabajos</h3></div><span>'+photos.length+'</span></div><div class="client-cards">'+(photos.slice(0,12).map(x=>'<article class="client-card"><img data-asset-photo="'+esc(x.storage_path)+'" style="width:100%;height:150px;object-fit:cover;border-radius:14px"><b>'+esc(x.photo_type||"FOTO")+'</b><p>'+esc(x.caption||"Sin descripción")+'</p><small>'+new Date(x.created_at).toLocaleDateString("es-PE")+'</small></article>').join("")||'<div class="empty">No hay fotografías vinculadas.</div>')+'</div></section>'+
+  '</div>':""));
   $("#assetClose").onclick=close;$("#assetCancel").onclick=close;
+  document.querySelectorAll("#modal-root [data-asset-photo]").forEach(async img=>{const z=await S.storage.from("service-order-photos").createSignedUrl(img.dataset.assetPhoto,3600);if(!z.error)img.src=z.data.signedUrl});
   $("#assetForm").onsubmit=async e=>{
     e.preventDefault();
+    const b=e.submitter;b.disabled=true;
     const d=new FormData(e.target);
     const payload={user_id:st.u.id,name:String(d.get("name")||"").trim(),asset_type:String(d.get("asset_type")||"EQUIPO").trim(),client_id:d.get("client_id")||null,location:String(d.get("location")||"").trim()||null,brand:String(d.get("brand")||"").trim()||null,model:String(d.get("model")||"").trim()||null,serial_number:String(d.get("serial_number")||"").trim()||null,internal_code:String(d.get("internal_code")||"").trim()||null,install_date:d.get("install_date")||null,warranty_until:d.get("warranty_until")||null,last_service_at:d.get("last_service_at")?new Date(d.get("last_service_at")).toISOString():null,next_service_at:d.get("next_service_at")?new Date(d.get("next_service_at")).toISOString():null,status:String(d.get("status")||"ACTIVO"),notes:String(d.get("notes")||"").trim()||null,updated_at:new Date().toISOString()};
-    if(!payload.name)return toast("El nombre del equipo es obligatorio.","err");
-    const q=editing?S.from("marc_assets").update(payload).eq("id",id).eq("user_id",st.u.id):S.from("marc_assets").insert(payload);
-    const {error}=await q;
-    if(error)return toast(error.message,"err");
+    if(!payload.name){b.disabled=false;return toast("El nombre del equipo es obligatorio.","err")}
+    const q=editing?await S.from("marc_assets").update(payload).eq("id",id).eq("user_id",st.u.id):await S.from("marc_assets").insert(payload);
+    if(q.error){b.disabled=false;return toast(q.error.message,"err")}
     close();toast(editing?"Equipo actualizado.":"Equipo registrado.","ok");assets();
   };
 }
+
 async function serviceOrders(){
   const {data,error}=await S.from("marc_service_orders").select("*,marc_clients(name)").eq("user_id",st.u.id).order("created_at",{ascending:false});
   if(error)return toast(error.message,"err");

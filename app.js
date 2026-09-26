@@ -519,24 +519,81 @@ function moduleHub(type){
   const c=$("#content"); if(!c)return;
   const ecosystem=currentEcosystem()||"technician";
   const catalogs={
-    sales:{icon:"🛒",eyebrow:"COMERCIO",title:"Ventas / POS",desc:"Registra ventas y conecta cada operación con inventario, cliente y caja.",tone:"business",actions:[["cash","Abrir caja"],["inventory","Revisar inventario"],["clients","Buscar cliente"]],features:["Venta rápida y venta a crédito","Efectivo, Yape, Plin, tarjeta y transferencia","Descuentos y precios por operación","Descuento automático de stock","Historial de ventas por cliente"]},
-    purchases:{icon:"📥",eyebrow:"ABASTECIMIENTO",title:"Compras",desc:"Registra compras y entradas para conocer el costo real de tu inventario.",tone:"business",actions:[["inventory","Ver inventario"],["suppliers","Ver proveedores"]],features:["Proveedor y documento de compra","Costo unitario y descuentos","Entrada automática al inventario","Historial de precios","Compras por período y proveedor"]},
-    receivables:{icon:"💳",eyebrow:"COBRANZAS",title:"Créditos y cobros",desc:"Controla saldos pendientes, vencimientos y pagos de tus clientes.",tone:"business",actions:[["clients","Ver clientes"],["cash","Ir a caja"]],features:["Cuentas por cobrar","Saldo por cliente","Historial de pagos","Vencimientos y seguimiento","Resumen de deuda"]},
-    assets:{icon:"🧰",eyebrow:"CONTROL TÉCNICO",title:"Equipos y activos",desc:"Registra los equipos de cada cliente, su ubicación, garantía y estado.",tone:"technician",actions:[["clients","Ver clientes"],["service_orders","Crear orden"],["maintenance","Programar mantenimiento"]],features:["Marca, modelo y número de serie","Ubicación del equipo","Instalación y garantía","Estado operativo","Historial de intervenciones"]},
-    maintenance:{icon:"🔧",eyebrow:"SERVICIO RECURRENTE",title:"Mantenimientos",desc:"Programa mantenimientos preventivos y correctivos y conserva todo el historial.",tone:"technician",actions:[["agenda","Abrir agenda"],["service_orders","Ver órdenes"],["assets","Ver activos"]],features:["Preventivo y correctivo","Próxima fecha","Frecuencia y recordatorios","Historial por cliente y equipo","Servicios y costos"]},
-    contracts:{icon:"📄",eyebrow:"RELACIONES DE SERVICIO",title:"Contratos",desc:"Administra contratos de mantenimiento y servicios recurrentes.",tone:"technician",actions:[["clients","Ver clientes"],["maintenance","Ver mantenimientos"]],features:["Inicio y vencimiento","Precio y periodicidad","Servicios incluidos","Visitas utilizadas y pendientes","Renovación y estado"]},
-    reports:{icon:"📊",eyebrow:"INTELIGENCIA OPERATIVA",title:"Reportes",desc:"Centro único para consultar ventas, trabajos, inventario, caja y rentabilidad.",tone:"mixed",actions:[["finances","Finanzas"],["cash","Caja"],["inventory","Inventario"]],features:["Ventas y rentabilidad","Trabajos y órdenes","Inventario y movimientos","Caja y flujo de dinero","Exportación a Excel y PDF"]}
+    sales:{icon:"🛒",eyebrow:"COMERCIO",title:"Ventas / POS",desc:"Registra ventas reales y conecta cada operación con cliente, inventario y caja.",tone:"business",actions:[["cash","Abrir caja"],["inventory","Revisar inventario"],["clients","Buscar cliente"]],features:["Venta al contado o crédito","Métodos de pago y comprobante interno","Descuentos y cálculo automático","Descuento de stock al confirmar","Historial de ventas"]},
+    purchases:{icon:"📥",eyebrow:"ABASTECIMIENTO",title:"Compras",desc:"Registra compras y entradas de mercadería para mantener costos e inventario sincronizados.",tone:"business",actions:[["inventory","Ver inventario"],["suppliers","Ver proveedores"]],features:["Proveedor y documento","Productos y cantidades","Costo unitario y descuentos","Entrada al inventario","Historial de compras"]},
+    receivables:{icon:"💳",eyebrow:"COBRANZAS",title:"Créditos y cobros",desc:"Controla las ventas a crédito, saldos pendientes y pagos de clientes.",tone:"business",actions:[["clients","Ver clientes"],["cash","Ir a caja"]],features:["Cuentas por cobrar","Saldo por cliente","Registro de abonos","Vencimientos","Historial de deuda"]},
+    assets:{icon:"🧰",eyebrow:"CONTROL TÉCNICO",title:"Equipos y activos",desc:"Registra equipos instalados, números de serie, ubicación, garantía y estado.",tone:"technician",actions:[["clients","Ver clientes"],["service_orders","Crear orden de trabajo"],["maintenance","Programar mantenimiento"]],features:["Ficha técnica del equipo","Serie y ubicación","Fecha de instalación","Garantía y estado","Historial de intervenciones"]},
+    maintenance:{icon:"🔧",eyebrow:"SERVICIO RECURRENTE",title:"Mantenimientos",desc:"Programa y controla mantenimientos preventivos y correctivos.",tone:"technician",actions:[["agenda","Abrir agenda"],["service_orders","Ver órdenes"],["assets","Ver equipos"]],features:["Preventivo y correctivo","Próxima fecha","Frecuencia","Historial por cliente y equipo","Costos y trabajos realizados"]},
+    contracts:{icon:"📄",eyebrow:"SERVICIOS RECURRENTES",title:"Contratos",desc:"Administra contratos de mantenimiento, servicios periódicos y renovaciones.",tone:"technician",actions:[["clients","Ver clientes"],["maintenance","Ver mantenimientos"]],features:["Vigencia","Precio y periodicidad","Servicios incluidos","Visitas pendientes","Renovaciones"]},
+    reports:{icon:"📊",eyebrow:"INTELIGENCIA OPERATIVA",title:"Reportes",desc:"Consulta indicadores de ventas, trabajos, inventario, caja y rentabilidad.",tone:"mixed",actions:[["finances","Finanzas"],["cash","Caja"],["inventory","Inventario"]],features:["Ventas y rentabilidad","Órdenes de trabajo","Inventario","Caja","Exportación futura a Excel/PDF"]}
   };
   const m=catalogs[type]||catalogs.reports;
-  const apps=type==="reports"?Object.keys(catalogs).filter(k=>k!=="reports"&&ecosystemAllows(k)):[];
-  c.innerHTML='<section class="module-hub '+m.tone+'">'+
-    '<div class="module-hero"><div><div class="module-eyebrow">'+m.eyebrow+'</div><h1>'+m.icon+' '+m.title+'</h1><p>'+m.desc+'</p></div><span class="module-ecosystem">'+(ECOSYSTEMS[ecosystem]?.icon||"")+' '+(ECOSYSTEMS[ecosystem]?.label||"M.A.R.C.")+'</span></div>'+
-    '<div class="module-actions">'+m.actions.map(a=>'<button class="module-action" data-module-action="'+a[0]+'"><b>'+esc(a[1])+'</b><span>→</span></button>').join("")+'</div>'+
-    '<div class="module-section"><div class="module-section-head"><div><span>ESTRUCTURA DEL MÓDULO</span><h2>Qué podrás controlar aquí</h2></div></div><div class="module-feature-grid">'+m.features.map((f,i)=>'<article><span>0'+(i+1)+'</span><b>'+esc(f)+'</b><small>Integrado con el resto de M.A.R.C.</small></article>').join("")+'</div></div>'+
+  const apps=type==="reports"?["sales","purchases","receivables","assets","maintenance","contracts"].filter(k=>ecosystemAllows(k)):[];
+  const quick=m.actions.map(a=>'<button class="module-action" data-module-action="'+a[0]+'"><b>'+esc(a[1])+'</b><span>→</span></button>').join("");
+  c.innerHTML='<section class="module-hub '+m.tone+'" data-module="'+type+'">'+
+    '<div class="module-hero"><div><div class="module-eyebrow">'+m.eyebrow+'</div><h1>'+m.icon+' '+m.title+'</h1><p>'+m.desc+'</p></div><span class="module-ecosystem">'+(ECOSYSTEMS[ecosystem]?.icon||"")+" "+(ECOSYSTEMS[ecosystem]?.label||"M.A.R.C.")+'</span></div>'+
+    '<div class="module-actions">'+quick+'</div>'+
+    '<div class="module-section"><div class="module-section-head"><div><span>APLICACIÓN</span><h2>Panel de trabajo</h2></div><span class="module-live">Preparado</span></div>'+
+    '<div class="module-form-grid"><label>Buscar<input id="moduleSearch" placeholder="Buscar en este módulo…"></label><label>Estado<select id="moduleStatus"><option value="">Todos</option><option>ACTIVO</option><option>PENDIENTE</option><option>COMPLETADO</option></select></label><button id="modulePrimary" class="primary">＋ Nueva operación</button></div>'+
+    '<div id="moduleRows" class="module-rows"><div class="module-empty"><b>Sin operaciones registradas todavía</b><small>La estructura está lista. Puedes comenzar desde “Nueva operación”.</small></div></div></div>'+
     (apps.length?'<div class="module-section module-related"><div class="module-section-head"><div><span>CENTRO DE APLICACIONES</span><h2>Áreas conectadas</h2></div></div><div class="module-related-grid">'+apps.map(k=>'<button data-module-action="'+k+'"><b>'+esc(catalogs[k].icon+" "+catalogs[k].title)+'</b><small>'+esc(catalogs[k].desc)+'</small><span>Entrar →</span></button>').join("")+'</div></div>':"")+
-    '<div class="module-footer-note">Siguiente capa: conectar cada acción con sus tablas y operaciones reales, manteniendo los datos existentes.</div>'+
+    '<div class="module-section"><div class="module-section-head"><div><span>FUNCIONES PLANIFICADAS</span><h2>Qué controla esta aplicación</h2></div></div><div class="module-feature-grid">'+m.features.map((f,i)=>'<article><span>0'+(i+1)+'</span><b>'+esc(f)+'</b><small>Integrado con M.A.R.C.</small></article>').join("")+'</div></div>'+
     '</section>';
-  $$(".module-action",c).forEach(b=>b.onclick=()=>view(b.dataset.moduleAction));
+  $$(".module-action,.module-related-grid button",c).forEach(b=>b.onclick=()=>view(b.dataset.moduleAction));
+  const primary=$("#modulePrimary");
+  if(primary)primary.onclick=()=>moduleCreateModal(type);
+  const search=$("#moduleSearch"),status=$("#moduleStatus");
+  const filter=()=>{$$("#moduleRows .module-row",c).forEach(row=>{const q=(search?.value||"").toLowerCase(),s=status?.value||"";row.hidden=!!(q&&!row.textContent.toLowerCase().includes(q)||s&&row.dataset.status!==s)})};
+  search?.addEventListener("input",filter);status?.addEventListener("change",filter);
+  void moduleLoad(type);
+}
+async function moduleLoad(type){
+  const box=$("#moduleRows"); if(!box||!st.u?.id)return;
+  try{
+    let rows=[];
+    if(type==="sales"){
+      const r=await S.from("marc_sales").select("*").eq("user_id",st.u.id).order("created_at",{ascending:false}).limit(50);
+      if(!r.error)rows=r.data||[];
+    }else if(type==="purchases"){
+      const r=await S.from("marc_purchases").select("*").eq("user_id",st.u.id).order("created_at",{ascending:false}).limit(50);
+      if(!r.error)rows=r.data||[];
+    }else if(type==="receivables"){
+      const r=await S.from("marc_receivables").select("*").eq("user_id",st.u.id).order("due_date",{ascending:true}).limit(50);
+      if(!r.error)rows=r.data||[];
+    }else if(type==="assets"){
+      const r=await S.from("marc_assets").select("*").eq("user_id",st.u.id).order("created_at",{ascending:false}).limit(50);
+      if(!r.error)rows=r.data||[];
+    }else if(type==="maintenance"){
+      const r=await S.from("marc_maintenance").select("*").eq("user_id",st.u.id).order("scheduled_at",{ascending:true}).limit(50);
+      if(!r.error)rows=r.data||[];
+    }else if(type==="contracts"){
+      const r=await S.from("marc_contracts").select("*").eq("user_id",st.u.id).order("ends_at",{ascending:true}).limit(50);
+      if(!r.error)rows=r.data||[];
+    }else return;
+    if(!rows.length)return;
+    box.innerHTML=rows.map((r,i)=>{
+      const label=r.title||r.name||r.description||r.number||("Registro "+(i+1));
+      const amount=r.total??r.amount??r.balance??r.price;
+      const stt=String(r.status||"ACTIVO").toUpperCase();
+      return '<div class="module-row" data-status="'+esc(stt)+'"><div><b>'+esc(label)+'</b><small>'+esc(r.customer_name||r.client_name||r.supplier_name||r.notes||"Registro operativo")+'</small></div><span>'+esc(stt)+'</span>'+(amount!=null?'<strong>'+money(amount)+'</strong>':"")+'</div>';
+    }).join("");
+  }catch(e){console.warn("[M.A.R.C. moduleLoad]",type,e)}
+}
+function moduleCreateModal(type){
+  const labels={sales:"Nueva venta",purchases:"Nueva compra",receivables:"Nuevo crédito",assets:"Nuevo equipo",maintenance:"Nuevo mantenimiento",contracts:"Nuevo contrato"};
+  const close=modal('<div class="modal-head"><div><div class="eyebrow2">MÓDULO</div><h2>'+esc(labels[type]||"Nueva operación")+'</h2><p>Registra la operación y mantenla asociada a tu usuario.</p></div><button class="close" type="button">×</button></div>'+
+    '<form id="moduleForm"><label>Nombre / referencia<input name="title" required placeholder="Ej. Servicio o operación"></label><label>Descripción<textarea name="description" rows="3" placeholder="Detalles"></textarea></label><div class="form-grid"><label>Monto<input name="amount" type="number" min="0" step="0.01" value="0"></label><label>Estado<select name="status"><option>ACTIVO</option><option>PENDIENTE</option><option>COMPLETADO</option></select></label></div><div class="modal-actions"><button type="button" class="secondary module-cancel">Cancelar</button><button class="primary" type="submit">Guardar</button></div></form>');
+  $("#moduleForm .close").onclick=close;$("#moduleForm .module-cancel").onclick=close;
+  $("#moduleForm").onsubmit=async e=>{
+    e.preventDefault();const d=new FormData(e.currentTarget),title=String(d.get("title")||"").trim(),description=String(d.get("description")||"").trim(),amount=Number(d.get("amount")||0),status=String(d.get("status")||"ACTIVO");
+    if(!title)return;
+    const table={sales:"marc_sales",purchases:"marc_purchases",receivables:"marc_receivables",assets:"marc_assets",maintenance:"marc_maintenance",contracts:"marc_contracts"}[type];
+    if(!table){toast("Módulo no disponible","err");return}
+    const payload={user_id:st.u.id,title,description,status,amount};
+    const r=await S.from(table).insert(payload);
+    if(r.error){toast("La aplicación todavía no tiene la tabla de datos conectada.","err");return}
+    close();toast("Registro creado","ok");moduleLoad(type);
+  };
 }
 
 let __viewBusy=false;

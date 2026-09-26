@@ -3938,3 +3938,7 @@ html[data-theme="color"] .auth-card{border-color:#d9d0f2;background:#ffffffed}
 /* Ecosystem switcher */
 .ecosystem-badge{cursor:pointer!important;border:1px solid rgba(40,150,230,.35)!important;background:rgba(7,35,58,.65)!important;color:inherit!important;border-radius:10px!important;padding:5px 9px!important;font:inherit!important;}
 .ecosystem-badge:hover{border-color:rgba(40,170,255,.75)!important;box-shadow:0 0 14px rgba(0,140,255,.12)!important}
+
+/* Critical: an empty modal root must never intercept taps/clicks. */
+.modal-root:empty{display:none!important;pointer-events:none!important}
+.modal-root{pointer-events:auto}

@@ -186,46 +186,45 @@ async function saveEcosystem(key){
 }
 async function chooseEcosystem(key){
   key=normalizeEcosystem(key);
-  if(!key)return;
+  if(!key){console.error("[M.A.R.C.] Ecosistema inválido:",key);return}
 
-  // PRIMER INGRESO: no dependemos de ninguna consulta de red para responder al clic.
-  // El usuario debe poder entrar al ecosistema inmediatamente.
-  const current=normalizeEcosystem(st.u?.user_metadata?.marc_ecosystem)||normalizeEcosystem(localStorage.getItem(ECOSYSTEM_KEY));
-  const chooserIsOpen=!!$("#ecosystemChooser") && !$("#ecosystemChooser").classList.contains("hidden");
-  if(current && current!==key && !chooserIsOpen){
-    // Solo se aplican restricciones cuando el usuario ya está dentro y quiere
-    // cambiar de ecosistema. La pantalla inicial siempre debe responder al clic.
-    let allowed=isMasterAccount()||hasMixedAccess();
-    if(!allowed){
-      try{
-        const result=await Promise.race([
-          S.from("marc_user_roles").select("role,active").eq("user_id",st.u?.id).eq("role","MASTER").eq("active",true).maybeSingle(),
-          new Promise(resolve=>setTimeout(()=>resolve({timeout:true}),1800))
-        ]);
-        allowed=!result?.timeout && result?.data?.role==="MASTER";
-      }catch(_){allowed=false}
-    }
-    if(!allowed){
-      toast("Tu plan actual no incluye cambio de ecosistema.","err");
-      return;
-    }
+  const chooser=$("#ecosystemChooser");
+  const app=$("#app");
+  const auth=$("#auth");
+
+  // Entrada inicial: no hacemos ninguna consulta ni esperamos ninguna operación.
+  // Primero cambiamos la pantalla, después cargamos el contenido.
+  applyEcosystemUI(key);
+  if(chooser){
+    chooser.classList.add("hidden");
+    chooser.setAttribute("aria-hidden","true");
+  }
+  if(auth)auth.classList.add("hidden");
+  if(app)app.classList.remove("hidden");
+
+  st.ecosystem=key;
+  localStorage.setItem(ECOSYSTEM_KEY,key);
+
+  const content=$("#content");
+  if(content){
+    content.innerHTML='<section class="card" style="padding:28px"><h2 style="margin:0 0 8px">Cargando '+ECOSYSTEMS[key].label+'…</h2><p style="margin:0;color:var(--muted,#71849a)">Preparando tu espacio de trabajo.</p></section>';
   }
 
-  // Cambio visual inmediato: cerrar selector y mostrar la aplicación ANTES de guardar.
-  applyEcosystemUI(key);
-  const chooser=$("#ecosystemChooser");
-  if(chooser){chooser.classList.add("hidden");chooser.setAttribute("aria-hidden","true")}
-  const app=$("#app"); if(app)app.classList.remove("hidden");
+  // Guardado en segundo plano: jamás bloquea la entrada.
+  void saveEcosystem(key);
 
   try{
     await view("home");
-    void saveEcosystem(key);
     toast("Espacio configurado: "+ECOSYSTEMS[key].label,"ok");
   }catch(err){
-    console.error("[M.A.R.C. ecosystem] No se pudo abrir el espacio",err);
-    toast("El espacio se seleccionó, pero hubo un error cargando el inicio. Recarga la página.","err");
+    console.error("[M.A.R.C. ecosystem] Error cargando inicio:",err);
+    if(content){
+      content.innerHTML='<section class="card" style="padding:28px"><h2 style="margin:0 0 8px">Espacio seleccionado</h2><p style="margin:0;color:var(--muted,#71849a)">El ecosistema está activo. Recarga si el contenido no termina de cargar.</p></section>';
+    }
+    toast("El ecosistema se seleccionó, pero hubo un error cargando el inicio.","err");
   }
 }
+
 async function ensureEcosystem(){
   const fromProfile=normalizeEcosystem(st.u?.user_metadata?.marc_ecosystem);
   const saved=fromProfile||normalizeEcosystem(localStorage.getItem(ECOSYSTEM_KEY));

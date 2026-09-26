@@ -20,3 +20,141 @@
 .service-context-banner{margin:0 0 14px;padding:13px 15px;border:1px solid rgba(47,126,255,.22);background:rgba(47,126,255,.07);border-radius:14px;display:flex;gap:10px;align-items:flex-start;flex-direction:column}
 .service-context-banner b{font-size:11px;letter-spacing:.07em}
 .service-context-banner span{font-size:13px;color:var(--muted,#71849a)}
+
+
+/* =========================================================
+   Centro de Proveedores · visual refinement
+   ========================================================= */
+#app.marc-immersive #content .supplier-center-view{
+  max-width:1180px;
+  margin:0 auto;
+}
+#app.marc-immersive #content .supplier-center-view>.head{
+  border:1px solid rgba(65,177,235,.20)!important;
+  background:linear-gradient(145deg,#071b2e,#0a2239)!important;
+  color:#eef8ff!important;
+  border-radius:22px!important;
+  padding:22px!important;
+}
+#app.marc-immersive #content .supplier-center-view>.head h1{
+  color:#f3f9ff!important;
+}
+#app.marc-immersive #content .supplier-center-view>.head p{
+  color:#88a7bc!important;
+}
+#app.marc-immersive #content .supplier-center-view .inventory-summary{
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:10px!important;
+  margin:14px 0!important;
+}
+#app.marc-immersive #content .supplier-center-view .inventory-summary>div{
+  min-width:0!important;
+  padding:16px!important;
+  border-radius:17px!important;
+  border:1px solid rgba(80,177,229,.16)!important;
+  background:linear-gradient(145deg,#0b243b,#091d30)!important;
+}
+#app.marc-immersive #content .supplier-center-view .inventory-summary span{
+  color:#7396ad!important;
+  font-size:8px!important;
+  font-weight:900!important;
+  letter-spacing:.08em!important;
+}
+#app.marc-immersive #content .supplier-center-view .inventory-summary strong{
+  display:block!important;
+  color:#f3f9ff!important;
+  font-size:25px!important;
+  margin-top:6px!important;
+}
+#app.marc-immersive #content .supplier-center-view .inventory-summary small{
+  color:#7896aa!important;
+  font-size:8px!important;
+}
+#app.marc-immersive #content .supplier-center-view>.card{
+  background:linear-gradient(145deg,#091f33,#071a2b)!important;
+  border:1px solid rgba(72,174,226,.15)!important;
+  border-radius:20px!important;
+  color:#edf8ff!important;
+}
+#app.marc-immersive #content .supplier-center-view .toolbar{
+  background:transparent!important;
+  border-bottom:1px solid rgba(82,176,226,.12)!important;
+}
+#app.marc-immersive #content .supplier-center-view .toolbar b{
+  color:#f2f8ff!important;
+  font-size:13px!important;
+}
+#app.marc-immersive #content .supplier-center-view .toolbar small{
+  color:#7898ad!important;
+}
+#app.marc-immersive #content .supplier-center-view .client-cards{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:10px!important;
+  padding:14px!important;
+}
+#app.marc-immersive #content .supplier-center-view .client-card{
+  min-width:0!important;
+  border:1px solid rgba(83,178,228,.14)!important;
+  border-radius:17px!important;
+  background:linear-gradient(145deg,#0d2941,#0a1e31)!important;
+  box-shadow:0 10px 24px rgba(0,0,0,.16)!important;
+  color:#eef8ff!important;
+}
+#app.marc-immersive #content .supplier-center-view .client-card h3{
+  color:#f4f9ff!important;
+}
+#app.marc-immersive #content .supplier-center-view .client-card small,
+#app.marc-immersive #content .supplier-center-view .client-details span{
+  color:#7f9db2!important;
+}
+#app.marc-immersive #content .supplier-center-view .client-details{
+  border-color:rgba(83,178,228,.11)!important;
+}
+#app.marc-immersive #content .supplier-center-view .client-details b{
+  color:#dcecf7!important;
+}
+#app.marc-immersive #content .supplier-center-view .client-avatar{
+  background:linear-gradient(145deg,#0c79bd,#14509a)!important;
+  color:#fff!important;
+  border:1px solid rgba(112,210,255,.22)!important;
+}
+#app.marc-immersive #content .supplier-center-view .client-card-actions{
+  border-color:rgba(83,178,228,.10)!important;
+}
+#app.marc-immersive #content .supplier-center-view .client-card-actions button{
+  min-height:42px!important;
+}
+#app.marc-immersive #content .supplier-center-view .empty-state{
+  color:#8aa5b8!important;
+  padding:28px!important;
+}
+@media(max-width:760px){
+  #app.marc-immersive #content .supplier-center-view>.head{
+    padding:15px!important;
+    border-radius:17px!important;
+  }
+  #app.marc-immersive #content .supplier-center-view .inventory-summary{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    gap:7px!important;
+  }
+  #app.marc-immersive #content .supplier-center-view .inventory-summary>div{
+    padding:11px 8px!important;
+    border-radius:13px!important;
+  }
+  #app.marc-immersive #content .supplier-center-view .inventory-summary strong{
+    font-size:18px!important;
+  }
+  #app.marc-immersive #content .supplier-center-view .inventory-summary span{
+    font-size:6px!important;
+  }
+  #app.marc-immersive #content .supplier-center-view .inventory-summary small{
+    font-size:6px!important;
+    line-height:1.25!important;
+  }
+  #app.marc-immersive #content .supplier-center-view .client-cards{
+    grid-template-columns:1fr!important;
+    padding:10px!important;
+  }
+}

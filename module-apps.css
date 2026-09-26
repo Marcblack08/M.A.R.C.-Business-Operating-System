@@ -16,3 +16,7 @@
 .table-search{max-width:280px;width:100%;padding:10px 12px;border:1px solid var(--line,#dfe7ef);border-radius:10px;background:var(--card,#fff);color:inherit}
 @media(max-width:900px){.maintenance-layout{grid-template-columns:1fr}.maintenance-card-actions{justify-content:stretch}.maintenance-card-actions button{flex:1}}
 @media(max-width:600px){.maintenance-card{padding:14px}.maintenance-card-top{display:block}.maintenance-card-top strong{display:inline-block;margin-top:8px}.table-search{max-width:none}.maintenance-card-actions{display:grid;grid-template-columns:1fr 1fr}.maintenance-card-actions button{width:100%}}
+
+.service-context-banner{margin:0 0 14px;padding:13px 15px;border:1px solid rgba(47,126,255,.22);background:rgba(47,126,255,.07);border-radius:14px;display:flex;gap:10px;align-items:flex-start;flex-direction:column}
+.service-context-banner b{font-size:11px;letter-spacing:.07em}
+.service-context-banner span{font-size:13px;color:var(--muted,#71849a)}

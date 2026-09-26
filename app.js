@@ -466,6 +466,55 @@ async function finances(){
 }
 
 function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",suppliers:"Proveedores",quotes:"Cotizaciones",service_orders:"Órdenes de trabajo",settings:"Configuración",cash:"Caja",agenda:"Agenda técnica",finances:"Finanzas",sales:"Ventas / POS",purchases:"Compras",receivables:"Créditos y cobros",assets:"Equipos y activos",maintenance:"Mantenimientos",contracts:"Contratos",reports:"Reportes"}[x]||"Inicio";$(".sidebar nav button, #mobileNav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
+async function sales(){
+  const c=$("#content"); if(!c)return;
+  const [{data:products,error:pe},{data:salesRows,error:se},{data:clientsRows}]=await Promise.all([
+    S.from("marc_inventory").select("id,name,sku,brand,model,price,cost,stock,unit").eq("user_id",st.u.id).eq("active",true).order("name"),
+    S.from("marc_sales").select("id,number,total,payment_method,status,created_at,marc_clients(name)").eq("user_id",st.u.id).order("created_at",{ascending:false}).limit(50),
+    S.from("marc_clients").select("id,name").eq("user_id",st.u.id).order("name").limit(500)
+  ]);
+  if(pe||se)return toast((pe||se).message||"No se pudo cargar Ventas.","err");
+  const catalog=products||[],history=salesRows||[],clientsRowsSafe=clientsRows||[];
+  c.innerHTML='<div class="head"><div><div class="eyebrow2">COMERCIO</div><h1>Ventas / POS.</h1><p>Vende, descuenta inventario y deja cada operación registrada en M.A.R.C.</p></div><button id="newSale" class="primary">＋ Nueva venta</button></div>'+
+    '<section class="client-summary"><div><span>VENTAS REGISTRADAS</span><strong>'+history.length+'</strong><small>Últimas 50</small></div><div><span>VENTAS HOY</span><strong>'+history.filter(x=>new Date(x.created_at).toDateString()===new Date().toDateString()).length+'</strong><small>Operaciones completadas</small></div><div><span>STOCK DISPONIBLE</span><strong>'+catalog.reduce((n,x)=>n+Number(x.stock||0),0)+'</strong><small>Unidades</small></div><div><span>PRODUCTOS</span><strong>'+catalog.length+'</strong><small>Catálogo activo</small></div></section>'+
+    '<section class="card table"><div class="toolbar"><div class="search"><input id="saleSearch" placeholder="Buscar venta o cliente…"></div><button id="saleRefresh" class="secondary">↻ Actualizar</button></div><div class="scroll"><table class="data"><thead><tr><th>Venta</th><th>Cliente</th><th>Fecha</th><th>Pago</th><th>Estado</th><th>Total</th></tr></thead><tbody id="salesRows"></tbody></table></div></section>';
+  const draw=items=>{$("#salesRows").innerHTML=items.map(r=>'<tr><td><b>'+esc(r.number)+'</b></td><td>'+esc(r.marc_clients?.name||"Venta rápida")+'</td><td>'+new Date(r.created_at).toLocaleString("es-PE")+'</td><td>'+esc(r.payment_method)+'</td><td><span class="status-pill">'+esc(r.status)+'</span></td><td><b>'+money(r.total)+'</b></td></tr>').join("")||'<tr><td colspan="6" class="empty">No hay ventas todavía.</td></tr>'};
+  draw(history);
+  $("#saleSearch").oninput=e=>{const q=e.target.value.toLowerCase();draw(history.filter(r=>[r.number,r.payment_method,r.status,r.marc_clients?.name].some(v=>String(v||"").toLowerCase().includes(q))))};
+  $("#saleRefresh").onclick=sales;
+  $("#newSale").onclick=()=>saleModal(catalog,clientsRowsSafe);
+}
+function saleModal(catalog,clientsRows){
+  const close=modal('<div class="modal-head"><div><div class="eyebrow2">PUNTO DE VENTA</div><h2>Nueva venta</h2><p>Selecciona productos, forma de pago y cliente. Al confirmar se descuenta el stock.</p></div><button class="close" id="saleClose">×</button></div>'+
+    '<div class="pos-grid"><section><label>Buscar producto<input id="posSearch" placeholder="Nombre, SKU, marca o modelo…"></label><div id="posProducts" class="pos-products"></div></section><section><label>Cliente<select id="posClient"><option value="">Venta rápida / sin cliente</option>'+clientsRows.map(x=>'<option value="'+x.id+'">'+esc(x.name)+'</option>').join("")+'</select></label><label>Forma de pago<select id="posPayment"><option>EFECTIVO</option><option>YAPE</option><option>PLIN</option><option>TARJETA</option><option>TRANSFERENCIA</option><option>CREDITO</option></select></label><label>Descuento<input id="posDiscount" type="number" min="0" step="0.01" value="0"></label><div id="posCart" class="pos-cart"></div><div class="pos-total"><span>Total</span><strong id="posTotal">S/ 0.00</strong></div><div id="posMsg" class="msg"></div><button id="posSave" class="primary wide" type="button">Confirmar venta</button></section></div>');
+  $("#saleClose").onclick=close;
+  const cart=[];
+  const drawProducts=()=>{
+    const q=String($("#posSearch").value||"").toLowerCase();
+    const list=catalog.filter(p=>[p.name,p.sku,p.brand,p.model].some(v=>String(v||"").toLowerCase().includes(q))).slice(0,40);
+    $("#posProducts").innerHTML=list.map(p=>'<button type="button" class="pos-product" data-pos-product="'+p.id+'" '+(Number(p.stock)<=0?"disabled":"")+'><b>'+esc(p.name)+'</b><small>'+esc(p.sku||p.brand||"Sin código")+' · Stock '+Number(p.stock||0)+'</small><strong>'+money(p.price)+'</strong></button>').join("")||'<div class="empty">No hay productos.</div>';
+  };
+  const drawCart=()=>{
+    const discount=Number($("#posDiscount").value||0);
+    const subtotal=cart.reduce((n,x)=>n+x.quantity*x.price,0),total=Math.max(0,subtotal-discount);
+    $("#posCart").innerHTML=cart.map((x,i)=>'<div class="pos-cart-row"><div><b>'+esc(x.name)+'</b><small>'+money(x.price)+' c/u</small></div><div class="pos-qty"><button data-pos-minus="'+i+'">−</button><b>'+x.quantity+'</b><button data-pos-plus="'+i+'">+</button></div><button data-pos-remove="'+i+'" aria-label="Quitar">×</button></div>').join("")||'<div class="empty">Agrega productos para comenzar.</div>';
+    $("#posTotal").textContent=money(total);
+  };
+  $("#posSearch").oninput=drawProducts;$("#posDiscount").oninput=drawCart;
+  $("#posProducts").onclick=e=>{const b=e.target.closest("[data-pos-product]");if(!b)return;const p=catalog.find(x=>x.id===b.dataset.posProduct);if(!p)return;const x=cart.find(x=>x.id===p.id);if(x){if(x.quantity<Number(p.stock))x.quantity++;}else cart.push({id:p.id,name:p.name,price:Number(p.price||0),cost:Number(p.cost||0),quantity:1});drawCart()};
+  $("#posCart").onclick=e=>{let i;let b=e.target.closest("[data-pos-minus]");if(b){i=Number(b.dataset.posMinus);cart[i].quantity--;if(cart[i].quantity<=0)cart.splice(i,1);drawCart();return}b=e.target.closest("[data-pos-plus]");if(b){i=Number(b.dataset.posPlus);const p=catalog.find(x=>x.id===cart[i].id);if(p&&cart[i].quantity<Number(p.stock))cart[i].quantity++;drawCart();return}b=e.target.closest("[data-pos-remove]");if(b){cart.splice(Number(b.dataset.posRemove),1);drawCart()}};
+  $("#posSave").onclick=async()=>{
+    const b=$("#posSave"),msgEl=$("#posMsg"),payment=$("#posPayment").value,client=$("#posClient").value||null,discount=Number($("#posDiscount").value||0);
+    if(!cart.length)return msgEl.textContent="Agrega al menos un producto.";
+    if(payment==="CREDITO"&&!client)return msgEl.textContent="Una venta a crédito necesita un cliente.";
+    b.disabled=true;msgEl.textContent="Registrando venta…";
+    const number="V-"+Date.now().toString().slice(-8);
+    const {data,error}=await S.rpc("marc_create_sale",{p_number:number,p_client_id:client,p_discount:discount,p_payment_method:payment,p_notes:null,p_items:cart.map(x=>({inventory_id:x.id,quantity:x.quantity}))});
+    if(error){msgEl.textContent=error.message||"No se pudo registrar la venta.";b.disabled=false;return}
+    close();toast("Venta "+number+" registrada","ok");sales();
+  };
+  drawProducts();drawCart();
+}
 function moduleHub(type){
   const c=$("#content"); if(!c)return;
   const ecosystem=currentEcosystem()||"technician";

@@ -1221,6 +1221,7 @@ function serviceOrderModal(row=null){
   const isEdit=!!row;
   const close=modal(`<div class="modal-head"><div><div class="eyebrow2">ORDEN DE TRABAJO</div><h2>${isEdit?"Editar orden":"Nueva orden"}</h2><p>Registra el servicio, materiales, diagnóstico, trabajo y costo.</p></div><button class="close" id="serviceOrderClose">×</button></div>
   <form id="serviceOrderForm">
+  <div id="soLinkedMaintenance" class="service-context-banner" style="display:none"></div>
   <div class="cols"><label>Cliente<select id="soClient"><option value="">Sin cliente</option></select></label><label>Equipo / activo<select id="soAsset"><option value="">Sin equipo vinculado</option></select></label></div><div class="cols"><label>Tipo de servicio<input id="soType" placeholder="Mantenimiento CCTV, reparación, instalación…"></label></div>
   <label>Título<input id="soTitle" required placeholder="Ej. Mantenimiento preventivo CCTV"></label>
   <div class="cols"><label>Dirección / ubicación<input id="soLocation"></label><label>Fecha y hora<input id="soDate" type="datetime-local"></label></div>
@@ -1252,9 +1253,25 @@ function serviceOrderModal(row=null){
   S.from("marc_clients").select("id,name").eq("user_id",st.u.id).order("name").then(({data})=>{const sel=$("#soClient");(data||[]).forEach(x=>{const o=document.createElement("option");o.value=x.id;o.textContent=x.name;if(row?.client_id===x.id)o.selected=true;sel.appendChild(o)})});
   S.from("marc_assets").select("id,name,brand,model,serial_number,client_id").eq("user_id",st.u.id).neq("status","RETIRADO").order("name").then(({data})=>{const sel=$("#soAsset");(data||[]).forEach(x=>{const o=document.createElement("option");o.value=x.id;o.textContent=[x.name,x.brand,x.model,x.serial_number].filter(Boolean).join(" · ");if(row?.asset_id===x.id)o.selected=true;sel.appendChild(o)})});
   if(row){
+    if(row.maintenance_occurrence_id){
+      const banner=$("#soLinkedMaintenance");
+      banner.style.display="block";
+      banner.innerHTML='<b>🔧 MANTENIMIENTO PROGRAMADO</b><span>Esta OT pertenece a una visita recurrente. Al completar la OT se cerrará la ocurrencia y se programará automáticamente la siguiente.</span>';
+    }
     $("#soType").value=row.service_type||"";$("#soTitle").value=row.title||"";$("#soLocation").value=row.location||"";$("#soDate").value=row.scheduled_at?new Date(row.scheduled_at).toISOString().slice(0,16):"";
     $("#soDescription").value=row.description||"";$("#soDiagnosis").value=row.diagnosis||"";$("#soWork").value=row.work_performed||"";$("#soRecommendations").value=row.recommendations||"";$("#soTechnician").value=row.technician||"";
     $("#soLabor").value=row.labor_cost||0;$("#soTransport").value=row.transport_cost||0;$("#soMaterials").value=row.materials_cost||0;$("#soRevenue").value=row.revenue||row.total||0;$("#soOtherCost").value=row.other_cost||0;$("#soStatus").value=row.status||"PENDIENTE";$("#soNotes").value=row.notes||"";
+  }
+  if(row?.id){
+    const mo=await S.from("marc_maintenance_occurrences").select("id,scheduled_at,status,plan_id,marc_maintenance_plans(title,service_type,interval_months)").eq("user_id",st.u.id).eq("service_order_id",row.id).maybeSingle();
+    if(!mo.error&&mo.data){
+      row.maintenance_occurrence_id=mo.data.id;
+      const banner=$("#soLinkedMaintenance");
+      if(banner){
+        banner.style.display="block";
+        banner.innerHTML='<b>🔧 MANTENIMIENTO PROGRAMADO</b><span>'+esc(mo.data.marc_maintenance_plans?.title||"Plan recurrente")+' · '+esc(mo.data.marc_maintenance_plans?.service_type||"Mantenimiento")+' · '+esc(mo.data.marc_maintenance_plans?.interval_months||"")+" meses</span>";
+      }
+    }
   }
   $("#serviceOrderForm").onsubmit=async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;const labor=Number($("#soLabor").value||0),transport=Number($("#soTransport").value||0),materials=materialRows.reduce((a,m)=>a+Number(m.quantity||0)*Number(m.unit_cost||0),0),revenue=Number($("#soRevenue").value||0),otherCost=Number($("#soOtherCost").value||0),profit=revenue-(labor+transport+materials+otherCost),marginPct=revenue>0?(profit/revenue)*100:0;
     const payload={user_id:st.u.id,client_id:$("#soClient").value||null,asset_id:$("#soAsset").value||null,title:$("#soTitle").value.trim(),service_type:$("#soType").value.trim(),description:$("#soDescription").value.trim(),diagnosis:$("#soDiagnosis").value.trim(),work_performed:$("#soWork").value.trim(),recommendations:$("#soRecommendations").value.trim(),location:$("#soLocation").value.trim(),scheduled_at:$("#soDate").value?new Date($("#soDate").value).toISOString():null,technician:$("#soTechnician").value.trim(),status:$("#soStatus").value,labor_cost:labor,transport_cost:transport,materials_cost:materials,total:labor+transport+materials+otherCost,revenue,other_cost:otherCost,profit,margin_pct:marginPct,notes:$("#soNotes").value.trim(),updated_at:new Date().toISOString()};

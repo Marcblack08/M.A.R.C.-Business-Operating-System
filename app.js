@@ -129,21 +129,33 @@ function ecosystemAllows(viewName){
   };
   return !map[viewName]||map[viewName].includes(currentEcosystem());
 }
+function safeStorageGet(key){
+  try{return localStorage.getItem(key)}catch(e){console.warn("[M.A.R.C. storage] lectura local bloqueada",e);return null}
+}
+function safeStorageSet(key,value){
+  try{localStorage.setItem(key,value);return true}catch(e){console.warn("[M.A.R.C. storage] escritura local bloqueada",e);return false}
+}
 function applyEcosystemUI(key){
   key=normalizeEcosystem(key)||"technician";
   st.ecosystem=key;
   document.documentElement.dataset.ecosystem=key;
-  localStorage.setItem(ECOSYSTEM_KEY,key);
+  safeStorageSet(ECOSYSTEM_KEY,key);
   const meta=ECOSYSTEMS[key];
-  Array.from(document.querySelectorAll("#sidebar nav button[data-ecosystems]")).forEach(b=>{
-    const allowed=String(b.dataset.ecosystems||"").split(",").includes(key);
-    b.hidden=!allowed;
-    b.setAttribute("aria-hidden",String(!allowed));
-  });
-  const badge=$("#ecosystemBadge");
-  if(badge){badge.textContent=meta.icon+" "+meta.label;badge.title=meta.desc}
-  const chooser=$("#ecosystemChooser");
-  if(chooser){chooser.classList.add("hidden");chooser.setAttribute("aria-hidden","true")}
+  // Esta función es infraestructura crítica de navegación: ningún error visual
+  // puede impedir el acceso al resto de M.A.R.C.
+  try{
+    document.querySelectorAll("#sidebar nav button[data-ecosystems]").forEach(b=>{
+      const allowed=String(b.dataset.ecosystems||"").split(",").includes(key);
+      b.hidden=!allowed;
+      b.setAttribute("aria-hidden",String(!allowed));
+    });
+  }catch(e){console.error("[M.A.R.C. ecosystem] No se pudo filtrar la navegación",e)}
+  try{
+    const badge=$("#ecosystemBadge");
+    if(badge){badge.textContent=meta.icon+" "+meta.label;badge.title=meta.desc}
+    const chooser=$("#ecosystemChooser");
+    if(chooser){chooser.classList.add("hidden");chooser.setAttribute("aria-hidden","true")}
+  }catch(e){console.error("[M.A.R.C. ecosystem] Error actualizando controles visuales",e)}
 }
 function isMasterAccount(){
   const email=String(st.u?.email||"").trim().toLowerCase();
@@ -171,7 +183,7 @@ function openEcosystemChooser(){
 async function saveEcosystem(key){
   key=normalizeEcosystem(key);
   if(!key)return;
-  applyEcosystemUI(key);
+  try{applyEcosystemUI(key)}catch(e){console.error("[M.A.R.C. ecosystem] Error visual no bloqueante",e)}
   // No bloqueamos la interfaz esperando Supabase: el cambio visual es inmediato.
   try{
     const nextData={...(st.u?.user_metadata||{}),marc_ecosystem:key};
@@ -197,7 +209,7 @@ async function chooseEcosystem(key){
   // Ninguna consulta, permiso, Supabase, módulo externo o await puede impedir
   // que el selector desaparezca y que la aplicación quede visible.
   st.ecosystem=key;
-  localStorage.setItem(ECOSYSTEM_KEY,key);
+  safeStorageSet(ECOSYSTEM_KEY,key);
   document.documentElement.dataset.ecosystem=key;
 
   if(chooser){
@@ -248,7 +260,7 @@ window.MARC.chooseEcosystem=chooseEcosystem;
 
 async function ensureEcosystem(){
   const fromProfile=normalizeEcosystem(st.u?.user_metadata?.marc_ecosystem);
-  const saved=fromProfile||normalizeEcosystem(localStorage.getItem(ECOSYSTEM_KEY));
+  const saved=fromProfile||normalizeEcosystem(safeStorageGet(ECOSYSTEM_KEY));
   if(saved){applyEcosystemUI(saved);return true}
   const chooser=$("#ecosystemChooser");
   if(!chooser)return true;
@@ -286,10 +298,13 @@ async function enter(s){
     if(cashCtx.isStaff) toast("Bienvenido, "+(cashCtx.staff?.display_name||"cajero")+" · caja lista","ok");
   }catch(e){
     if(epoch!==st.authEpoch)return;
+    console.error("[M.A.R.C. enter] Fallo al abrir la aplicación:",e);
     st.u=null;st.session=null;st.cid=null;
     app.classList.add("hidden");
     auth.classList.remove("hidden");
-    msg(e?.message||"No se pudo cargar M.A.R.C.","error");
+    // Nunca mostramos errores internos de JavaScript al usuario como "$(...).forEach...".
+    // El detalle queda en consola para diagnóstico y la sesión puede reintentarse.
+    msg("No se pudo abrir tu espacio de trabajo. Vuelve a intentarlo.","error");
   }
 }
 async function submit(e){e.preventDefault();try{$("#authSubmit").disabled=true;msg("Procesando…");const email=$("#email").value.trim(),p=$("#password").value;if(authMode==="reset"){const cooldownKey="marc_password_reset_cooldown";const until=Number(localStorage.getItem(cooldownKey)||0);if(until>Date.now())throw new Error("Supabase ha limitado temporalmente el envío de correos de recuperación. Espera hasta que se restablezca el límite y vuelve a intentarlo.");const {error}=await S.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname+"?recovery=1"});if(error){if(authRateLimitMessage(error))localStorage.setItem(cooldownKey,String(Date.now()+60*60*1000));throw error}localStorage.removeItem(cooldownKey);msg("Revisa tu correo. El enlace te llevará a crear una nueva contraseña.","ok");return}if(authMode==="update"){if(!p||p.length<6)throw new Error("La nueva contraseña debe tener al menos 6 caracteres.");if(p!==$("#confirm").value)throw new Error("Las contraseñas no coinciden.");const {error}=await S.auth.updateUser({password:p});if(error)throw error;recoveryMode=false;history.replaceState({},document.title,location.pathname);await S.auth.signOut();resetUiToLogin("Contraseña actualizada. Ahora inicia sesión con tu nueva clave.","ok");return}if(authMode==="signup"){if(!p||p.length<6)throw new Error("La contraseña debe tener al menos 6 caracteres.");if(p!==$("#confirm").value)throw new Error("Las contraseñas no coinciden.");const rr=await fetch("/api/auth/signup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password:p})});const jj=await rr.json().catch(()=>({}));if(!rr.ok)throw new Error(jj.error||"No se pudo crear la cuenta.");const {error:loginError}=await S.auth.signInWithPassword({email,password:p});if(loginError)throw loginError;return}else{const {error}=await S.auth.signInWithPassword({email,password:p});if(error)throw error}}catch(e){const raw=String(e?.message||"");if(authRateLimitMessage(e))msg("Límite de correo de recuperación alcanzado. Supabase bloqueó temporalmente nuevos envíos. No sigas pulsando el botón; espera y vuelve a intentarlo más tarde.","error");else msg(raw||"No se pudo completar.","error")}finally{$("#authSubmit").disabled=false}}

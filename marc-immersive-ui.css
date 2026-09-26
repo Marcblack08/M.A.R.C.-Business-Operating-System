@@ -583,3 +583,219 @@
   #app.marc-immersive #content > *{animation:none!important}
   .marc-module-card,.marc-immersive-back,.marc-immersive-modules,.marc-immersive-home{transition:none!important}
 }
+
+
+/* =========================================================
+   M.A.R.C. visual refinement · launcher + mobile workspaces
+   ========================================================= */
+#app.marc-immersive .marc-home-launcher{
+  max-width:1180px!important;
+  padding:clamp(22px,3.5vw,40px)!important;
+  border-radius:28px!important;
+  border:1px solid rgba(74,190,255,.24)!important;
+  background:
+    radial-gradient(circle at 12% 0%,rgba(29,183,255,.13),transparent 30%),
+    radial-gradient(circle at 92% 100%,rgba(112,78,255,.13),transparent 34%),
+    linear-gradient(145deg,#071a2d,#081f35 56%,#071426)!important;
+}
+#app.marc-immersive .marc-home-launcher-head{
+  margin-bottom:22px!important;
+}
+#app.marc-immersive .marc-home-launcher-head h2{
+  font-size:clamp(25px,3.2vw,36px)!important;
+  letter-spacing:-.045em!important;
+}
+#app.marc-immersive .marc-home-launcher-head p{
+  font-size:11px!important;
+  color:#87a9c2!important;
+}
+#app.marc-immersive .marc-home-launcher-grid{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:12px!important;
+}
+#app.marc-immersive .marc-home-launcher .marc-module-card{
+  position:relative!important;
+  min-height:152px!important;
+  padding:18px!important;
+  border-radius:20px!important;
+  border:1px solid rgba(105,184,229,.18)!important;
+  background:linear-gradient(145deg,rgba(15,43,66,.96),rgba(7,27,45,.96))!important;
+  color:#eff8ff!important;
+  box-shadow:0 12px 28px rgba(0,0,0,.20)!important;
+  overflow:hidden!important;
+  isolation:isolate!important;
+}
+#app.marc-immersive .marc-home-launcher .marc-module-card::before{
+  content:""!important;
+  position:absolute!important;
+  inset:auto -25px -35px auto!important;
+  width:120px!important;
+  height:120px!important;
+  border-radius:50%!important;
+  background:var(--mm-glow,rgba(28,171,240,.12))!important;
+  filter:blur(2px)!important;
+  pointer-events:none!important;
+}
+#app.marc-immersive .marc-home-launcher .marc-module-card::after{
+  content:"→"!important;
+  position:absolute!important;
+  right:15px!important;
+  top:15px!important;
+  width:25px!important;
+  height:25px!important;
+  display:grid!important;
+  place-items:center!important;
+  border:1px solid rgba(255,255,255,.12)!important;
+  border-radius:8px!important;
+  background:rgba(255,255,255,.05)!important;
+  color:#8fc9ec!important;
+  font-size:13px!important;
+}
+#app.marc-immersive .marc-home-launcher .marc-module-card .mm-icon{
+  position:relative!important;
+  z-index:1!important;
+  width:45px!important;height:45px!important;
+  margin:0 0 22px!important;
+  border-radius:14px!important;
+  display:grid!important;
+  place-items:center!important;
+  background:rgba(38,178,244,.13)!important;
+  border:1px solid rgba(86,194,247,.18)!important;
+  color:#8ed9ff!important;
+  font-size:21px!important;
+}
+#app.marc-immersive .marc-home-launcher .marc-module-card b{
+  position:relative!important;z-index:1!important;
+  display:block!important;
+  font-size:15px!important;
+  letter-spacing:-.02em!important;
+}
+#app.marc-immersive .marc-home-launcher .marc-module-card small{
+  position:relative!important;z-index:1!important;
+  display:block!important;
+  margin-top:5px!important;
+  color:#8ca9bd!important;
+  font-size:9px!important;
+  line-height:1.4!important;
+}
+#app.marc-immersive .marc-home-launcher .marc-module-card.green{--mm-glow:rgba(32,190,126,.16)}
+#app.marc-immersive .marc-home-launcher .marc-module-card.orange{--mm-glow:rgba(245,155,35,.16)}
+#app.marc-immersive .marc-home-launcher .marc-module-card.purple{--mm-glow:rgba(139,93,246,.16)}
+#app.marc-immersive .marc-home-launcher .marc-module-card.pink{--mm-glow:rgba(235,74,154,.16)}
+#app.marc-immersive .marc-home-launcher .marc-module-card.cyan{--mm-glow:rgba(22,184,224,.16)}
+#app.marc-immersive .marc-home-launcher .marc-module-card.teal{--mm-glow:rgba(24,178,160,.16)}
+#app.marc-immersive .marc-home-launcher .marc-module-card.slate{--mm-glow:rgba(80,137,180,.16)}
+#app.marc-immersive .marc-home-launcher .marc-module-card.red{--mm-glow:rgba(231,75,91,.16)}
+#app.marc-immersive .marc-home-launcher .marc-module-card:hover{
+  transform:translateY(-3px)!important;
+  border-color:rgba(91,199,255,.42)!important;
+  box-shadow:0 18px 34px rgba(0,0,0,.28)!important;
+}
+
+/* Technician home: fix low-contrast cards on dark mobile shell. */
+#app.marc-immersive #content .tech-dashboard-grid{
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:11px!important;
+  margin-top:15px!important;
+}
+#app.marc-immersive #content .tech-dashboard-grid button{
+  position:relative!important;
+  min-height:122px!important;
+  padding:16px!important;
+  border:1px solid rgba(93,177,225,.18)!important;
+  border-radius:18px!important;
+  background:linear-gradient(145deg,#0d263d,#0a1c2e)!important;
+  color:#edf8ff!important;
+  text-align:left!important;
+  box-shadow:0 10px 25px rgba(0,0,0,.18)!important;
+}
+#app.marc-immersive #content .tech-dashboard-grid button b{
+  display:block!important;
+  color:#f2f9ff!important;
+  font-size:13px!important;
+  margin-bottom:7px!important;
+}
+#app.marc-immersive #content .tech-dashboard-grid button small{
+  display:block!important;
+  color:#86a6bb!important;
+  font-size:9px!important;
+  line-height:1.45!important;
+}
+#app.marc-immersive #content .tech-dashboard-grid button span{
+  display:block!important;
+  margin-top:12px!important;
+  color:#3cbaff!important;
+  font-size:8px!important;
+  font-weight:900!important;
+  letter-spacing:.04em!important;
+}
+#app.marc-immersive #content .tech-dashboard-grid button:hover{
+  border-color:rgba(70,190,255,.45)!important;
+  transform:translateY(-2px)!important;
+}
+#app.marc-immersive #content .client-summary{
+  background:linear-gradient(145deg,#071a2c,#091f34)!important;
+  border:1px solid rgba(75,176,230,.15)!important;
+}
+#app.marc-immersive #content .client-summary>div{
+  background:rgba(255,255,255,.025)!important;
+  border-color:rgba(90,178,226,.14)!important;
+}
+#app.marc-immersive #content .client-summary span{
+  color:#7698ae!important;
+}
+#app.marc-immersive #content .client-summary strong{
+  color:#f1f8ff!important;
+}
+#app.marc-immersive #content .client-summary small{
+  color:#7592a8!important;
+}
+
+@media(max-width:760px){
+  #app.marc-immersive .marc-home-launcher{
+    padding:18px!important;
+    border-radius:22px!important;
+  }
+  #app.marc-immersive .marc-home-launcher-head h2{
+    font-size:25px!important;
+  }
+  #app.marc-immersive .marc-home-launcher-head p{
+    font-size:9px!important;
+    line-height:1.45!important;
+  }
+  #app.marc-immersive .marc-home-launcher-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:9px!important;
+  }
+  #app.marc-immersive .marc-home-launcher .marc-module-card{
+    min-height:135px!important;
+    padding:13px!important;
+    border-radius:16px!important;
+  }
+  #app.marc-immersive .marc-home-launcher .marc-module-card .mm-icon{
+    width:39px!important;height:39px!important;
+    border-radius:12px!important;
+    font-size:18px!important;
+    margin-bottom:18px!important;
+  }
+  #app.marc-immersive .marc-home-launcher .marc-module-card b{
+    font-size:12px!important;
+  }
+  #app.marc-immersive .marc-home-launcher .marc-module-card small{
+    font-size:7.5px!important;
+  }
+  #app.marc-immersive .marc-home-launcher .marc-module-card::after{
+    right:9px!important;top:9px!important;
+    width:22px!important;height:22px!important;
+  }
+  #app.marc-immersive #content .tech-dashboard-grid{
+    grid-template-columns:1fr!important;
+    gap:9px!important;
+  }
+  #app.marc-immersive #content .tech-dashboard-grid button{
+    min-height:92px!important;
+    padding:14px!important;
+  }
+}

@@ -553,7 +553,7 @@ async function view(x){
     $$(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x));
     if(x==="home")return currentEcosystem()==="technician"?technicianDashboard():home();if(x==="clients")return clients();if(x==="inventory")return inventory();
     if(x==="suppliers"){if(window.marcSupplierCenter)return window.marcSupplierCenter();return toast("No se pudo cargar el Centro de Proveedores. Recarga la aplicación.","err");}
-    if(x==="quotes")return quotes();if(x==="service_orders")return serviceOrders();if(x==="agenda")return agenda();if(x==="finances")return finances();if(x==="cash")return cash();
+    if(x==="quotes")return quotes();if(x==="service_orders")return serviceOrders();if(x==="agenda")return agenda();if(x==="finances")return finances();if(x==="cash")return cash();if(x==="assets")return assets();
     if(["sales","purchases","receivables","assets","maintenance","contracts","reports"].includes(x))return moduleHub(x);
     return settings();
   };
@@ -941,6 +941,77 @@ async function technicianDashboard(){
   '</div>';
   $("#newOTQuick").onclick=()=>serviceOrderModal();
   c.querySelectorAll("[data-tech-view]").forEach(b=>b.onclick=()=>view(b.dataset.techView));
+}
+async function assets(){
+  const c=$("#content"); if(!c)return;
+  const [ar,cr]=await Promise.all([
+    S.from("marc_assets").select("*,marc_clients(name)").eq("user_id",st.u.id).order("created_at",{ascending:false}),
+    S.from("marc_clients").select("id,name").eq("user_id",st.u.id).order("name").limit(1000)
+  ]);
+  if(ar.error||cr.error)return toast("No se pudieron cargar los equipos y activos.","err");
+  const rows=ar.data||[],clientsRows=cr.data||[];
+  const active=rows.filter(x=>x.status==="ACTIVO").length;
+  const maintenance=rows.filter(x=>x.status==="EN_MANTENIMIENTO").length;
+  const now=Date.now(),due=rows.filter(x=>x.next_service_at&&new Date(x.next_service_at).getTime()<=now+30*86400000&&x.status!=="RETIRADO").length;
+  const warranty=rows.filter(x=>x.warranty_until&&new Date(x.warranty_until).getTime()>=now&&new Date(x.warranty_until).getTime()<=now+60*86400000).length;
+  const fmtDate=v=>v?new Date(v).toLocaleDateString("es-PE"):"—";
+  c.innerHTML='<div class="head"><div><div class="eyebrow2">ACTIVOS TÉCNICOS</div><h1>Equipos y activos.</h1><p>Registra cada equipo instalado, su cliente, ubicación, garantía y próximo servicio.</p></div><button id="newAsset" class="primary">＋ Nuevo equipo</button></div>'+
+  '<section class="client-summary"><div><span>ACTIVOS</span><strong>'+active+'</strong><small>Equipos operativos</small></div><div><span>EN MANTENIMIENTO</span><strong>'+maintenance+'</strong><small>Atención técnica actual</small></div><div><span>SERVICIO PRÓXIMO</span><strong>'+due+'</strong><small>Dentro de 30 días</small></div><div><span>GARANTÍAS</span><strong>'+warranty+'</strong><small>Vencen en 60 días</small></div></section>'+
+  '<section class="card table asset-browser"><div class="toolbar"><div class="search"><input id="assetSearch" placeholder="Buscar equipo, cliente, serie, modelo o ubicación…"></div><button id="assetRefresh" class="secondary">↻ Actualizar</button></div><div class="scroll"><table class="data"><thead><tr><th>Equipo</th><th>Cliente</th><th>Ubicación</th><th>Identificación</th><th>Estado</th><th>Próximo servicio</th><th>Garantía</th><th></th></tr></thead><tbody id="assetRows"></tbody></table></div><div id="assetMobileCards" class="service-mobile-cards"></div></section>';
+  const draw=items=>{
+    $("#assetRows").innerHTML=items.map(x=>{
+      const ident=[x.brand,x.model].filter(Boolean).join(" · ")||"Sin marca/modelo";
+      const serial=x.serial_number?("SN: "+x.serial_number):(x.internal_code?("Código: "+x.internal_code):"Sin identificación");
+      const overdue=x.next_service_at&&new Date(x.next_service_at)<new Date()&&x.status!=="RETIRADO";
+      return '<tr><td><b>'+esc(x.name)+'</b><br><small>'+esc(x.asset_type||"EQUIPO")+'</small></td><td>'+esc(x.marc_clients?.name||"Sin cliente")+'</td><td>'+esc(x.location||"—")+'</td><td>'+esc(ident)+'<br><small>'+esc(serial)+'</small></td><td><span class="status-pill">'+esc(x.status||"ACTIVO")+'</span></td><td class="'+(overdue?"out":"")+'">'+fmtDate(x.next_service_at)+(overdue?" · VENCIDO":"")+'</td><td>'+fmtDate(x.warranty_until)+'</td><td><button class="secondary" data-asset="'+x.id+'">Abrir</button></td></tr>';
+    }).join("")||'<tr><td colspan="8" class="empty">No hay equipos registrados todavía.</td></tr>';
+    $("#assetMobileCards").innerHTML=items.map(x=>'<article class="service-mobile-card"><div class="service-mobile-top"><div class="service-mobile-title"><b>'+esc(x.name)+'</b><small>'+esc([x.brand,x.model].filter(Boolean).join(" · ")||"Sin marca/modelo")+'</small></div><span class="service-mobile-status">'+esc(x.status||"ACTIVO")+'</span></div><div class="service-mobile-client">👤 '+esc(x.marc_clients?.name||"Sin cliente")+(x.location?" · 📍 "+esc(x.location):"")+'</div><div class="service-mobile-grid"><div class="service-mobile-metric"><span>Serie</span><b>'+esc(x.serial_number||"—")+'</b></div><div class="service-mobile-metric"><span>Próximo</span><b>'+fmtDate(x.next_service_at)+'</b></div><div class="service-mobile-metric"><span>Garantía</span><b>'+fmtDate(x.warranty_until)+'</b></div><div class="service-mobile-metric"><span>Tipo</span><b>'+esc(x.asset_type||"Equipo")+'</b></div></div><button class="primary full" data-asset="'+x.id+'">Abrir ficha técnica</button></article>').join("")||'<div class="empty">No hay equipos registrados todavía.</div>';
+  };
+  draw(rows);
+  $("#assetSearch").oninput=e=>{
+    const q=e.target.value.toLowerCase();
+    draw(rows.filter(x=>[x.name,x.asset_type,x.brand,x.model,x.serial_number,x.internal_code,x.location,x.status,x.marc_clients?.name].some(v=>String(v||"").toLowerCase().includes(q))));
+  };
+  $("#newAsset").onclick=()=>assetModal(null,clientsRows);
+  $("#assetRefresh").onclick=()=>assets();
+  const open=e=>{const b=e.target.closest("[data-asset]");if(!b)return;const row=rows.find(x=>x.id===b.dataset.asset);if(row)assetModal(row,clientsRows)};
+  $("#assetRows").onclick=open;
+  $("#assetMobileCards").onclick=open;
+}
+async function assetModal(row,clientsRows){
+  const editing=!!row,id=row?.id||"";
+  const history=editing?await S.from("marc_service_orders").select("id,number,title,status").eq("user_id",st.u.id).eq("asset_id",id).order("created_at",{ascending:false}).limit(20):{data:[]};
+  const serviceHistory=history.data||[];
+  const close=modal('<div class="modal-head"><div><div class="eyebrow2">FICHA TÉCNICA</div><h2>'+(editing?"Equipo / activo":"Nuevo equipo / activo")+'</h2><p>Identificación, ubicación, garantía y trazabilidad.</p></div><button class="close" id="assetClose">×</button></div>'+
+  '<form id="assetForm" class="form-grid">'+
+  '<label>Nombre del equipo<input name="name" required value="'+esc(row?.name||"")+'" placeholder="Ej. DVR principal, cámara PTZ, aire acondicionado…"></label>'+
+  '<label>Tipo<input name="asset_type" value="'+esc(row?.asset_type||"EQUIPO")+'" placeholder="CCTV, RED, COMPUTACIÓN…"></label>'+
+  '<label>Cliente<select name="client_id"><option value="">Sin cliente</option>'+clientsRows.map(x=>'<option value="'+x.id+'" '+(row?.client_id===x.id?"selected":"")+'>'+esc(x.name)+'</option>').join("")+'</select></label>'+
+  '<label>Ubicación<input name="location" value="'+esc(row?.location||"")+'" placeholder="Sala, oficina, techo…"></label>'+
+  '<label>Marca<input name="brand" value="'+esc(row?.brand||"")+'"></label>'+
+  '<label>Modelo<input name="model" value="'+esc(row?.model||"")+'"></label>'+
+  '<label>N.º de serie<input name="serial_number" value="'+esc(row?.serial_number||"")+'"></label>'+
+  '<label>Código interno<input name="internal_code" value="'+esc(row?.internal_code||"")+'" placeholder="Código o etiqueta"></label>'+
+  '<label>Fecha de instalación<input type="date" name="install_date" value="'+(row?.install_date||"")+'"></label>'+
+  '<label>Garantía hasta<input type="date" name="warranty_until" value="'+(row?.warranty_until||"")+'"></label>'+
+  '<label>Último servicio<input type="datetime-local" name="last_service_at" value="'+(row?.last_service_at?new Date(row.last_service_at).toISOString().slice(0,16):"")+'"></label>'+
+  '<label>Próximo servicio<input type="datetime-local" name="next_service_at" value="'+(row?.next_service_at?new Date(row.next_service_at).toISOString().slice(0,16):"")+'"></label>'+
+  '<label>Estado<select name="status">'+["ACTIVO","EN_MANTENIMIENTO","FUERA_DE_SERVICIO","RETIRADO"].map(v=>'<option value="'+v+'" '+(row?.status===v?"selected":"")+'>'+v.replaceAll("_"," ")+'</option>').join("")+'</select></label>'+
+  '<label class="full">Notas técnicas<textarea name="notes" rows="4" placeholder="Características, IP, ubicación exacta, observaciones…">'+esc(row?.notes||"")+'</textarea></label>'+
+  '<div class="full" style="display:flex;gap:10px;justify-content:flex-end"><button type="button" class="secondary" id="assetCancel">Cancelar</button><button class="primary" type="submit">'+(editing?"Guardar cambios":"Registrar equipo")+'</button></div>'+
+  '</form>'+
+  (editing?'<section class="card" style="margin-top:18px;padding:18px"><div class="panel-title-row"><div><div class="panel-eyebrow">HISTORIAL DE OT</div><h3>Trabajos vinculados</h3></div></div><p style="margin:8px 0">🛠️ '+serviceHistory.length+' órdenes de trabajo asociadas.</p>'+serviceHistory.slice(0,8).map(x=>'<div class="list-row"><b>'+esc(x.number||"OT")+'</b><span>'+esc(x.title||"Servicio")+' · '+esc(x.status||"")+'</span></div>').join("")+'</section>':""));
+  $("#assetClose").onclick=close;$("#assetCancel").onclick=close;
+  $("#assetForm").onsubmit=async e=>{
+    e.preventDefault();
+    const d=new FormData(e.target);
+    const payload={user_id:st.u.id,name:String(d.get("name")||"").trim(),asset_type:String(d.get("asset_type")||"EQUIPO").trim(),client_id:d.get("client_id")||null,location:String(d.get("location")||"").trim()||null,brand:String(d.get("brand")||"").trim()||null,model:String(d.get("model")||"").trim()||null,serial_number:String(d.get("serial_number")||"").trim()||null,internal_code:String(d.get("internal_code")||"").trim()||null,install_date:d.get("install_date")||null,warranty_until:d.get("warranty_until")||null,last_service_at:d.get("last_service_at")?new Date(d.get("last_service_at")).toISOString():null,next_service_at:d.get("next_service_at")?new Date(d.get("next_service_at")).toISOString():null,status:String(d.get("status")||"ACTIVO"),notes:String(d.get("notes")||"").trim()||null,updated_at:new Date().toISOString()};
+    if(!payload.name)return toast("El nombre del equipo es obligatorio.","err");
+    const q=editing?S.from("marc_assets").update(payload).eq("id",id).eq("user_id",st.u.id):S.from("marc_assets").insert(payload);
+    const {error}=await q;
+    if(error)return toast(error.message,"err");
+    close();toast(editing?"Equipo actualizado.":"Equipo registrado.","ok");assets();
+  };
 }
 async function serviceOrders(){
   const {data,error}=await S.from("marc_service_orders").select("*,marc_clients(name)").eq("user_id",st.u.id).order("created_at",{ascending:false});

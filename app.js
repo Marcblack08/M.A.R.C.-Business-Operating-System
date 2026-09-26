@@ -515,6 +515,25 @@ function saleModal(catalog,clientsRows){
   };
   drawProducts();drawCart();
 }
+async function contracts(){
+  const c=$("#content"); if(!c)return;
+  const {data,error}=await S.from("marc_contracts").select("*").eq("user_id",st.u.id).order("ends_at",{ascending:true}).limit(300);
+  if(error)return toast(error.message||"No se pudieron cargar los contratos.","err");
+  const rows=data||[],now=Date.now(),soon=now+30*86400000;
+  const active=rows.filter(x=>String(x.status||"ACTIVO").toUpperCase()==="ACTIVO").length;
+  const expiring=rows.filter(x=>x.ends_at&&new Date(x.ends_at).getTime()>=now&&new Date(x.ends_at).getTime()<=soon).length;
+  const expired=rows.filter(x=>x.ends_at&&new Date(x.ends_at).getTime()<now).length;
+  const value=rows.filter(x=>String(x.status||"ACTIVO").toUpperCase()==="ACTIVO").reduce((n,x)=>n+Number(x.amount??x.price??x.total??0),0);
+  const fmt=v=>v?new Date(v).toLocaleDateString("es-PE"):"—";
+  const draw=items=>{$("#contractRows").innerHTML=items.map(x=>{const overdue=x.ends_at&&new Date(x.ends_at).getTime()<now;return '<tr><td><b>'+esc(x.title||x.name||"Contrato")+'</b><br><small>'+esc(x.description||"Servicio recurrente")+'</small></td><td>'+fmt(x.starts_at)+'</td><td class="'+(overdue?"out":"")+'">'+fmt(x.ends_at)+(overdue?" · VENCIDO":"")+'</td><td><span class="status-pill">'+esc(String(x.status||"ACTIVO"))+'</span></td><td><b>'+money(x.amount??x.price??x.total??0)+'</b></td><td><button class="secondary" data-contract="'+x.id+'">Abrir</button></td></tr>'}).join("")||'<tr><td colspan="6" class="empty">No hay contratos registrados todavía.</td></tr>'};
+  c.innerHTML='<div class="head"><div><div class="eyebrow2">SERVICIOS RECURRENTES</div><h1>Contratos.</h1><p>Controla vigencias, importes, renovaciones y servicios recurrentes de tus clientes.</p></div><button id="newContract" class="primary">＋ Nuevo contrato</button></div><section class="client-summary"><div><span>ACTIVOS</span><strong>'+active+'</strong><small>Contratos vigentes</small></div><div><span>POR VENCER</span><strong>'+expiring+'</strong><small>Próximos 30 días</small></div><div><span>VENCIDOS</span><strong class="'+(expired?"out":"ok")+'">'+expired+'</strong><small>Requieren renovación</small></div><div><span>VALOR ACTIVO</span><strong>'+money(value)+'</strong><small>Importe registrado</small></div></section><section class="card table"><div class="toolbar"><div class="search"><input id="contractSearch" placeholder="Buscar contrato o servicio…"></div><button id="contractRefresh" class="secondary">↻ Actualizar</button></div><div class="scroll"><table class="data"><thead><tr><th>Contrato</th><th>Inicio</th><th>Vencimiento</th><th>Estado</th><th>Importe</th><th></th></tr></thead><tbody id="contractRows"></tbody></table></div></section>';
+  draw(rows);$("#newContract").onclick=()=>contractModal();$("#contractRefresh").onclick=()=>contracts();$("#contractSearch").oninput=e=>{const q=e.target.value.toLowerCase();draw(rows.filter(x=>[x.title,x.name,x.description,x.status].some(v=>String(v||"").toLowerCase().includes(q))))};$("#contractRows").onclick=e=>{const b=e.target.closest("[data-contract]");if(b)contractModal(rows.find(x=>x.id===b.dataset.contract))};
+}
+function contractModal(existing=null){
+  const editing=!!existing,close=modal('<div class="modal-head"><div><div class="eyebrow2">CONTRATO</div><h2>'+(editing?"Editar contrato":"Nuevo contrato")+'</h2><p>Registra la vigencia y las condiciones del servicio recurrente.</p></div><button class="close" id="contractClose">×</button></div><form id="contractForm" class="form-grid"><label>Nombre del contrato<input name="title" required value="'+esc(existing?.title||existing?.name||"")+'" placeholder="Ej. Mantenimiento CCTV"></label><label>Estado<select name="status"><option>ACTIVO</option><option>PENDIENTE</option><option>VENCIDO</option><option>CANCELADO</option></select></label><label>Inicio<input name="starts_at" type="date" value="'+(existing?.starts_at?String(existing.starts_at).slice(0,10):new Date().toISOString().slice(0,10))+'"></label><label>Vencimiento<input name="ends_at" type="date" value="'+(existing?.ends_at?String(existing.ends_at).slice(0,10):"")+'"></label><label>Importe<input name="amount" type="number" min="0" step="0.01" value="'+Number(existing?.amount??existing?.price??existing?.total??0)+'"></label><label>Periodicidad<input name="periodicity" value="'+esc(existing?.periodicity||"Mensual")+'" placeholder="Mensual, trimestral, anual…"></label><label style="grid-column:1/-1">Descripción / servicios incluidos<textarea name="description" rows="4">'+esc(existing?.description||"")+'</textarea></label><div class="modal-actions" style="grid-column:1/-1"><button type="button" class="secondary" id="contractCancel">Cancelar</button><button class="primary">Guardar contrato</button></div></form>');
+  $("#contractClose").onclick=close;$("#contractCancel").onclick=close;$("#contractForm [name=status]").value=String(existing?.status||"ACTIVO").toUpperCase();
+  $("#contractForm").onsubmit=async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{const d=new FormData(e.currentTarget),payload={user_id:st.u.id,title:String(d.get("title")||"").trim(),description:String(d.get("description")||"").trim()||null,status:String(d.get("status")||"ACTIVO"),amount:Number(d.get("amount")||0),starts_at:d.get("starts_at")||null,ends_at:d.get("ends_at")||null,periodicity:String(d.get("periodicity")||"").trim()||null,updated_at:new Date().toISOString()};if(!payload.title)throw new Error("Escribe el nombre del contrato.");const r=editing?await S.from("marc_contracts").update(payload).eq("id",existing.id).eq("user_id",st.u.id):await S.from("marc_contracts").insert(payload);if(r.error)throw r.error;close();toast(editing?"Contrato actualizado":"Contrato creado","ok");contracts()}catch(err){toast(err.message||"No se pudo guardar el contrato.","err");b.disabled=false}};
+}
 function moduleHub(type){
   const c=$("#content"); if(!c)return;
   const ecosystem=currentEcosystem()||"technician";
@@ -610,8 +629,8 @@ async function view(x){
     $$(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x));
     if(x==="home")return currentEcosystem()==="technician"?technicianDashboard():home();if(x==="clients")return clients();if(x==="inventory")return inventory();
     if(x==="suppliers"){if(window.marcSupplierCenter)return window.marcSupplierCenter();return toast("No se pudo cargar el Centro de Proveedores. Recarga la aplicación.","err");}
-    if(x==="quotes")return quotes();if(x==="service_orders")return serviceOrders();if(x==="agenda")return agenda();if(x==="finances")return finances();if(x==="cash")return cash();if(x==="assets")return assets();
-    if(["sales","purchases","receivables","assets","contracts","reports"].includes(x))return moduleHub(x);if(x==="maintenance")return maintenance();
+    if(x==="quotes")return quotes();if(x==="service_orders")return serviceOrders();if(x==="agenda")return agenda();if(x==="finances")return finances();if(x==="cash")return cash();if(x==="assets")return assets();if(x==="contracts")return contracts();
+    if(["sales","purchases","receivables","reports"].includes(x))return moduleHub(x);if(x==="maintenance")return maintenance();
     return settings();
   };
   __viewBusy=true;

@@ -948,7 +948,7 @@ async function maintenanceExecuteModal(plan){
  $("#maintenanceExecForm").onsubmit=async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{
   if(!occ?.id)throw new Error("No existe una ocurrencia pendiente para este plan.");
   const d=new FormData(e.currentTarget), orderId=String(d.get("service_order_id")||"").trim()||null;
-  const r=await S.rpc("marc_complete_maintenance",{p_occurrence_id:occ.id,p_service_order_id:orderId});
+  const r=await S.rpc("marc_complete_maintenance",{p_occurrence_id:occ.id,p_service_order_id:orderId,p_completed_at:new Date(String(d.get("completed_at"))).toISOString(),p_notes:String(d.get("notes")||"").trim()||null});
   if(r.error)throw r.error;
   if(d.get("notes"))await S.from("marc_maintenance_occurrences").update({notes:String(d.get("notes")).trim()}).eq("id",occ.id).eq("user_id",st.u.id);
   if(plan.marc_assets?.id){

@@ -186,3 +186,24 @@
 @media(max-width:1000px){.tech-app-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:700px){.tech-home-hero{display:flex;padding:18px 4px}.tech-home-hero h1{font-size:27px}.tech-home-hero p{font-size:10px}.tech-home-hero .primary{white-space:nowrap}.tech-app-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}.tech-app-card{min-height:154px!important;padding:15px!important;border-radius:19px!important}.tech-app-icon{width:47px!important;height:47px!important;min-width:47px!important;font-size:24px!important}.tech-app-copy{margin-top:13px!important}.tech-app-copy b{font-size:12px!important}.tech-app-copy small{font-size:7px!important}.tech-app-meta{font-size:7px!important}}
 @media(max-width:430px){.tech-home-hero{display:block}.tech-home-hero .primary{margin-top:13px}.tech-app-grid{gap:9px}.tech-app-card{min-height:148px!important;padding:13px!important}.tech-app-icon{width:44px!important;height:44px!important;min-width:44px!important}.tech-app-copy b{font-size:11px!important}}
+
+/* Ajuste final móvil: launcher Técnico con contraste explícito y mosaico compacto */
+.tech-home{color:#fff!important}
+.tech-home-hero{background:transparent!important;border:0!important;box-shadow:none!important;border-radius:0!important;padding:8px 4px 18px!important}
+.tech-home-hero .eyebrow2{color:#45b9ff!important}
+.tech-home-hero h1{color:#fff!important;margin:6px 0!important}
+.tech-home-hero p{color:#a9bed2!important}
+.tech-app-grid{align-items:stretch!important}
+.tech-app-card{aspect-ratio:1 / .88!important}
+.tech-home-footer{background:rgba(255,255,255,.045)!important;border-color:rgba(150,190,220,.18)!important}
+.tech-home-footer b{color:#fff!important}
+.tech-home-footer span{color:#9eb4c8!important}
+@media(max-width:700px){
+  .tech-app-card{aspect-ratio:1 / .94!important;min-height:0!important}
+}
+@media(max-width:430px){
+  .tech-app-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .tech-app-card{aspect-ratio:1 / 1!important;min-height:0!important}
+  .tech-app-copy b{font-size:12px!important}
+  .tech-app-copy small{font-size:7.5px!important}
+}

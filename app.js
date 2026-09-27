@@ -1062,29 +1062,23 @@ async function technicianDashboard(){
   const pending=orders.filter(x=>["PENDIENTE","PROGRAMADA","EN_PROCESO"].includes(x.status)).length;
   const due=plans.filter(x=>x.next_due_at&&new Date(x.next_due_at)<=new Date(Date.now()+30*86400000)).length;
   const lowStock=stock.filter(x=>Number(x.stock)<=Number(x.min_stock)).length;
-  const groups=[
-    {title:"TRABAJO",items:[
-      ["service_orders","🛠️","Órdenes de trabajo","Gestiona tus trabajos de principio a fin.",pending+" activas"],
-      ["quotes","📋","Cotizaciones","Crea presupuestos y conviértelos en trabajos.","Crear una cotización"],
-      ["agenda","📅","Agenda","Organiza visitas, instalaciones y citas.","Ver agenda"]
-    ]},
-    {title:"CLIENTES Y EQUIPOS",items:[
-      ["clients","👥","Clientes","Ficha, historial, trabajos y pagos.",clientRows.length+" clientes"],
-      ["assets","🧰","Equipos y activos","Equipos instalados, series y garantías.","Abrir equipos"],
-      ["maintenance","🔧","Mantenimientos","Preventivos, correctivos y recurrentes.",due+" próximos"]
-    ]},
-    {title:"RECURSOS Y NEGOCIO",items:[
-      ["inventory","📦","Materiales","Materiales, repuestos y existencias.",lowStock+" con stock bajo"],
-      ["contracts","📄","Contratos","Servicios recurrentes y renovaciones.","Gestionar contratos"],
-      ["finances","💰","Finanzas","Costos, ingresos y rentabilidad.","Ver finanzas"],
-      ["reports","📊","Reportes","Resumen operativo y análisis del negocio.","Ver reportes"]
-    ]}
+  const apps=[
+    ["service_orders","🛠️","Órdenes de trabajo","Crea y controla tus trabajos.",pending+" activas"],
+    ["quotes","📋","Cotizaciones","Prepara presupuestos para tus clientes.","Nueva cotización"],
+    ["agenda","📅","Agenda","Visitas, instalaciones y citas.","Ver agenda"],
+    ["clients","👥","Clientes","Contactos, historial y pagos.",clientRows.length+" registrados"],
+    ["assets","🧰","Equipos y activos","Equipos instalados y garantías.","Abrir equipos"],
+    ["maintenance","🔧","Mantenimientos","Preventivos y correctivos.",due+" próximos"],
+    ["inventory","📦","Materiales","Repuestos, materiales y stock.",lowStock+" con stock bajo"],
+    ["contracts","📄","Contratos","Servicios recurrentes y renovaciones.","Gestionar contratos"],
+    ["finances","💰","Finanzas","Costos, ingresos y rentabilidad.","Ver finanzas"],
+    ["reports","📊","Reportes","Indicadores de tu operación.","Ver reportes"]
   ];
-  const groupHtml=groups.map(g=>'<section class="tech-app-group"><div class="tech-app-group-title">'+esc(g.title)+'</div><div class="tech-app-grid">'+g.items.map(x=>'<button class="tech-app-card" data-tech-view="'+x[0]+'"><span class="tech-app-icon">'+x[1]+'</span><span class="tech-app-copy"><b>'+esc(x[2])+'</b><small>'+esc(x[3])+'</small></span><span class="tech-app-meta">'+esc(x[4])+'</span><span class="tech-app-arrow">›</span></button>').join("")+'</div></section>').join("");
+  const cards=apps.map((x,i)=>'<button class="tech-app-card tech-app-tone-'+(i%8)+'" data-tech-view="'+x[0]+'"><span class="tech-app-icon">'+x[1]+'</span><span class="tech-app-copy"><b>'+esc(x[2])+'</b><small>'+esc(x[3])+'</small></span><span class="tech-app-meta">'+esc(x[4])+'</span><span class="tech-app-arrow">↗</span></button>').join("");
   c.innerHTML='<section class="tech-home">'+
-    '<div class="tech-home-hero"><div><div class="eyebrow2">ECOSISTEMA TÉCNICO</div><h1>¿Qué quieres hacer?</h1><p>Selecciona una aplicación para empezar.</p></div><button id="newOTQuick" class="primary">＋ Nueva orden</button></div>'+
-    '<div class="tech-app-groups">'+groupHtml+'</div>'+
-    '<section class="tech-home-footer"><div><b>¿No sabes dónde hacerlo?</b><span>Cuéntaselo a M.A.R.C. y te llevará a la herramienta adecuada.</span></div><button id="techAskMarc" class="secondary">✦ Preguntar a M.A.R.C.</button></section>'+
+    '<div class="tech-home-hero"><div><div class="eyebrow2">ECOSISTEMA TÉCNICO</div><h1>¿Qué quieres hacer?</h1><p>Elige una aplicación y empieza a trabajar.</p></div><button id="newOTQuick" class="primary">＋ Nueva orden</button></div>'+
+    '<div class="tech-app-grid">'+cards+'</div>'+
+    '<section class="tech-home-footer"><div><b>Asistente M.A.R.C.</b><span>Dile qué necesitas hacer y te ayudará a encontrar la herramienta.</span></div><button id="techAskMarc" class="secondary">✦ Preguntar a M.A.R.C.</button></section>'+
     '</section>';
   $("#newOTQuick").onclick=()=>serviceOrderModal();
   $("#techAskMarc").onclick=()=>openChat();

@@ -1053,40 +1053,44 @@ function maintenancePlanModal(existing=null){
 async function technicianDashboard(){
   const c=$("#content"); if(!c)return;
   const [ot,maint,clients,inventory]=await Promise.all([
-    S.from("marc_service_orders").select("id,status,revenue,profit,scheduled_at").eq("user_id",st.u.id).order("created_at",{ascending:false}).limit(100),
-    S.from("marc_maintenance_plans").select("id,title,next_due_at,active").eq("user_id",st.u.id).eq("active",true).order("next_due_at").limit(50),
-    S.from("marc_clients").select("id,name").eq("user_id",st.u.id).order("name").limit(500),
-    S.from("marc_inventory").select("id,name,stock,min_stock").eq("user_id",st.u.id).eq("active",true).order("name").limit(1000)
+    S.from("marc_service_orders").select("id,status").eq("user_id",st.u.id).limit(300),
+    S.from("marc_maintenance_plans").select("id,next_due_at,active").eq("user_id",st.u.id).eq("active",true).limit(100),
+    S.from("marc_clients").select("id").eq("user_id",st.u.id).limit(1000),
+    S.from("marc_inventory").select("id,stock,min_stock").eq("user_id",st.u.id).eq("active",true).limit(1000)
   ]);
   const orders=ot.data||[],plans=maint.data||[],clientRows=clients.data||[],stock=inventory.data||[];
-  const due=plans.filter(x=>x.next_due_at&&new Date(x.next_due_at)<=new Date(Date.now()+30*86400000));
-  const pending=orders.filter(x=>["PENDIENTE","PROGRAMADA","EN_PROCESO"].includes(x.status));
+  const pending=orders.filter(x=>["PENDIENTE","PROGRAMADA","EN_PROCESO"].includes(x.status)).length;
+  const due=plans.filter(x=>x.next_due_at&&new Date(x.next_due_at)<=new Date(Date.now()+30*86400000)).length;
   const lowStock=stock.filter(x=>Number(x.stock)<=Number(x.min_stock)).length;
-  const revenue=orders.reduce((n,x)=>n+Number(x.revenue||0),0);
-  const profit=orders.reduce((n,x)=>n+Number(x.profit||0),0);
-  const apps=[
-    ["service_orders","🛠️","Órdenes de trabajo","Crea, programa y controla tus trabajos.",pending.length+" activas"],
-    ["clients","👥","Clientes","Clientes, historial, trabajos y pagos.",clientRows.length+" registrados"],
-    ["quotes","📋","Cotizaciones","Prepara presupuestos y envíalos al cliente.","Crear cotización"],
-    ["agenda","📅","Agenda","Visitas, citas y trabajos programados.",due.length+" mantenimientos próximos"],
-    ["assets","🧰","Equipos y activos","Equipos instalados, series, garantías e historial.","Abrir inventario técnico"],
-    ["maintenance","🔧","Mantenimientos","Preventivos, correctivos y servicios recurrentes.",due.length+" por revisar"],
-    ["inventory","📦","Materiales","Controla materiales, repuestos y stock.",lowStock+" con stock bajo"],
-    ["contracts","📄","Contratos","Contratos de servicio, vigencias y renovaciones.","Gestionar contratos"],
-    ["finances","💰","Finanzas","Ingresos, costos y rentabilidad.",money(profit)+" utilidad registrada"],
-    ["reports","📊","Reportes","Indicadores de trabajos, inventario y rentabilidad.","Ver reportes"]
+  const groups=[
+    {title:"TRABAJO",items:[
+      ["service_orders","🛠️","Órdenes de trabajo","Gestiona tus trabajos de principio a fin.",pending+" activas"],
+      ["quotes","📋","Cotizaciones","Crea presupuestos y conviértelos en trabajos.","Crear una cotización"],
+      ["agenda","📅","Agenda","Organiza visitas, instalaciones y citas.","Ver agenda"]
+    ]},
+    {title:"CLIENTES Y EQUIPOS",items:[
+      ["clients","👥","Clientes","Ficha, historial, trabajos y pagos.",clientRows.length+" clientes"],
+      ["assets","🧰","Equipos y activos","Equipos instalados, series y garantías.","Abrir equipos"],
+      ["maintenance","🔧","Mantenimientos","Preventivos, correctivos y recurrentes.",due+" próximos"]
+    ]},
+    {title:"RECURSOS Y NEGOCIO",items:[
+      ["inventory","📦","Materiales","Materiales, repuestos y existencias.",lowStock+" con stock bajo"],
+      ["contracts","📄","Contratos","Servicios recurrentes y renovaciones.","Gestionar contratos"],
+      ["finances","💰","Finanzas","Costos, ingresos y rentabilidad.","Ver finanzas"],
+      ["reports","📊","Reportes","Resumen operativo y análisis del negocio.","Ver reportes"]
+    ]}
   ];
-  const cards=apps.map((x,i)=>'<button class="tech-app-card" data-tech-view="'+x[0]+'"><span class="tech-app-icon">'+x[1]+'</span><span class="tech-app-copy"><b>'+esc(x[2])+'</b><small>'+esc(x[3])+'</small></span><span class="tech-app-meta">'+esc(x[4])+'</span><span class="tech-app-arrow">→</span></button>').join("");
+  const groupHtml=groups.map(g=>'<section class="tech-app-group"><div class="tech-app-group-title">'+esc(g.title)+'</div><div class="tech-app-grid">'+g.items.map(x=>'<button class="tech-app-card" data-tech-view="'+x[0]+'"><span class="tech-app-icon">'+x[1]+'</span><span class="tech-app-copy"><b>'+esc(x[2])+'</b><small>'+esc(x[3])+'</small></span><span class="tech-app-meta">'+esc(x[4])+'</span><span class="tech-app-arrow">›</span></button>').join("")+'</div></section>').join("");
   c.innerHTML='<section class="tech-home">'+
-    '<div class="tech-home-hero"><div><div class="eyebrow2">ECOSISTEMA TÉCNICO</div><h1>¿Qué quieres hacer?</h1><p>Elige una aplicación para empezar. Tu información queda conectada entre clientes, trabajos, materiales y rentabilidad.</p></div><button id="newOTQuick" class="primary">＋ Nueva orden de trabajo</button></div>'+
-    '<section class="tech-home-summary"><div><span>TRABAJOS ACTIVOS</span><strong>'+pending.length+'</strong><small>Órdenes por atender</small></div><div><span>MANTENIMIENTOS</span><strong>'+due.length+'</strong><small>Próximos 30 días</small></div><div><span>CLIENTES</span><strong>'+clientRows.length+'</strong><small>En tu espacio</small></div><div><span>UTILIDAD</span><strong class="'+(profit>=0?"ok":"out")+'">'+money(profit)+'</strong><small>Registrada en OT</small></div></section>'+
-    '<div class="tech-app-grid">'+cards+'</div>'+
-    '<section class="tech-home-footer"><div><b>Atajo rápido</b><span>También puedes decirle a M.A.R.C. lo que necesitas hacer.</span></div><button id="techAskMarc" class="secondary">✦ Preguntar a M.A.R.C.</button></section>'+
+    '<div class="tech-home-hero"><div><div class="eyebrow2">ECOSISTEMA TÉCNICO</div><h1>¿Qué quieres hacer?</h1><p>Selecciona una aplicación para empezar.</p></div><button id="newOTQuick" class="primary">＋ Nueva orden</button></div>'+
+    '<div class="tech-app-groups">'+groupHtml+'</div>'+
+    '<section class="tech-home-footer"><div><b>¿No sabes dónde hacerlo?</b><span>Cuéntaselo a M.A.R.C. y te llevará a la herramienta adecuada.</span></div><button id="techAskMarc" class="secondary">✦ Preguntar a M.A.R.C.</button></section>'+
     '</section>';
   $("#newOTQuick").onclick=()=>serviceOrderModal();
   $("#techAskMarc").onclick=()=>openChat();
   c.querySelectorAll("[data-tech-view]").forEach(b=>b.onclick=()=>view(b.dataset.techView));
-}async function assets(){
+}
+async function assets(){
   const c=$("#content"); if(!c)return;
   const [ar,cr]=await Promise.all([
     S.from("marc_assets").select("*,marc_clients(name)").eq("user_id",st.u.id).order("created_at",{ascending:false}),

@@ -1058,26 +1058,35 @@ async function technicianDashboard(){
     S.from("marc_clients").select("id,name").eq("user_id",st.u.id).order("name").limit(500),
     S.from("marc_inventory").select("id,name,stock,min_stock").eq("user_id",st.u.id).eq("active",true).order("name").limit(1000)
   ]);
-  if(ot.error||maint.error||clients.error||inventory.error)return home();
-  const orders=ot.data||[],plans=maint.data||[],stock=inventory.data||[];
-  const today=new Date(); today.setHours(0,0,0,0);
+  const orders=ot.data||[],plans=maint.data||[],clientRows=clients.data||[],stock=inventory.data||[];
   const due=plans.filter(x=>x.next_due_at&&new Date(x.next_due_at)<=new Date(Date.now()+30*86400000));
   const pending=orders.filter(x=>["PENDIENTE","PROGRAMADA","EN_PROCESO"].includes(x.status));
-  const revenue=orders.reduce((n,x)=>n+Number(x.revenue||0),0),profit=orders.reduce((n,x)=>n+Number(x.profit||0),0);
-  c.innerHTML='<div class="head"><div><div class="eyebrow2">ECOSISTEMA TÉCNICO</div><h1>Centro de operaciones.</h1><p>Del cliente al trabajo, del trabajo al material y del material a la rentabilidad.</p></div><button id="newOTQuick" class="primary">＋ Nueva orden</button></div>'+
-  '<section class="client-summary"><div><span>ÓRDENES ACTIVAS</span><strong>'+pending.length+'</strong><small>Por atender o en proceso</small></div><div><span>MANTENIMIENTOS PRÓXIMOS</span><strong>'+due.length+'</strong><small>Dentro de 30 días</small></div><div><span>INGRESOS OT</span><strong>'+money(revenue)+'</strong><small>Órdenes recientes</small></div><div><span>UTILIDAD OT</span><strong class="'+(profit>=0?"ok":"out")+'">'+money(profit)+'</strong><small>Rentabilidad registrada</small></div></section>'+
-  '<div class="module-related-grid tech-dashboard-grid">'+
-  '<button data-tech-view="service_orders"><b>🛠️ Órdenes de trabajo</b><small>'+pending.length+' activas · diagnóstico, materiales, evidencias y conformidad.</small><span>Entrar →</span></button>'+
-  '<button data-tech-view="assets"><b>🧰 Equipos y activos</b><small>Registra equipos instalados y su historial técnico por cliente.</small><span>Entrar →</span></button>'+
-  '<button data-tech-view="maintenance"><b>🔧 Mantenimientos</b><small>'+due.length+' planes requieren atención próxima.</small><span>Entrar →</span></button>'+
-  '<button data-tech-view="clients"><b>👥 Clientes</b><small>'+clients.data?.length||0+' clientes disponibles para trabajar.</small><span>Entrar →</span></button>'+
-  '<button data-tech-view="inventory"><b>📦 Materiales</b><small>'+stock.filter(x=>Number(x.stock)<=Number(x.min_stock)).length+' productos en stock bajo.</small><span>Entrar →</span></button>'+
-  '<button data-tech-view="reports"><b>📊 Rentabilidad</b><small>Consulta ingresos, costos y utilidad de tus servicios.</small><span>Entrar →</span></button>'+
-  '</div>';
+  const lowStock=stock.filter(x=>Number(x.stock)<=Number(x.min_stock)).length;
+  const revenue=orders.reduce((n,x)=>n+Number(x.revenue||0),0);
+  const profit=orders.reduce((n,x)=>n+Number(x.profit||0),0);
+  const apps=[
+    ["service_orders","🛠️","Órdenes de trabajo","Crea, programa y controla tus trabajos.",pending.length+" activas"],
+    ["clients","👥","Clientes","Clientes, historial, trabajos y pagos.",clientRows.length+" registrados"],
+    ["quotes","📋","Cotizaciones","Prepara presupuestos y envíalos al cliente.","Crear cotización"],
+    ["agenda","📅","Agenda","Visitas, citas y trabajos programados.",due.length+" mantenimientos próximos"],
+    ["assets","🧰","Equipos y activos","Equipos instalados, series, garantías e historial.","Abrir inventario técnico"],
+    ["maintenance","🔧","Mantenimientos","Preventivos, correctivos y servicios recurrentes.",due.length+" por revisar"],
+    ["inventory","📦","Materiales","Controla materiales, repuestos y stock.",lowStock+" con stock bajo"],
+    ["contracts","📄","Contratos","Contratos de servicio, vigencias y renovaciones.","Gestionar contratos"],
+    ["finances","💰","Finanzas","Ingresos, costos y rentabilidad.",money(profit)+" utilidad registrada"],
+    ["reports","📊","Reportes","Indicadores de trabajos, inventario y rentabilidad.","Ver reportes"]
+  ];
+  const cards=apps.map((x,i)=>'<button class="tech-app-card" data-tech-view="'+x[0]+'"><span class="tech-app-icon">'+x[1]+'</span><span class="tech-app-copy"><b>'+esc(x[2])+'</b><small>'+esc(x[3])+'</small></span><span class="tech-app-meta">'+esc(x[4])+'</span><span class="tech-app-arrow">→</span></button>').join("");
+  c.innerHTML='<section class="tech-home">'+
+    '<div class="tech-home-hero"><div><div class="eyebrow2">ECOSISTEMA TÉCNICO</div><h1>¿Qué quieres hacer?</h1><p>Elige una aplicación para empezar. Tu información queda conectada entre clientes, trabajos, materiales y rentabilidad.</p></div><button id="newOTQuick" class="primary">＋ Nueva orden de trabajo</button></div>'+
+    '<section class="tech-home-summary"><div><span>TRABAJOS ACTIVOS</span><strong>'+pending.length+'</strong><small>Órdenes por atender</small></div><div><span>MANTENIMIENTOS</span><strong>'+due.length+'</strong><small>Próximos 30 días</small></div><div><span>CLIENTES</span><strong>'+clientRows.length+'</strong><small>En tu espacio</small></div><div><span>UTILIDAD</span><strong class="'+(profit>=0?"ok":"out")+'">'+money(profit)+'</strong><small>Registrada en OT</small></div></section>'+
+    '<div class="tech-app-grid">'+cards+'</div>'+
+    '<section class="tech-home-footer"><div><b>Atajo rápido</b><span>También puedes decirle a M.A.R.C. lo que necesitas hacer.</span></div><button id="techAskMarc" class="secondary">✦ Preguntar a M.A.R.C.</button></section>'+
+    '</section>';
   $("#newOTQuick").onclick=()=>serviceOrderModal();
+  $("#techAskMarc").onclick=()=>openChat();
   c.querySelectorAll("[data-tech-view]").forEach(b=>b.onclick=()=>view(b.dataset.techView));
-}
-async function assets(){
+}async function assets(){
   const c=$("#content"); if(!c)return;
   const [ar,cr]=await Promise.all([
     S.from("marc_assets").select("*,marc_clients(name)").eq("user_id",st.u.id).order("created_at",{ascending:false}),

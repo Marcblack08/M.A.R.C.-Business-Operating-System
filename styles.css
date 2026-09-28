@@ -4109,3 +4109,184 @@ html[data-ecosystem="technician"] #app.marc-immersive .tech-summary-grid article
   #app.marc-immersive .tech-summary-grid article{min-height:120px!important;padding:14px!important}
   #app.marc-immersive .tech-summary-grid article>strong{font-size:23px!important}
 }
+
+
+/* ===== PREMIUM BUSINESS COMMAND CENTER ===== */
+html[data-ecosystem="mixed"] #app.marc-immersive{
+  background:
+    radial-gradient(900px 500px at 85% 4%,rgba(126,91,255,.16),transparent 58%),
+    radial-gradient(700px 500px at 4% 35%,rgba(36,198,255,.08),transparent 60%),
+    linear-gradient(180deg,#070b18 0%,#0a0d1d 45%,#070a14 100%)!important;
+}
+html[data-ecosystem="mixed"] #app.marc-immersive .marc-home-launcher.marc-premium-launcher{
+  order:-10;
+  margin:16px 0 10px!important;
+  padding:20px 20px 15px!important;
+  border:1px solid rgba(170,151,255,.22)!important;
+  border-radius:24px!important;
+  background:
+    linear-gradient(145deg,rgba(20,18,43,.96),rgba(9,13,29,.96))!important;
+  box-shadow:0 24px 70px rgba(0,0,0,.28),inset 0 1px rgba(255,255,255,.05)!important;
+  color:#fff!important;
+}
+html[data-ecosystem="mixed"] .marc-premium-launcher-head{
+  display:flex!important;
+  justify-content:space-between!important;
+  align-items:center!important;
+  gap:20px!important;
+  margin-bottom:14px!important;
+}
+html[data-ecosystem="mixed"] .marc-premium-launcher .marc-module-kicker{
+  color:#a998ff!important;
+  letter-spacing:.2em!important;
+}
+html[data-ecosystem="mixed"] .marc-premium-launcher h2{
+  margin:4px 0 4px!important;
+  font-size:22px!important;
+  letter-spacing:-.045em!important;
+  color:#fff!important;
+}
+html[data-ecosystem="mixed"] .marc-premium-launcher p{
+  margin:0!important;
+  max-width:620px!important;
+  color:#8e93ad!important;
+  font-size:9px!important;
+  line-height:1.5!important;
+}
+html[data-ecosystem="mixed"] .marc-premium-all{
+  flex:0 0 auto!important;
+  padding:9px 12px!important;
+  border:1px solid rgba(174,156,255,.25)!important;
+  border-radius:10px!important;
+  background:rgba(150,124,255,.08)!important;
+  color:#c9c0ff!important;
+  font-size:8px!important;
+  font-weight:900!important;
+  cursor:pointer!important;
+}
+html[data-ecosystem="mixed"] .marc-premium-all span{margin-left:5px}
+html[data-ecosystem="mixed"] .marc-premium-grid{
+  display:grid!important;
+  grid-template-columns:repeat(6,minmax(0,1fr))!important;
+  gap:8px!important;
+}
+html[data-ecosystem="mixed"] .marc-premium-grid .marc-module-card{
+  min-height:92px!important;
+  padding:11px!important;
+  border:1px solid rgba(255,255,255,.07)!important;
+  border-radius:14px!important;
+  background:linear-gradient(145deg,rgba(255,255,255,.065),rgba(255,255,255,.025))!important;
+  color:#fff!important;
+}
+html[data-ecosystem="mixed"] .marc-premium-grid .marc-module-card:hover{
+  transform:translateY(-2px)!important;
+  border-color:rgba(174,156,255,.35)!important;
+  background:linear-gradient(145deg,rgba(154,130,255,.13),rgba(255,255,255,.035))!important;
+}
+html[data-ecosystem="mixed"] .marc-premium-grid .marc-module-card .mm-icon{
+  width:29px!important;height:29px!important;
+  margin-bottom:7px!important;
+  border:1px solid rgba(255,255,255,.08)!important;
+  background:rgba(255,255,255,.07)!important;
+  font-size:13px!important;
+}
+html[data-ecosystem="mixed"] .marc-premium-grid .marc-module-card b{
+  font-size:8px!important;color:#f2f0fb!important;
+}
+html[data-ecosystem="mixed"] .marc-premium-grid .marc-module-card small{
+  font-size:6px!important;color:#81869f!important;
+}
+html[data-ecosystem="mixed"] .marc-premium-divider{
+  display:flex!important;
+  align-items:center!important;
+  gap:9px!important;
+  margin-top:13px!important;
+  color:#6f7590!important;
+  font-size:7px!important;
+  letter-spacing:.08em!important;
+  text-transform:uppercase!important;
+}
+html[data-ecosystem="mixed"] .marc-premium-divider i{
+  height:1px!important;flex:1!important;background:linear-gradient(90deg,rgba(164,145,255,.3),transparent)!important;
+}
+html[data-ecosystem="mixed"] .marc-premium-divider b{
+  font-size:6px!important;color:#777d97!important;font-weight:700!important;
+}
+html[data-ecosystem="mixed"] #app.marc-immersive .mixed-dashboard{
+  gap:12px!important;
+}
+html[data-ecosystem="mixed"] #app.marc-immersive .mixed-hero{
+  min-height:250px!important;
+  padding:30px!important;
+  border:1px solid rgba(171,145,255,.22)!important;
+  background:
+    radial-gradient(500px 240px at 88% 15%,rgba(135,92,255,.35),transparent 65%),
+    radial-gradient(450px 220px at 8% 100%,rgba(20,193,255,.16),transparent 70%),
+    linear-gradient(125deg,#070a18,#15112d 55%,#35215d)!important;
+  box-shadow:0 25px 80px rgba(42,24,89,.34),inset 0 1px rgba(255,255,255,.06)!important;
+}
+html[data-ecosystem="mixed"] #app.marc-immersive .mixed-hero h1{
+  font-size:42px!important;
+  letter-spacing:-.065em!important;
+}
+html[data-ecosystem="mixed"] #app.marc-immersive .mixed-hero p{
+  color:#aeb1c6!important;
+}
+html[data-ecosystem="mixed"] #app.marc-immersive .mixed-command-card{
+  border-color:rgba(192,174,255,.18)!important;
+  background:linear-gradient(145deg,rgba(255,255,255,.09),rgba(255,255,255,.035))!important;
+  box-shadow:0 25px 70px rgba(0,0,0,.25),inset 0 1px rgba(255,255,255,.06)!important;
+}
+html[data-ecosystem="mixed"] #app.marc-immersive .mixed-kpis article{
+  background:linear-gradient(145deg,#111527,#0d1020)!important;
+  border-color:rgba(255,255,255,.08)!important;
+  color:#fff!important;
+  box-shadow:0 14px 40px rgba(0,0,0,.18)!important;
+}
+html[data-ecosystem="mixed"] #app.marc-immersive .mixed-kpis span{color:#7e849e!important}
+html[data-ecosystem="mixed"] #app.marc-immersive .mixed-kpis strong{color:#f3f1fb!important}
+html[data-ecosystem="mixed"] #app.marc-immersive .mixed-kpis small{color:#777d95!important}
+html[data-ecosystem="mixed"] #app.marc-immersive .mixed-panel{
+  background:linear-gradient(145deg,#111527,#0c1020)!important;
+  border-color:rgba(255,255,255,.075)!important;
+  color:#fff!important;
+  box-shadow:0 18px 50px rgba(0,0,0,.2)!important;
+}
+html[data-ecosystem="mixed"] #app.marc-immersive .mixed-panel-head span,
+html[data-ecosystem="mixed"] #app.marc-immersive .mixed-stack>div:first-child>span{color:#9382d2!important}
+html[data-ecosystem="mixed"] #app.marc-immersive .mixed-panel-head h2,
+html[data-ecosystem="mixed"] #app.marc-immersive .mixed-stack h2{color:#f3f0fa!important}
+html[data-ecosystem="mixed"] #app.marc-immersive .mixed-flow-steps div{
+  background:rgba(255,255,255,.035)!important;
+  border-color:rgba(255,255,255,.06)!important;
+}
+html[data-ecosystem="mixed"] #app.marc-immersive .mixed-flow-steps b{color:#ece9f7!important}
+html[data-ecosystem="mixed"] #app.marc-immersive .mixed-flow-steps small,
+html[data-ecosystem="mixed"] #app.marc-immersive .mixed-focus-list small,
+html[data-ecosystem="mixed"] #app.marc-immersive .mixed-timeline small,
+html[data-ecosystem="mixed"] #app.marc-immersive .mixed-stack-row span{color:#747b95!important}
+html[data-ecosystem="mixed"] #app.marc-immersive .mixed-focus-list button,
+html[data-ecosystem="mixed"] #app.marc-immersive .mixed-timeline button,
+html[data-ecosystem="mixed"] #app.marc-immersive .mixed-stack-row{border-color:rgba(255,255,255,.06)!important}
+html[data-ecosystem="mixed"] #app.marc-immersive .mixed-focus-list span,
+html[data-ecosystem="mixed"] #app.marc-immersive .mixed-timeline button>span{
+  background:rgba(151,127,255,.1)!important;
+}
+@media(max-width:900px){
+  html[data-ecosystem="mixed"] .marc-premium-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+}
+@media(max-width:620px){
+  html[data-ecosystem="mixed"] .marc-premium-launcher{padding:15px!important;border-radius:19px!important}
+  html[data-ecosystem="mixed"] .marc-premium-launcher-head{align-items:flex-start!important}
+  html[data-ecosystem="mixed"] .marc-premium-launcher h2{font-size:19px!important}
+  html[data-ecosystem="mixed"] .marc-premium-launcher p{font-size:8px!important}
+  html[data-ecosystem="mixed"] .marc-premium-all{padding:8px 9px!important}
+  html[data-ecosystem="mixed"] .marc-premium-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px!important}
+  html[data-ecosystem="mixed"] .marc-premium-grid .marc-module-card{min-height:82px!important;padding:8px!important}
+  html[data-ecosystem="mixed"] .marc-premium-grid .marc-module-card .mm-icon{width:25px!important;height:25px!important;margin-bottom:5px!important;font-size:11px!important}
+  html[data-ecosystem="mixed"] .marc-premium-grid .marc-module-card b{font-size:7px!important}
+  html[data-ecosystem="mixed"] .marc-premium-grid .marc-module-card small{font-size:5px!important}
+  html[data-ecosystem="mixed"] .marc-premium-divider{font-size:6px!important}
+  html[data-ecosystem="mixed"] #app.marc-immersive .mixed-hero{min-height:330px!important;padding:22px 18px!important}
+  html[data-ecosystem="mixed"] #app.marc-immersive .mixed-hero h1{font-size:30px!important}
+}

@@ -4117,50 +4117,44 @@ function wire(){
     const code=search.get("code");
     const error=hash.get("error_description")||search.get("error_description")||hash.get("error")||search.get("error");
     const oauthPending=sessionStorage.getItem("marc_google_oauth_pending")==="1";
-
     if(error){
       sessionStorage.removeItem("marc_google_oauth_pending");
-      throw new Error(decodeURIComponent(String(error).replace(/\+/g," ")));
+      throw Object.assign(new Error(decodeURIComponent(String(error).replace(/\+/g," "))),{code:search.get("error_code")||hash.get("error_code")||"OAUTH_CALLBACK_ERROR"});
     }
-
-    // Browser-first SPA: Google OAuth uses the implicit callback so the
-    // session does not depend on a PKCE verifier surviving navigation.
-    // This prevents "PKCE code verifier not found" on worker/preview hosts.
     if(code){
+      msg("4/4 · Google devolvió el acceso. Validando la sesión…");
       const exchanged=await S.auth.exchangeCodeForSession(code);
       if(exchanged.error)throw exchanged.error;
       if(exchanged.data?.session){
         sessionStorage.removeItem("marc_google_oauth_pending");
         cleanAuthUrl();
+        msg("Acceso con Google confirmado. Abriendo M.A.R.C.…");
         await handleAuthSession(exchanged.data.session);
         return;
       }
     }
-
     const current=await S.auth.getSession();
     if(current.error)throw current.error;
     if(current.data?.session){
       sessionStorage.removeItem("marc_google_oauth_pending");
       cleanAuthUrl();
+      if(oauthPending)msg("Sesión de Google recuperada. Abriendo M.A.R.C.…");
       await handleAuthSession(current.data.session);
       return;
     }
-
     await new Promise(r=>setTimeout(r,900));
     const retry=await S.auth.getSession();
     if(retry.error)throw retry.error;
     if(retry.data?.session){
       sessionStorage.removeItem("marc_google_oauth_pending");
       cleanAuthUrl();
+      if(oauthPending)msg("Sesión de Google recuperada después de esperar al navegador. Abriendo M.A.R.C.…");
       await handleAuthSession(retry.data.session);
       return;
     }
-
-    // No hay sesión: la pantalla de acceso ya comunica el estado.
-    // No mostramos diagnósticos técnicos debajo del botón de Google.
-    msg("");
+    if(oauthPending)msg("Google no devolvió una sesión a M.A.R.C. El problema está después de la autorización: no se recibió la sesión del navegador.","error");
+    else msg("");
   };
-
   queueMicrotask(()=>{
     const f=$("#authForm"),b=$("#authSubmit"),g=$("#googleLogin");
     if(f){f.onsubmit=submit;f.style.pointerEvents="auto";}

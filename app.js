@@ -4133,6 +4133,29 @@ function wire(){
         return;
       }
     }
+
+    // Flujo explícito de respaldo para OAuth implicit: Supabase normalmente
+    // detecta #access_token/#refresh_token durante initialize(), pero en
+    // navegadores móviles/WebViews puede quedar la sesión fuera de la primera
+    // lectura. setSession() persiste el par recibido y dispara SIGNED_IN.
+    const accessToken=hash.get("access_token");
+    const refreshToken=hash.get("refresh_token");
+    if(accessToken&&refreshToken){
+      msg("4/4 · Google devolvió los tokens. Guardando la sesión…");
+      const restored=await S.auth.setSession({
+        access_token:accessToken,
+        refresh_token:refreshToken
+      });
+      if(restored.error)throw restored.error;
+      if(restored.data?.session){
+        sessionStorage.removeItem("marc_google_oauth_pending");
+        cleanAuthUrl();
+        msg("Acceso con Google confirmado. Abriendo M.A.R.C.…");
+        await handleAuthSession(restored.data.session);
+        return;
+      }
+    }
+
     const current=await S.auth.getSession();
     if(current.error)throw current.error;
     if(current.data?.session){

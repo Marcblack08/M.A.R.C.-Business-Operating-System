@@ -925,11 +925,16 @@ function moduleCreateModal(type){
 
 let __viewBusy=false;
 async function view(x){
-  const paidTechnicalFeatures={assets:"Equipos y activos",maintenance:"Mantenimientos"};
-  if(paidTechnicalFeatures[x] && !isMasterPlan()){
+  const paidFeaturesByEcosystem={
+    technician:{service_orders:"Órdenes de trabajo",assets:"Equipos y activos",maintenance:"Mantenimientos",contracts:"Contratos",finances:"Rentabilidad"},
+    business:{suppliers:"Proveedores",purchases:"Compras",receivables:"Créditos y cobros"},
+    mixed:{service_orders:"Órdenes de trabajo",agenda:"Agenda técnica",assets:"Equipos y activos",maintenance:"Mantenimientos",suppliers:"Proveedores",purchases:"Compras",receivables:"Créditos y cobros",contracts:"Contratos",finances:"Rentabilidad"}
+  };
+  const paidFeature=paidFeaturesByEcosystem[currentEcosystem()]?.[x];
+  if(paidFeature && !isMasterPlan()){
     const plan=await getPlanState(true);
     if(normalizePlan(plan.code)==="free"){
-      openUpgradeModal("Esta función pertenece al plan de pago: "+paidTechnicalFeatures[x]+".");
+      openUpgradeModal("🔒 "+paidFeature+" es una función del plan de pago. Actualiza tu plan para desbloquearla.");
       return;
     }
   }

@@ -369,3 +369,30 @@
 .saas-change-option.active{outline:2px solid #1688db}
 @media(max-width:800px){.marc-plan-grid,.saas-metrics{grid-template-columns:1fr 1fr}.saas-admin-hero{align-items:flex-start}.saas-admin-hero h1{font-size:26px}}
 @media(max-width:520px){.marc-plan-grid,.saas-metrics,.saas-change-grid{grid-template-columns:1fr}.marc-plan-card>small{min-height:0}.saas-admin-hero{display:block}.saas-admin-hero .primary{width:100%;margin-top:12px}}
+
+
+/* SaaS · centro de planes y bloqueos de funciones */
+.marc-plan-card.current{outline:2px solid rgba(44,170,238,.7);box-shadow:0 16px 34px rgba(25,110,170,.18)}
+.marc-plan-features{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.marc-plan-features b{grid-column:1/-1;color:#fff;font-size:9px}
+.marc-plan-features span{padding:9px 10px;border-radius:11px;background:rgba(255,255,255,.045);border:1px solid rgba(151,188,215,.12);color:#9db3c6;font-size:7.5px;line-height:1.4}
+.marc-plan-center{max-width:980px}
+.marc-plan-current{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px;border-radius:17px;background:linear-gradient(145deg,rgba(8,127,229,.16),rgba(22,191,169,.09));border:1px solid rgba(92,184,236,.22);margin-bottom:12px}
+.marc-plan-current span{display:block;color:#63c0f4;font-size:7px;font-weight:950;letter-spacing:.14em}
+.marc-plan-current b{display:block;color:#fff;font-size:20px;margin-top:4px}
+.marc-plan-current small{display:block;color:#91a9bd;font-size:8px;margin-top:4px}
+.marc-plan-usage{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:12px}
+.marc-plan-usage>div{padding:12px;border-radius:13px;background:rgba(255,255,255,.045);border:1px solid rgba(151,188,215,.12)}
+.marc-plan-usage span{display:block;color:#8199ad;font-size:6.5px;font-weight:900;letter-spacing:.08em}
+.marc-plan-usage b{display:block;color:#fff;font-size:16px;margin-top:5px}
+.marc-feature-lock{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#fff7e8;border:1px solid #f2d7a4;margin-bottom:10px}
+.marc-feature-lock b{color:#9a6416;font-size:8px}
+.marc-feature-lock span{color:#7b6a4d;font-size:7.5px;flex:1}
+.marc-feature-lock button{font-size:7px!important}
+.trial[role="button"]{cursor:pointer}
+.trial[role="button"]:focus-visible{outline:2px solid #35a9f2;outline-offset:2px}
+@media(max-width:700px){
+  .marc-plan-features,.marc-plan-usage{grid-template-columns:1fr}
+  .marc-plan-current{align-items:flex-start;flex-direction:column}
+  .marc-plan-current .primary{width:100%}
+}

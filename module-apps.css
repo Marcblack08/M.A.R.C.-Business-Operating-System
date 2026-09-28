@@ -207,3 +207,29 @@
   .tech-app-copy b{font-size:12px!important}
   .tech-app-copy small{font-size:7.5px!important}
 }
+
+/* Órdenes de trabajo · aplicación */
+.service-app{max-width:1180px;margin:0 auto;padding-bottom:24px}
+.service-app-hero{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px;padding:8px 2px}
+.service-app-hero h1{margin:5px 0 4px;color:#fff;font-size:30px;letter-spacing:-.035em}
+.service-app-hero p{margin:0;color:#9fb5c9;font-size:10px}
+.service-status-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
+.service-status-tile{position:relative;min-height:126px;padding:17px;border:0;border-radius:20px;text-align:left;color:#fff;overflow:hidden;box-shadow:0 12px 28px rgba(20,55,90,.16);transition:.18s}
+.service-status-tile:hover,.service-status-tile.active{transform:translateY(-3px);box-shadow:0 18px 34px rgba(20,55,90,.23)}
+.service-status-tile:after{content:"";position:absolute;width:90px;height:90px;right:-30px;top:-28px;border-radius:50%;background:rgba(255,255,255,.14)}
+.service-status-tile strong{display:block;font-size:29px;line-height:1}
+.service-status-tile span{display:block;margin-top:14px;font-size:11px;font-weight:900}
+.service-status-tile small{display:block;margin-top:4px;font-size:7px;color:rgba(255,255,255,.8)}
+.service-status-tile.pending{background:linear-gradient(145deg,#ed8a26,#f6ad48)}
+.service-status-tile.scheduled{background:linear-gradient(145deg,#147fe0,#36a6f4)}
+.service-status-tile.progress{background:linear-gradient(145deg,#7354df,#9a72f0)}
+.service-status-tile.done{background:linear-gradient(145deg,#159879,#26ba99)}
+.service-app .service-profitability-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.service-app .service-profitability-summary>div{background:rgba(255,255,255,.055);border:1px solid rgba(151,188,215,.15);border-radius:15px;padding:13px}
+.service-app .service-profitability-summary span{display:block;color:#91a9be;font-size:7px;font-weight:900;letter-spacing:.13em}
+.service-app .service-profitability-summary strong{display:block;color:#fff;margin-top:6px;font-size:16px}
+.service-app .service-profitability-summary small{display:block;color:#8199ad;font-size:7px;margin-top:3px}
+.service-app .service-order-browser{background:#fff;border:0;border-radius:20px;box-shadow:0 14px 34px rgba(10,35,60,.12);overflow:hidden}
+.service-app .service-order-browser .toolbar{padding:13px}
+@media(max-width:850px){.service-status-grid{grid-template-columns:repeat(2,1fr)}.service-app .service-profitability-summary{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.service-app-hero{align-items:flex-start}.service-app-hero h1{font-size:25px}.service-app-hero .primary{white-space:nowrap}.service-status-grid{gap:9px}.service-status-tile{min-height:112px;padding:14px;border-radius:18px}.service-status-tile strong{font-size:25px}.service-status-tile span{margin-top:11px;font-size:10px}.service-app .service-profitability-summary{gap:8px}.service-app .service-profitability-summary>div{padding:11px}.service-app .service-profitability-summary strong{font-size:14px}}

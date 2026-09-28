@@ -1050,8 +1050,9 @@ function clientModal(existing=null){
   };
 }
 
-function inventoryModal(existing=null){
+async function inventoryModal(existing=null){
   const isEdit=Boolean(existing?.id);
+  if(!isEdit && !(await requirePlan("Inventario","inventory")))return;
   const close=modal(
     '<div class="modal-head"><div><div class="eyebrow2">INVENTARIO</div><h2>'+(isEdit?"Editar producto":"Nuevo producto")+'</h2><p>Completa los datos básicos. Puedes enriquecer la ficha después con fotos y análisis de M.A.R.C.</p></div><button class="close" id="inventoryClose" type="button">×</button></div>'+
     '<form id="inventoryForm" class="form-grid">'+
@@ -1084,7 +1085,7 @@ function inventoryModal(existing=null){
       else result=await S.from("marc_inventory").insert({...payload,user_id:st.u.id,active:true});
       if(result.error)throw result.error;
       close();toast(isEdit?"Producto actualizado":"Producto agregado","ok");await inventory();
-    }catch(err){toast(err.message||"No se pudo guardar el producto.","err");b.disabled=false}
+    }catch(err){if(String(err?.message||"").includes("MARC_PLAN_LIMIT_INVENTORY")){close();openUpgradeModal("El plan Gratis permite hasta 20 productos activos.");}else{toast(err.message||"No se pudo guardar el producto.","err")}b.disabled=false}
   };
 }
 

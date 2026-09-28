@@ -104,7 +104,7 @@ begin
       end if;
     end if;
     perform pg_advisory_xact_lock(hashtext(v_uid::text || ':' || v_prefix));
-    select coalesce(max((regexp_match(number,'([0-9]+)$'))[1]::int),0)+1 into v_next from public.marc_quotes where user_id=v_uid and number like v_prefix || '-%';
+    select coalesce(max(split_part(number,'-',3)::int),0)+1 into v_next from public.marc_quotes where user_id=v_uid and number like v_prefix || '-%';
     v_number := v_prefix || '-' || lpad(v_next::text,4,'0');
   end if;
 

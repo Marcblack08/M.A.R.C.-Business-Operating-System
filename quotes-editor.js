@@ -200,11 +200,13 @@
   const intercept=e=>{
     const b=e.target?.closest?.("#new,button[data-action='open-quote']");
     if(!b)return;
+    const isQuoteNew=b.id==="new" && Boolean(b.closest(".quotes-app"));
+    const isQuoteOpen=b.dataset.action==="open-quote";
+    if(!isQuoteNew&&!isQuoteOpen)return;
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
-    const id=b.dataset.action==="open-quote"?b.dataset.id:null;
-    if(b.id==="new" && b.closest(".inventory-browser"))return;
+    const id=isQuoteOpen?b.dataset.id:null;
     const run=async()=>{
       let existing=null;
       if(id){

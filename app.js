@@ -938,7 +938,161 @@ async function view(x){
     __viewBusy=false;
   }
 }
+async function businessDashboard(){
+  const c=$("#content"); if(!c)return;
+  const [iv,sa,cl,qt,cr]=await Promise.all([
+    S.from("marc_inventory").select("id,name,price,cost,stock,min_stock,active").eq("user_id",st.u.id).eq("active",true).order("name").limit(1000),
+    S.from("marc_sales").select("id,number,total,payment_method,status,created_at").eq("user_id",st.u.id).order("created_at",{ascending:false}).limit(200),
+    S.from("marc_clients").select("id,name,phone").eq("user_id",st.u.id).order("name").limit(1000),
+    S.from("marc_quotes").select("id,number,title,total,status,created_at").eq("user_id",st.u.id).is("deleted_at",null).order("created_at",{ascending:false}).limit(100),
+    S.from("marc_cash_registers").select("id,status,opening_amount,opened_at").eq("user_id",st.u.id).eq("status","OPEN").order("opened_at",{ascending:false}).limit(1).maybeSingle()
+  ]);
+  const inventory=iv.data||[],sales=sa.data||[],clients=cl.data||[],quotes=qt.data||[],cashOpen=cr.data;
+  const today=new Date().toDateString();
+  const salesToday=sales.filter(x=>new Date(x.created_at).toDateString()===today);
+  const salesTodayAmount=salesToday.reduce((n,x)=>n+Number(x.total||0),0);
+  const monthStart=new Date(new Date().getFullYear(),new Date().getMonth(),1);
+  const monthSales=sales.filter(x=>new Date(x.created_at)>=monthStart);
+  const monthAmount=monthSales.reduce((n,x)=>n+Number(x.total||0),0);
+  const low=inventory.filter(x=>Number(x.stock)<=Number(x.min_stock));
+  const stockUnits=inventory.reduce((n,x)=>n+Number(x.stock||0),0);
+  const quotePending=quotes.filter(x=>["BORRADOR","ENVIADA"].includes(String(x.status||"").toUpperCase())).length;
+  const paymentMix={EFECTIVO:0,YAPE:0,PLIN:0,TARJETA:0,TRANSFERENCIA:0,CREDITO:0};
+  monthSales.forEach(x=>{const k=String(x.payment_method||"OTRO").toUpperCase();paymentMix[k]=(paymentMix[k]||0)+Number(x.total||0)});
+  c.innerHTML=`
+    <div class="business-dashboard">
+      <section class="business-hero">
+        <div class="business-hero-copy">
+          <div class="business-eyebrow">M.A.R.C. · TIENDA / NEGOCIO</div>
+          <h1>Tu tienda.<br><span>Tus ventas bajo control.</span></h1>
+          <p>Una vista comercial pensada para vender rápido, controlar stock y saber cuánto movimiento tiene tu negocio.</p>
+          <div class="business-actions">
+            <button id="businessNewSale" class="business-primary">＋ Nueva venta</button>
+            <button id="businessNewProduct" class="business-secondary">＋ Producto</button>
+            <button id="businessOpenCash" class="business-secondary">▣ ${cashOpen?"Caja abierta":"Abrir caja"}</button>
+          </div>
+        </div>
+        <div class="business-hero-orbit"><div class="business-receipt"><span>VENTA DE HOY</span><b>${money(salesTodayAmount)}</b><small>${salesToday.length} operaciones</small><i></i><em>Stock · ${stockUnits} u.</em></div></div>
+      </section>
+      <section class="business-kpis">
+        <article><span>VENTAS HOY</span><strong>${money(salesTodayAmount)}</strong><small>${salesToday.length} operaciones</small></article>
+        <article><span>VENTAS DEL MES</span><strong>${money(monthAmount)}</strong><small>${monthSales.length} ventas registradas</small></article>
+        <article><span>PRODUCTOS</span><strong>${inventory.length}</strong><small>${low.length} con stock bajo</small></article>
+        <article><span>CLIENTES</span><strong>${clients.length}</strong><small>Base comercial</small></article>
+      </section>
+      <section class="business-grid">
+        <article class="business-panel business-actions-panel">
+          <div class="business-panel-head"><div><span>OPERACIÓN</span><h2>Lo que haces más</h2></div><b>TIENDA</b></div>
+          <div class="business-action-grid">
+            <button data-business-view="sales"><span>🛒</span><div><b>Vender</b><small>POS y cobro rápido</small></div><i>→</i></button>
+            <button data-business-view="inventory"><span>📦</span><div><b>Controlar stock</b><small>Productos y existencias</small></div><i>→</i></button>
+            <button data-business-view="clients"><span>👥</span><div><b>Clientes</b><small>Historial y crédito</small></div><i>→</i></button>
+            <button data-business-view="quotes"><span>🧾</span><div><b>Cotizar</b><small>Propuesta → venta</small></div><i>→</i></button>
+          </div>
+        </article>
+        <article class="business-panel business-alerts">
+          <div class="business-panel-head"><div><span>ATENCIÓN</span><h2>Lo que requiere acción</h2></div><b>${low.length}</b></div>
+          ${low.slice(0,5).map(x=>'<div class="business-alert-row"><i></i><div><b>'+esc(x.name)+'</b><small>Stock '+Number(x.stock||0)+' · mínimo '+Number(x.min_stock||0)+'</small></div><button data-business-view="inventory">Ver</button></div>').join("")||'<div class="business-empty">✓ Inventario sin alertas críticas.</div>'}
+        </article>
+      </section>
+      <section class="business-grid lower">
+        <article class="business-panel">
+          <div class="business-panel-head"><div><span>VENTAS RECIENTES</span><h2>Movimiento comercial</h2></div><button data-business-view="sales">Ver todo →</button></div>
+          <div class="business-sales-list">
+            ${sales.slice(0,6).map(x=>'<div><span class="business-sale-icon">↗</span><div><b>'+esc(x.number||"Venta")+'</b><small>'+new Date(x.created_at).toLocaleString("es-PE",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})+' · '+esc(x.payment_method||"Pago")+'</small></div><strong>'+money(x.total)+'</strong></div>').join("")||'<div class="business-empty">Todavía no hay ventas.</div>'}
+          </div>
+        </article>
+        <article class="business-panel business-mix">
+          <div class="business-panel-head"><div><span>PAGOS · ESTE MES</span><h2>Cómo entra el dinero</h2></div></div>
+          <div class="business-payment-list">
+            ${Object.entries(paymentMix).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k,v])=>'<div><span>'+esc(k)+'</span><b>'+money(v)+'</b><i><em style="width:'+Math.min(100,Math.round(v/Math.max(1,monthAmount)*100))+'%"></em></i></div>').join("")||'<div class="business-empty">Aún no hay pagos del mes.</div>'}
+          </div>
+          <div class="business-mini-stats"><span><b>${quotePending}</b>Cotizaciones abiertas</span><span><b>${cashOpen?"ABIERTA":"CERRADA"}</b>Caja</span></div>
+        </article>
+      </section>
+    </div>`;
+  $("#businessNewSale").onclick=()=>view("cash");
+  $("#businessNewProduct").onclick=()=>{view("inventory");setTimeout(()=>$("#new")?.click(),320)};
+  $("#businessOpenCash").onclick=()=>view("cash");
+  c.querySelectorAll("[data-business-view]").forEach(b=>b.onclick=()=>view(b.dataset.businessView));
+}
+
+async function mixedDashboard(){
+  const c=$("#content"); if(!c)return;
+  const [iv,sa,cl,qt,so,cr]=await Promise.all([
+    S.from("marc_inventory").select("id,name,stock,min_stock,price").eq("user_id",st.u.id).eq("active",true).limit(1000),
+    S.from("marc_sales").select("id,total,status,created_at").eq("user_id",st.u.id).order("created_at",{ascending:false}).limit(200),
+    S.from("marc_clients").select("id,name").eq("user_id",st.u.id).limit(1000),
+    S.from("marc_quotes").select("id,total,status,created_at").eq("user_id",st.u.id).is("deleted_at",null).limit(200),
+    S.from("marc_service_orders").select("id,number,title,status,revenue,profit,created_at").eq("user_id",st.u.id).order("created_at",{ascending:false}).limit(300),
+    S.from("marc_cash_registers").select("id,status,opening_amount,opened_at").eq("user_id",st.u.id).eq("status","OPEN").order("opened_at",{ascending:false}).limit(1).maybeSingle()
+  ]);
+  const inventory=iv.data||[],sales=sa.data||[],clients=cl.data||[],quotes=qt.data||[],orders=so.data||[],cashOpen=cr.data;
+  const monthStart=new Date(new Date().getFullYear(),new Date().getMonth(),1);
+  const monthSales=sales.filter(x=>new Date(x.created_at)>=monthStart);
+  const salesValue=monthSales.reduce((n,x)=>n+Number(x.total||0),0);
+  const serviceValue=orders.filter(x=>new Date(x.created_at)>=monthStart).reduce((n,x)=>n+Number(x.revenue||0),0);
+  const serviceProfit=orders.filter(x=>new Date(x.created_at)>=monthStart).reduce((n,x)=>n+Number(x.profit||0),0);
+  const activeOrders=orders.filter(x=>!["ENTREGADA","CANCELADA"].includes(String(x.status||"").toUpperCase()));
+  const low=inventory.filter(x=>Number(x.stock)<=Number(x.min_stock));
+  const openQuotes=quotes.filter(x=>["BORRADOR","ENVIADA","ACEPTADA"].includes(String(x.status||"").toUpperCase()));
+  const combined=salesValue+serviceValue;
+  c.innerHTML=`
+    <div class="mixed-dashboard">
+      <section class="mixed-hero">
+        <div><div class="mixed-eyebrow">M.A.R.C. · BUSINESS</div><h1>Una sola operación.<br><span>Todo conectado.</span></h1><p>Ventas, servicios, inventario, caja y clientes trabajan como un mismo negocio.</p><div class="mixed-hero-actions"><button id="mixedNewSale">＋ Nueva venta</button><button id="mixedNewOT">＋ Nueva orden</button><button id="mixedQuote">＋ Cotización</button></div></div>
+        <div class="mixed-command-card"><span>VALOR DEL MES</span><strong>${money(combined)}</strong><small>Ventas + servicios</small><div><b>${money(serviceProfit)}</b><span>utilidad de servicios</span></div><i></i></div>
+      </section>
+      <section class="mixed-kpis">
+        <article><span>VENTAS</span><strong>${money(salesValue)}</strong><small>Este mes</small></article>
+        <article><span>SERVICIOS</span><strong>${money(serviceValue)}</strong><small>Facturación técnica</small></article>
+        <article><span>ÓRDENES ACTIVAS</span><strong>${activeOrders.length}</strong><small>Operación en curso</small></article>
+        <article><span>CLIENTES</span><strong>${clients.length}</strong><small>Relación comercial</small></article>
+      </section>
+      <section class="mixed-command-grid">
+        <article class="mixed-panel mixed-flow">
+          <div class="mixed-panel-head"><div><span>FLUJO UNIFICADO</span><h2>Del cliente al resultado</h2></div><b>LIVE</b></div>
+          <div class="mixed-flow-steps"><div><i>01</i><b>Cliente</b><small>Contacto e historial</small></div><em>→</em><div><i>02</i><b>Venta / OT</b><small>Comercial o servicio</small></div><em>→</em><div><i>03</i><b>Material</b><small>Inventario y costos</small></div><em>→</em><div><i>04</i><b>Resultado</b><small>Cobro y rentabilidad</small></div></div>
+        </article>
+        <article class="mixed-panel mixed-focus">
+          <div class="mixed-panel-head"><div><span>CENTRO DE ATENCIÓN</span><h2>Decisiones de hoy</h2></div><b>${low.length+activeOrders.length}</b></div>
+          <div class="mixed-focus-list">
+            <button data-mixed-view="service_orders"><span>🛠</span><div><b>${activeOrders.length} órdenes activas</b><small>Continuar trabajos y entregas</small></div><i>→</i></button>
+            <button data-mixed-view="inventory"><span>📦</span><div><b>${low.length} alertas de stock</b><small>Revisar materiales y productos</small></div><i>→</i></button>
+            <button data-mixed-view="quotes"><span>🧾</span><div><b>${openQuotes.length} cotizaciones abiertas</b><small>Seguir oportunidades comerciales</small></div><i>→</i></button>
+          </div>
+        </article>
+      </section>
+      <section class="mixed-bottom-grid">
+        <article class="mixed-panel">
+          <div class="mixed-panel-head"><div><span>OPERACIÓN RECIENTE</span><h2>Últimos movimientos</h2></div><button data-mixed-view="reports">Centro de reportes →</button></div>
+          <div class="mixed-timeline">
+            ${[...sales.slice(0,4).map(x=>({date:x.created_at,title:"Venta registrada",detail:money(x.total),icon:"↗",view:"sales"})),...orders.slice(0,4).map(x=>({date:x.created_at,title:x.title||"Orden de trabajo",detail:x.status||"OT",icon:"🛠",view:"service_orders"}))].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,7).map(x=>'<button data-mixed-view="'+x.view+'"><span>'+x.icon+'</span><div><b>'+esc(x.title)+'</b><small>'+new Date(x.date).toLocaleString("es-PE",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})+'</small></div><strong>'+esc(x.detail)+'</strong></button>').join("")||'<div class="mixed-empty">No hay actividad reciente.</div>'}
+          </div>
+        </article>
+        <article class="mixed-panel mixed-stack">
+          <div><span>CONTROL EMPRESARIAL</span><h2>Todo en una vista</h2></div>
+          <div class="mixed-stack-row"><b>Inventario</b><span>${inventory.length} productos · ${low.length} alertas</span></div>
+          <div class="mixed-stack-row"><b>Caja</b><span>${cashOpen?"Operativa":"Cerrada"}</span></div>
+          <div class="mixed-stack-row"><b>Clientes</b><span>${clients.length} registrados</span></div>
+          <div class="mixed-stack-row"><b>Rentabilidad técnica</b><span>${money(serviceProfit)} este mes</span></div>
+        </article>
+      </section>
+    </div>`;
+  $("#mixedNewSale").onclick=()=>view("cash");
+  $("#mixedNewOT").onclick=()=>serviceOrderModal();
+  $("#mixedQuote").onclick=()=>quoteModal();
+  c.querySelectorAll("[data-mixed-view]").forEach(b=>b.onclick=()=>view(b.dataset.mixedView));
+}
+
 async function home(){
+  const ecosystem=currentEcosystem();
+  if(ecosystem==="business")return businessDashboard();
+  if(ecosystem==="mixed")return mixedDashboard();
+  return technicianDashboard();
+}
+
+async function legacyHome(){
   const c=$("#content");
   const [cl,iv,qt,so]=await Promise.all([
     S.from("marc_clients").select("*",{count:"exact"}).eq("user_id",st.u.id),

@@ -809,3 +809,280 @@ html[data-ecosystem="mixed"] #app.marc-immersive .mixed-empty{
     font-size:6.5px;
   }
 }
+
+
+/* =========================================================
+   MIXED PREMIUM — MODULE NAVIGATION OVERLAY
+   El overlay debe ser oscuro, legible y realmente premium.
+   Estos overrides están al final para ganar a reglas globales.
+   ========================================================= */
+
+html[data-ecosystem="mixed"] #marcModuleOverlay{
+  padding:10px!important;
+  background:
+    radial-gradient(circle at 50% 0%,rgba(112,78,255,.16),transparent 42%),
+    rgba(2,6,15,.88)!important;
+  backdrop-filter:blur(20px)!important;
+  -webkit-backdrop-filter:blur(20px)!important;
+}
+
+html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-panel{
+  width:min(1120px,100%)!important;
+  max-height:calc(100svh - 20px)!important;
+  overflow:auto!important;
+  overscroll-behavior:contain;
+  padding:22px!important;
+  border:1px solid rgba(145,120,255,.30)!important;
+  border-radius:28px!important;
+  background:
+    radial-gradient(circle at 88% 0%,rgba(112,79,255,.18),transparent 31%),
+    radial-gradient(circle at 0% 100%,rgba(38,181,255,.08),transparent 28%),
+    linear-gradient(145deg,#08101f 0%,#091426 55%,#0c1022 100%)!important;
+  box-shadow:
+    0 40px 120px rgba(0,0,0,.62),
+    0 0 80px rgba(104,75,255,.13),
+    inset 0 1px 0 rgba(255,255,255,.045)!important;
+}
+
+html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-head{
+  margin-bottom:16px!important;
+  padding-bottom:15px!important;
+  border-bottom:1px solid rgba(151,166,229,.10)!important;
+}
+
+html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-kicker{
+  color:#9e8cff!important;
+  font-size:7px!important;
+  letter-spacing:.20em!important;
+}
+
+html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-head h2{
+  color:#f7f8ff!important;
+  font-size:23px!important;
+  letter-spacing:-.045em!important;
+}
+
+html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-head p{
+  color:#8390aa!important;
+  font-size:8px!important;
+}
+
+html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-close{
+  flex:0 0 auto;
+  width:40px!important;
+  height:40px!important;
+  min-height:40px!important;
+  border-radius:13px!important;
+  border:1px solid rgba(151,166,229,.17)!important;
+  background:rgba(255,255,255,.045)!important;
+  color:#e9edfa!important;
+}
+
+html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-groups{
+  gap:12px!important;
+}
+
+html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-group{
+  padding:12px!important;
+  border:1px solid rgba(151,166,229,.11)!important;
+  border-radius:18px!important;
+  background:rgba(255,255,255,.025)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.018)!important;
+}
+
+html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-group-head{
+  margin:0 0 9px!important;
+  padding:0 2px!important;
+}
+
+html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-group-head b{
+  color:#9ca9c4!important;
+  font-size:8px!important;
+  letter-spacing:.13em!important;
+}
+
+html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-group-head i{
+  color:#53617b!important;
+  font-size:7px!important;
+}
+
+html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-group-head span{
+  color:#8c72ff!important;
+  width:6px!important;
+  height:6px!important;
+}
+
+html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-grid{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:9px!important;
+}
+
+html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-card{
+  min-width:0!important;
+  min-height:118px!important;
+  padding:12px!important;
+  border:1px solid rgba(151,166,229,.11)!important;
+  border-radius:15px!important;
+  color:#f5f7ff!important;
+  background:linear-gradient(145deg,#111c31,#0d1728)!important;
+  box-shadow:0 10px 24px rgba(0,0,0,.20)!important;
+}
+
+html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-card:hover{
+  border-color:rgba(151,132,255,.55)!important;
+  background:linear-gradient(145deg,#17233e,#101a30)!important;
+  box-shadow:0 16px 32px rgba(0,0,0,.30),0 0 22px rgba(111,79,255,.08)!important;
+}
+
+html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-card::after{
+  width:90px!important;
+  height:90px!important;
+  right:-34px!important;
+  bottom:-40px!important;
+  background:rgba(139,108,255,.08)!important;
+}
+
+html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-card .mm-icon{
+  width:36px!important;
+  height:36px!important;
+  min-width:36px!important;
+  margin-bottom:10px!important;
+  border-radius:11px!important;
+  border:1px solid rgba(255,255,255,.08)!important;
+  background:rgba(255,255,255,.055)!important;
+  font-size:17px!important;
+}
+
+html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-card b{
+  display:block!important;
+  color:#f4f6ff!important;
+  font-size:9px!important;
+  line-height:1.2!important;
+  text-shadow:0 1px 8px rgba(0,0,0,.30)!important;
+}
+
+html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-card small{
+  display:block!important;
+  margin-top:4px!important;
+  color:#7f8da9!important;
+  font-size:6.5px!important;
+  line-height:1.3!important;
+}
+
+html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-card.green .mm-icon{background:rgba(42,221,161,.12)!important}
+html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-card.blue .mm-icon{background:rgba(60,156,255,.12)!important}
+html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-card.orange .mm-icon{background:rgba(255,174,77,.12)!important}
+html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-card.purple .mm-icon,
+html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-card.violet .mm-icon{background:rgba(139,108,255,.13)!important}
+html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-card.pink .mm-icon{background:rgba(255,90,160,.11)!important}
+html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-card.cyan .mm-icon{background:rgba(57,216,232,.12)!important}
+html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-card.red .mm-icon{background:rgba(255,82,99,.12)!important}
+html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-card.slate .mm-icon{background:rgba(105,139,174,.12)!important}
+html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-card.gold .mm-icon{background:rgba(231,184,91,.12)!important}
+
+html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-session{
+  margin-top:13px!important;
+  padding-top:13px!important;
+  border-top:1px solid rgba(151,166,229,.10)!important;
+}
+
+html[data-ecosystem="mixed"] #marcModuleOverlay .marc-session-exit{
+  min-height:38px!important;
+  border-radius:11px!important;
+  color:#ff9daa!important;
+  border-color:rgba(255,95,111,.30)!important;
+  background:rgba(255,61,84,.07)!important;
+  font-size:8px!important;
+}
+
+@media(max-width:760px){
+  html[data-ecosystem="mixed"] #marcModuleOverlay{
+    padding:7px!important;
+    align-items:center!important;
+  }
+
+  html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-panel{
+    width:100%!important;
+    max-height:calc(100svh - 14px)!important;
+    padding:15px!important;
+    border-radius:23px!important;
+  }
+
+  html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-head{
+    gap:9px!important;
+    margin-bottom:11px!important;
+    padding-bottom:11px!important;
+  }
+
+  html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-head h2{
+    font-size:19px!important;
+  }
+
+  html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-head p{
+    max-width:220px!important;
+    font-size:6.5px!important;
+  }
+
+  html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-close{
+    width:36px!important;
+    height:36px!important;
+    min-height:36px!important;
+    border-radius:11px!important;
+  }
+
+  html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-groups{
+    gap:9px!important;
+  }
+
+  html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-group{
+    padding:9px!important;
+    border-radius:15px!important;
+  }
+
+  html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-group-head{
+    margin-bottom:7px!important;
+  }
+
+  html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:7px!important;
+  }
+
+  html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-card{
+    min-height:104px!important;
+    padding:10px!important;
+    border-radius:13px!important;
+  }
+
+  html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-card .mm-icon{
+    width:32px!important;
+    height:32px!important;
+    min-width:32px!important;
+    margin-bottom:8px!important;
+    border-radius:9px!important;
+    font-size:15px!important;
+  }
+
+  html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-card b{
+    font-size:8.5px!important;
+  }
+
+  html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-card small{
+    font-size:6px!important;
+  }
+
+  html[data-ecosystem="mixed"] #marcModuleOverlay .marc-session-exit{
+    min-height:35px!important;
+    font-size:7.5px!important;
+  }
+}
+
+@media(max-width:390px){
+  html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-panel{
+    padding:12px!important;
+  }
+  html[data-ecosystem="mixed"] #marcModuleOverlay .marc-module-card{
+    min-height:98px!important;
+  }
+}

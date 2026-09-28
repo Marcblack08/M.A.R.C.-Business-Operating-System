@@ -56,40 +56,47 @@ async function signInCashStaff(e){
 }
 
 async function signInGoogle(e){
-  e?.preventDefault();
-  e?.stopPropagation();
+  e?.preventDefault?.();
+  e?.stopPropagation?.();
   const b=$("#googleLogin");
-  if(!b)return;
+  if(!b){console.error("[M.A.R.C. Google login] No existe #googleLogin");return false}
+  if(b.dataset.busy==="1")return false;
+  b.dataset.busy="1";
+  b.disabled=true;
+  b.setAttribute("aria-busy","true");
+  const label=b.querySelector("span:last-child");
+  if(label)label.textContent="Conectando…";
+  msg("Abriendo acceso con Google…");
   try{
-    b.disabled=true;
-    b.setAttribute("aria-busy","true");
-    const label=b.querySelector("span:last-child");
-    if(label)label.textContent="Conectando…";
-    msg("Abriendo acceso con Google…");
+    if(!window.supabase||!S?.auth)throw new Error("El servicio de autenticación todavía no terminó de cargar. Recarga la página e inténtalo nuevamente.");
     sessionStorage.setItem("marc_google_oauth_pending","1");
-    const redirectUrl=new URL(location.href);
+    const redirectUrl=new URL(location.origin+location.pathname);
     redirectUrl.search="";
     redirectUrl.hash="";
     const redirectTo=redirectUrl.toString();
-    console.info("[M.A.R.C. OAuth] redirectTo:",redirectTo);
-    const {data,error}=await S.auth.signInWithOAuth({
-      provider:"google",
-      options:{
-        redirectTo,
-        queryParams:{prompt:"select_account"}
-      }
-    });
-    if(error)throw error;
-    if(!data?.url)throw new Error("Google no devolvió la URL de inicio de sesión.");
-    window.location.assign(data.url);
-  }catch(e){
+    console.info("[M.A.R.C. OAuth] iniciando Google:",redirectTo);
+    const result=await Promise.race([
+      S.auth.signInWithOAuth({provider:"google",options:{redirectTo,queryParams:{prompt:"select_account"}}}),
+      new Promise(resolve=>setTimeout(()=>resolve({timeout:true}),9000))
+    ]);
+    if(result?.timeout){
+      throw new Error("Google está tardando en responder. Comprueba tu conexión y vuelve a pulsar el botón.");
+    }
+    if(result?.error)throw result.error;
+    if(!result?.data?.url)throw new Error("Google no devolvió la URL de inicio de sesión.");
+    // signInWithOAuth normalmente navega solo en navegador; la navegación explícita
+    // garantiza el salto incluso en navegadores móviles/Workers donde no lo hace.
+    window.location.replace(result.data.url);
+    return true;
+  }catch(err){
     sessionStorage.removeItem("marc_google_oauth_pending");
-    console.error("[M.A.R.C. Google login]",e);
-    msg(e?.message||"No se pudo iniciar sesión con Google.","error");
+    console.error("[M.A.R.C. Google login]",err);
+    msg(err?.message||"No se pudo iniciar sesión con Google.","error");
     b.disabled=false;
+    b.dataset.busy="0";
     b.removeAttribute("aria-busy");
-    const label=b.querySelector("span:last-child");
     if(label)label.textContent="Continuar con Google";
+    return false;
   }
 }
 function bindAuthControls(){

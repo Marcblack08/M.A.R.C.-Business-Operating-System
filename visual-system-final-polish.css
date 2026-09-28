@@ -193,3 +193,81 @@
     transition-duration:.01ms!important;
   }
 }
+
+
+/* =========================================================
+   FINAL SAFETY POLISH — payment badges + resilient surfaces
+   Keeps the visual contract even when a module is rendered before
+   the immersive shell class is attached.
+   ========================================================= */
+.marc-module-card.paid-feature{
+  position:relative!important;
+  isolation:isolate;
+  border:2px solid rgba(255,199,67,.88)!important;
+}
+.marc-module-card.paid-feature .mm-paid-badge{
+  position:absolute!important;
+  top:9px!important;
+  right:9px!important;
+  z-index:4!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:4px!important;
+  min-height:24px!important;
+  padding:4px 8px!important;
+  border-radius:999px!important;
+  background:linear-gradient(145deg,#7a5005,#dba329)!important;
+  border:1px solid #ffe39a!important;
+  color:#fff9e7!important;
+  font-size:8px!important;
+  font-weight:900!important;
+  line-height:1!important;
+  letter-spacing:.04em!important;
+  box-shadow:0 5px 14px rgba(0,0,0,.24)!important;
+  white-space:nowrap!important;
+}
+.marc-module-card.paid-feature .mm-paid-badge::first-letter{font-size:11px}
+.marc-module-card.paid-feature:focus-visible{
+  outline:2px solid #ffe08a!important;
+  outline-offset:3px!important;
+}
+
+/* Prevent long labels from forcing horizontal overflow in compact cards. */
+#app .marc-module-card,
+#app .marc-plan-card{
+  min-width:0;
+  overflow:hidden;
+}
+#app .marc-module-card b,
+#app .marc-module-card small{
+  overflow-wrap:anywhere;
+}
+
+/* Consistent disabled state: disabled controls must look inactive and remain readable. */
+#app button:disabled,
+#auth button:disabled{
+  cursor:not-allowed!important;
+  opacity:.58!important;
+  filter:saturate(.72)!important;
+}
+
+/* Mobile payment badge: readable without covering the module title. */
+@media(max-width:560px){
+  .marc-module-card.paid-feature .mm-paid-badge{
+    top:8px!important;
+    right:8px!important;
+    min-height:23px!important;
+    padding:4px 7px!important;
+    font-size:7px!important;
+  }
+}
+
+/* Avoid animation jitter when a user explicitly requests reduced motion. */
+@media(prefers-reduced-motion:reduce){
+  .marc-module-card.paid-feature,
+  .marc-module-card.paid-feature *{
+    transition:none!important;
+    animation:none!important;
+  }
+}

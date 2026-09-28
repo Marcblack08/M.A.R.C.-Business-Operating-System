@@ -1049,15 +1049,38 @@ async function mixedDashboard(){
   const combined=salesValue+serviceValue;
   c.innerHTML=`
     <div class="mixed-dashboard">
-      <section class="mixed-hero">
-        <div><div class="mixed-eyebrow">M.A.R.C. · BUSINESS</div><h1>Una sola operación.<br><span>Todo conectado.</span></h1><p>Ventas, servicios, inventario, caja y clientes trabajan como un mismo negocio.</p><div class="mixed-hero-actions"><button id="mixedNewSale">＋ Nueva venta</button><button id="mixedNewOT">＋ Nueva orden</button><button id="mixedQuote">＋ Cotización</button></div></div>
-        <div class="mixed-command-card"><span>VALOR DEL MES</span><strong>${money(combined)}</strong><small>Ventas + servicios</small><div><b>${money(serviceProfit)}</b><span>utilidad de servicios</span></div><i></i></div>
+      <section class="mixed-hero mixed-premium-hero">
+        <div class="mixed-premium-hero-copy">
+          <div class="mixed-eyebrow"><span class="premium-live-dot"></span> M.A.R.C. · BUSINESS OPERATING SYSTEM</div>
+          <h1>Tu negocio.<br><span>Una sola inteligencia operativa.</span></h1>
+          <p>Ventas, servicios, inventario, caja y clientes conectados en una misma operación.</p>
+          <div class="mixed-hero-actions">
+            <button id="mixedNewSale">＋ Nueva venta</button>
+            <button id="mixedNewOT">＋ Nueva orden</button>
+            <button id="mixedQuote">＋ Cotización</button>
+          </div>
+        </div>
+        <div class="mixed-command-card mixed-premium-command">
+          <div class="command-head"><span>BUSINESS PULSE</span><b>● ACTIVO</b></div>
+          <strong>${money(combined)}</strong>
+          <small>Valor generado este mes</small>
+          <div class="command-metrics"><span><b>${money(salesValue)}</b>ventas</span><span><b>${money(serviceValue)}</b>servicios</span></div>
+          <div class="command-footer"><span>Utilidad técnica</span><b>${money(serviceProfit)}</b></div>
+          <i></i>
+        </div>
       </section>
       <section class="mixed-kpis">
         <article><span>VENTAS</span><strong>${money(salesValue)}</strong><small>Este mes</small></article>
         <article><span>SERVICIOS</span><strong>${money(serviceValue)}</strong><small>Facturación técnica</small></article>
         <article><span>ÓRDENES ACTIVAS</span><strong>${activeOrders.length}</strong><small>Operación en curso</small></article>
         <article><span>CLIENTES</span><strong>${clients.length}</strong><small>Relación comercial</small></article>
+      </section>
+      <section class="mixed-executive-strip">
+        <div><span>ESTADO DE OPERACIÓN</span><b><i></i> Sistema operativo</b></div>
+        <div><span>CAJA</span><strong>${cashOpen?"ABIERTA":"CERRADA"}</strong><small>${cashOpen?"Turno activo":"Sin turno activo"}</small></div>
+        <div><span>OPORTUNIDADES</span><strong>${openQuotes.length}</strong><small>Cotizaciones abiertas</small></div>
+        <div><span>ATENCIÓN</span><strong>${low.length+activeOrders.length}</strong><small>Elementos requieren revisión</small></div>
+        <div><span>CLIENTES</span><strong>${clients.length}</strong><small>Relaciones registradas</small></div>
       </section>
       <section class="mixed-command-grid">
         <article class="mixed-panel mixed-flow">

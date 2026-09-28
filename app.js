@@ -4156,6 +4156,22 @@ function wire(){
     console.info("[M.A.R.C. auth] Esperando la inicialización automática de Supabase.");
     const {search,hash}=authCallbackParams();
     const oauthPending=sessionStorage.getItem("marc_google_oauth_pending")==="1";
+    const oauthDiagnostics={
+      hasCode:!!search.get("code"),
+      hasAccessToken:!!hash.get("access_token"),
+      hasRefreshToken:!!hash.get("refresh_token"),
+      hasError:!!(search.get("error")||hash.get("error")),
+      pending:oauthPending,
+      urlPath:location.pathname
+    };
+    // Nunca mostramos ni guardamos los tokens; solo registramos qué tipo de
+    // retorno llegó para poder localizar exactamente dónde se corta OAuth.
+    console.info("[M.A.R.C. OAuth callback diagnóstico]",oauthDiagnostics);
+    if(oauthPending && (oauthDiagnostics.hasCode||oauthDiagnostics.hasAccessToken||oauthDiagnostics.hasError)){
+      msg(oauthDiagnostics.hasError
+        ?"Google devolvió un error. Revisando el detalle…"
+        :"Google devolvió correctamente el callback. Recuperando sesión…");
+    }
     const error=hash.get("error_description")||search.get("error_description")||hash.get("error")||search.get("error");
     if(error){
       sessionStorage.removeItem("marc_google_oauth_pending");

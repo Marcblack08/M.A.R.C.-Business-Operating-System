@@ -3113,7 +3113,7 @@ async function marketingImage(request,env){
   if(request.method!=="POST")return json({error:"Método no permitido"},405);
   const {token,user}=await authUser(request,env),access=await entitlement(env,token,user.id);
   if(!(await rateLimit(env,"ai:"+user.id+":image",20,3600)))return json({error:"Has alcanzado el límite temporal de generación de imágenes. Intenta nuevamente más tarde."},429,corsHeaders(request,env));
-  if(!(await rateLimit(env,"ai:"+user.id+":image",20,3600)))return json({error:"Has alcanzado el límite temporal de generación de imágenes. Intenta nuevamente más tarde."},429,corsHeaders(request,env));
+  
   if(access.kind==="expired")return json({error:"TRIAL_EXPIRED",message:"Tu prueba terminó. Activa un plan para continuar."},402,corsHeaders(request,env));
   if(access.kind==="trial_limited")return json({error:"AI_LIMIT_REACHED",message:"Llegaste al límite de IA de la prueba."},429,corsHeaders(request,env));
 

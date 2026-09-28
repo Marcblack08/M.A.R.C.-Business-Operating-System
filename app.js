@@ -926,7 +926,7 @@ function moduleCreateModal(type){
 let __viewBusy=false;
 async function view(x){
   const paidFeaturesByEcosystem={
-    technician:{service_orders:"Órdenes de trabajo",assets:"Equipos y activos",maintenance:"Mantenimientos",contracts:"Contratos",finances:"Rentabilidad"},
+    technician:{service_orders:"Órdenes de trabajo",agenda:"Agenda técnica",assets:"Equipos y activos",maintenance:"Mantenimientos",contracts:"Contratos",finances:"Rentabilidad"},
     business:{suppliers:"Proveedores",purchases:"Compras",receivables:"Créditos y cobros"},
     mixed:{service_orders:"Órdenes de trabajo",assets:"Equipos y activos",maintenance:"Mantenimientos",suppliers:"Proveedores",purchases:"Compras",receivables:"Créditos y cobros",contracts:"Contratos",finances:"Rentabilidad"}
   };

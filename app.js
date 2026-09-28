@@ -111,6 +111,145 @@ function bindAuthControls(){
 bindAuthControls();
 async function handleAuthSession(s){if(!s?.user)return;const id=s.user.id;if(authEnteredSessionId===id && st.u?.id===id && !$("#app").classList.contains("hidden"))return;authEnteredSessionId=id;try{await enter(s)}catch(e){authEnteredSessionId=null;throw e}}function resetUiToLogin(message="",type=""){st.authEpoch++;st.u=null;st.session=null;st.cid=null;try{applyCashierMode(false)}catch{}$("#app").classList.add("hidden");$("#auth").classList.remove("hidden");mode("login");if(message)msg(message,type)}
 async function ensure(){const u=st.u;if(!u)return;await S.from("marc_accounts").upsert({id:u.id,display_name:u.email?.split("@")[0]||"Usuario"},{onConflict:"id"});const {data:t}=await S.from("marc_trials").select("id").eq("user_id",u.id).maybeSingle();if(!t)await S.from("marc_trials").insert({user_id:u.id});const {data:c}=await S.from("marc_conversations").select("id").eq("user_id",u.id).eq("channel","WEB").order("updated_at",{ascending:false}).limit(1).maybeSingle();st.cid=c?.id||(await S.from("marc_conversations").insert({user_id:u.id,channel:"WEB",title:"Conversación principal"}).select("id").single()).data?.id}
+
+const MARC_PLANS={
+  free:{code:"free",label:"Gratis",short:"Entrada",quotes:5,inventory:20,reports:5,ai:"Básica",color:"blue"},
+  coder:{code:"coder",label:"Coder / Pro",short:"Profesional",quotes:null,inventory:null,reports:null,ai:"Avanzada",color:"violet"},
+  premium:{code:"premium",label:"Premium / Enterprise",short:"Empresa",quotes:null,inventory:null,reports:null,ai:"Predictiva",color:"cyan"},
+  master:{code:"master",label:"MASTER",short:"SaaS",quotes:null,inventory:null,reports:null,ai:"Ilimitada",color:"amber"}
+};
+st.planState={code:"free",status:"trial",trialEndsAt:null,source:"fallback",updatedAt:0};
+st.planUsage={quotes:0,inventory:0,clients:0,updatedAt:0};
+
+function normalizePlan(v){
+  const p=String(v||"").trim().toLowerCase();
+  if(p==="pro")return "coder";
+  if(p==="enterprise")return "premium";
+  return Object.prototype.hasOwnProperty.call(MARC_PLANS,p)?p:"free";
+}
+function isMasterPlan(){return isMasterAccount()||st.planState?.code==="master"}
+async function getPlanState(force=false){
+  const fresh=st.planState?.updatedAt&&Date.now()-st.planState.updatedAt<30000;
+  if(!force&&fresh)return st.planState;
+  if(!st.u)return st.planState;
+  if(isMasterAccount()){
+    st.planState={code:"master",status:"active",trialEndsAt:null,source:"master",updatedAt:Date.now()};
+    return st.planState;
+  }
+  try{
+    const [accountRes,subRes,rpcRes]=await Promise.all([
+      S.from("marc_accounts").select("plan,access_status,trial_ends_at").eq("id",st.u.id).maybeSingle(),
+      S.from("marc_subscriptions").select("plan,status,current_period_end,updated_at").eq("user_id",st.u.id).order("updated_at",{ascending:false}).limit(1).maybeSingle(),
+      S.rpc("marc_effective_plan",{p_user:st.u.id})
+    ]);
+    const account=accountRes.data||{};
+    const sub=subRes.data||{};
+    const rpcPlan=normalizePlan(rpcRes.data);
+    const subStatus=String(sub.status||"").toLowerCase();
+    let code=rpcPlan;
+    if(subStatus==="active"||subStatus==="trial")code=normalizePlan(sub.plan);
+    else if(account.plan)code=normalizePlan(account.plan);
+    st.planState={
+      code,
+      status:String(sub.status||account.access_status||"trial").toLowerCase(),
+      trialEndsAt:account.trial_ends_at||null,
+      source:subStatus==="active"||subStatus==="trial"?"subscription":"account",
+      updatedAt:Date.now()
+    };
+  }catch(e){
+    console.warn("[M.A.R.C. plan] No se pudo consultar el plan; usando Gratis.",e);
+    st.planState={...st.planState,code:normalizePlan(st.planState?.code),source:"fallback",updatedAt:Date.now()};
+  }
+  return st.planState;
+}
+async function getPlanUsage(force=false){
+  const fresh=st.planUsage?.updatedAt&&Date.now()-st.planUsage.updatedAt<15000;
+  if(!force&&fresh)return st.planUsage;
+  if(!st.u)return st.planUsage;
+  try{
+    const [q,i,c]=await Promise.all([
+      S.from("marc_quotes").select("id",{count:"exact",head:true}).eq("user_id",st.u.id).is("deleted_at",null).gte("created_at",new Date(new Date().getFullYear(),new Date().getMonth(),1).toISOString()),
+      S.from("marc_inventory").select("id",{count:"exact",head:true}).eq("user_id",st.u.id).eq("active",true),
+      S.from("marc_clients").select("id",{count:"exact",head:true}).eq("user_id",st.u.id)
+    ]);
+    st.planUsage={quotes:q.count||0,inventory:i.count||0,clients:c.count||0,updatedAt:Date.now()};
+  }catch(e){console.warn("[M.A.R.C. plan] No se pudo consultar uso.",e)}
+  return st.planUsage;
+}
+function planLabel(code){return MARC_PLANS[normalizePlan(code)]?.label||"Gratis"}
+function openUpgradeModal(feature=""){
+  const close=modal(
+    '<div class="marc-plan-modal">'+
+      '<div class="modal-head"><div><div class="eyebrow2">M.A.R.C. · PLANES</div><h2>Desbloquea más capacidad</h2><p>'+(feature?esc(feature):"Tu plan actual alcanzó una capacidad disponible en el nivel Gratis.")+'</p></div><button class="close" id="planClose" type="button">×</button></div>'+
+      '<div class="marc-plan-grid">'+
+        '<article class="marc-plan-card free"><span>GRATIS</span><b>5 cotizaciones / mes</b><small>20 productos · IA básica · funciones esenciales</small><button class="secondary" data-plan="free">Plan actual / base</button></article>'+
+        '<article class="marc-plan-card coder"><span>CODER / PRO</span><b>Trabajo profesional</b><small>Sin límites de cotizaciones e inventario · marca propia · firma · IA avanzada</small><button class="primary" data-plan="coder">Quiero Coder</button></article>'+
+        '<article class="marc-plan-card premium"><span>PREMIUM</span><b>Empresa multiusuario</b><small>Cuadrillas · portal cliente · automatización · API · almacenamiento empresarial</small><button class="primary" data-plan="premium">Quiero Premium</button></article>'+
+      '</div>'+
+      '<div class="marc-plan-note">La pantalla de pago se conectará cuando definamos el proveedor de cobro. Por ahora el cambio de plan queda controlado por M.A.R.C. MASTER.</div>'+
+    '</div>'
+  );
+  $("#planClose").onclick=close;
+  $(".marc-plan-card button").forEach(b=>b.onclick=()=>{
+    if(b.dataset.plan==="free"){close();return}
+    close();
+    toast("Solicitud de "+planLabel(b.dataset.plan)+" registrada como intención. El cobro se integrará en la siguiente etapa.","ok");
+  });
+  return close;
+}
+async function requirePlan(feature,kind){
+  const state=await getPlanState();
+  if(state.code!=="free")return true;
+  const usage=await getPlanUsage(true);
+  if(kind==="quotes"&&usage.quotes>=MARC_PLANS.free.quotes){
+    openUpgradeModal("Llegaste al límite de 5 cotizaciones este mes.");
+    return false;
+  }
+  if(kind==="inventory"&&usage.inventory>=MARC_PLANS.free.inventory){
+    openUpgradeModal("Llegaste al límite de 20 productos activos.");
+    return false;
+  }
+  return true;
+}
+function refreshPlanSidebar(){
+  const p=MARC_PLANS[normalizePlan(st.planState?.code)]||MARC_PLANS.free;
+  const box=$(".trial");
+  if(!box)return;
+  const title=box.querySelector("b"),days=box.querySelector("span"),usage=box.querySelector("small"),bar=box.querySelector("em");
+  if(title)title.textContent=p.label;
+  if(p.code==="master"){
+    if(days)days.textContent="SIN LÍMITES";
+    if(bar)bar.style.width="100%";
+    if(usage)usage.textContent="MASTER · Acceso total al SaaS";
+    return;
+  }
+  const end=st.planState?.trialEndsAt?new Date(st.planState.trialEndsAt).getTime():0;
+  const left=end?Math.max(0,end-Date.now()):0;
+  if(st.planState?.status==="trial"&&left>0){
+    if(days)days.textContent=Math.ceil(left/86400000)+" días";
+    if(bar)bar.style.width=Math.max(3,Math.min(100,100-(left/(7*86400000)*100)))+"%";
+  }else if(days)days.textContent=p.short;
+  const limits=[];
+  if(p.quotes!==null)limits.push((st.planUsage?.quotes||0)+"/"+p.quotes+" cotizaciones");
+  else limits.push("cotizaciones ilimitadas");
+  if(p.inventory!==null)limits.push((st.planUsage?.inventory||0)+"/"+p.inventory+" productos");
+  else limits.push("inventario ilimitado");
+  if(usage)usage.textContent=limits.join(" · ");
+}
+async function refreshPlanUI(force=false){
+  await getPlanState(force);
+  await getPlanUsage(force);
+  refreshPlanSidebar();
+  const badge=$("#ecosystemBadge");
+  if(badge){
+    const p=MARC_PLANS[normalizePlan(st.planState?.code)]||MARC_PLANS.free;
+    badge.dataset.plan=p.code;
+    badge.title=(badge.title?badge.title+" · ":"")+p.label;
+  }
+  const masterBtn=$("#saasAdminNav");
+  if(masterBtn)masterBtn.hidden=!isMasterPlan();
+}
+
 const ECOSYSTEM_KEY="marc_ecosystem";
 const ECOSYSTEMS={
   technician:{label:"Ecosistema Técnico",icon:"🛠️",desc:"Servicios, órdenes, agenda, materiales y rentabilidad."},
@@ -358,23 +497,26 @@ async function enter(s){
 }
 async function submit(e){e.preventDefault();try{$("#authSubmit").disabled=true;msg("Procesando…");const email=$("#email").value.trim(),p=$("#password").value;if(authMode==="reset"){const cooldownKey="marc_password_reset_cooldown";const until=Number(localStorage.getItem(cooldownKey)||0);if(until>Date.now())throw new Error("Supabase ha limitado temporalmente el envío de correos de recuperación. Espera hasta que se restablezca el límite y vuelve a intentarlo.");const {error}=await S.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname+"?recovery=1"});if(error){if(authRateLimitMessage(error))localStorage.setItem(cooldownKey,String(Date.now()+60*60*1000));throw error}localStorage.removeItem(cooldownKey);msg("Revisa tu correo. El enlace te llevará a crear una nueva contraseña.","ok");return}if(authMode==="update"){if(!p||p.length<6)throw new Error("La nueva contraseña debe tener al menos 6 caracteres.");if(p!==$("#confirm").value)throw new Error("Las contraseñas no coinciden.");const {error}=await S.auth.updateUser({password:p});if(error)throw error;recoveryMode=false;history.replaceState({},document.title,location.pathname);await S.auth.signOut();resetUiToLogin("Contraseña actualizada. Ahora inicia sesión con tu nueva clave.","ok");return}if(authMode==="signup"){if(!p||p.length<6)throw new Error("La contraseña debe tener al menos 6 caracteres.");if(p!==$("#confirm").value)throw new Error("Las contraseñas no coinciden.");const rr=await fetch("/api/auth/signup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password:p})});const jj=await rr.json().catch(()=>({}));if(!rr.ok)throw new Error(jj.error||"No se pudo crear la cuenta.");const {error:loginError}=await S.auth.signInWithPassword({email,password:p});if(loginError)throw loginError;return}else{const {error}=await S.auth.signInWithPassword({email,password:p});if(error)throw error}}catch(e){const raw=String(e?.message||"");if(authRateLimitMessage(e))msg("Límite de correo de recuperación alcanzado. Supabase bloqueó temporalmente nuevos envíos. No sigas pulsando el botón; espera y vuelve a intentarlo más tarde.","error");else msg(raw||"No se pudo completar.","error")}finally{$("#authSubmit").disabled=false}}
 async function trial(){
-  const {data:role}=await S.from("marc_user_roles").select("role,active").eq("user_id",st.u.id).eq("role","MASTER").eq("active",true).maybeSingle();
-  const [c,i,q]=await Promise.all([
-    S.from("marc_clients").select("id",{count:"exact",head:true}).eq("user_id",st.u.id),
-    S.from("marc_inventory").select("id",{count:"exact",head:true}).eq("user_id",st.u.id),
-    S.from("marc_quotes").select("id",{count:"exact",head:true}).eq("user_id",st.u.id)
-  ]);
-  if(role?.role==="MASTER"){
-    $("#trialDays").textContent="MASTER";
-    $("#trialBar").style.width="100%";
-    $("#usage").textContent=(c.count||0)+" clientes · "+(i.count||0)+" productos · "+(q.count||0)+" cotizaciones · SIN LÍMITES";
+  const state=await getPlanState(true);
+  const usage=await getPlanUsage(true);
+  const daysEl=$("#trialDays"),bar=$("#trialBar"),usageEl=$("#usage");
+  if(state.code==="master"){
+    if(daysEl)daysEl.textContent="MASTER";
+    if(bar)bar.style.width="100%";
+    if(usageEl)usageEl.textContent="Acceso total · SIN LÍMITES";
     return;
   }
-  const {data:t}=await S.from("marc_trials").select("started_at,ends_at").eq("user_id",st.u.id).maybeSingle();
-  const end=new Date(t?.ends_at||Date.now()).getTime(),start=new Date(t?.started_at||Date.now()).getTime(),now=Date.now(),left=Math.max(0,end-now),days=Math.ceil(left/864e5);
-  $("#trialDays").textContent=days+" días";
-  $("#trialBar").style.width=Math.max(3,100-(left/Math.max(1,end-start)*100))+"%";
-  $("#usage").textContent=(c.count||0)+"/25 clientes · "+(i.count||0)+"/50 productos · "+(q.count||0)+"/5 cotizaciones";
+  const end=state.trialEndsAt?new Date(state.trialEndsAt).getTime():0;
+  const left=end?Math.max(0,end-Date.now()):0;
+  if(state.status==="trial"&&left>0){
+    if(daysEl)daysEl.textContent=Math.ceil(left/86400000)+" días";
+    if(bar)bar.style.width=Math.max(3,Math.min(100,100-(left/(7*86400000)*100)))+"%";
+  }else{
+    if(daysEl)daysEl.textContent=planLabel(state.code);
+    if(bar)bar.style.width=state.code==="free"?"100%":"100%";
+  }
+  const p=MARC_PLANS[state.code]||MARC_PLANS.free;
+  if(usageEl)usageEl.textContent=(p.quotes===null?"∞":usage.quotes+"/"+p.quotes)+" cotizaciones · "+(p.inventory===null?"∞":usage.inventory+"/"+p.inventory)+" productos";
 }
 async function chatLoad(){const box=$("#messages");box.innerHTML="";const {data}=await S.from("marc_messages").select("role,content").eq("conversation_id",st.cid).order("created_at",{ascending:true}).limit(60);if(!data?.length)addBubble("a","Hola. Soy M.A.R.C. Dime qué quieres hacer.");else data.forEach(x=>addBubble(x.role==="USER"?"u":"a",x.content))}
 function applyCashierMode(isCashier){
@@ -489,7 +631,7 @@ async function finances(){
   $("#finIncome").textContent=money(income);$("#finExpense").textContent=money(expense);$("#finResult").textContent=money(income-expense);
 }
 
-function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",suppliers:"Proveedores",quotes:"Cotizaciones",service_orders:"Órdenes de trabajo",settings:"Configuración",cash:"Caja",agenda:"Agenda técnica",finances:"Finanzas",sales:"Ventas / POS",purchases:"Compras",receivables:"Créditos y cobros",assets:"Equipos y activos",maintenance:"Mantenimientos",contracts:"Contratos",reports:"Reportes"}[x]||"Inicio";$$(".sidebar nav button, #mobileNav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
+function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",suppliers:"Proveedores",quotes:"Cotizaciones",service_orders:"Órdenes de trabajo",settings:"Configuración",saas_admin:"Administración SaaS",cash:"Caja",agenda:"Agenda técnica",finances:"Finanzas",sales:"Ventas / POS",purchases:"Compras",receivables:"Créditos y cobros",assets:"Equipos y activos",maintenance:"Mantenimientos",contracts:"Contratos",reports:"Reportes"}[x]||"Inicio";$$(".sidebar nav button, #mobileNav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
 async function sales(){
   const c=$("#content"); if(!c)return;
   const [{data:products,error:pe},{data:salesRows,error:se},{data:clientsRows}]=await Promise.all([
@@ -653,7 +795,7 @@ async function view(x){
     $$(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x));
     if(x==="home")return currentEcosystem()==="technician"?technicianDashboard():home();if(x==="clients")return clients();if(x==="inventory")return inventory();
     if(x==="suppliers"){if(window.marcSupplierCenter)return window.marcSupplierCenter();return toast("No se pudo cargar el Centro de Proveedores. Recarga la aplicación.","err");}
-    if(x==="quotes")return quotes();if(x==="service_orders")return serviceOrders();if(x==="agenda")return agenda();if(x==="finances")return finances();if(x==="cash")return cash();if(x==="assets")return assets();if(x==="contracts")return contracts();
+    if(x==="quotes")return quotes();if(x==="saas_admin")return saasAdmin();if(x==="service_orders")return serviceOrders();if(x==="agenda")return agenda();if(x==="finances")return finances();if(x==="cash")return cash();if(x==="assets")return assets();if(x==="contracts")return contracts();
     if(["sales","purchases","receivables","reports"].includes(x))return moduleHub(x);if(x==="maintenance")return maintenance();
     return settings();
   };
@@ -2682,6 +2824,37 @@ function resizeLogo(file){
     reader.readAsDataURL(file);
   });
 }
+
+async function saasAdmin(){
+  if(!isMasterPlan()){toast("Área exclusiva de M.A.R.C. MASTER.","err");return view("home")}
+  const c=$("#content");
+  c.innerHTML='<section class="saas-admin"><div class="saas-admin-hero"><div><div class="eyebrow2">CONTROL DEL SaaS</div><h1>Administración M.A.R.C.</h1><p>Usuarios, planes, acceso, uso y evolución comercial de la plataforma.</p></div><button id="saasRefresh" class="primary">↻ Actualizar</button></div><div id="saasMetrics" class="saas-metrics"></div><section class="saas-admin-panel"><div class="saas-panel-head"><div><span>CUENTAS</span><h2>Usuarios y suscripciones</h2></div><span class="saas-live">MASTER</span></div><div class="saas-user-scroll"><table class="data"><thead><tr><th>Usuario</th><th>Plan</th><th>Acceso</th><th>Uso</th><th>Alta</th><th></th></tr></thead><tbody id="saasUsers"><tr><td colspan="6" class="empty">Cargando administración…</td></tr></tbody></table></div></section></section>';
+  const draw=async()=>{
+    const {data,error}=await S.rpc("marc_saas_admin_overview");
+    if(error){toast(error.message||"No se pudo cargar el panel SaaS.","err");return}
+    const rows=data||[];
+    const counts={free:0,coder:0,premium:0,master:0};
+    rows.forEach(r=>counts[normalizePlan(r.plan)]++);
+    const trial=rows.filter(r=>String(r.access_status||"").toLowerCase()==="trial").length;
+    $("#saasMetrics").innerHTML='<article class="saas-metric blue"><b>'+rows.length+'</b><span>CUENTAS</span><small>Usuarios registrados</small></article><article class="saas-metric violet"><b>'+counts.coder+'</b><span>CODER / PRO</span><small>Profesionales</small></article><article class="saas-metric cyan"><b>'+counts.premium+'</b><span>PREMIUM</span><small>Empresas</small></article><article class="saas-metric amber"><b>'+trial+'</b><span>PRUEBAS</span><small>Acceso en trial</small></article>';
+    $("#saasUsers").innerHTML=rows.map(r=>'<tr><td><b>'+esc(r.display_name||"Usuario")+'</b><small class="saas-email">'+esc(r.email||"")+'</small></td><td><span class="saas-plan-pill '+normalizePlan(r.plan)+'">'+esc(planLabel(r.plan))+'</span></td><td>'+esc(r.access_status||"—")+'</td><td>'+Number(r.quotes_this_month||0)+' cot. · '+Number(r.inventory_count||0)+' prod. · '+Number(r.clients_count||0)+' cli.</td><td>'+new Date(r.created_at).toLocaleDateString("es-PE")+'</td><td><button class="secondary saas-plan-edit" data-user="'+r.user_id+'" data-plan="'+normalizePlan(r.plan)+'">Cambiar plan</button></td></tr>').join("")||'<tr><td colspan="6" class="empty">No hay cuentas.</td></tr>';
+    $$(".saas-plan-edit").forEach(b=>b.onclick=()=>saasChangePlan(b.dataset.user,b.dataset.plan));
+  };
+  $("#saasRefresh").onclick=draw;
+  await draw();
+}
+async function saasChangePlan(userId,current){
+  const close=modal('<div class="modal-head"><div><div class="eyebrow2">MASTER</div><h2>Cambiar plan</h2><p>Este cambio afecta los límites y capacidades de la cuenta.</p></div><button class="close" id="x">×</button></div><div class="saas-change-grid">'+["free","coder","premium","master"].map(p=>'<button class="saas-change-option '+(p===current?"active":"")+'" data-plan="'+p+'"><b>'+planLabel(p)+'</b><small>'+({free:"5 cotizaciones/mes · 20 productos",coder:"Profesional sin límites operativos",premium:"Empresa multiusuario e integraciones",master:"Control total del SaaS"}[p])+'</small></button>').join("")+'</div>');
+  $("#x").onclick=close;
+  $$(".saas-change-option").forEach(b=>b.onclick=async()=>{
+    b.disabled=true;
+    try{
+      const {error}=await S.rpc("marc_saas_admin_set_plan",{p_user_id:userId,p_plan:b.dataset.plan,p_status:"ACTIVE"});
+      if(error)throw error;
+      close();toast("Plan actualizado a "+planLabel(b.dataset.plan),"ok");saasAdmin();
+    }catch(e){toast(e.message||"No se pudo cambiar el plan.","err");b.disabled=false}
+  });
+}
 async function companySettings(){
   const c=$("#content");
   const profile=await getCompanyProfile();
@@ -3382,7 +3555,7 @@ function wire(){
   $("#passwordToggle").onclick=()=>{const i=$("#password"),b=$("#passwordToggle");if(!i)return;i.type=i.type==="password"?"text":"password";b.textContent=i.type==="password"?"◉":"◎"};
   $("#signupMode").onclick=()=>{mode(authMode==="signup"?"login":"signup");$("#signupMode").textContent=authMode==="signup"?"Volver a iniciar sesión":"Crear cuenta";$("#authForm")?.reset()};
   $("#forgotPassword").onclick=()=>{mode("reset");$("#signupMode").textContent="Volver a iniciar sesión"};
-  $("#logout").onclick=async()=>{resetUiToLogin();await S.auth.signOut();};
+  $("#logout").onclick=async()=>{resetUiToLogin();await S.auth.signOut();};\n  const planBox=$(".trial"); if(planBox){planBox.style.cursor="pointer";planBox.title="Ver planes y capacidades";planBox.onclick=()=>openUpgradeModal();}
   $("#askTop").onclick=openChat;
   $("#closeChat").onclick=closeChat;
   $("#exitConversation").onclick=closeChat;

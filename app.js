@@ -2817,14 +2817,17 @@ async function inventory(){
 
 
 async function quotes(){
-  const {data,error}=await S.from("marc_quotes").select("*,marc_clients(name)").eq("user_id",st.u.id).is("deleted_at",null).order("created_at",{ascending:false});
+  let quoteQuery=S.from("marc_quotes").select("*,marc_clients(name)").is("deleted_at",null).order("created_at",{ascending:false});
+  if(!isMasterAccount())quoteQuery=quoteQuery.eq("user_id",st.u.id);
+  const {data,error}=await quoteQuery;
   if(error)return toast(error.message,"err");
   const rows=data||[],c=$("#content");
+  const masterQuotes=isMasterAccount();
   const statuses=["BORRADOR","ENVIADA","ACEPTADA","RECHAZADA","ANULADA","COBRADA"];
   const counts=Object.fromEntries(statuses.map(x=>[x,rows.filter(r=>r.status===x).length]));
   const total=rows.filter(r=>!["ANULADA","RECHAZADA"].includes(String(r.status||"").toUpperCase())).reduce((n,r)=>n+Number(r.total||0),0);
   c.innerHTML='<section class="quotes-app">'+
-    '<div class="quotes-app-hero"><div><div class="eyebrow2">APLICACIÓN · PROPUESTAS</div><h1>Cotizaciones</h1><p>Crea, envía, controla y convierte tus propuestas en trabajos.</p></div><div class="quotes-hero-actions"><button id="aiNew" class="secondary">✦ Crear con IA</button><button id="new" class="primary">＋ Nueva cotización</button></div></div>'+
+    '<div class="quotes-app-hero"><div><div class="eyebrow2">APLICACIÓN · PROPUESTAS</div><h1>Cotizaciones</h1><p>'+(masterQuotes?"MASTER · Puedes revisar y editar cotizaciones de todas las cuentas.":"Crea, envía, controla y convierte tus propuestas en trabajos.")+'</p></div><div class="quotes-hero-actions">'+(masterQuotes?'<span class="quote-master-badge">MASTER · EDICIÓN DIRECTA</span>':'')+'<button id="aiNew" class="secondary">✦ Crear con IA</button><button id="new" class="primary">＋ Nueva cotización</button></div></div>'+
     '<div class="quotes-status-grid">'+
       '<button class="quote-status-tile draft" data-quote-filter="BORRADOR"><strong>'+counts.BORRADOR+'</strong><span>Borradores</span><small>En preparación</small></button>'+
       '<button class="quote-status-tile sent" data-quote-filter="ENVIADA"><strong>'+counts.ENVIADA+'</strong><span>Enviadas</span><small>Esperando respuesta</small></button>'+
@@ -2841,8 +2844,8 @@ async function quotes(){
   const draw=()=>{
     const q=($("#search").value||"").toLowerCase();
     const list=rows.filter(x=>(!activeFilter||x.status===activeFilter)&&[x.number,x.title,x.marc_clients?.name].some(v=>String(v||"").toLowerCase().includes(q)));
-    body.innerHTML=list.map(x=>'<tr><td><b>'+esc(x.number)+'</b></td><td>'+esc(x.marc_clients?.name||"Sin cliente")+'</td><td>'+esc(x.title)+'</td><td><span class="badge">'+esc(x.status)+'</span></td><td><b>'+money(x.total)+'</b></td><td>'+new Date(x.created_at).toLocaleDateString("es-PE")+'</td><td><button type="button" class="secondary" data-action="open-quote" data-id="'+x.id+'">Abrir</button> <button type="button" class="secondary" data-action="pdf-quote" data-id="'+x.id+'">PDF</button> <button type="button" class="danger" data-action="delete-quote" data-id="'+x.id+'">Eliminar</button></td></tr>').join("")||'<tr><td colspan="7" class="empty">No hay cotizaciones que coincidan.</td></tr>';
-    cards.innerHTML=list.map(x=>'<article class="quote-app-card"><div class="quote-app-card-top"><div><span class="quote-number">'+esc(x.number)+'</span><span class="quote-app-status '+String(x.status||"").toLowerCase()+'">'+esc(x.status)+'</span></div><strong>'+money(x.total)+'</strong></div><h3>'+esc(x.title||"Sin título")+'</h3><p>👤 '+esc(x.marc_clients?.name||"Sin cliente")+'</p><small>📅 '+new Date(x.created_at).toLocaleDateString("es-PE",{day:"2-digit",month:"short",year:"numeric"})+'</small><div class="quote-card-actions"><button type="button" class="primary" data-action="open-quote" data-id="'+x.id+'">Abrir</button><button type="button" class="secondary" data-action="pdf-quote" data-id="'+x.id+'">PDF</button><button type="button" class="danger" data-action="delete-quote" data-id="'+x.id+'">Eliminar</button></div></article>').join("")||'<div class="quote-app-empty"><span>📋</span><b>No hay cotizaciones aquí</b><small>Crea una nueva propuesta para comenzar.</small></div>';
+    body.innerHTML=list.map(x=>'<tr><td><b>'+esc(x.number)+'</b></td><td>'+esc(x.marc_clients?.name||"Sin cliente")+'</td><td>'+esc(x.title)+'</td><td><span class="badge">'+esc(x.status)+'</span></td><td><b>'+money(x.total)+'</b></td><td>'+new Date(x.created_at).toLocaleDateString("es-PE")+'</td><td><button type="button" class="secondary" data-action="open-quote" data-id="'+x.id+'">'+(masterQuotes?"Editar":"Abrir")+'</button> <button type="button" class="secondary" data-action="pdf-quote" data-id="'+x.id+'">PDF</button> <button type="button" class="danger" data-action="delete-quote" data-id="'+x.id+'">Eliminar</button></td></tr>').join("")||'<tr><td colspan="7" class="empty">No hay cotizaciones que coincidan.</td></tr>';
+    cards.innerHTML=list.map(x=>'<article class="quote-app-card"><div class="quote-app-card-top"><div><span class="quote-number">'+esc(x.number)+'</span><span class="quote-app-status '+String(x.status||"").toLowerCase()+'">'+esc(x.status)+'</span></div><strong>'+money(x.total)+'</strong></div><h3>'+esc(x.title||"Sin título")+'</h3><p>👤 '+esc(x.marc_clients?.name||"Sin cliente")+'</p><small>📅 '+new Date(x.created_at).toLocaleDateString("es-PE",{day:"2-digit",month:"short",year:"numeric"})+'</small><div class="quote-card-actions"><button type="button" class="primary" data-action="open-quote" data-id="'+x.id+'">'+(masterQuotes?"Editar":"Abrir")+'</button><button type="button" class="secondary" data-action="pdf-quote" data-id="'+x.id+'">PDF</button><button type="button" class="danger" data-action="delete-quote" data-id="'+x.id+'">Eliminar</button></div></article>').join("")||'<div class="quote-app-empty"><span>📋</span><b>No hay cotizaciones aquí</b><small>Crea una nueva propuesta para comenzar.</small></div>';
     c.querySelectorAll("[data-quote-filter]").forEach(b=>b.classList.toggle("active",b.dataset.quoteFilter===activeFilter));
   };
   const handle=async e=>{

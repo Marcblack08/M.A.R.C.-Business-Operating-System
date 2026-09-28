@@ -2859,7 +2859,9 @@ async function quotes(){
         if(row.status==="COBRADA")return toast("Una cotización cobrada no puede eliminarse. Usa ANULADA.","err");
         if(!confirm("¿Eliminar la cotización "+row.number+"?\\n\\nDesaparecerá del listado, pero se conservará el historial."))return;
         b.disabled=true;
-        const result=await S.from("marc_quotes").update({deleted_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq("id",id).eq("user_id",st.u.id);
+        let deleteQuery=S.from("marc_quotes").update({deleted_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq("id",id);
+        if(!masterQuotes)deleteQuery=deleteQuery.eq("user_id",st.u.id);
+        const result=await deleteQuery;
         if(result.error)throw result.error;
         toast("Cotización eliminada","ok");await quotes();
       }

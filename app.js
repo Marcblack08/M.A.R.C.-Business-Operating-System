@@ -1,4 +1,4 @@
-(()=>{const C=window.MARC_CONFIG,S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false,flowType:"pkce"}});const st={u:null,session:null,view:"home",cid:null,authEpoch:0};let authListenerSession=null,authTimer=null,authEnteredSessionId=null;S.auth.onAuthStateChange((ev,s)=>{
+(()=>{const C=window.MARC_CONFIG,S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"implicit"}});const st={u:null,session:null,view:"home",cid:null,authEpoch:0};let authListenerSession=null,authTimer=null,authEnteredSessionId=null;S.auth.onAuthStateChange((ev,s)=>{
   authListenerSession=s||null;
   console.info("[M.A.R.C. auth]",ev,!!s,s?.user?.id||"");
   try{
@@ -4146,70 +4146,44 @@ function wire(){
   $$(".chips button").forEach(b=>b.onclick=()=>{$("#chatInput").value=b.dataset.q;$("#chatInput").focus()});
 
   const bootAuth=async()=>{
+    // Google en esta SPA usa el flujo implicit: Supabase procesa automáticamente
+    // el retorno OAuth y persiste la sesión antes de que la interfaz continúe.
+    // No hacemos exchangeCodeForSession aquí para evitar consumir un code PKCE
+    // que ya haya sido procesado por el cliente.
+    try{await S.auth.initialize()}catch(e){
+      const raw=String(e?.message||e||"");
+      console.error("[M.A.R.C. auth initialize]",e);
+      if(/oauth|pkce|code|verifier/i.test(raw))throw e;
+    }
     const {search,hash}=authCallbackParams();
-    const code=search.get("code");
-    const error=hash.get("error_description")||search.get("error_description")||hash.get("error")||search.get("error");
     const oauthPending=sessionStorage.getItem("marc_google_oauth_pending")==="1";
+    const error=hash.get("error_description")||search.get("error_description")||hash.get("error")||search.get("error");
     if(error){
       sessionStorage.removeItem("marc_google_oauth_pending");
-      throw Object.assign(new Error(decodeURIComponent(String(error).replace(/\+/g," "))),{code:search.get("error_code")||hash.get("error_code")||"OAUTH_CALLBACK_ERROR"});
+      throw Object.assign(new Error(decodeURIComponent(String(error).replace(/\\+/g," "))),{code:search.get("error_code")||hash.get("error_code")||"OAUTH_CALLBACK_ERROR"});
     }
-    if(code){
-      msg("4/4 · Google devolvió el acceso. Validando la sesión…");
-      const exchanged=await S.auth.exchangeCodeForSession(code);
-      if(exchanged.error)throw exchanged.error;
-      if(exchanged.data?.session){
-        sessionStorage.removeItem("marc_google_oauth_pending");
-        cleanAuthUrl();
-        msg("Acceso con Google confirmado. Abriendo M.A.R.C.…");
-        await handleAuthSession(exchanged.data.session);
-        return;
-      }
-    }
-
-    // Flujo explícito de respaldo para OAuth implicit: Supabase normalmente
-    // detecta #access_token/#refresh_token durante initialize(), pero en
-    // navegadores móviles/WebViews puede quedar la sesión fuera de la primera
-    // lectura. setSession() persiste el par recibido y dispara SIGNED_IN.
-    const accessToken=hash.get("access_token");
-    const refreshToken=hash.get("refresh_token");
-    if(accessToken&&refreshToken){
-      msg("4/4 · Google devolvió los tokens. Guardando la sesión…");
-      const restored=await S.auth.setSession({
-        access_token:accessToken,
-        refresh_token:refreshToken
-      });
-      if(restored.error)throw restored.error;
-      if(restored.data?.session){
-        sessionStorage.removeItem("marc_google_oauth_pending");
-        cleanAuthUrl();
-        msg("Acceso con Google confirmado. Abriendo M.A.R.C.…");
-        await handleAuthSession(restored.data.session);
-        return;
-      }
-    }
-
     const current=await S.auth.getSession();
     if(current.error)throw current.error;
-    if(current.data?.session){
+    if(current.data?.session?.user){
       sessionStorage.removeItem("marc_google_oauth_pending");
       cleanAuthUrl();
-      if(oauthPending)msg("Sesión de Google recuperada. Abriendo M.A.R.C.…");
+      if(oauthPending)msg("Acceso con Google confirmado. Abriendo M.A.R.C.…");
       await handleAuthSession(current.data.session);
       return;
     }
-    await new Promise(r=>setTimeout(r,900));
-    const retry=await S.auth.getSession();
-    if(retry.error)throw retry.error;
-    if(retry.data?.session){
-      sessionStorage.removeItem("marc_google_oauth_pending");
-      cleanAuthUrl();
-      if(oauthPending)msg("Sesión de Google recuperada después de esperar al navegador. Abriendo M.A.R.C.…");
-      await handleAuthSession(retry.data.session);
-      return;
+    if(oauthPending){
+      await new Promise(r=>setTimeout(r,900));
+      const retry=await S.auth.getSession();
+      if(retry.error)throw retry.error;
+      if(retry.data?.session?.user){
+        sessionStorage.removeItem("marc_google_oauth_pending");
+        cleanAuthUrl();
+        msg("Sesión de Google recuperada. Abriendo M.A.R.C.…");
+        await handleAuthSession(retry.data.session);
+        return;
+      }
+      msg("Google confirmó el acceso, pero el navegador no conservó la sesión. Vuelve a pulsar «Continuar con Google».","error");
     }
-    if(oauthPending)msg("Google no devolvió una sesión a M.A.R.C. El problema está después de la autorización: no se recibió la sesión del navegador.","error");
-    else msg("");
   };
   queueMicrotask(()=>{
     const f=$("#authForm"),b=$("#authSubmit"),g=$("#googleLogin");

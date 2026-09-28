@@ -129,6 +129,9 @@
   function installHomeLauncher(){
     const content=$("#content");if(!content||current!=="home"||homeLauncherReady)return;
     const shell=content.querySelector(".business-dashboard,.mixed-dashboard,.tech-home,.dashboard-shell");if(!shell)return;
+    // El dashboard Mixto Premium ya contiene sus accesos principales; no dupliques
+    // el catálogo "Command center" encima del contenido.
+    if(ecosystem()==="mixed"){homeLauncherReady=true;return}
     const old=shell.querySelector(".marc-home-launcher");if(old)old.remove();
     const box=document.createElement("section");box.className="marc-home-launcher";
     const m=meta[ecosystem()];

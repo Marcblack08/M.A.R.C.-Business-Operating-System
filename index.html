@@ -79,5 +79,48 @@
 <script src="./operations-ui-v2.js?v=20260922-03"></script>
 <script src="./marc-immersive-ui.js?v=20260928-paid02"></script>
 <script src="./quotes-editor.js?v=20260928-quotes01"></script>
+<script>
+(function(){
+  function installMarcGoogleEmergencyHandler(){
+    if(window.__MARC_GOOGLE_EMERGENCY_HANDLER__)return;
+    window.__MARC_GOOGLE_EMERGENCY_HANDLER__=true;
+    document.addEventListener("click",function(e){
+      const button=e.target?.closest?.("#googleLogin");
+      if(!button)return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      const output=document.querySelector("#authMsg");
+      const show=(text,type)=>{
+        if(output){
+          output.textContent=text;
+          output.className="msg "+(type||"");
+          output.style.display="block";
+          output.style.visibility="visible";
+          output.style.opacity="1";
+        }
+        console.error("[M.A.R.C. Google emergencia]",text);
+      };
+      show("Diagnóstico: clic recibido. Verificando el módulo de autenticación…");
+      const api=window.MARC?.signInGoogle;
+      if(typeof api!=="function"){
+        show("ERROR CRÍTICO: app.js no terminó de cargar el módulo de Google. El botón funciona, pero el controlador de autenticación no está disponible.","error");
+        return;
+      }
+      try{
+        const result=api(e);
+        if(result&&typeof result.catch==="function"){
+          result.catch(err=>{
+            show("ERROR EN GOOGLE: "+String(err?.message||err||"Error desconocido."),"error");
+          });
+        }
+      }catch(err){
+        show("ERROR CRÍTICO EN GOOGLE: "+String(err?.message||err||"Error desconocido."),"error");
+      }
+    },true);
+  }
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",installMarcGoogleEmergencyHandler,{once:true});
+  else installMarcGoogleEmergencyHandler();
+})();
+</script>
 </body>
 </html>

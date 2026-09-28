@@ -410,3 +410,42 @@
 .saas-request-detail p{color:#fff;font-size:10px;line-height:1.55;margin:7px 0}
 .saas-request-detail small{color:#8299ad;font-size:7.5px}
 @media(max-width:520px){.saas-request-row{align-items:flex-start;flex-direction:column}.saas-request-row button{width:100%}}
+
+/* Informes técnicos · aplicación */
+.tech-reports-app{max-width:1180px;margin:0 auto;padding-bottom:28px}
+.tech-reports-hero{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px;padding:8px 2px}
+.tech-reports-hero h1{margin:5px 0 4px;color:#fff;font-size:30px;letter-spacing:-.035em}
+.tech-reports-hero p{margin:0;color:#9fb5c9;font-size:10px}
+.tech-reports-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin-bottom:13px}
+.tech-reports-stats article{min-height:110px;padding:16px;border-radius:19px;background:linear-gradient(145deg,#087fe5,#24a6f5);color:#fff;box-shadow:0 12px 28px rgba(20,55,90,.16)}
+.tech-reports-stats article:nth-child(2){background:linear-gradient(145deg,#7357e8,#9b73f4)}
+.tech-reports-stats article:nth-child(3){background:linear-gradient(145deg,#159879,#26ba99)}
+.tech-reports-stats article:nth-child(4){background:linear-gradient(145deg,#e77c25,#f2a13c)}
+.tech-reports-stats b{display:block;font-size:27px;line-height:1}
+.tech-reports-stats span{display:block;margin-top:12px;font-size:8px;font-weight:950;letter-spacing:.1em}
+.tech-reports-stats small{display:block;margin-top:4px;font-size:7px;color:rgba(255,255,255,.78)}
+.tech-reports-browser{padding:13px;border-radius:20px;background:rgba(255,255,255,.055);border:1px solid rgba(151,188,215,.15)}
+.tech-reports-toolbar{display:flex;gap:9px;margin-bottom:12px}
+.tech-reports-search{display:flex;align-items:center;gap:8px;flex:1;background:#fff;border-radius:13px;padding:0 12px;border:1px solid #e3eaf1}
+.tech-reports-search span{font-size:19px;color:#71879b}
+.tech-reports-search input{width:100%;border:0!important;outline:0;background:transparent!important;padding:12px 0!important;color:#17283a!important;font-size:10px!important}
+.tech-report-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.tech-report-card{background:#fff;border-radius:18px;padding:14px;box-shadow:0 10px 25px rgba(10,35,60,.11)}
+.tech-report-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.tech-report-card-head>div{display:flex;align-items:center;gap:6px;min-width:0}
+.tech-report-number{font-size:7px;font-weight:950;color:#1683d6}
+.tech-report-status{padding:4px 6px;border-radius:999px;background:#edf2f6;color:#60758a;font-size:6px;font-weight:900}
+.tech-report-card-head>b{font-size:6.5px;color:#778b9e}
+.tech-report-card h3{margin:11px 0 6px;color:#172a3e;font-size:12px;line-height:1.25}
+.tech-report-card p{margin:0 0 4px;color:#5f7387;font-size:8px}
+.tech-report-card>small{display:block;color:#8b9aaa;font-size:7px;line-height:1.4}
+.tech-report-card-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:11px 0}
+.tech-report-card-grid span{padding:8px;border-radius:10px;background:#f6f9fc;color:#52677b;font-size:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tech-report-card-grid b{display:block;color:#8b9aaa;font-size:6px;text-transform:uppercase;margin-bottom:3px}
+.tech-report-open{width:100%;font-size:8px!important}
+.tech-report-empty{text-align:center;grid-column:1/-1;padding:48px 15px;color:#dce7ef}
+.tech-report-empty span{display:grid;place-items:center;margin:0 auto 10px;width:50px;height:50px;border-radius:16px;background:rgba(255,255,255,.08);font-size:23px}
+.tech-report-empty b{display:block;color:#dce7ef;font-size:11px}
+.tech-report-empty small{display:block;margin-top:5px;color:#8fa6ba;font-size:8px}
+@media(max-width:900px){.tech-report-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.tech-reports-stats{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:620px){.tech-reports-hero{align-items:flex-start}.tech-reports-hero h1{font-size:26px}.tech-reports-hero .primary{white-space:nowrap}.tech-reports-toolbar{display:block}.tech-reports-toolbar .secondary{width:100%;margin-top:8px}.tech-report-cards{grid-template-columns:1fr}.tech-reports-stats{gap:8px}.tech-reports-stats article{min-height:100px;padding:14px}}

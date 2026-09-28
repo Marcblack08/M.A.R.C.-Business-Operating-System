@@ -74,16 +74,21 @@ async function signInGoogle(e){
     const redirectUrl=new URL(location.href);redirectUrl.search="";redirectUrl.hash="";
     const redirectTo=redirectUrl.toString();
     console.info("[M.A.R.C. OAuth] iniciando Google:",redirectTo);
-    // En una SPA de navegador Supabase ya realiza la navegación OAuth.
-    // No usamos skipBrowserRedirect + location.assign: ese camino podía
-    // dejar el botón animando sin iniciar la navegación en ciertos hosts.
-    const oauthPromise=S.auth.signInWithOAuth({
+    // Forzamos la navegación con la URL OAuth devuelta por Supabase.
+    // Así no dependemos de que el SDK decida navegar automáticamente
+    // en WebViews, navegadores móviles o hosts servidos por Worker.
+    const {data,error}=await S.auth.signInWithOAuth({
       provider:"google",
-      options:{redirectTo,queryParams:{prompt:"select_account"}}
+      options:{
+        redirectTo,
+        skipBrowserRedirect:true,
+        queryParams:{prompt:"select_account"}
+      }
     });
-    const timeout=new Promise((_,reject)=>setTimeout(()=>reject(new Error("Google no respondió a tiempo. Comprueba que el proveedor Google esté habilitado en Supabase y que esta dirección esté permitida en Auth → URL Configuration.")),12000));
-    const {error}=await Promise.race([oauthPromise,timeout]);
     if(error)throw error;
+    if(!data?.url)throw new Error("Supabase no devolvió la URL de acceso con Google.");
+    console.info("[M.A.R.C. OAuth] URL recibida; navegando a Google.");
+    window.location.assign(data.url);
     return true;
   }catch(err){
     sessionStorage.removeItem("marc_google_oauth_pending");

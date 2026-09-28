@@ -6,8 +6,8 @@
       {view:"service_orders",icon:"🛠",title:"Órdenes",desc:"Trabajos y rentabilidad",tone:"cyan"},
       {view:"agenda",icon:"📅",title:"Agenda",desc:"Visitas y mantenimientos",tone:"teal"},
       {view:"clients",icon:"👥",title:"Clientes",desc:"Historial de servicios",tone:"blue"},
-      {view:"assets",icon:"🧰",title:"Equipos",desc:"Activos y garantías",tone:"orange"},
-      {view:"maintenance",icon:"🔧",title:"Mantenimientos",desc:"Preventivo y correctivo",tone:"red"},
+      {view:"assets",icon:"🧰",title:"Equipos",desc:"Activos y garantías",tone:"orange",paid:true},
+      {view:"maintenance",icon:"🔧",title:"Mantenimientos",desc:"Preventivo y correctivo",tone:"red",paid:true},
       {view:"inventory",icon:"📦",title:"Materiales",desc:"Repuestos y existencias",tone:"green"},
       {view:"quotes",icon:"🧾",title:"Cotizaciones",desc:"Presupuestos técnicos",tone:"violet"},
       {view:"contracts",icon:"📄",title:"Contratos",desc:"Servicios recurrentes",tone:"slate"},
@@ -83,7 +83,7 @@
   };
   function moduleGroup(view){return groupMap[ecosystem()]?.[view]||"Módulos";}
   function moduleCard(m){
-    return '<button type="button" class="marc-module-card '+m.tone+'" data-marc-module="'+m.view+'"><span class="mm-icon">'+m.icon+'</span><b>'+m.title+'</b><small>'+m.desc+'</small></button>';
+    return '<button type="button" class="marc-module-card '+m.tone+(m.paid?' paid-feature':'')+'" data-marc-module="'+m.view+'">'+(m.paid?'<span class="mm-paid-badge" aria-label="Función de pago">♛ PAGO</span>':'')+'<span class="mm-icon">'+m.icon+'</span><b>'+m.title+'</b><small>'+m.desc+'</small></button>';
   }
   function groupedModulesMarkup(){
     const groups=[];

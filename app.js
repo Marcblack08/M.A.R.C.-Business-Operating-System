@@ -2369,10 +2369,10 @@ async function inventoryPdfModal(){
 
       if(failedPages.length){
         status.className="msg error";
-        status.textContent="No se pudo analizar "+failedPages.length+" página(s): "+failedPages.map(x=>"P"+x.pageNumber).join(", ")+". La importación queda bloqueada para evitar faltantes.";
+        status.textContent="Se detectaron "+detected.length+" productos, pero "+failedPages.length+" página(s) no pudieron analizarse: "+failedPages.map(x=>"P"+x.pageNumber).join(", ")+". Puedes revisar e importar los productos detectados sin perder el catálogo ya leído.";
         $("#pdfProgressCount").textContent=detected.length+" productos detectados · "+failedPages.length+" páginas con error";
         const detail=failedPages.map(x=>"P"+x.pageNumber+": "+x.error).join("\n");
-        throw new Error("No se pudieron analizar todas las páginas.\n\n"+detail+"\n\nNo se importó ningún producto.");
+        $("#pdfImportPreview").insertAdjacentHTML("afterbegin",'<div class="msg error pdf-page-warning"><b>Páginas no disponibles</b><br>'+esc(detail).replace(/\n/g,"<br>")+'</div>');
       }
       status.className="msg ok";
       status.textContent="Análisis terminado. Revisa exactamente qué productos serán procesados antes de importarlos.";
@@ -2706,13 +2706,48 @@ async function inventoryPdfModal(){
       btn.onclick=async function(){
         if(btn.dataset.importing==="1"||!btn.dataset.ready)return;
         btn.dataset.importing="1";
+        const selectedItems=selectedPdfItems();
+        if(!selectedItems.length){
+          btn.dataset.importing="";
+          return toast("Selecciona al menos un producto para importar.","err");
+        }
+        if(pdfImportLimit!==null && selectedItems.length>pdfImportLimit){
+          btn.dataset.importing="";
+          return toast("Tu plan permite importar hasta "+pdfImportLimit+" productos de este catálogo.","err");
+        }
         btn.disabled=true;
         status.className="msg";
-        status.textContent="Importando "+listItems.length+" productos directamente al inventario…";
+        status.textContent="Importando "+selectedItems.length+" productos seleccionados directamente al inventario…";
 
         try{
+          if(pdfImportLimit!==null){
+            const invRes=await S.from("marc_inventory")
+              .select("id,name,sku,brand,model")
+              .eq("user_id",st.u.id)
+              .eq("active",true)
+              .limit(1000);
+            if(invRes.error)throw invRes.error;
+            const existingRows=invRes.data||[];
+            const norm=v=>String(v||"").toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").replace(/\\s+/g," ").trim();
+            const existingKeys=new Set();
+            existingRows.forEach(x=>{
+              const sku=norm(x.sku);
+              const key=sku?("sku:"+sku):("name:"+norm(x.name)+"|"+norm(x.brand)+"|"+norm(x.model));
+              existingKeys.add(key);
+            });
+            const newSelected=selectedItems.filter(x=>{
+              const sku=norm(x.sku);
+              const key=sku?("sku:"+sku):("name:"+norm(x.name)+"|"+norm(x.brand)+"|"+norm(x.model));
+              return !existingKeys.has(key);
+            });
+            const available=Math.max(0,pdfImportLimit-existingRows.length);
+            if(newSelected.length>available){
+              throw new Error("Tu plan "+planLabel(pdfPlan.code)+" permite hasta "+pdfImportLimit+" productos activos. Ya tienes "+existingRows.length+" y esta selección añadiría "+newSelected.length+" nuevos. Selecciona "+available+" nuevos como máximo.");
+            }
+          }
+
           const {data,error}=await S.rpc("marc_import_inventory_batch",{
-            p_items:listItems,
+            p_items:selectedItems,
             p_update_existing:true
           });
           if(error)throw new Error(error.message||"No se pudo importar el lote.");
@@ -2722,7 +2757,7 @@ async function inventoryPdfModal(){
             ? " · "+photoResult.attached+" fotos asociadas, "+photoResult.skipped+" sin asociar"
             : " · "+photoResult.attached+" fotos asociadas";
           status.className="msg ok";
-          status.textContent="Importación completada: "+data.total+" productos procesados, "+data.created+" nuevos, "+data.updated+" actualizados, "+(data.reactivated||0)+" reactivados"+photoMsg+".";
+          status.textContent="Importación completada: "+data.total+" productos seleccionados y procesados, "+data.created+" nuevos, "+data.updated+" actualizados, "+(data.reactivated||0)+" reactivados"+photoMsg+".";
           close();
           await trial();
           await inventory();

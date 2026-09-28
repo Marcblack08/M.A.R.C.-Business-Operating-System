@@ -1081,6 +1081,23 @@ async function mixedDashboard(){
         <article><span>ÓRDENES ACTIVAS</span><strong>${activeOrders.length}</strong><small>Operación en curso</small></article>
         <article><span>CLIENTES</span><strong>${clients.length}</strong><small>Relación comercial</small></article>
       </section>
+      <section class="mixed-access-panel">
+        <div class="mixed-access-head">
+          <div>
+            <span>ACCESOS PRINCIPALES</span>
+            <h2>Todo lo que necesitas, en un solo lugar.</h2>
+          </div>
+          <button type="button" class="mixed-access-all" data-mixed-open-modules>Ver todos los módulos <b>⌘</b></button>
+        </div>
+        <div class="mixed-access-grid">
+          <button type="button" data-mixed-view="cash"><span class="access-icon green">▣</span><b>Caja</b><small>Ventas y pagos</small><i>→</i></button>
+          <button type="button" data-mixed-view="sales"><span class="access-icon blue">🛒</span><b>Ventas</b><small>Productos y clientes</small><i>→</i></button>
+          <button type="button" data-mixed-view="service_orders"><span class="access-icon cyan">🛠</span><b>Servicios</b><small>Órdenes y trabajos</small><i>→</i></button>
+          <button type="button" data-mixed-view="inventory"><span class="access-icon orange">▦</span><b>Inventario</b><small>Stock y materiales</small><i>→</i></button>
+          <button type="button" data-mixed-view="clients"><span class="access-icon violet">👥</span><b>Clientes</b><small>Historial y crédito</small><i>→</i></button>
+          <button type="button" data-mixed-view="finances"><span class="access-icon pink">▥</span><b>Finanzas</b><small>Resultados y control</small><i>→</i></button>
+        </div>
+      </section>
       <section class="mixed-executive-strip">
         <div><span>ESTADO DE OPERACIÓN</span><b><i></i> Sistema operativo</b></div>
         <div><span>CAJA</span><strong>${cashOpen?"ABIERTA":"CERRADA"}</strong><small>${cashOpen?"Turno activo":"Sin turno activo"}</small></div>
@@ -1122,6 +1139,9 @@ async function mixedDashboard(){
   $("#mixedNewOT").onclick=()=>serviceOrderModal();
   $("#mixedQuote").onclick=()=>quoteModal();
   c.querySelectorAll("[data-mixed-view]").forEach(b=>b.onclick=()=>view(b.dataset.mixedView));
+  c.querySelector("[data-mixed-open-modules]")?.addEventListener("click",()=>{
+    document.querySelector("#marcImmersiveModules")?.click();
+  });
 }
 
 async function home(){

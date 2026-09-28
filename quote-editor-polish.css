@@ -1,0 +1,551 @@
+/* =========================================================
+   M.A.R.C. — QUOTE EDITOR VISUAL POLISH
+   Solo afecta al editor de cotizaciones.
+   ========================================================= */
+
+.marc-quote-editor-modal{
+  --qe-bg:#ffffff;
+  --qe-surface:#f7fafc;
+  --qe-surface-2:#eef7ff;
+  --qe-border:#d4e1ec;
+  --qe-border-strong:#c2d3e2;
+  --qe-text:#10233f;
+  --qe-text-2:#334b65;
+  --qe-muted:#61758b;
+  --qe-blue:#147ee8;
+  --qe-blue-dark:#0864c8;
+  --qe-shadow:0 24px 70px rgba(7,32,58,.18);
+
+  width:min(1080px,100%)!important;
+  max-width:1080px!important;
+  padding:0!important;
+  overflow:hidden!important;
+  background:var(--qe-bg)!important;
+  color:var(--qe-text)!important;
+  border:1px solid #dce7f1!important;
+  border-radius:24px!important;
+  box-shadow:var(--qe-shadow)!important;
+}
+
+.marc-quote-editor-modal *,
+.marc-quote-editor-modal *::before,
+.marc-quote-editor-modal *::after{
+  color:inherit;
+}
+
+.marc-quote-editor-modal .modal-head{
+  margin:0!important;
+  padding:24px 28px 20px!important;
+  border-bottom:1px solid var(--qe-border)!important;
+  background:#fff!important;
+}
+
+.marc-quote-editor-modal .eyebrow2{
+  color:var(--qe-blue)!important;
+  font-size:11px!important;
+  font-weight:900!important;
+  letter-spacing:.17em!important;
+  margin-bottom:7px!important;
+}
+
+.marc-quote-editor-modal .modal-head h2{
+  color:var(--qe-text)!important;
+  font-size:30px!important;
+  line-height:1.08!important;
+  letter-spacing:-.04em!important;
+  margin:0!important;
+}
+
+.marc-quote-editor-modal .modal-head p{
+  color:var(--qe-muted)!important;
+  font-size:12px!important;
+  line-height:1.5!important;
+  margin:7px 0 0!important;
+}
+
+.marc-quote-editor-modal .close{
+  width:48px!important;
+  height:48px!important;
+  flex:0 0 48px!important;
+  border:0!important;
+  border-radius:14px!important;
+  background:#edf3f8!important;
+  color:#0b1728!important;
+  font-size:28px!important;
+  line-height:1!important;
+  font-weight:500!important;
+}
+
+.marc-quote-editor-modal .close:hover{
+  background:#e1ebf4!important;
+}
+
+.marc-quote-editor{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) 300px!important;
+  gap:0!important;
+  max-height:calc(92svh - 100px)!important;
+  overflow:auto!important;
+  background:#fff!important;
+}
+
+.quote-editor-main{
+  min-width:0;
+  padding:22px 26px 28px;
+}
+
+.quote-editor-section{
+  padding:0 0 22px;
+  margin:0 0 22px;
+  border-bottom:1px solid var(--qe-border)!important;
+}
+
+.quote-editor-section:last-child{
+  margin-bottom:0;
+  border-bottom:0!important;
+}
+
+.quote-editor-section-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:14px;
+}
+
+.quote-editor-section-head b{
+  display:block;
+  color:var(--qe-text)!important;
+  font-size:15px!important;
+  font-weight:900!important;
+}
+
+.quote-editor-section-head small{
+  display:block;
+  margin-top:4px;
+  color:var(--qe-muted)!important;
+  font-size:10px!important;
+  line-height:1.4;
+}
+
+.marc-quote-editor-modal .form-grid{
+  display:grid!important;
+  grid-template-columns:1fr 1fr!important;
+  gap:14px!important;
+}
+
+.marc-quote-editor-modal label{
+  display:grid!important;
+  gap:7px!important;
+  color:var(--qe-text-2)!important;
+  font-size:10px!important;
+  font-weight:900!important;
+}
+
+.marc-quote-editor-modal input,
+.marc-quote-editor-modal select,
+.marc-quote-editor-modal textarea{
+  width:100%!important;
+  min-height:48px!important;
+  box-sizing:border-box!important;
+  border:1px solid var(--qe-border-strong)!important;
+  border-radius:14px!important;
+  background:#f8fbfd!important;
+  color:var(--qe-text)!important;
+  -webkit-text-fill-color:var(--qe-text)!important;
+  caret-color:var(--qe-blue)!important;
+  padding:12px 14px!important;
+  font-size:14px!important;
+  font-weight:650!important;
+  outline:none!important;
+  opacity:1!important;
+}
+
+.marc-quote-editor-modal input::placeholder,
+.marc-quote-editor-modal textarea::placeholder{
+  color:#72859a!important;
+  -webkit-text-fill-color:#72859a!important;
+  opacity:1!important;
+}
+
+.marc-quote-editor-modal input:focus,
+.marc-quote-editor-modal select:focus,
+.marc-quote-editor-modal textarea:focus{
+  border-color:#62a9eb!important;
+  box-shadow:0 0 0 4px rgba(20,126,232,.11)!important;
+  background:#fff!important;
+}
+
+.marc-quote-editor-modal textarea{
+  min-height:128px!important;
+  resize:vertical!important;
+  line-height:1.5!important;
+}
+
+.marc-quote-editor-modal select{
+  appearance:auto!important;
+}
+
+.quote-tax-toggle{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  flex-direction:row!important;
+  min-height:48px;
+  padding:0 14px!important;
+  border:1px solid var(--qe-border)!important;
+  border-radius:14px!important;
+  background:var(--qe-surface)!important;
+}
+
+.quote-tax-toggle span{
+  color:var(--qe-text-2)!important;
+}
+
+.quote-tax-toggle input{
+  width:18px!important;
+  min-height:18px!important;
+  height:18px!important;
+  margin:0 5px 0 0!important;
+  padding:0!important;
+  vertical-align:middle;
+  accent-color:var(--qe-blue);
+}
+
+.qe-item{
+  padding:16px!important;
+  margin-bottom:12px!important;
+  border:1px solid var(--qe-border)!important;
+  border-radius:17px!important;
+  background:var(--qe-surface)!important;
+}
+
+.qe-item-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:13px;
+}
+
+.qe-item-head b{
+  display:inline-block;
+  color:var(--qe-text)!important;
+  font-size:12px!important;
+  font-weight:900!important;
+}
+
+.qe-item-head span{
+  margin-left:7px;
+  color:var(--qe-blue)!important;
+  font-size:8px!important;
+  font-weight:900!important;
+  letter-spacing:.08em;
+}
+
+.qe-item-grid{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:11px!important;
+}
+
+.qe-item-grid label{
+  min-width:0;
+}
+
+.qe-item-grid .qe-description{
+  grid-column:1/-1;
+}
+
+.qe-item .qe-field{
+  min-height:45px!important;
+  font-size:13px!important;
+}
+
+.marc-quote-editor-modal .danger{
+  min-height:38px!important;
+  color:#b63248!important;
+  background:#fff4f5!important;
+  border-color:#efc5ca!important;
+}
+
+.marc-quote-editor-modal .secondary{
+  min-height:46px!important;
+  color:#334b65!important;
+  background:#fff!important;
+  border:1px solid #ccdbe7!important;
+  border-radius:13px!important;
+  font-size:11px!important;
+  font-weight:900!important;
+}
+
+.marc-quote-editor-modal .primary{
+  min-height:48px!important;
+  color:#fff!important;
+  background:linear-gradient(105deg,#159df1,#1478e8 70%,#0864c8)!important;
+  border:0!important;
+  border-radius:14px!important;
+  font-size:12px!important;
+  font-weight:900!important;
+  box-shadow:0 12px 28px rgba(20,126,232,.25)!important;
+}
+
+.quote-editor-summary{
+  min-width:0;
+  background:#f2f8fd!important;
+  border-left:1px solid var(--qe-border)!important;
+  padding:22px!important;
+}
+
+.quote-summary-sticky{
+  position:sticky;
+  top:0;
+}
+
+.quote-summary-number{
+  color:var(--qe-text)!important;
+  font-size:16px!important;
+  font-weight:900!important;
+  letter-spacing:-.02em;
+  margin:10px 0 18px;
+  overflow-wrap:anywhere;
+}
+
+.quote-summary-lines{
+  display:grid;
+  gap:12px;
+  padding:16px;
+  border:1px solid #d5e6f4!important;
+  border-radius:17px!important;
+  background:#fff!important;
+}
+
+.quote-summary-lines>div{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  color:var(--qe-text-2)!important;
+  font-size:12px!important;
+}
+
+.quote-summary-lines>div span{
+  color:var(--qe-muted)!important;
+}
+
+.quote-summary-lines>div b{
+  color:var(--qe-text)!important;
+  font-size:13px!important;
+}
+
+.quote-summary-lines .total{
+  padding-top:13px;
+  margin-top:3px;
+  border-top:1px solid var(--qe-border)!important;
+}
+
+.quote-summary-lines .total span{
+  color:var(--qe-text)!important;
+  font-weight:900!important;
+}
+
+.quote-summary-lines .total strong{
+  color:var(--qe-blue)!important;
+  font-size:23px!important;
+  font-weight:900!important;
+}
+
+.quote-summary-actions{
+  display:grid!important;
+  grid-template-columns:1fr 1.45fr!important;
+  gap:9px!important;
+  margin-top:15px;
+}
+
+.marc-quote-editor-modal #qeMsg{
+  color:#b63248!important;
+  font-size:10px!important;
+  line-height:1.4;
+}
+
+.marc-quote-editor-modal #qeMsg.ok{
+  color:#197449!important;
+}
+
+@media(max-width:780px){
+  .marc-quote-editor-modal{
+    width:100%!important;
+    max-width:100%!important;
+    max-height:calc(100svh - 14px)!important;
+    border-radius:22px!important;
+  }
+
+  .marc-quote-editor-modal .modal-head{
+    padding:20px 18px 17px!important;
+  }
+
+  .marc-quote-editor-modal .modal-head h2{
+    font-size:26px!important;
+  }
+
+  .marc-quote-editor-modal .modal-head p{
+    font-size:11px!important;
+  }
+
+  .marc-quote-editor-modal .close{
+    width:46px!important;
+    height:46px!important;
+    flex-basis:46px!important;
+  }
+
+  .marc-quote-editor{
+    display:block!important;
+    max-height:calc(100svh - 120px)!important;
+  }
+
+  .quote-editor-main{
+    padding:18px 16px 20px!important;
+  }
+
+  .marc-quote-editor-modal .form-grid{
+    grid-template-columns:1fr!important;
+    gap:11px!important;
+  }
+
+  .qe-item-grid{
+    grid-template-columns:1fr!important;
+  }
+
+  .qe-item-grid .qe-description{
+    grid-column:auto;
+  }
+
+  .quote-editor-summary{
+    border-left:0!important;
+    border-top:1px solid var(--qe-border)!important;
+    padding:17px 16px 20px!important;
+  }
+
+  .quote-summary-sticky{
+    position:static!important;
+  }
+
+  .quote-summary-lines{
+    padding:14px;
+  }
+
+  .quote-summary-actions{
+    grid-template-columns:1fr 1.45fr!important;
+  }
+
+  .quote-editor-section-head{
+    align-items:flex-start;
+  }
+
+  .quote-editor-section-head .secondary{
+    min-height:44px!important;
+    white-space:nowrap;
+  }
+}
+
+@media(max-width:390px){
+  .marc-quote-editor-modal .modal-head h2{
+    font-size:23px!important;
+  }
+
+  .marc-quote-editor-modal .modal-head p{
+    font-size:10px!important;
+  }
+
+  .quote-editor-main{
+    padding:15px 12px 18px!important;
+  }
+
+  .quote-editor-summary{
+    padding:15px 12px 18px!important;
+  }
+
+  .qe-item{
+    padding:13px!important;
+  }
+
+  .quote-editor-section-head{
+    display:block;
+  }
+
+  .quote-editor-section-head .secondary{
+    margin-top:10px;
+    width:100%;
+  }
+
+  .quote-summary-lines .total strong{
+    font-size:20px!important;
+  }
+}
+
+/* Dark mode — still high contrast, never pale text on white surfaces. */
+[data-theme="dark"] .marc-quote-editor-modal{
+  --qe-bg:#0d1b2b;
+  --qe-surface:#101f30;
+  --qe-surface-2:#10283d;
+  --qe-border:#294157;
+  --qe-border-strong:#36516a;
+  --qe-text:#edf6ff;
+  --qe-text-2:#d0e0ee;
+  --qe-muted:#9eb2c6;
+  --qe-shadow:0 28px 75px rgba(0,0,0,.42);
+  background:#0d1b2b!important;
+  color:#edf6ff!important;
+  border-color:#294157!important;
+}
+
+[data-theme="dark"] .marc-quote-editor-modal .modal-head,
+[data-theme="dark"] .marc-quote-editor{
+  background:#0d1b2b!important;
+}
+
+[data-theme="dark"] .marc-quote-editor-modal .modal-head{
+  border-color:#294157!important;
+}
+
+[data-theme="dark"] .marc-quote-editor-modal input,
+[data-theme="dark"] .marc-quote-editor-modal select,
+[data-theme="dark"] .marc-quote-editor-modal textarea{
+  background:#091624!important;
+  color:#edf6ff!important;
+  -webkit-text-fill-color:#edf6ff!important;
+  border-color:#36516a!important;
+}
+
+[data-theme="dark"] .marc-quote-editor-modal input::placeholder,
+[data-theme="dark"] .marc-quote-editor-modal textarea::placeholder{
+  color:#8fa6ba!important;
+  -webkit-text-fill-color:#8fa6ba!important;
+}
+
+[data-theme="dark"] .qe-item,
+[data-theme="dark"] .quote-tax-toggle{
+  background:#101f30!important;
+  border-color:#294157!important;
+}
+
+[data-theme="dark"] .quote-editor-summary{
+  background:#0a1725!important;
+  border-color:#294157!important;
+}
+
+[data-theme="dark"] .quote-summary-lines{
+  background:#101f30!important;
+  border-color:#294157!important;
+}
+
+[data-theme="dark"] .marc-quote-editor-modal .secondary{
+  background:#15283c!important;
+  color:#e4f0fa!important;
+  border-color:#36516a!important;
+}
+
+[data-theme="dark"] .marc-quote-editor-modal .close{
+  background:#172a3e!important;
+  color:#fff!important;
+}

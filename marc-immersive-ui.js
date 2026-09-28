@@ -3,15 +3,15 @@
   const $=(s,r=document)=>r.querySelector(s);
   const catalog={
     technician:[
-      {view:"service_orders",icon:"🛠",title:"Órdenes",desc:"Trabajos y rentabilidad",tone:"cyan"},
+      {view:"service_orders",icon:"🛠",title:"Órdenes",desc:"Trabajos y rentabilidad",tone:"cyan",paid:true},
       {view:"agenda",icon:"📅",title:"Agenda",desc:"Visitas y mantenimientos",tone:"teal"},
       {view:"clients",icon:"👥",title:"Clientes",desc:"Historial de servicios",tone:"blue"},
       {view:"assets",icon:"🧰",title:"Equipos",desc:"Activos y garantías",tone:"orange",paid:true},
       {view:"maintenance",icon:"🔧",title:"Mantenimientos",desc:"Preventivo y correctivo",tone:"red",paid:true},
       {view:"inventory",icon:"📦",title:"Materiales",desc:"Repuestos y existencias",tone:"green"},
       {view:"quotes",icon:"🧾",title:"Cotizaciones",desc:"Presupuestos técnicos",tone:"violet"},
-      {view:"contracts",icon:"📄",title:"Contratos",desc:"Servicios recurrentes",tone:"slate"},
-      {view:"finances",icon:"💰",title:"Rentabilidad",desc:"Costos, ingresos y margen",tone:"gold"},
+      {view:"contracts",icon:"📄",title:"Contratos",desc:"Servicios recurrentes",tone:"slate",paid:true},
+      {view:"finances",icon:"💰",title:"Rentabilidad",desc:"Costos, ingresos y margen",tone:"gold",paid:true},
       {view:"reports",icon:"📊",title:"Reportes",desc:"Indicadores operativos",tone:"purple"},
       {view:"settings",icon:"⚙",title:"Configuración",desc:"Empresa y documentos",tone:"dark"}
     ],
@@ -21,9 +21,9 @@
       {view:"inventory",icon:"▦",title:"Inventario",desc:"Productos y stock",tone:"orange"},
       {view:"clients",icon:"👥",title:"Clientes",desc:"Compras e historial",tone:"purple"},
       {view:"quotes",icon:"🧾",title:"Cotizaciones",desc:"Propuestas comerciales",tone:"pink"},
-      {view:"suppliers",icon:"🏭",title:"Proveedores",desc:"Abastecimiento",tone:"slate"},
-      {view:"purchases",icon:"📥",title:"Compras",desc:"Entradas y costos",tone:"teal"},
-      {view:"receivables",icon:"💳",title:"Cobros",desc:"Créditos y vencimientos",tone:"red"},
+      {view:"suppliers",icon:"🏭",title:"Proveedores",desc:"Abastecimiento",tone:"slate",paid:true},
+      {view:"purchases",icon:"📥",title:"Compras",desc:"Entradas y costos",tone:"teal",paid:true},
+      {view:"receivables",icon:"💳",title:"Cobros",desc:"Créditos y vencimientos",tone:"red",paid:true},
       {view:"reports",icon:"📊",title:"Reportes",desc:"Ventas y operación",tone:"violet"},
       {view:"settings",icon:"⚙",title:"Configuración",desc:"Empresa y sistema",tone:"dark"}
     ],

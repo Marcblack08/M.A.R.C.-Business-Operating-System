@@ -1,4 +1,4 @@
-(()=>{const C=window.MARC_CONFIG,AUTH_STORAGE=window.MARC_AUTH_STORAGE||undefined,S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"implicit",storage:AUTH_STORAGE}});const st={u:null,session:null,view:"home",cid:null,authEpoch:0};let authListenerSession=null,authTimer=null,authEnteredSessionId=null;S.auth.onAuthStateChange((ev,s)=>{
+(()=>{const C=window.MARC_CONFIG,S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"pkce",skipAutoInitialize:true}});const st={u:null,session:null,view:"home",cid:null,authEpoch:0};let authListenerSession=null,authTimer=null,authEnteredSessionId=null;S.auth.onAuthStateChange((ev,s)=>{
   authListenerSession=s||null;
   console.info("[M.A.R.C. auth]",ev,!!s,s?.user?.id||"");
   try{
@@ -4150,53 +4150,33 @@ function wire(){
   $$(".chips button").forEach(b=>b.onclick=()=>{$("#chatInput").value=b.dataset.q;$("#chatInput").focus()});
 
   const bootAuth=async()=>{
-    // Google en esta SPA usa PKCE: Supabase procesa automáticamente
-    // el retorno OAuth y persiste la sesión antes de que la interfaz continúe.
-    // No hacemos exchangeCodeForSession aquí para evitar consumir un code PKCE
-    // que ya haya sido procesado por el cliente.
-    // createClient() ya inicializa Supabase automáticamente. No llamamos
-    // initialize() manualmente aquí porque eso puede duplicar/racear la
-    // detección del retorno OAuth en una SPA.
-    console.info("[M.A.R.C. auth] Esperando la inicialización automática de Supabase.",{storage:AUTH_STORAGE?"custom":"default",flow:"implicit"});
+    // OAuth queda bajo una sola ruta controlada por Supabase.
+    // skipAutoInitialize evita que el cliente procese el callback antes de
+    // que nuestro listener quede registrado. initialize() se ejecuta una vez.
+    console.info("[M.A.R.C. auth] Inicializando Supabase Auth.",{flow:"pkce"});
     const {search,hash}=authCallbackParams();
     const oauthPending=sessionStorage.getItem("marc_google_oauth_pending")==="1";
-    const oauthDiagnostics={
+    const diagnostics={
       hasCode:!!search.get("code"),
       hasAccessToken:!!hash.get("access_token"),
       hasRefreshToken:!!hash.get("refresh_token"),
       hasError:!!(search.get("error")||hash.get("error")),
       pending:oauthPending,
-      urlPath:location.pathname
+      path:location.pathname
     };
-    // Nunca mostramos ni guardamos los tokens; solo registramos qué tipo de
-    // retorno llegó para poder localizar exactamente dónde se corta OAuth.
-    console.info("[M.A.R.C. OAuth callback diagnóstico]",oauthDiagnostics);
-    if(oauthPending && (oauthDiagnostics.hasCode||oauthDiagnostics.hasAccessToken||oauthDiagnostics.hasError)){
-      msg(oauthDiagnostics.hasError
-        ?"Google devolvió un error. Revisando el detalle…"
-        :"Google devolvió correctamente el callback. Recuperando sesión…");
-    }
+    console.info("[M.A.R.C. OAuth callback diagnóstico]",diagnostics);
+
     const error=hash.get("error_description")||search.get("error_description")||hash.get("error")||search.get("error");
     if(error){
       sessionStorage.removeItem("marc_google_oauth_pending");
-      throw Object.assign(new Error(decodeURIComponent(String(error).replace(/\\+/g," "))),{code:search.get("error_code")||hash.get("error_code")||"OAUTH_CALLBACK_ERROR"});
+      throw Object.assign(
+        new Error(decodeURIComponent(String(error).replace(/\\+/g," "))),
+        {code:search.get("error_code")||hash.get("error_code")||"OAUTH_CALLBACK_ERROR"}
+      );
     }
-    // Respaldo explícito para navegadores móviles: si Supabase detectó el
-    // retorno pero todavía no persistió el fragmento OAuth, reconstruimos la
-    // sesión directamente con los tokens recibidos. No registramos los tokens.
-    const accessToken=hash.get("access_token");
-    const refreshToken=hash.get("refresh_token");
-    if(accessToken&&refreshToken){
-      const restored=await S.auth.setSession({access_token:accessToken,refresh_token:refreshToken});
-      if(restored.error)throw restored.error;
-      if(restored.data?.session?.user){
-        sessionStorage.removeItem("marc_google_oauth_pending");
-        cleanAuthUrl();
-        msg("Sesión de Google recuperada. Abriendo M.A.R.C.…");
-        await handleAuthSession(restored.data.session);
-        return;
-      }
-    }
+
+    const initialized=await S.auth.initialize();
+    if(initialized?.error)throw initialized.error;
 
     const current=await S.auth.getSession();
     if(current.error)throw current.error;
@@ -4207,8 +4187,9 @@ function wire(){
       await handleAuthSession(current.data.session);
       return;
     }
+
     if(oauthPending){
-      await new Promise(r=>setTimeout(r,900));
+      await new Promise(r=>setTimeout(r,1200));
       const retry=await S.auth.getSession();
       if(retry.error)throw retry.error;
       if(retry.data?.session?.user){
@@ -4218,7 +4199,10 @@ function wire(){
         await handleAuthSession(retry.data.session);
         return;
       }
-      msg("Google confirmó el acceso, pero el navegador no conservó la sesión. Vuelve a pulsar «Continuar con Google».","error");
+      msg(
+        "Google terminó la autenticación, pero M.A.R.C. no pudo recuperar la sesión en este navegador. El callback llegó correctamente; no volveremos a ocultar este diagnóstico.",
+        "error"
+      );
     }
   };
   queueMicrotask(()=>{

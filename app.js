@@ -201,7 +201,7 @@ function openUpgradeModal(feature=""){
     '</div>'
   );
   $("#planClose").onclick=close;
-  $(".marc-plan-card button").forEach(b=>b.onclick=async()=>{
+  $$(".marc-plan-card button").forEach(b=>b.onclick=async()=>{
     const target=b.dataset.plan;
     if(target===current||target==="free"){close();return}
     close();
@@ -771,7 +771,7 @@ async function technicalReports(){
     const q=String($("#technicalReportSearch")?.value||"").trim().toLowerCase();
     const list=rows.filter(r=>[r.number,r.title,r.report_type,r.status,r.location,r.equipment,r.problem,r.diagnosis,r.clientes?.name].some(v=>String(v||"").toLowerCase().includes(q)));
     $("#technicalReportCards").innerHTML=list.map(r=>'<article class="tech-report-card"><div class="tech-report-card-head"><div><span class="tech-report-number">'+esc(r.number||"SIN NÚMERO")+'</span><span class="tech-report-status">'+esc(r.status||"BORRADOR")+'</span></div><b>'+esc(r.report_type||"DIAGNOSTICO")+'</b></div><h3>'+esc(r.title||"Informe técnico")+'</h3><p>👤 '+esc(r.clientes?.name||"Sin cliente")+'</p><small>📅 '+new Date(r.report_date||r.created_at).toLocaleDateString("es-PE")+(r.location?" · 📍 "+esc(r.location):"")+'</small><div class="tech-report-card-grid"><span><b>Equipo</b>'+esc(r.equipment||"—")+'</span><span><b>Estado</b>'+esc(r.status||"BORRADOR")+'</span></div><button class="secondary tech-report-open" data-id="'+esc(r.id)+'">Abrir informe →</button></article>').join("")||'<div class="tech-report-empty"><span>📄</span><b>No hay informes técnicos</b><small>Crea el primero y empieza a construir tu historial profesional.</small></div>';
-    $(".tech-report-open").forEach(b=>b.onclick=()=>technicalReportModal(rows.find(r=>r.id===b.dataset.id)));
+    $$(".tech-report-open").forEach(b=>b.onclick=()=>technicalReportModal(rows.find(r=>r.id===b.dataset.id)));
   };
   $("#newTechnicalReport").onclick=()=>technicalReportModal();
   $("#technicalReportRefresh").onclick=technicalReports;

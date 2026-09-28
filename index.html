@@ -72,7 +72,21 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="./config.js?v=20260919-4"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="./app.js?v=20260928-google12"></script>
+<script>
+(function(){
+  // Storage robusto para OAuth: usa localStorage y mantiene un espejo en
+  // sessionStorage para navegadores móviles/WebViews que restringen localStorage.
+  // Nunca registra ni expone tokens.
+  if(window.MARC_AUTH_STORAGE)return;
+  const safe=(store,method,key,value)=>{try{if(!store||typeof store[method]!=="function")return null;return method==="getItem"?store.getItem(key):(method==="setItem"?store.setItem(key,value):store.removeItem(key));}catch{return null}};
+  window.MARC_AUTH_STORAGE={
+    getItem(key){return safe(window.localStorage,"getItem",key)??safe(window.sessionStorage,"getItem",key);},
+    setItem(key,value){const a=safe(window.localStorage,"setItem",key,value);safe(window.sessionStorage,"setItem",key,value);return a;},
+    removeItem(key){safe(window.localStorage,"removeItem",key);safe(window.sessionStorage,"removeItem",key);}
+  };
+})();
+</script>
+<script src="./app.js?v=20260928-google13"></script>
 <script src="./graphic-lab.js?v=20260922-02"></script>
 <script src="./supplier-center.js?v=20260921-11"></script>
 <script src="./notifications.js?v=20260921-01"></script>
@@ -123,7 +137,7 @@
         show("Controlador principal no disponible. Activando acceso Google de emergencia…");
         sessionStorage.setItem("marc_google_oauth_pending","1");
         const client=window.supabase.createClient(cfg.supabaseUrl,cfg.supabasePublishableKey,{
-          auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"implicit"}
+          auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"pkce",storage:window.MARC_AUTH_STORAGE}
         });
         const redirectUrl=new URL(String(cfg.appUrl||location.origin+"/"));
         redirectUrl.search="";

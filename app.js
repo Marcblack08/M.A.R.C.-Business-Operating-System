@@ -3737,7 +3737,8 @@ function wire(){
   $("#passwordToggle").onclick=()=>{const i=$("#password"),b=$("#passwordToggle");if(!i)return;i.type=i.type==="password"?"text":"password";b.textContent=i.type==="password"?"◉":"◎"};
   $("#signupMode").onclick=()=>{mode(authMode==="signup"?"login":"signup");$("#signupMode").textContent=authMode==="signup"?"Volver a iniciar sesión":"Crear cuenta";$("#authForm")?.reset()};
   $("#forgotPassword").onclick=()=>{mode("reset");$("#signupMode").textContent="Volver a iniciar sesión"};
-  $("#logout").onclick=async()=>{resetUiToLogin();await S.auth.signOut();};\n  const planBox=$(".trial"); if(planBox){planBox.style.cursor="pointer";planBox.title="Ver planes y capacidades";planBox.onclick=()=>openUpgradeModal();}
+  $("#logout").onclick=async()=>{resetUiToLogin();await S.auth.signOut();};
+  const planBox=$(".trial"); if(planBox){planBox.style.cursor="pointer";planBox.title="Ver planes y capacidades";planBox.onclick=()=>openUpgradeModal();}
   $("#askTop").onclick=openChat;
   $("#closeChat").onclick=closeChat;
   $("#exitConversation").onclick=closeChat;

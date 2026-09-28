@@ -55,50 +55,7 @@ async function signInCashStaff(e){
   }
 }
 
-async function signInGoogle(e){
-  e?.preventDefault?.();
-  e?.stopPropagation?.();
-  const b=$("#googleLogin");
-  if(!b){console.error("[M.A.R.C. Google login] No existe #googleLogin");return false}
-  if(b.dataset.busy==="1")return false;
-  b.dataset.busy="1";b.disabled=true;b.setAttribute("aria-busy","true");
-  const label=b.querySelector("span:last-child");if(label)label.textContent="Conectando…";
-  msg("Conectando con Google…");
-  const reset=()=>{
-    b.disabled=false;b.dataset.busy="0";b.removeAttribute("aria-busy");
-    if(label)label.textContent="Continuar con Google";
-  };
-  try{
-    if(!window.supabase||!S?.auth)throw new Error("El servicio de autenticación todavía no terminó de cargar. Recarga la página e inténtalo nuevamente.");
-    sessionStorage.setItem("marc_google_oauth_pending","1");
-    const redirectUrl=new URL(location.href);redirectUrl.search="";redirectUrl.hash="";
-    const redirectTo=redirectUrl.toString();
-    console.info("[M.A.R.C. OAuth] iniciando Google:",redirectTo);
-    // Forzamos la navegación con la URL OAuth devuelta por Supabase.
-    // Así no dependemos de que el SDK decida navegar automáticamente
-    // en WebViews, navegadores móviles o hosts servidos por Worker.
-    const {data,error}=await S.auth.signInWithOAuth({
-      provider:"google",
-      options:{
-        redirectTo,
-        skipBrowserRedirect:true,
-        queryParams:{prompt:"select_account"}
-      }
-    });
-    if(error)throw error;
-    if(!data?.url)throw new Error("Supabase no devolvió la URL de acceso con Google.");
-    console.info("[M.A.R.C. OAuth] URL recibida; navegando a Google.");
-    window.location.assign(data.url);
-    return true;
-  }catch(err){
-    sessionStorage.removeItem("marc_google_oauth_pending");
-    console.error("[M.A.R.C. Google login]",err);
-    msg(String(err?.message||"No se pudo iniciar sesión con Google. Inténtalo nuevamente."),"error");
-    reset();
-    return false;
-  }
-}
-function bindAuthControls(){
+async function signInGoogle(e){e?.preventDefault?.();e?.stopPropagation?.();const b=$("#googleLogin");const diagnostic=(text,type="")=>{msg(text,type);console.info("[M.A.R.C. Google diagnóstico]",text)};if(!b){console.error("[M.A.R.C. Google login] No existe #googleLogin");return false}if(b.dataset.busy==="1")return false;b.dataset.busy="1";b.disabled=true;b.setAttribute("aria-busy","true");const label=b.querySelector("span:last-child");if(label)label.textContent="Conectando…";diagnostic("1/4 · Iniciando conexión con Google…");const reset=(keepMessage=false)=>{b.disabled=false;b.dataset.busy="0";b.removeAttribute("aria-busy");if(label)label.textContent="Continuar con Google";if(!keepMessage)msg("")};try{if(!window.supabase||!S?.auth)throw Object.assign(new Error("El cliente de autenticación de Supabase no está disponible."),{code:"MARC_AUTH_CLIENT_MISSING"});sessionStorage.setItem("marc_google_oauth_pending","1");const redirectUrl=new URL(location.href);redirectUrl.search="";redirectUrl.hash="";const redirectTo=redirectUrl.toString();diagnostic("2/4 · Supabase está preparando el acceso…");const {data,error}=await S.auth.signInWithOAuth({provider:"google",options:{redirectTo,skipBrowserRedirect:true,queryParams:{prompt:"select_account"}}});if(error){const detail=[error.code,error.name,error.status].filter(Boolean).join(" · ");throw Object.assign(new Error(detail?String(error.message||"Error de autenticación")+" ["+detail+"]":String(error.message||"Error de autenticación")),{code:error.code,name:error.name,status:error.status})}if(!data?.url)throw Object.assign(new Error("Supabase respondió sin una URL de autorización de Google."),{code:"MARC_OAUTH_URL_MISSING"});diagnostic("3/4 · Supabase generó correctamente la autorización. Abriendo Google…");console.info("[M.A.R.C. OAuth] URL OAuth generada correctamente; dominio:",(()=>{try{return new URL(data.url).hostname}catch{return "desconocido"}})());let navigationStarted=false;const markNavigation=()=>{navigationStarted=true};window.addEventListener("pagehide",markNavigation,{once:true});window.addEventListener("beforeunload",markNavigation,{once:true});window.location.replace(data.url);setTimeout(()=>{if(navigationStarted)return;diagnostic("4/4 · La URL de Google fue generada, pero el navegador no inició la navegación. Revisa si el navegador/WebView está bloqueando la redirección.","error");reset(true)},4000);return true}catch(err){sessionStorage.removeItem("marc_google_oauth_pending");console.error("[M.A.R.C. Google login]",err);const code=err?.code?" Código: "+err.code+".":"";const status=err?.status?" Estado HTTP: "+err.status+".":"";diagnostic("Falló el acceso con Google: "+String(err?.message||"Error desconocido.")+code+status,"error");reset(true);return false}}function bindAuthControls(){
   const planLauncher=$(".trial");
   if(planLauncher){
     planLauncher.setAttribute("role","button");

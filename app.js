@@ -1389,30 +1389,50 @@ async function clients(){
   const {data,error}=await S.from("marc_clients").select("*").eq("user_id",st.u.id).order("name");
   if(error)return toast(error.message,"err");
   const list=data||[],c=$("#content");
-  c.innerHTML=`<div class="head"><div><div class="eyebrow2">CLIENTES</div><h1>Relaciones y contexto.</h1><p>Ahora cada cliente tiene una historia completa: cotizaciones, compras, productos, trabajos, pagos y notas.</p></div><button id="new" class="primary">＋ Nuevo cliente</button></div>
-  <section class="client-summary">
-    <div><span>CLIENTES REGISTRADOS</span><strong>${list.length}</strong><small>Base de contactos de M.A.R.C.</small></div>
-    <div><span>CON HISTORIA</span><strong>${list.filter(x=>x.updated_at||x.created_at).length}</strong><small>Fichas con actividad registrada</small></div>
-    <div><span>PORTAL DE CLIENTE</span><strong>${list.filter(x=>x.portal_enabled).length}</strong><small>Clientes con acceso compartido</small></div>
-  </section>
-  <section class="card table clients-browser"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar cliente, documento, correo o teléfono…"></div><button id="ask" class="secondary">✦ Preguntar</button></div>
-    <div class="scroll clients-desktop"><table class="data"><thead><tr><th>Cliente</th><th>Contacto</th><th>Correo</th><th>Teléfono</th><th>Acciones</th></tr></thead><tbody id="rows"></tbody></table></div>
-    <div id="clientCards" class="client-cards"></div>
-  </section>`;
-  const rows=$("#rows"),cards=$("#clientCards");
-  const draw=(items)=>{
-    rows.innerHTML=items.map(x=>`<tr><td><b>${esc(x.name)}</b><br><small>${esc(x.document_number||"")}</small></td><td>${esc(x.contact_name||"—")}</td><td>${esc(x.email||"—")}</td><td>${esc(x.phone||"—")}</td><td><button class="secondary" type="button" data-history="${x.id}">Ver historia</button> <button class="secondary" type="button" data-edit="${x.id}">Editar</button></td></tr>`).join("")||'<tr><td colspan="5" class="empty">Aún no tienes clientes.</td></tr>';
-    cards.innerHTML=items.map(x=>`<article class="client-card"><div class="client-card-top"><div class="client-avatar">${esc(String(x.name||"C").split(/\s+/).filter(Boolean).slice(0,2).map(v=>v[0]).join("").toUpperCase())}</div><div class="client-card-name"><h3>${esc(x.name)}</h3><small>${esc(x.document_number||"Sin documento")}</small></div><button class="icon" type="button" data-history="${x.id}" aria-label="Ver historia del cliente">⌁</button></div><div class="client-details">${x.contact_name?`<div><span>Contacto</span><b>${esc(x.contact_name)}</b></div>`:""}${x.email?`<div><span>Correo</span><b>${esc(x.email)}</b></div>`:""}${x.phone?`<div><span>Teléfono</span><b><a class="client-contact-link" href="tel:${esc(x.phone)}">${esc(x.phone)}</a></b></div>`:""}${x.portal_enabled?'<div><span>Portal</span><b class="client-portal-active">Activo</b></div>':""}${(!x.contact_name&&!x.email&&!x.phone)?'<small class="client-empty">Sin datos adicionales registrados.</small>':""}</div><div class="client-card-actions"><button class="primary" type="button" data-history="${x.id}">Ver historia</button><button class="secondary" type="button" data-edit="${x.id}">Editar</button></div></article>`).join("")||'<div class="empty-state"><span>＋</span><b>Aún no tienes clientes</b><small>Crea tu primer cliente para comenzar.</small></div>';
+  const withContact=list.filter(x=>x.email||x.phone||x.contact_name).length;
+  const portal=list.filter(x=>x.portal_enabled).length;
+  const initials=x=>String(x.name||"C").split(/\\s+/).filter(Boolean).slice(0,2).map(v=>v[0]).join("").toUpperCase();
+  c.innerHTML='<section class="clients-app">'+
+    '<div class="clients-app-hero"><div><div class="eyebrow2">APLICACIÓN · CLIENTES</div><h1>Clientes</h1><p>Ten a mano cada cliente, su información y toda la historia de trabajos.</p></div><button id="new" class="primary">＋ Nuevo cliente</button></div>'+
+    '<div class="clients-app-stats">'+
+      '<button class="client-stat-tile blue" data-client-filter="all"><strong>'+list.length+'</strong><span>Clientes</span><small>Todos tus registros</small></button>'+
+      '<button class="client-stat-tile cyan" data-client-filter="contact"><strong>'+withContact+'</strong><span>Con contacto</span><small>Información disponible</small></button>'+
+      '<button class="client-stat-tile violet" data-client-filter="portal"><strong>'+portal+'</strong><span>Portal activo</span><small>Acceso compartido</small></button>'+
+      '<button class="client-stat-tile dark" data-client-filter="new"><strong>'+list.filter(x=>new Date(x.created_at||0)>=new Date(Date.now()-30*86400000)).length+'</strong><span>Nuevos</span><small>Últimos 30 días</small></button>'+
+    '</div>'+
+    '<section class="clients-browser card"><div class="clients-toolbar"><div class="clients-search"><span>⌕</span><input id="search" placeholder="Buscar por nombre, documento, correo o teléfono…"></div><button id="ask" class="secondary">✦ Preguntar a M.A.R.C.</button></div>'+
+    '<div class="client-cards" id="clientCards"></div></section>'+
+    '</section>';
+  const cards=$("#clientCards");
+  const draw=items=>{
+    cards.innerHTML=items.map(x=>{
+      const info=[x.contact_name,x.email,x.phone].filter(Boolean).length;
+      return '<article class="client-app-card"><div class="client-app-card-head"><div class="client-app-avatar">'+esc(initials(x))+'</div><div class="client-app-name"><h3>'+esc(x.name)+'</h3><small>'+esc(x.document_number||"Sin documento")+'</small></div><span class="client-app-status '+(x.portal_enabled?"active":"")+'">'+(x.portal_enabled?"PORTAL":"CLIENTE")+'</span></div>'+
+      '<div class="client-app-info">'+(x.contact_name?'<div><span>Contacto</span><b>'+esc(x.contact_name)+'</b></div>':"")+(x.phone?'<div><span>Teléfono</span><b>'+esc(x.phone)+'</b></div>':"")+(x.email?'<div><span>Correo</span><b>'+esc(x.email)+'</b></div>':"")+'<div><span>Ficha</span><b>'+info+' datos de contacto</b></div></div>'+
+      '<div class="client-app-actions"><button class="primary" type="button" data-history="'+x.id+'">Ver historia</button><button class="secondary" type="button" data-edit="'+x.id+'">Editar</button></div></article>';
+    }).join("")||'<div class="client-app-empty"><span>👥</span><b>No hay clientes que coincidan</b><small>Crea un cliente nuevo o cambia la búsqueda.</small></div>';
   };
-  draw(list);
-  const filter=()=>{const q=($("#search").value||"").toLowerCase();draw(list.filter(x=>[x.name,x.email,x.phone,x.document_number,x.contact_name].some(v=>String(v||"").toLowerCase().includes(q))))};
-  $("#search").oninput=filter;
+  let activeFilter="all";
+  const apply=()=>{
+    const q=($("#search").value||"").toLowerCase();
+    let items=list.filter(x=>[x.name,x.email,x.phone,x.document_number,x.contact_name].some(v=>String(v||"").toLowerCase().includes(q)));
+    if(activeFilter==="contact")items=items.filter(x=>x.email||x.phone||x.contact_name);
+    if(activeFilter==="portal")items=items.filter(x=>x.portal_enabled);
+    if(activeFilter==="new")items=items.filter(x=>new Date(x.created_at||0)>=new Date(Date.now()-30*86400000));
+    draw(items);
+    c.querySelectorAll("[data-client-filter]").forEach(b=>b.classList.toggle("active",b.dataset.clientFilter===activeFilter));
+  };
+  $("#search").oninput=apply;
+  c.querySelectorAll("[data-client-filter]").forEach(b=>b.onclick=()=>{activeFilter=b.dataset.clientFilter;apply()});
   $("#new").onclick=()=>clientModal();
   $("#ask").onclick=()=>openChat();
-  const handle=e=>{const b=e.target.closest("[data-history],[data-edit]");if(!b)return;const x=list.find(v=>v.id===(b.dataset.history||b.dataset.edit));if(!x)return;b.dataset.history?clientHistoryModal(x):clientModal(x)};
-  cards.onclick=handle;rows.onclick=handle;
+  cards.onclick=e=>{
+    const b=e.target.closest("[data-history],[data-edit]");if(!b)return;
+    const x=list.find(v=>v.id===(b.dataset.history||b.dataset.edit));if(!x)return;
+    if(b.dataset.history)clientHistoryModal(x);else clientModal(x);
+  };
+  apply();
 }
-
 async function clientHistoryModal(client){
   const close=modal('<div class="modal-head"><div><h2>Historia del cliente</h2><p>Cargando toda la relación comercial y técnica…</p></div><button class="close" id="x">×</button></div><div id="clientHistoryBody" class="client-history-loading">Cargando…</div>');
   $("#x").onclick=close;

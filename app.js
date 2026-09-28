@@ -299,37 +299,61 @@ async function enter(s){
   const epoch=++st.authEpoch;
   st.session=s;
   st.u=s.user;
-  const auth=$("#auth"),app=$("#app");
+  const auth=$("#auth"),app=$("#app"),content=$("#content");
+  const timeout=(promise,ms,fallback=null)=>Promise.race([
+    Promise.resolve(promise),
+    new Promise(resolve=>setTimeout(()=>resolve(fallback),ms))
+  ]);
+  const showBoot=()=>{
+    if(!content)return;
+    content.innerHTML='<section class="marc-app-loading"><div class="marc-app-loading-mark">M</div><div><b>Abriendo M.A.R.C.</b><span>Preparando tu espacio de trabajo…</span></div></section>';
+  };
+  const showFallback=()=>{
+    if(!content)return;
+    content.innerHTML='<section class="marc-app-loading marc-app-fallback"><div class="marc-app-loading-mark">M</div><div><b>Tu sesión está activa</b><span>Algunas consultas están tardando más de lo normal. Puedes continuar desde el menú.</span></div><div class="marc-boot-actions"><button class="primary" id="bootHome">Ir al inicio</button><button class="secondary" id="bootRetry">Reintentar</button></div></section>';
+    $("#bootHome").onclick=()=>view("home");
+    $("#bootRetry").onclick=()=>enter(s);
+  };
   try{
     auth.classList.add("hidden");
-    app.classList.add("hidden");
-    const cashCtx=await getCashStaffContext();
+    app.classList.remove("hidden");
+    showBoot();
+
+    // Ninguna tarea auxiliar debe impedir que el usuario entre.
+    const cashCtx=await timeout(getCashStaffContext(),5000,{isStaff:false,ownerId:st.u.id,staff:null});
+    if(epoch!==st.authEpoch)return;
+
     if(!cashCtx.isStaff){
-      await ensure();
+      await timeout(ensure(),5000,null);
       if(epoch!==st.authEpoch)return;
-      await trial();
+      await timeout(trial(),5000,null);
       if(epoch!==st.authEpoch)return;
-      await chatLoad();
+      await timeout(chatLoad(),5000,null);
       if(epoch!==st.authEpoch)return;
     }
+
     applyCashierMode(!!cashCtx.isStaff);
-    app.classList.remove("hidden");
+
+    // Si existe una cuenta anterior sin ecosistema configurado, el selector
+    // aparece sin bloquear la aplicación completa.
     if(!cashCtx.isStaff){
-      const ready=await ensureEcosystem();
+      const ready=await timeout(ensureEcosystem(),5000,true);
+      if(epoch!==st.authEpoch)return;
       if(!ready)return;
     }
-    await loadBrandLogo();
-    await view(cashCtx.isStaff?"cash":"home");
-    if(cashCtx.isStaff) toast("Bienvenido, "+(cashCtx.staff?.display_name||"cajero")+" · caja lista","ok");
+
+    await timeout(loadBrandLogo(),3500,null);
+    if(epoch!==st.authEpoch)return;
+
+    // La vista inicial tiene un límite propio. Si una consulta se queda
+    // colgada, dejamos al usuario dentro de M.A.R.C. en lugar de una pantalla vacía.
+    const rendered=await timeout(view(cashCtx.isStaff?"cash":"home"),8000,false);
+    if(epoch!==st.authEpoch)return;
+    if(rendered===false)showFallback();
   }catch(e){
     if(epoch!==st.authEpoch)return;
     console.error("[M.A.R.C. enter] Fallo al abrir la aplicación:",e);
-    st.u=null;st.session=null;st.cid=null;
-    app.classList.add("hidden");
-    auth.classList.remove("hidden");
-    // Nunca mostramos errores internos de JavaScript al usuario como "$(...).forEach...".
-    // El detalle queda en consola para diagnóstico y la sesión puede reintentarse.
-    msg("No se pudo abrir tu espacio de trabajo. Vuelve a intentarlo.","error");
+    showFallback();
   }
 }
 async function submit(e){e.preventDefault();try{$("#authSubmit").disabled=true;msg("Procesando…");const email=$("#email").value.trim(),p=$("#password").value;if(authMode==="reset"){const cooldownKey="marc_password_reset_cooldown";const until=Number(localStorage.getItem(cooldownKey)||0);if(until>Date.now())throw new Error("Supabase ha limitado temporalmente el envío de correos de recuperación. Espera hasta que se restablezca el límite y vuelve a intentarlo.");const {error}=await S.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname+"?recovery=1"});if(error){if(authRateLimitMessage(error))localStorage.setItem(cooldownKey,String(Date.now()+60*60*1000));throw error}localStorage.removeItem(cooldownKey);msg("Revisa tu correo. El enlace te llevará a crear una nueva contraseña.","ok");return}if(authMode==="update"){if(!p||p.length<6)throw new Error("La nueva contraseña debe tener al menos 6 caracteres.");if(p!==$("#confirm").value)throw new Error("Las contraseñas no coinciden.");const {error}=await S.auth.updateUser({password:p});if(error)throw error;recoveryMode=false;history.replaceState({},document.title,location.pathname);await S.auth.signOut();resetUiToLogin("Contraseña actualizada. Ahora inicia sesión con tu nueva clave.","ok");return}if(authMode==="signup"){if(!p||p.length<6)throw new Error("La contraseña debe tener al menos 6 caracteres.");if(p!==$("#confirm").value)throw new Error("Las contraseñas no coinciden.");const rr=await fetch("/api/auth/signup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password:p})});const jj=await rr.json().catch(()=>({}));if(!rr.ok)throw new Error(jj.error||"No se pudo crear la cuenta.");const {error:loginError}=await S.auth.signInWithPassword({email,password:p});if(loginError)throw loginError;return}else{const {error}=await S.auth.signInWithPassword({email,password:p});if(error)throw error}}catch(e){const raw=String(e?.message||"");if(authRateLimitMessage(e))msg("Límite de correo de recuperación alcanzado. Supabase bloqueó temporalmente nuevos envíos. No sigas pulsando el botón; espera y vuelve a intentarlo más tarde.","error");else msg(raw||"No se pudo completar.","error")}finally{$("#authSubmit").disabled=false}}

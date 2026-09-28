@@ -346,6 +346,11 @@ function applyEcosystemUI(key){
   document.documentElement.dataset.ecosystem=key;
   safeStorageSet(ECOSYSTEM_KEY,key);
   const meta=ECOSYSTEMS[key];
+  const navLabels={
+    technician:{home:"Inicio",clients:"Clientes",inventory:"Materiales",quotes:"Cotizaciones técnicas",reports:"Reportes técnicos"},
+    business:{home:"Inicio comercial",clients:"Clientes",inventory:"Inventario",quotes:"Cotizaciones",reports:"Reportes comerciales"},
+    mixed:{home:"Centro Business",clients:"Clientes",inventory:"Inventario",quotes:"Cotizaciones",reports:"Centro ejecutivo"}
+  }[key]||{};
   // Esta función es infraestructura crítica de navegación: ningún error visual
   // puede impedir el acceso al resto de M.A.R.C.
   try{
@@ -353,6 +358,9 @@ function applyEcosystemUI(key){
       const allowed=String(b.dataset.ecosystems||"").split(",").includes(key);
       b.hidden=!allowed;
       b.setAttribute("aria-hidden",String(!allowed));
+      const label=navLabels[b.dataset.view];
+      const span=b.querySelector("span");
+      if(span&&label)span.textContent=label;
     });
   }catch(e){console.error("[M.A.R.C. ecosystem] No se pudo filtrar la navegación",e)}
   try{
@@ -422,6 +430,7 @@ async function chooseEcosystem(key){
   st.ecosystem=key;
   safeStorageSet(ECOSYSTEM_KEY,key);
   document.documentElement.dataset.ecosystem=key;
+  document.documentElement.dispatchEvent(new CustomEvent("ecosystemchange",{detail:{ecosystem:key}}));
 
   if(chooser){
     chooser.classList.add("hidden");

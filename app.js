@@ -128,7 +128,7 @@ async function handleAuthSession(s){if(!s?.user)return;const id=s.user.id;if(aut
 async function ensure(){const u=st.u;if(!u)return;await S.from("marc_accounts").upsert({id:u.id,display_name:u.email?.split("@")[0]||"Usuario"},{onConflict:"id"});const {data:t}=await S.from("marc_trials").select("id").eq("user_id",u.id).maybeSingle();if(!t)await S.from("marc_trials").insert({user_id:u.id});const {data:c}=await S.from("marc_conversations").select("id").eq("user_id",u.id).eq("channel","WEB").order("updated_at",{ascending:false}).limit(1).maybeSingle();st.cid=c?.id||(await S.from("marc_conversations").insert({user_id:u.id,channel:"WEB",title:"Conversación principal"}).select("id").single()).data?.id}
 
 const MARC_PLANS={
-  free:{code:"free",label:"Gratis",short:"Entrada",quotes:5,inventory:20,reports:5,ai:"Básica",color:"blue"},
+  free:{code:"free",label:"Gratis",short:"Entrada",quotes:5,inventory:50,reports:5,ai:"Básica",color:"blue"},
   coder:{code:"coder",label:"Coder / Pro",short:"Profesional",quotes:null,inventory:null,reports:null,ai:"Avanzada",color:"violet"},
   premium:{code:"premium",label:"Premium / Enterprise",short:"Empresa",quotes:null,inventory:null,reports:null,ai:"Predictiva",color:"cyan"},
   master:{code:"master",label:"MASTER",short:"SaaS",quotes:null,inventory:null,reports:null,ai:"Ilimitada",color:"amber"}
@@ -199,7 +199,7 @@ function openUpgradeModal(feature=""){
     '<div class="marc-plan-modal">'+
       '<div class="modal-head"><div><div class="eyebrow2">M.A.R.C. · PLANES</div><h2>Desbloquea más capacidad</h2><p>'+(feature?esc(feature):"Tu plan actual alcanzó una capacidad disponible en el nivel Gratis.")+'</p></div><button class="close" id="planClose" type="button">×</button></div>'+
       '<div class="marc-plan-grid">'+
-        '<article class="marc-plan-card free '+(current==="free"?"current":"")+'"><span>GRATIS</span><b>Entrada</b><small>5 cotizaciones/mes · 20 productos · informes básicos · IA básica.</small><button class="secondary" data-plan="free">'+(current==="free"?"Plan actual":"Gratis")+'</button></article>'+
+        '<article class="marc-plan-card free '+(current==="free"?"current":"")+'"><span>GRATIS</span><b>Entrada</b><small>5 cotizaciones/mes · 50 productos · informes básicos · IA básica.</small><button class="secondary" data-plan="free">'+(current==="free"?"Plan actual":"Gratis")+'</button></article>'+
         '<article class="marc-plan-card coder '+(current==="coder"?"current":"")+'"><span>CODER / PRO</span><b>Profesional</b><small>Cotizaciones e informes ilimitados · marca propia · firma digital · fotos ilimitadas · IA avanzada.</small><button class="primary" data-plan="coder">'+(current==="coder"?"Plan actual":"Quiero Coder")+'</button></article>'+
         '<article class="marc-plan-card premium '+(current==="premium"?"current":"")+'"><span>PREMIUM / ENTERPRISE</span><b>Empresa</b><small>Multiusuario · cuadrillas · portal cliente · automatización · API · auditoría y almacenamiento empresarial.</small><button class="primary" data-plan="premium">'+(current==="premium"?"Plan actual":"Quiero Premium")+'</button></article>'+
       '</div>'+
@@ -222,7 +222,7 @@ function openPlanCenter(){
   const close=modal(
     '<div class="marc-plan-center">'+
       '<div class="modal-head"><div><div class="eyebrow2">TU CUENTA M.A.R.C.</div><h2>Mi plan y capacidades</h2><p>Consulta qué tienes disponible ahora y qué se desbloquea al subir de nivel.</p></div><button class="close" id="planCenterClose" type="button">×</button></div>'+
-      '<div class="marc-plan-current"><div><span>PLAN ACTUAL</span><b>'+esc(planLabel(current))+'</b><small>'+(current==="free"?"5 cotizaciones/mes · 20 productos":current==="coder"?"Profesional · sin límites operativos":"Empresa · capacidades avanzadas")+'</small></div><button class="primary" id="planCenterUpgrade">Ver opciones</button></div>'+
+      '<div class="marc-plan-current"><div><span>PLAN ACTUAL</span><b>'+esc(planLabel(current))+'</b><small>'+(current==="free"?"5 cotizaciones/mes · 50 productos":current==="coder"?"Profesional · sin límites operativos":"Empresa · capacidades avanzadas")+'</small></div><button class="primary" id="planCenterUpgrade">Ver opciones</button></div>'+
       '<div class="marc-plan-grid">'+
         '<article class="marc-plan-card free '+(current==="free"?"current":"")+'"><span>GRATIS</span><b>Para comenzar</b><small>Clientes · cotizaciones limitadas · inventario limitado · IA básica.</small></article>'+
         '<article class="marc-plan-card coder '+(current==="coder"?"current":"")+'"><span>CODER / PRO</span><b>Para trabajar profesionalmente</b><small>Marca propia · firma · fotos ilimitadas · historial técnico · IA avanzada.</small></article>'+
@@ -259,7 +259,7 @@ async function requirePlan(feature,kind){
     return false;
   }
   if(kind==="inventory"&&usage.inventory>=MARC_PLANS.free.inventory){
-    openUpgradeModal("Llegaste al límite de 20 productos activos.");
+    openUpgradeModal("Llegaste al límite de 50 productos activos.");
     return false;
   }
   if(kind==="reports"&&usage.reports>=MARC_PLANS.free.reports){
@@ -1424,7 +1424,7 @@ async function inventoryModal(existing=null){
       else result=await S.from("marc_inventory").insert({...payload,user_id:st.u.id,active:true});
       if(result.error)throw result.error;
       close();toast(isEdit?"Producto actualizado":"Producto agregado","ok");await inventory();
-    }catch(err){if(String(err?.message||"").includes("MARC_PLAN_LIMIT_INVENTORY")){close();openUpgradeModal("El plan Gratis permite hasta 20 productos activos.");}else{toast(err.message||"No se pudo guardar el producto.","err")}b.disabled=false}
+    }catch(err){if(String(err?.message||"").includes("MARC_PLAN_LIMIT_INVENTORY")){close();openUpgradeModal("El plan Gratis permite hasta 50 productos activos.");}else{toast(err.message||"No se pudo guardar el producto.","err")}b.disabled=false}
   };
 }
 
@@ -2510,6 +2510,35 @@ async function inventoryPdfModal(){
           '</div></details>';
       }).join("");
       const preview=$("#pdfImportPreview");
+      const pdfPlan=await getPlanState(true);
+      const pdfPlanConfig=MARC_PLANS[normalizePlan(pdfPlan.code)]||MARC_PLANS.free;
+      const pdfImportLimit=Number.isFinite(Number(pdfPlanConfig.inventory))?Number(pdfPlanConfig.inventory):null;
+      let selectedPdfIndexes=new Set();
+      if(pdfImportLimit===null || listItems.length<=pdfImportLimit){
+        selectedPdfIndexes=new Set(listItems.map((_,i)=>i));
+      }else{
+        selectedPdfIndexes=new Set(listItems.slice(0,pdfImportLimit).map((_,i)=>i));
+      }
+      const selectedPdfItems=()=>[...selectedPdfIndexes].sort((a,b)=>a-b).map(i=>listItems[i]).filter(Boolean);
+      const pdfSelectionSummary=()=>{
+        const selected=selectedPdfIndexes.size;
+        if(pdfImportLimit===null)return "Plan "+planLabel(pdfPlan.code)+" · sin límite de selección";
+        return "Plan "+planLabel(pdfPlan.code)+" · "+selected+" / "+pdfImportLimit+" seleccionados";
+      };
+      const renderPdfSelectionControls=()=>{
+        const selected=selectedPdfIndexes.size;
+        const cap=pdfImportLimit===null?listItems.length:pdfImportLimit;
+        const countEl=$("#pdfSelectionCount");
+        const importBtn=$("#analyzePdf");
+        if(countEl)countEl.textContent=pdfSelectionSummary();
+        if(importBtn){
+          importBtn.textContent="Importar "+selected+" productos";
+          importBtn.disabled=selected===0||selected>cap;
+        }
+        preview.querySelectorAll("input[data-pdf-select-index]").forEach(input=>{
+          input.checked=selectedPdfIndexes.has(Number(input.dataset.pdfSelectIndex));
+        });
+      };
       const missingPriceCount=listItems.filter(x=>x.price==null||Number.isNaN(Number(x.price))).length;
       const missingSkuCount=listItems.filter(x=>!String(x.sku||"").trim()).length;
       const photoReadyCount=listItems.filter(x=>x.pdf_y!=null&&x.pdf_x!=null&&x.pdf_width!=null).length;
@@ -3234,7 +3263,7 @@ async function saasReviewPlanRequest(id,rows){
   };
 }
 async function saasChangePlan(userId,current){
-  const close=modal('<div class="modal-head"><div><div class="eyebrow2">MASTER</div><h2>Cambiar plan</h2><p>Este cambio afecta los límites y capacidades de la cuenta.</p></div><button class="close" id="x">×</button></div><div class="saas-change-grid">'+["free","coder","premium","master"].map(p=>'<button class="saas-change-option '+(p===current?"active":"")+'" data-plan="'+p+'"><b>'+planLabel(p)+'</b><small>'+({free:"5 cotizaciones/mes · 20 productos",coder:"Profesional sin límites operativos",premium:"Empresa multiusuario e integraciones",master:"Control total del SaaS"}[p])+'</small></button>').join("")+'</div>');
+  const close=modal('<div class="modal-head"><div><div class="eyebrow2">MASTER</div><h2>Cambiar plan</h2><p>Este cambio afecta los límites y capacidades de la cuenta.</p></div><button class="close" id="x">×</button></div><div class="saas-change-grid">'+["free","coder","premium","master"].map(p=>'<button class="saas-change-option '+(p===current?"active":"")+'" data-plan="'+p+'"><b>'+planLabel(p)+'</b><small>'+({free:"5 cotizaciones/mes · 50 productos",coder:"Profesional sin límites operativos",premium:"Empresa multiusuario e integraciones",master:"Control total del SaaS"}[p])+'</small></button>').join("")+'</div>');
   $("#x").onclick=close;
   $$(".saas-change-option").forEach(b=>b.onclick=async()=>{
     b.disabled=true;

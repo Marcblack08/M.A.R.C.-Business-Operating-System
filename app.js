@@ -93,6 +93,14 @@ async function signInGoogle(e){
   }
 }
 function bindAuthControls(){
+  const planLauncher=$(".trial");
+  if(planLauncher){
+    planLauncher.setAttribute("role","button");
+    planLauncher.setAttribute("tabindex","0");
+    planLauncher.title="Ver mi plan y capacidades";
+    planLauncher.addEventListener("click",()=>openPlanCenter());
+    planLauncher.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();openPlanCenter()}});
+  }
   const google=$("#googleLogin");
   if(google){ google.type="button"; google.onclick=signInGoogle; }
   const form=$("#authForm");
@@ -178,23 +186,44 @@ async function getPlanUsage(force=false){
 }
 function planLabel(code){return MARC_PLANS[normalizePlan(code)]?.label||"Gratis"}
 function openUpgradeModal(feature=""){
+  const current=normalizePlan(st.planState?.code);
   const close=modal(
     '<div class="marc-plan-modal">'+
       '<div class="modal-head"><div><div class="eyebrow2">M.A.R.C. · PLANES</div><h2>Desbloquea más capacidad</h2><p>'+(feature?esc(feature):"Tu plan actual alcanzó una capacidad disponible en el nivel Gratis.")+'</p></div><button class="close" id="planClose" type="button">×</button></div>'+
       '<div class="marc-plan-grid">'+
-        '<article class="marc-plan-card free"><span>GRATIS</span><b>5 cotizaciones / mes</b><small>20 productos · IA básica · funciones esenciales</small><button class="secondary" data-plan="free">Plan actual / base</button></article>'+
-        '<article class="marc-plan-card coder"><span>CODER / PRO</span><b>Trabajo profesional</b><small>Sin límites de cotizaciones e inventario · marca propia · firma · IA avanzada</small><button class="primary" data-plan="coder">Quiero Coder</button></article>'+
-        '<article class="marc-plan-card premium"><span>PREMIUM</span><b>Empresa multiusuario</b><small>Cuadrillas · portal cliente · automatización · API · almacenamiento empresarial</small><button class="primary" data-plan="premium">Quiero Premium</button></article>'+
+        '<article class="marc-plan-card free '+(current==="free"?"current":"")+'"><span>GRATIS</span><b>Entrada</b><small>5 cotizaciones/mes · 20 productos · informes básicos · IA básica.</small><button class="secondary" data-plan="free">'+(current==="free"?"Plan actual":"Gratis")+'</button></article>'+
+        '<article class="marc-plan-card coder '+(current==="coder"?"current":"")+'"><span>CODER / PRO</span><b>Profesional</b><small>Cotizaciones e informes ilimitados · marca propia · firma digital · fotos ilimitadas · IA avanzada.</small><button class="primary" data-plan="coder">'+(current==="coder"?"Plan actual":"Quiero Coder")+'</button></article>'+
+        '<article class="marc-plan-card premium '+(current==="premium"?"current":"")+'"><span>PREMIUM / ENTERPRISE</span><b>Empresa</b><small>Multiusuario · cuadrillas · portal cliente · automatización · API · auditoría y almacenamiento empresarial.</small><button class="primary" data-plan="premium">'+(current==="premium"?"Plan actual":"Quiero Premium")+'</button></article>'+
       '</div>'+
-      '<div class="marc-plan-note">La pantalla de pago se conectará cuando definamos el proveedor de cobro. Por ahora el cambio de plan queda controlado por M.A.R.C. MASTER.</div>'+
+      '<div class="marc-plan-features"><b>Incluido por nivel</b><span>Firma digital: Coder y Premium</span><span>Fotos ilimitadas en OT: Coder y Premium</span><span>Portal, multiusuario y API: Premium</span></div>'+
+      '<div class="marc-plan-note">La contratación automática se conectará al proveedor de pagos cuando definamos la pasarela. Mientras tanto, las activaciones de pago las controla M.A.R.C. MASTER.</div>'+
     '</div>'
   );
   $("#planClose").onclick=close;
   $(".marc-plan-card button").forEach(b=>b.onclick=()=>{
-    if(b.dataset.plan==="free"){close();return}
+    if(b.dataset.plan===current||b.dataset.plan==="free"){close();return}
     close();
-    toast("Solicitud de "+planLabel(b.dataset.plan)+" registrada como intención. El cobro se integrará en la siguiente etapa.","ok");
+    toast("Solicitud de "+planLabel(b.dataset.plan)+" registrada. M.A.R.C. MASTER puede activar el plan.","ok");
   });
+  return close;
+}
+
+function openPlanCenter(){
+  const current=normalizePlan(st.planState?.code);
+  const close=modal(
+    '<div class="marc-plan-center">'+
+      '<div class="modal-head"><div><div class="eyebrow2">TU CUENTA M.A.R.C.</div><h2>Mi plan y capacidades</h2><p>Consulta qué tienes disponible ahora y qué se desbloquea al subir de nivel.</p></div><button class="close" id="planCenterClose" type="button">×</button></div>'+
+      '<div class="marc-plan-current"><div><span>PLAN ACTUAL</span><b>'+esc(planLabel(current))+'</b><small>'+(current==="free"?"5 cotizaciones/mes · 20 productos":current==="coder"?"Profesional · sin límites operativos":"Empresa · capacidades avanzadas")+'</small></div><button class="primary" id="planCenterUpgrade">Ver opciones</button></div>'+
+      '<div class="marc-plan-grid">'+
+        '<article class="marc-plan-card free '+(current==="free"?"current":"")+'"><span>GRATIS</span><b>Para comenzar</b><small>Clientes · cotizaciones limitadas · inventario limitado · IA básica.</small></article>'+
+        '<article class="marc-plan-card coder '+(current==="coder"?"current":"")+'"><span>CODER / PRO</span><b>Para trabajar profesionalmente</b><small>Marca propia · firma · fotos ilimitadas · historial técnico · IA avanzada.</small></article>'+
+        '<article class="marc-plan-card premium '+(current==="premium"?"current":"")+'"><span>PREMIUM</span><b>Para empresas</b><small>Roles · cuadrillas · portal cliente · automatizaciones · API · auditoría.</small></article>'+
+      '</div>'+
+      '<div class="marc-plan-usage"><div><span>COTIZACIONES ESTE MES</span><b>'+(st.planUsage?.quotes||0)+(MARC_PLANS[current]?.quotes===null?"":" / "+MARC_PLANS[current].quotes)+'</b></div><div><span>PRODUCTOS ACTIVOS</span><b>'+(st.planUsage?.inventory||0)+(MARC_PLANS[current]?.inventory===null?"":" / "+MARC_PLANS[current].inventory)+'</b></div><div><span>CLIENTES</span><b>'+(st.planUsage?.clients||0)+'</b></div></div>'+
+    '</div>'
+  );
+  $("#planCenterClose").onclick=close;
+  $("#planCenterUpgrade").onclick=()=>{close();openUpgradeModal()};
   return close;
 }
 async function requirePlan(feature,kind){
@@ -1419,11 +1448,32 @@ async function serviceOrders(){
 function serviceOrderPhotosModal(order){
   const close=modal('<div class="modal-head"><div><div class="eyebrow2">EVIDENCIA DEL SERVICIO</div><h2>'+esc(order.number||"Orden")+'</h2><p>Fotos antes, durante y después del trabajo.</p></div><button class="close" id="sopClose">×</button></div><div id="sopBody">Cargando…</div>');
   $("#sopClose").onclick=close;
-  const render=async()=>{const r=await S.from("marc_service_order_photos").select("*").eq("user_id",st.u.id).eq("service_order_id",order.id).order("created_at",{ascending:false});if(r.error)return $("#sopBody").innerHTML='<div class="msg error">'+esc(r.error.message)+'</div>';
+  const render=async()=>{
+    const r=await S.from("marc_service_order_photos").select("*").eq("user_id",st.u.id).eq("service_order_id",order.id).order("created_at",{ascending:false});
+    if(r.error)return $("#sopBody").innerHTML='<div class="msg error">'+esc(r.error.message)+'</div>';
     const rows=r.data||[];
-    $("#sopBody").innerHTML='<div class="toolbar"><label>Tipo <select id="sopType"><option>ANTES</option><option>DURANTE</option><option>DESPUES</option></select></label><label>Descripción <input id="sopCaption" placeholder="Ej. Conector dañado"></label><label>Fotos <input id="sopFiles" type="file" accept="image/*" multiple></label><button class="primary" id="sopUpload">Subir fotos</button></div><div class="client-cards">'+(rows.map(x=>'<article class="client-card"><img data-photo-path="'+x.storage_path.replace(/"/g,"&quot;")+'" style="width:100%;max-height:220px;object-fit:cover;border-radius:14px"><b>'+esc(x.photo_type)+'</b><p>'+esc(x.caption||"Sin descripción")+'</p><small>'+new Date(x.created_at).toLocaleString("es-PE")+'</small></article>').join("")||'<div class="empty">Aún no hay evidencia fotográfica.</div>')+'</div>';
+    const free=normalizePlan(st.planState?.code)==="free";
+    const remaining=Math.max(0,2-rows.length);
+    const limitNote=free?'<div class="marc-feature-lock"><b>Plan Gratis</b><span>Máximo 2 fotografías por orden. '+remaining+' disponibles.</span><button type="button" class="secondary" id="sopUpgrade">Desbloquear fotos ilimitadas</button></div>':'';
+    const uploadDisabled=free&&remaining<=0;
+    $("#sopBody").innerHTML=limitNote+'<div class="toolbar"><label>Tipo <select id="sopType"><option>ANTES</option><option>DURANTE</option><option>DESPUES</option></select></label><label>Descripción <input id="sopCaption" placeholder="Ej. Conector dañado"></label><label>Fotos <input id="sopFiles" type="file" accept="image/*" multiple '+(uploadDisabled?'disabled':'')+'></label><button class="primary" id="sopUpload" '+(uploadDisabled?'disabled':'')+'>Subir fotos</button></div><div class="client-cards">'+(rows.map(x=>'<article class="client-card"><img data-photo-path="'+x.storage_path.replace(/"/g,"&quot;")+'" style="width:100%;max-height:220px;object-fit:cover;border-radius:14px"><b>'+esc(x.photo_type)+'</b><p>'+esc(x.caption||"Sin descripción")+'</p><small>'+new Date(x.created_at).toLocaleString("es-PE")+'</small></article>').join("")||'<div class="empty">Aún no hay evidencia fotográfica.</div>')+'</div>';
+    if($("#sopUpgrade"))$("#sopUpgrade").onclick=()=>{close();openUpgradeModal("Las fotografías ilimitadas de las órdenes de trabajo están disponibles desde Coder / Pro.")};
     document.querySelectorAll("#sopBody [data-photo-path]").forEach(async img=>{const z=await S.storage.from("service-order-photos").createSignedUrl(img.dataset.photoPath,3600);if(!z.error)img.src=z.data.signedUrl});
-    $("#sopUpload").onclick=async()=>{const files=[...($("#sopFiles").files||[])];if(!files.length)return toast("Selecciona al menos una foto","err");const btn=$("#sopUpload");btn.disabled=true;for(const file of files){const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,"_");const path=st.u.id+"/"+order.id+"/"+Date.now()+"_"+safe;const up=await S.storage.from("service-order-photos").upload(path,file,{upsert:false});if(up.error){btn.disabled=false;return toast(up.error.message,"err")}const ir=await S.from("marc_service_order_photos").insert({user_id:st.u.id,service_order_id:order.id,storage_path:path,photo_type:$("#sopType").value,caption:$("#sopCaption").value.trim()});if(ir.error){btn.disabled=false;return toast(ir.error.message,"err")}}toast("Fotos guardadas","ok");render()};
+    $("#sopUpload").onclick=async()=>{
+      const files=[...($("#sopFiles").files||[])];
+      if(!files.length)return toast("Selecciona al menos una foto","err");
+      if(free&&rows.length+files.length>2)return toast("El plan Gratis permite 2 fotografías por orden. Sube menos fotos o cambia de plan.","err");
+      const btn=$("#sopUpload");btn.disabled=true;
+      for(const file of files){
+        const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,"_");
+        const path=st.u.id+"/"+order.id+"/"+Date.now()+"_"+safe;
+        const up=await S.storage.from("service-order-photos").upload(path,file,{upsert:false});
+        if(up.error){btn.disabled=false;return toast(up.error.message,"err")}
+        const ir=await S.from("marc_service_order_photos").insert({user_id:st.u.id,service_order_id:order.id,storage_path:path,photo_type:$("#sopType").value,caption:$("#sopCaption").value.trim()});
+        if(ir.error){btn.disabled=false;return toast(ir.error.message,"err")}
+      }
+      toast("Fotos guardadas","ok");render();
+    };
   };
   render();
 }
@@ -1443,6 +1493,10 @@ async function defaultChecklistForService(type,title){
  ];
 }
 async function serviceOrderSignatureModal(order){
+ if(normalizePlan(st.planState?.code)==="free"){
+   openUpgradeModal("La firma digital del cliente está disponible desde Coder / Pro.");
+   return;
+ }
  const close=modal('<div class="modal-head"><div><div class="eyebrow2">FIRMA DEL CLIENTE</div><h2>'+esc(order.number||"Orden")+'</h2><p>Firma directamente en la pantalla del celular, tablet o computadora.</p></div><button class="close" id="sosClose">×</button></div><div id="sosBody"><label>Nombre del cliente o representante<input id="sosName" placeholder="Nombre completo"></label><label>Documento / referencia<input id="sosDoc" placeholder="Opcional"></label><label>Resultado<select id="sosResult"><option>CONFORME</option><option>CONFORME_CON_OBSERVACIONES</option><option>NO_CONFORME</option></select></label><label>Observaciones<textarea id="sosNotes" rows="3"></textarea></label><div style="border:1px solid var(--border,#ccc);border-radius:14px;padding:8px;background:#fff"><canvas id="sosCanvas" width="900" height="280" style="width:100%;height:auto;touch-action:none"></canvas></div><div class="modal-actions"><button class="secondary" id="sosClear">Limpiar firma</button><button class="secondary" id="sosCancel">Cancelar</button><button class="primary" id="sosSave">Firmar y entregar</button></div></div>');
  $("#sosClose").onclick=close;$("#sosCancel").onclick=close;
  const canvas=$("#sosCanvas"),ctx=canvas.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height);ctx.strokeStyle="#111";ctx.lineWidth=4;ctx.lineCap="round";let drawing=false,moved=false;

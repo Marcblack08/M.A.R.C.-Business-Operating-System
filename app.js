@@ -328,6 +328,7 @@ function ecosystemAllows(viewName){
     assets:["technician","mixed"],
     maintenance:["technician","mixed"],
     contracts:["technician","mixed"],
+    finances:["technician","mixed"],
     reports:["technician","business","mixed"],
     technical_reports:["technician","mixed"]
   };

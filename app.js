@@ -885,13 +885,13 @@ async function moduleLoad(type){
       const r=await S.from("marc_purchases").select("*").eq("user_id",st.u.id).order("created_at",{ascending:false}).limit(50);
       if(!r.error)rows=r.data||[];
     }else if(type==="receivables"){
-      const r=await S.from("marc_receivables").select("*").eq("user_id",st.u.id).order("due_date",{ascending:true}).limit(50);
+      const r=await S.from("marc_receivables").select("*").eq("user_id",st.u.id).order("due_at",{ascending:true}).limit(50);
       if(!r.error)rows=r.data||[];
     }else if(type==="assets"){
       const r=await S.from("marc_assets").select("*").eq("user_id",st.u.id).order("created_at",{ascending:false}).limit(50);
       if(!r.error)rows=r.data||[];
     }else if(type==="maintenance"){
-      const r=await S.from("marc_maintenance").select("*").eq("user_id",st.u.id).order("scheduled_at",{ascending:true}).limit(50);
+      const r=await S.from("marc_maintenance_occurrences").select("*,marc_maintenance_plans(title,service_type)").eq("user_id",st.u.id).order("scheduled_at",{ascending:true}).limit(50);
       if(!r.error)rows=r.data||[];
     }else if(type==="contracts"){
       const r=await S.from("marc_contracts").select("*").eq("user_id",st.u.id).order("ends_at",{ascending:true}).limit(50);

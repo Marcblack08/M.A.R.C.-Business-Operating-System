@@ -127,7 +127,7 @@ const MARC_PLANS={
   master:{code:"master",label:"MASTER",short:"SaaS",quotes:null,inventory:null,reports:null,ai:"Ilimitada",color:"amber"}
 };
 st.planState={code:"free",status:"trial",trialEndsAt:null,source:"fallback",updatedAt:0};
-st.planUsage={quotes:0,inventory:0,clients:0,updatedAt:0};
+st.planUsage={quotes:0,inventory:0,clients:0,reports:0,updatedAt:0};
 
 function normalizePlan(v){
   const p=String(v||"").trim().toLowerCase();
@@ -175,12 +175,13 @@ async function getPlanUsage(force=false){
   if(!force&&fresh)return st.planUsage;
   if(!st.u)return st.planUsage;
   try{
-    const [q,i,c]=await Promise.all([
+    const [q,i,c,r]=await Promise.all([
       S.from("marc_quotes").select("id",{count:"exact",head:true}).eq("user_id",st.u.id).is("deleted_at",null).gte("created_at",new Date(new Date().getFullYear(),new Date().getMonth(),1).toISOString()),
       S.from("marc_inventory").select("id",{count:"exact",head:true}).eq("user_id",st.u.id).eq("active",true),
-      S.from("marc_clients").select("id",{count:"exact",head:true}).eq("user_id",st.u.id)
+      S.from("marc_clients").select("id",{count:"exact",head:true}).eq("user_id",st.u.id),
+      S.from("technical_reports").select("id",{count:"exact",head:true}).eq("user_id",st.u.id).gte("created_at",new Date(new Date().getFullYear(),new Date().getMonth(),1).toISOString())
     ]);
-    st.planUsage={quotes:q.count||0,inventory:i.count||0,clients:c.count||0,updatedAt:Date.now()};
+    st.planUsage={quotes:q.count||0,inventory:i.count||0,clients:c.count||0,reports:r.count||0,updatedAt:Date.now()};
   }catch(e){console.warn("[M.A.R.C. plan] No se pudo consultar uso.",e)}
   return st.planUsage;
 }
@@ -200,10 +201,11 @@ function openUpgradeModal(feature=""){
     '</div>'
   );
   $("#planClose").onclick=close;
-  $(".marc-plan-card button").forEach(b=>b.onclick=()=>{
-    if(b.dataset.plan===current||b.dataset.plan==="free"){close();return}
+  $(".marc-plan-card button").forEach(b=>b.onclick=async()=>{
+    const target=b.dataset.plan;
+    if(target===current||target==="free"){close();return}
     close();
-    toast("Solicitud de "+planLabel(b.dataset.plan)+" registrada. M.A.R.C. MASTER puede activar el plan.","ok");
+    await requestPlanUpgrade(target,"Solicitud desde el centro de planes.");
   });
   return close;
 }
@@ -219,12 +221,27 @@ function openPlanCenter(){
         '<article class="marc-plan-card coder '+(current==="coder"?"current":"")+'"><span>CODER / PRO</span><b>Para trabajar profesionalmente</b><small>Marca propia · firma · fotos ilimitadas · historial técnico · IA avanzada.</small></article>'+
         '<article class="marc-plan-card premium '+(current==="premium"?"current":"")+'"><span>PREMIUM</span><b>Para empresas</b><small>Roles · cuadrillas · portal cliente · automatizaciones · API · auditoría.</small></article>'+
       '</div>'+
-      '<div class="marc-plan-usage"><div><span>COTIZACIONES ESTE MES</span><b>'+(st.planUsage?.quotes||0)+(MARC_PLANS[current]?.quotes===null?"":" / "+MARC_PLANS[current].quotes)+'</b></div><div><span>PRODUCTOS ACTIVOS</span><b>'+(st.planUsage?.inventory||0)+(MARC_PLANS[current]?.inventory===null?"":" / "+MARC_PLANS[current].inventory)+'</b></div><div><span>CLIENTES</span><b>'+(st.planUsage?.clients||0)+'</b></div></div>'+
+      '<div class="marc-plan-usage"><div><span>COTIZACIONES ESTE MES</span><b>'+(st.planUsage?.quotes||0)+(MARC_PLANS[current]?.quotes===null?"":" / "+MARC_PLANS[current].quotes)+'</b></div><div><span>PRODUCTOS ACTIVOS</span><b>'+(st.planUsage?.inventory||0)+(MARC_PLANS[current]?.inventory===null?"":" / "+MARC_PLANS[current].inventory)+'</b></div><div><span>INFORMES ESTE MES</span><b>'+(st.planUsage?.reports||0)+(MARC_PLANS[current]?.reports===null?"":" / "+MARC_PLANS[current].reports)+'</b></div></div>'+
     '</div>'
   );
   $("#planCenterClose").onclick=close;
   $("#planCenterUpgrade").onclick=()=>{close();openUpgradeModal()};
   return close;
+}
+async function requestPlanUpgrade(plan,message=""){
+  const target=normalizePlan(plan);
+  if(!["coder","premium"].includes(target))return false;
+  try{
+    const {data,error}=await S.rpc("marc_request_plan_upgrade",{p_plan:target,p_message:message||null});
+    if(error)throw error;
+    toast("Solicitud enviada a M.A.R.C. MASTER · "+planLabel(target),"ok");
+    return data||true;
+  }catch(e){
+    const raw=String(e?.message||"");
+    if(raw.includes("MARC_MASTER_NO_UPGRADE"))toast("La cuenta MASTER no necesita solicitar una mejora.","err");
+    else toast(raw||"No se pudo enviar la solicitud.","err");
+    return false;
+  }
 }
 async function requirePlan(feature,kind){
   const state=await getPlanState();
@@ -236,6 +253,10 @@ async function requirePlan(feature,kind){
   }
   if(kind==="inventory"&&usage.inventory>=MARC_PLANS.free.inventory){
     openUpgradeModal("Llegaste al límite de 20 productos activos.");
+    return false;
+  }
+  if(kind==="reports"&&usage.reports>=MARC_PLANS.free.reports){
+    openUpgradeModal("Llegaste al límite de 5 informes técnicos este mes.");
     return false;
   }
   return true;
@@ -2887,7 +2908,7 @@ function resizeLogo(file){
 async function saasAdmin(){
   if(!isMasterPlan()){toast("Área exclusiva de M.A.R.C. MASTER.","err");return view("home")}
   const c=$("#content");
-  c.innerHTML='<section class="saas-admin"><div class="saas-admin-hero"><div><div class="eyebrow2">CONTROL DEL SaaS</div><h1>Administración M.A.R.C.</h1><p>Usuarios, planes, acceso, uso y evolución comercial de la plataforma.</p></div><button id="saasRefresh" class="primary">↻ Actualizar</button></div><div id="saasMetrics" class="saas-metrics"></div><section class="saas-admin-panel"><div class="saas-panel-head"><div><span>CUENTAS</span><h2>Usuarios y suscripciones</h2></div><span class="saas-live">MASTER</span></div><div class="saas-user-scroll"><table class="data"><thead><tr><th>Usuario</th><th>Plan</th><th>Acceso</th><th>Uso</th><th>Alta</th><th></th></tr></thead><tbody id="saasUsers"><tr><td colspan="6" class="empty">Cargando administración…</td></tr></tbody></table></div></section></section>';
+  c.innerHTML='<section class="saas-admin"><div class="saas-admin-hero"><div><div class="eyebrow2">CONTROL DEL SaaS</div><h1>Administración M.A.R.C.</h1><p>Usuarios, planes, acceso, uso, solicitudes y evolución comercial.</p></div><button id="saasRefresh" class="primary">↻ Actualizar</button></div><div id="saasMetrics" class="saas-metrics"></div><section class="saas-admin-panel"><div class="saas-panel-head"><div><span>CUENTAS</span><h2>Usuarios y suscripciones</h2></div><span class="saas-live">MASTER</span></div><div class="saas-user-scroll"><table class="data"><thead><tr><th>Usuario</th><th>Plan</th><th>Acceso</th><th>Uso</th><th>Alta</th><th></th></tr></thead><tbody id="saasUsers"><tr><td colspan="6" class="empty">Cargando administración…</td></tr></tbody></table></div></section><section class="saas-admin-panel saas-requests-panel"><div class="saas-panel-head"><div><span>UPGRADES</span><h2>Solicitudes de plan</h2></div><span id="saasRequestCount" class="saas-live">0 pendientes</span></div><div id="saasRequests"><div class="empty">Cargando solicitudes…</div></div></section></section>';
   const draw=async()=>{
     const {data,error}=await S.rpc("marc_saas_admin_overview");
     if(error){toast(error.message||"No se pudo cargar el panel SaaS.","err");return}
@@ -2897,10 +2918,38 @@ async function saasAdmin(){
     const trial=rows.filter(r=>String(r.access_status||"").toLowerCase()==="trial").length;
     $("#saasMetrics").innerHTML='<article class="saas-metric blue"><b>'+rows.length+'</b><span>CUENTAS</span><small>Usuarios registrados</small></article><article class="saas-metric violet"><b>'+counts.coder+'</b><span>CODER / PRO</span><small>Profesionales</small></article><article class="saas-metric cyan"><b>'+counts.premium+'</b><span>PREMIUM</span><small>Empresas</small></article><article class="saas-metric amber"><b>'+trial+'</b><span>PRUEBAS</span><small>Acceso en trial</small></article>';
     $("#saasUsers").innerHTML=rows.map(r=>'<tr><td><b>'+esc(r.display_name||"Usuario")+'</b><small class="saas-email">'+esc(r.email||"")+'</small></td><td><span class="saas-plan-pill '+normalizePlan(r.plan)+'">'+esc(planLabel(r.plan))+'</span></td><td>'+esc(r.access_status||"—")+'</td><td>'+Number(r.quotes_this_month||0)+' cot. · '+Number(r.inventory_count||0)+' prod. · '+Number(r.clients_count||0)+' cli.</td><td>'+new Date(r.created_at).toLocaleDateString("es-PE")+'</td><td><button class="secondary saas-plan-edit" data-user="'+r.user_id+'" data-plan="'+normalizePlan(r.plan)+'">Cambiar plan</button></td></tr>').join("")||'<tr><td colspan="6" class="empty">No hay cuentas.</td></tr>';
-    $$(".saas-plan-edit").forEach(b=>b.onclick=()=>saasChangePlan(b.dataset.user,b.dataset.plan));
+    $(".saas-plan-edit").forEach(b=>b.onclick=()=>saasChangePlan(b.dataset.user,b.dataset.plan));
+    const {data:req,error:reqError}=await S.from("marc_plan_requests").select("id,user_id,requested_plan,status,message,created_at,reviewed_at").eq("status","pending").order("created_at",{ascending:false}).limit(100);
+    if(reqError)console.warn("[M.A.R.C. SaaS] No se pudieron cargar solicitudes.",reqError);
+    const pending=Array.isArray(req)?req:[];
+    $("#saasRequestCount").textContent=pending.length+" pendientes";
+    $("#saasRequests").innerHTML=pending.map(x=>'<div class="saas-request-row"><div><b>'+esc(x.requested_plan==="premium"?"Premium / Enterprise":"Coder / Pro")+'</b><small>'+esc(x.message||"Solicitud de mejora de plan")+' · '+new Date(x.created_at).toLocaleString("es-PE")+'</small></div><button class="primary saas-request-open" data-request="'+esc(x.id)+'">Revisar</button></div>').join("")||'<div class="empty">No hay solicitudes pendientes.</div>';
+    $(".saas-request-open").forEach(b=>b.onclick=async()=>saasReviewPlanRequest(b.dataset.request,pending));
   };
   $("#saasRefresh").onclick=draw;
   await draw();
+}
+async function saasReviewPlanRequest(id,rows){
+  const row=rows.find(x=>x.id===id);if(!row)return;
+  const target=normalizePlan(row.requested_plan);
+  const close=modal('<div class="modal-head"><div><div class="eyebrow2">SOLICITUD DE UPGRADE</div><h2>'+esc(planLabel(target))+'</h2><p>Revisa la solicitud antes de activar el plan.</p></div><button class="close" id="x">×</button></div><div class="saas-request-detail"><b>Mensaje</b><p>'+esc(row.message||"Sin mensaje adicional.")+'</p><small>Solicitada el '+new Date(row.created_at).toLocaleString("es-PE")+'</small></div><div class="modal-actions"><button type="button" class="secondary" id="reject">Rechazar</button><button type="button" class="primary" id="approve">Aprobar y activar</button></div>');
+  $("#x").onclick=close;
+  $("#reject").onclick=async()=>{
+    const b=$("#reject");b.disabled=true;
+    const {error}=await S.from("marc_plan_requests").update({status:"rejected",reviewed_at:new Date().toISOString(),reviewed_by:st.u.id}).eq("id",id);
+    if(error){toast(error.message||"No se pudo rechazar.","err");b.disabled=false;return}
+    close();toast("Solicitud rechazada","ok");saasAdmin();
+  };
+  $("#approve").onclick=async()=>{
+    const b=$("#approve");b.disabled=true;
+    try{
+      const {error}=await S.rpc("marc_saas_admin_set_plan",{p_user_id:row.user_id,p_plan:target,p_status:"active"});
+      if(error)throw error;
+      const {error:reqError}=await S.from("marc_plan_requests").update({status:"approved",reviewed_at:new Date().toISOString(),reviewed_by:st.u.id}).eq("id",id);
+      if(reqError)throw reqError;
+      close();toast("Plan activado · "+planLabel(target),"ok");saasAdmin();
+    }catch(e){toast(e.message||"No se pudo activar el plan.","err");b.disabled=false}
+  };
 }
 async function saasChangePlan(userId,current){
   const close=modal('<div class="modal-head"><div><div class="eyebrow2">MASTER</div><h2>Cambiar plan</h2><p>Este cambio afecta los límites y capacidades de la cuenta.</p></div><button class="close" id="x">×</button></div><div class="saas-change-grid">'+["free","coder","premium","master"].map(p=>'<button class="saas-change-option '+(p===current?"active":"")+'" data-plan="'+p+'"><b>'+planLabel(p)+'</b><small>'+({free:"5 cotizaciones/mes · 20 productos",coder:"Profesional sin límites operativos",premium:"Empresa multiusuario e integraciones",master:"Control total del SaaS"}[p])+'</small></button>').join("")+'</div>');

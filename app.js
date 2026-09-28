@@ -3810,6 +3810,27 @@ function wire(){
       : (raw||"No se pudo completar el acceso. Inténtalo nuevamente.");
     msg(friendly,"error");
   });
+
+  // Puente de autenticación resistente: intercepta los controles de acceso
+  // en fase capture para que ningún listener visual/genérico pueda bloquearlos.
+  // También evita depender exclusivamente de onclick/onsubmit asignados por módulos.
+  document.addEventListener("click",e=>{
+    const google=e.target?.closest?.("#googleLogin");
+    const login=e.target?.closest?.("#authSubmit");
+    if(!google&&!login)return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if(google){
+      void signInGoogle(e);
+      return;
+    }
+    const form=$("#authForm");
+    if(form)void submit(e);
+  },{capture:true});
+
+  window.MARC=window.MARC||{};
+  window.MARC.signInGoogle=signInGoogle;
+  window.MARC.submitLogin=submit;
 }
 // API pública mínima para módulos auxiliares (proveedores, notificaciones y herramientas visuales).
 // Mantiene el núcleo encapsulado y evita que cada módulo dependa de variables internas sueltas.

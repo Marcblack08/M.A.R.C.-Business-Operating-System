@@ -479,15 +479,21 @@ window.MARC=window.MARC||{};
 window.MARC.chooseEcosystem=chooseEcosystem;
 
 async function ensureEcosystem(){
+  // La cuenta MASTER trabaja siempre desde Mixto al iniciar sesión.
+  // Desde el distintivo superior puede cambiar entre Técnico, Tienda y Mixto
+  // sin cerrar sesión ni perder contexto.
+  if(isMasterAccount()){
+    applyEcosystemUI("mixed");
+    return true;
+  }
+
   const profile=st.u?.user_metadata||{};
   const configured=profile.marc_ecosystem_configured===true;
   const fromProfile=normalizeEcosystem(profile.marc_ecosystem);
   const saved=fromProfile||normalizeEcosystem(safeStorageGet(ECOSYSTEM_KEY));
 
-  // Las versiones anteriores guardaban "marc_ecosystem" sin una marca que
-  // distinguiera una configuración real de un valor heredado. Si la cuenta no
-  // tiene la nueva marca, mostramos una sola vez el selector para que pueda
-  // escoger Técnico, Tienda/Negocio o Mixto.
+  // Las cuentas normales conservan su espacio configurado. Si nunca se
+  // configuraron, mostramos el selector inicial.
   if(configured&&saved){
     applyEcosystemUI(saved);
     return true;
@@ -3960,7 +3966,14 @@ function wire(){
   $("#passwordToggle").onclick=()=>{const i=$("#password"),b=$("#passwordToggle");if(!i)return;i.type=i.type==="password"?"text":"password";b.textContent=i.type==="password"?"◉":"◎"};
   $("#signupMode").onclick=()=>{mode(authMode==="signup"?"login":"signup");$("#signupMode").textContent=authMode==="signup"?"Volver a iniciar sesión":"Crear cuenta";$("#authForm")?.reset()};
   $("#forgotPassword").onclick=()=>{mode("reset");$("#signupMode").textContent="Volver a iniciar sesión"};
-  $("#logout").onclick=async()=>{resetUiToLogin();await S.auth.signOut();};
+  $("#logout").onclick=async()=>{
+    // Limpiar solo la preferencia local de ecosistema al salir.
+    // La configuración persistida de cada cuenta permanece intacta.
+    try{localStorage.removeItem(ECOSYSTEM_KEY)}catch{}
+    try{sessionStorage.removeItem("marc_google_oauth_pending")}catch{}
+    resetUiToLogin();
+    await S.auth.signOut();
+  };
   const planBox=$(".trial"); if(planBox){planBox.style.cursor="pointer";planBox.title="Ver planes y capacidades";planBox.onclick=()=>openUpgradeModal();}
   $("#askTop").onclick=openChat;
   $("#closeChat").onclick=closeChat;

@@ -83,7 +83,7 @@
   };
   function moduleGroup(view){return groupMap[ecosystem()]?.[view]||"Módulos";}
   function moduleCard(m){
-    return '<button type="button" class="marc-module-card '+m.tone+(m.paid?' paid-feature':'')+'" data-marc-module="'+m.view+'">'+(m.paid?'<span class="mm-paid-badge" aria-label="Función de pago">♛ PAGO</span>':'')+'<span class="mm-icon">'+m.icon+'</span><b>'+m.title+'</b><small>'+m.desc+'</small></button>';
+    return '<button type="button" class="marc-module-card '+m.tone+(m.paid?' paid-feature':'')+'" data-marc-module="'+m.view+'">'+(m.paid?'<span class="mm-paid-badge" aria-label="Función de pago">👑 PAGO</span>':'')+'<span class="mm-icon">'+m.icon+'</span><b>'+m.title+'</b><small>'+m.desc+'</small></button>';
   }
   function groupedModulesMarkup(){
     const groups=[];

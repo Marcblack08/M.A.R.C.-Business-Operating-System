@@ -4042,3 +4042,70 @@ html[data-ecosystem="technician"] .marc-module-panel{border-color:#c8e1e8}
   .marc-home-launcher-grid{grid-template-columns:1fr 1fr}
   .marc-module-card{min-height:96px}
 }
+
+
+/* ===== TECHNICIAN HOME: NO DUPLICATED MODULE CATALOG ===== */
+#app.marc-immersive .tech-home-summary{
+  max-width:1200px!important;
+  margin:18px auto 0!important;
+}
+#app.marc-immersive .tech-home-summary .tech-home-hero{
+  margin-top:0!important;
+}
+#app.marc-immersive .tech-summary-grid{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:12px!important;
+  margin-top:16px!important;
+}
+#app.marc-immersive .tech-summary-grid article{
+  position:relative!important;
+  min-height:145px!important;
+  padding:18px!important;
+  border:1px solid rgba(65,173,220,.16)!important;
+  border-radius:18px!important;
+  background:linear-gradient(145deg,#0b2338,#091b2d)!important;
+  box-shadow:0 12px 30px rgba(0,0,0,.14)!important;
+}
+#app.marc-immersive .tech-summary-grid article>span{
+  display:block!important;
+  color:#6e9ab3!important;
+  font-size:8px!important;
+  font-weight:900!important;
+  letter-spacing:.12em!important;
+}
+#app.marc-immersive .tech-summary-grid article>strong{
+  display:block!important;
+  margin:9px 0 4px!important;
+  color:#f3fbff!important;
+  font-size:27px!important;
+}
+#app.marc-immersive .tech-summary-grid article>small{
+  display:block!important;
+  min-height:30px!important;
+  color:#7899ac!important;
+  font-size:9px!important;
+  line-height:1.4!important;
+}
+#app.marc-immersive .tech-summary-grid article>button{
+  margin-top:10px!important;
+  padding:0!important;
+  border:0!important;
+  background:none!important;
+  color:#38b9ed!important;
+  font-size:9px!important;
+  font-weight:800!important;
+  cursor:pointer!important;
+}
+html[data-ecosystem="technician"] #app.marc-immersive .tech-summary-grid article:nth-child(1){border-color:rgba(43,197,238,.22)!important}
+html[data-ecosystem="technician"] #app.marc-immersive .tech-summary-grid article:nth-child(2){border-color:rgba(29,204,174,.20)!important}
+html[data-ecosystem="technician"] #app.marc-immersive .tech-summary-grid article:nth-child(3){border-color:rgba(74,144,226,.20)!important}
+html[data-ecosystem="technician"] #app.marc-immersive .tech-summary-grid article:nth-child(4){border-color:rgba(245,166,35,.20)!important}
+@media(max-width:900px){
+  #app.marc-immersive .tech-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+@media(max-width:620px){
+  #app.marc-immersive .tech-summary-grid{grid-template-columns:1fr!important;gap:9px!important}
+  #app.marc-immersive .tech-summary-grid article{min-height:120px!important;padding:14px!important}
+  #app.marc-immersive .tech-summary-grid article>strong{font-size:23px!important}
+}

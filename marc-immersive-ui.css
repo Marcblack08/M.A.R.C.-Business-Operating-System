@@ -937,3 +937,65 @@ html[data-ecosystem="mixed"] #app.marc-immersive .marc-module-group-head i{color
     gap:8px!important;
   }
 }
+
+
+/* ===== FINAL MOBILE HEADER NORMALIZATION — 2026-09-28 ===== */
+@media (max-width:900px){
+  #app.marc-immersive .top{
+    overflow:hidden!important;
+    box-sizing:border-box!important;
+  }
+  #app.marc-immersive .marc-immersive-controls{
+    grid-template-columns:42px 42px 42px minmax(0,1fr)!important;
+    gap:5px!important;
+    width:100%!important;
+  }
+  #app.marc-immersive .marc-immersive-back,
+  #app.marc-immersive .marc-immersive-home,
+  #app.marc-immersive .marc-immersive-modules{
+    width:42px!important;
+    min-width:42px!important;
+    max-width:42px!important;
+    height:42px!important;
+    min-height:42px!important;
+    max-height:42px!important;
+    border-radius:12px!important;
+    font-size:18px!important;
+  }
+  #app.marc-immersive .marc-immersive-title{
+    grid-template-columns:34px minmax(0,1fr)!important;
+    gap:6px!important;
+    padding:0 2px!important;
+  }
+  #app.marc-immersive .marc-immersive-title .mit-icon{
+    width:34px!important;
+    min-width:34px!important;
+    height:34px!important;
+    border-radius:10px!important;
+    font-size:15px!important;
+  }
+  #app.marc-immersive .marc-immersive-title b{
+    font-size:11px!important;
+    line-height:1.1!important;
+  }
+  #app.marc-immersive .marc-immersive-title small{
+    font-size:6px!important;
+    line-height:1.1!important;
+  }
+}
+@media (max-width:390px){
+  #app.marc-immersive .marc-immersive-controls{
+    grid-template-columns:39px 39px 39px minmax(0,1fr)!important;
+    gap:4px!important;
+  }
+  #app.marc-immersive .marc-immersive-back,
+  #app.marc-immersive .marc-immersive-home,
+  #app.marc-immersive .marc-immersive-modules{
+    width:39px!important;
+    min-width:39px!important;
+    max-width:39px!important;
+    height:39px!important;
+    min-height:39px!important;
+    max-height:39px!important;
+  }
+}

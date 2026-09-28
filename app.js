@@ -1,4 +1,4 @@
-(()=>{const C=window.MARC_CONFIG,AUTH_STORAGE=window.MARC_AUTH_STORAGE||undefined,S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"pkce",storage:AUTH_STORAGE}});const st={u:null,session:null,view:"home",cid:null,authEpoch:0};let authListenerSession=null,authTimer=null,authEnteredSessionId=null;S.auth.onAuthStateChange((ev,s)=>{
+(()=>{const C=window.MARC_CONFIG,AUTH_STORAGE=window.MARC_AUTH_STORAGE||undefined,S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"implicit",storage:AUTH_STORAGE}});const st={u:null,session:null,view:"home",cid:null,authEpoch:0};let authListenerSession=null,authTimer=null,authEnteredSessionId=null;S.auth.onAuthStateChange((ev,s)=>{
   authListenerSession=s||null;
   console.info("[M.A.R.C. auth]",ev,!!s,s?.user?.id||"");
   try{
@@ -13,9 +13,13 @@
     clearTimeout(authTimer);
     authTimer=setTimeout(()=>handleAuthSession(s),0);
   }else if(ev==="SIGNED_OUT"){
-    // No devolver la interfaz al login hasta comprobar que la sesión realmente
-    // desapareció. En retornos OAuth móviles puede existir una condición de
-    // carrera entre el almacenamiento de Supabase y el evento de estado.
+    // Mientras un OAuth está pendiente, un SIGNED_OUT temprano no representa
+    // necesariamente un cierre real. El callback todavía puede estar creando
+    // y persistiendo la sesión; nunca expulsamos al usuario al login en esa fase.
+    if(sessionStorage.getItem("marc_google_oauth_pending")==="1"){
+      console.warn("[M.A.R.C. auth] SIGNED_OUT ignorado durante retorno OAuth.");
+      return;
+    }
     clearTimeout(authTimer);
     authTimer=setTimeout(async()=>{
       try{
@@ -4153,7 +4157,7 @@ function wire(){
     // createClient() ya inicializa Supabase automáticamente. No llamamos
     // initialize() manualmente aquí porque eso puede duplicar/racear la
     // detección del retorno OAuth en una SPA.
-    console.info("[M.A.R.C. auth] Esperando la inicialización automática de Supabase.",{storage:AUTH_STORAGE?"custom":"default",flow:"pkce"});
+    console.info("[M.A.R.C. auth] Esperando la inicialización automática de Supabase.",{storage:AUTH_STORAGE?"custom":"default",flow:"implicit"});
     const {search,hash}=authCallbackParams();
     const oauthPending=sessionStorage.getItem("marc_google_oauth_pending")==="1";
     const oauthDiagnostics={
@@ -4177,6 +4181,23 @@ function wire(){
       sessionStorage.removeItem("marc_google_oauth_pending");
       throw Object.assign(new Error(decodeURIComponent(String(error).replace(/\\+/g," "))),{code:search.get("error_code")||hash.get("error_code")||"OAUTH_CALLBACK_ERROR"});
     }
+    // Respaldo explícito para navegadores móviles: si Supabase detectó el
+    // retorno pero todavía no persistió el fragmento OAuth, reconstruimos la
+    // sesión directamente con los tokens recibidos. No registramos los tokens.
+    const accessToken=hash.get("access_token");
+    const refreshToken=hash.get("refresh_token");
+    if(accessToken&&refreshToken){
+      const restored=await S.auth.setSession({access_token:accessToken,refresh_token:refreshToken});
+      if(restored.error)throw restored.error;
+      if(restored.data?.session?.user){
+        sessionStorage.removeItem("marc_google_oauth_pending");
+        cleanAuthUrl();
+        msg("Sesión de Google recuperada. Abriendo M.A.R.C.…");
+        await handleAuthSession(restored.data.session);
+        return;
+      }
+    }
+
     const current=await S.auth.getSession();
     if(current.error)throw current.error;
     if(current.data?.session?.user){

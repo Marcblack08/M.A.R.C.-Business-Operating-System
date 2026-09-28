@@ -2502,57 +2502,57 @@ async function quotes(){
   const {data,error}=await S.from("marc_quotes").select("*,marc_clients(name)").eq("user_id",st.u.id).is("deleted_at",null).order("created_at",{ascending:false});
   if(error)return toast(error.message,"err");
   const rows=data||[],c=$("#content");
-  c.innerHTML=`<div class="head"><div><div class="eyebrow2">COTIZACIONES</div><h1>Convierte una orden en propuesta.</h1><p>Productos del inventario y trabajos escritos o dictados.</p></div><div style="display:flex;gap:7px;flex-wrap:wrap"><button id="aiNew" class="secondary">✦ Crear con IA</button><button id="new" class="primary">＋ Nueva cotización</button></div></div>
-  <section class="card table quotes-browser"><div class="toolbar"><div class="search"><input id="search" placeholder="Buscar número, cliente o título…"></div><select id="statusFilter" class="secondary" style="min-width:130px"><option value="">Todos</option><option>BORRADOR</option><option>ENVIADA</option><option>ACEPTADA</option><option>RECHAZADA</option><option>ANULADA</option><option>COBRADA</option></select><button id="ask" class="secondary">Preguntar</button></div><div class="scroll quotes-desktop"><table class="data"><thead><tr><th>Número</th><th>Cliente</th><th>Título</th><th>Estado</th><th>Total</th><th>Fecha</th><th></th></tr></thead><tbody id="qrows"></tbody></table></div><div id="qcards" class="quote-cards"></div></section>`;
-
-  const body=$("#qrows");
+  const statuses=["BORRADOR","ENVIADA","ACEPTADA","RECHAZADA","ANULADA","COBRADA"];
+  const counts=Object.fromEntries(statuses.map(x=>[x,rows.filter(r=>r.status===x).length]));
+  const total=rows.filter(r=>!["ANULADA","RECHAZADA"].includes(String(r.status||"").toUpperCase())).reduce((n,r)=>n+Number(r.total||0),0);
+  c.innerHTML='<section class="quotes-app">'+
+    '<div class="quotes-app-hero"><div><div class="eyebrow2">APLICACIÓN · PROPUESTAS</div><h1>Cotizaciones</h1><p>Crea, envía, controla y convierte tus propuestas en trabajos.</p></div><div class="quotes-hero-actions"><button id="aiNew" class="secondary">✦ Crear con IA</button><button id="new" class="primary">＋ Nueva cotización</button></div></div>'+
+    '<div class="quotes-status-grid">'+
+      '<button class="quote-status-tile draft" data-quote-filter="BORRADOR"><strong>'+counts.BORRADOR+'</strong><span>Borradores</span><small>En preparación</small></button>'+
+      '<button class="quote-status-tile sent" data-quote-filter="ENVIADA"><strong>'+counts.ENVIADA+'</strong><span>Enviadas</span><small>Esperando respuesta</small></button>'+
+      '<button class="quote-status-tile accepted" data-quote-filter="ACEPTADA"><strong>'+counts.ACEPTADA+'</strong><span>Aceptadas</span><small>Oportunidades aprobadas</small></button>'+
+      '<button class="quote-status-tile paid" data-quote-filter="COBRADA"><strong>'+counts.COBRADA+'</strong><span>Cobradas</span><small>Ingresos confirmados</small></button>'+
+    '</div>'+
+    '<div class="quotes-total-bar"><div><span>VALOR DE COTIZACIONES</span><strong>'+money(total)+'</strong><small>Excluye anuladas y rechazadas</small></div><div class="quotes-total-icon">▤</div></div>'+
+    '<section class="quotes-browser card"><div class="quotes-toolbar"><div class="quotes-search"><span>⌕</span><input id="search" placeholder="Buscar número, cliente o título…"></div><button id="clearQuoteFilter" class="secondary">Todas</button><button id="ask" class="secondary">✦ M.A.R.C.</button></div>'+
+    '<div class="quotes-desktop scroll"><table class="data"><thead><tr><th>Número</th><th>Cliente</th><th>Título</th><th>Estado</th><th>Total</th><th>Fecha</th><th></th></tr></thead><tbody id="qrows"></tbody></table></div>'+
+    '<div id="qcards" class="quote-cards"></div></section>'+
+    '</section>';
+  const body=$("#qrows"),cards=$("#qcards");
+  let activeFilter="";
   const draw=()=>{
-    const q=($("#search").value||"").toLowerCase(),sf=$("#statusFilter").value;
-    const list=rows.filter(x=>(!sf||x.status===sf)&&[x.number,x.title,x.marc_clients?.name].some(v=>String(v||"").toLowerCase().includes(q)));
-    body.innerHTML=list.map(x=>`<tr><td><b>${esc(x.number)}</b></td><td>${esc(x.marc_clients?.name||"Sin cliente")}</td><td>${esc(x.title)}</td><td><span class="badge">${esc(x.status)}</span></td><td><b>${money(x.total)}</b></td><td>${new Date(x.created_at).toLocaleDateString("es-PE")}</td><td style="display:flex;gap:5px"><button type="button" class="secondary" data-action="open-quote" data-id="${x.id}">Abrir</button><button type="button" class="secondary" data-action="pdf-quote" data-id="${x.id}">PDF</button><button type="button" class="danger" data-action="delete-quote" data-id="${x.id}">Eliminar</button></td></tr>`).join("")||'<tr><td colspan="7" class="empty">No hay cotizaciones que coincidan.</td></tr>';
-    const cards=$("#qcards");
-    cards.innerHTML=list.map(x=>`<article class="quote-card"><div class="quote-card-top"><div><span class="quote-number">${esc(x.number)}</span><span class="badge">${esc(x.status)}</span></div><strong>${money(x.total)}</strong></div><h3>${esc(x.title||"Sin título")}</h3><p><b>Cliente:</b> ${esc(x.marc_clients?.name||"Sin cliente")}</p><small>${new Date(x.created_at).toLocaleDateString("es-PE",{day:"2-digit",month:"short",year:"numeric"})}</small><div class="quote-card-actions"><button type="button" class="primary" data-action="open-quote" data-id="${x.id}">Abrir</button><button type="button" class="secondary" data-action="pdf-quote" data-id="${x.id}">PDF</button><button type="button" class="danger" data-action="delete-quote" data-id="${x.id}">Eliminar</button></div></article>`).join("")||'<div class="empty">No hay cotizaciones que coincidan.</div>'
+    const q=($("#search").value||"").toLowerCase();
+    const list=rows.filter(x=>(!activeFilter||x.status===activeFilter)&&[x.number,x.title,x.marc_clients?.name].some(v=>String(v||"").toLowerCase().includes(q)));
+    body.innerHTML=list.map(x=>'<tr><td><b>'+esc(x.number)+'</b></td><td>'+esc(x.marc_clients?.name||"Sin cliente")+'</td><td>'+esc(x.title)+'</td><td><span class="badge">'+esc(x.status)+'</span></td><td><b>'+money(x.total)+'</b></td><td>'+new Date(x.created_at).toLocaleDateString("es-PE")+'</td><td><button type="button" class="secondary" data-action="open-quote" data-id="'+x.id+'">Abrir</button> <button type="button" class="secondary" data-action="pdf-quote" data-id="'+x.id+'">PDF</button> <button type="button" class="danger" data-action="delete-quote" data-id="'+x.id+'">Eliminar</button></td></tr>').join("")||'<tr><td colspan="7" class="empty">No hay cotizaciones que coincidan.</td></tr>';
+    cards.innerHTML=list.map(x=>'<article class="quote-app-card"><div class="quote-app-card-top"><div><span class="quote-number">'+esc(x.number)+'</span><span class="quote-app-status '+String(x.status||"").toLowerCase()+'">'+esc(x.status)+'</span></div><strong>'+money(x.total)+'</strong></div><h3>'+esc(x.title||"Sin título")+'</h3><p>👤 '+esc(x.marc_clients?.name||"Sin cliente")+'</p><small>📅 '+new Date(x.created_at).toLocaleDateString("es-PE",{day:"2-digit",month:"short",year:"numeric"})+'</small><div class="quote-card-actions"><button type="button" class="primary" data-action="open-quote" data-id="'+x.id+'">Abrir</button><button type="button" class="secondary" data-action="pdf-quote" data-id="'+x.id+'">PDF</button><button type="button" class="danger" data-action="delete-quote" data-id="'+x.id+'">Eliminar</button></div></article>').join("")||'<div class="quote-app-empty"><span>📋</span><b>No hay cotizaciones aquí</b><small>Crea una nueva propuesta para comenzar.</small></div>';
+    c.querySelectorAll("[data-quote-filter]").forEach(b=>b.classList.toggle("active",b.dataset.quoteFilter===activeFilter));
   };
-
-  $("#qcards").onclick=async e=>{const b=e.target.closest("button[data-action]");if(!b)return;const id=b.dataset.id;try{const row=rows.find(x=>x.id===id);if(!row)return;if(b.dataset.action==="open-quote")await quoteModal(row);else if(b.dataset.action==="pdf-quote"){b.disabled=true;await downloadQuotePdf(id)}else if(b.dataset.action==="delete-quote"){if(row.status==="COBRADA")return toast("Una cotización cobrada no puede eliminarse. Usa ANULADA.","err");if(!confirm("¿Eliminar la cotización "+row.number+"?\n\nDesaparecerá del listado, pero se conservará el historial."))return;b.disabled=true;const result=await S.from("marc_quotes").update({deleted_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq("id",id).eq("user_id",st.u.id);if(result.error)throw result.error;toast("Cotización eliminada","ok");await quotes()}}catch(err){toast(err?.message||"No se pudo completar la acción.","err")}finally{b.disabled=false}};
-  body.onclick=async e=>{
-    const b=e.target.closest("button[data-action]");
-    if(!b)return;
+  const handle=async e=>{
+    const b=e.target.closest("button[data-action]");if(!b)return;
     const id=b.dataset.id;
     try{
-      if(b.dataset.action==="open-quote"){
-        const row=rows.find(x=>x.id===id);
-        if(!row)return toast("No se encontró la cotización.","err");
-        await quoteModal(row);
-      }else if(b.dataset.action==="pdf-quote"){
-        b.disabled=true;
-        await downloadQuotePdf(id);
-      }else if(b.dataset.action==="delete-quote"){
-        const row=rows.find(x=>x.id===id);
-        if(!row)return;
+      const row=rows.find(x=>x.id===id);if(!row)return;
+      if(b.dataset.action==="open-quote")await quoteModal(row);
+      else if(b.dataset.action==="pdf-quote"){b.disabled=true;await downloadQuotePdf(id)}
+      else if(b.dataset.action==="delete-quote"){
         if(row.status==="COBRADA")return toast("Una cotización cobrada no puede eliminarse. Usa ANULADA.","err");
-        if(!confirm("¿Eliminar la cotización "+row.number+"?\n\nDesaparecerá del listado, pero se conservará el historial."))return;
+        if(!confirm("¿Eliminar la cotización "+row.number+"?\\n\\nDesaparecerá del listado, pero se conservará el historial."))return;
         b.disabled=true;
         const result=await S.from("marc_quotes").update({deleted_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq("id",id).eq("user_id",st.u.id);
         if(result.error)throw result.error;
-        toast("Cotización eliminada","ok");
-        await quotes();
+        toast("Cotización eliminada","ok");await quotes();
       }
-    }catch(err){
-      toast(err?.message||"No se pudo completar la acción.","err");
-    }finally{
-      b.disabled=false;
-    }
+    }catch(err){toast(err?.message||"No se pudo completar la acción.","err")}finally{b.disabled=false}
   };
-
+  body.onclick=handle;cards.onclick=handle;
   $("#new").onclick=()=>quoteModal();
   $("#aiNew").onclick=()=>aiQuoteModal();
   $("#ask").onclick=openChat;
   $("#search").oninput=draw;
-  $("#statusFilter").onchange=draw;
+  $("#clearQuoteFilter").onclick=()=>{activeFilter="";draw()};
+  c.querySelectorAll("[data-quote-filter]").forEach(b=>b.onclick=()=>{activeFilter=b.dataset.quoteFilter;draw()});
   draw();
 }
-
 async function telegramStatus(){
   try{
     const r=await fetch("/api/telegram/status",{headers:{Authorization:"Bearer "+st.session?.access_token}});

@@ -950,8 +950,8 @@ async function view(x){
     $$(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x));
     if(x==="home")return currentEcosystem()==="technician"?technicianDashboard():home();if(x==="clients")return clients();if(x==="inventory")return inventory();
     if(x==="suppliers"){if(window.marcSupplierCenter)return window.marcSupplierCenter();return toast("No se pudo cargar el Centro de Proveedores. Recarga la aplicación.","err");}
-    if(x==="quotes")return quotes();if(x==="saas_admin")return saasAdmin();if(x==="service_orders")return serviceOrders();if(x==="agenda")return agenda();if(x==="finances")return finances();if(x==="cash")return cash();if(x==="assets")return assets();if(x==="contracts")return contracts();if(x==="technical_reports")return technicalReports();
-    if(["sales","purchases","receivables","reports"].includes(x))return moduleHub(x);if(x==="maintenance")return maintenance();
+    if(x==="quotes")return quotes();if(x==="saas_admin")return saasAdmin();if(x==="service_orders")return serviceOrders();if(x==="agenda")return agenda();if(x==="finances")return finances();if(x==="cash")return cash();if(x==="sales")return sales();if(x==="assets")return assets();if(x==="contracts")return contracts();if(x==="maintenance")return maintenance();if(x==="technical_reports")return technicalReports();
+    if(["purchases","receivables","reports"].includes(x))return moduleHub(x);
     return settings();
   };
   __viewBusy=true;

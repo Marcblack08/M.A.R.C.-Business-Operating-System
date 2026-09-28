@@ -63,8 +63,37 @@
     if(b&&!b.hidden){b.click();return true}
     return false;
   }
+  const groupMap={
+    technician:{
+      service_orders:"Operación técnica",agenda:"Operación técnica",maintenance:"Operación técnica",assets:"Operación técnica",
+      clients:"Gestión de clientes",inventory:"Materiales y recursos",quotes:"Gestión comercial",contracts:"Gestión comercial",
+      finances:"Control y rentabilidad",reports:"Control y rentabilidad",settings:"Sistema"
+    },
+    business:{
+      cash:"Ventas y caja",sales:"Ventas y caja",quotes:"Ventas y caja",clients:"Ventas y caja",
+      inventory:"Inventario y abastecimiento",suppliers:"Inventario y abastecimiento",purchases:"Inventario y abastecimiento",
+      receivables:"Administración",reports:"Administración",settings:"Sistema"
+    },
+    mixed:{
+      cash:"Comercio",sales:"Comercio",quotes:"Comercio",clients:"Relación con clientes",receivables:"Comercio",
+      service_orders:"Servicios",agenda:"Servicios",assets:"Servicios",maintenance:"Servicios",contracts:"Servicios",
+      inventory:"Recursos",suppliers:"Recursos",purchases:"Recursos",finances:"Control empresarial",reports:"Control empresarial",
+      settings:"Sistema"
+    }
+  };
+  function moduleGroup(view){return groupMap[ecosystem()]?.[view]||"Módulos";}
   function moduleCard(m){
     return '<button type="button" class="marc-module-card '+m.tone+'" data-marc-module="'+m.view+'"><span class="mm-icon">'+m.icon+'</span><b>'+m.title+'</b><small>'+m.desc+'</small></button>';
+  }
+  function groupedModulesMarkup(){
+    const groups=[];
+    modules().forEach(m=>{
+      const g=moduleGroup(m.view);
+      let bucket=groups.find(x=>x.name===g);
+      if(!bucket){bucket={name:g,items:[]};groups.push(bucket)}
+      bucket.items.push(m);
+    });
+    return groups.map(g=>'<section class="marc-module-group" data-module-group="'+g.name+'"><div class="marc-module-group-head"><span></span><b>'+g.name+'</b><i>'+g.items.length+' módulos</i></div><div class="marc-module-grid">'+g.items.map(moduleCard).join("")+'</div></section>').join("");
   }
   function buildOverlay(){
     if(!$("#app"))return;
@@ -81,7 +110,7 @@
       });
     }
     const m=meta[ecosystem()];
-    el.innerHTML='<section class="marc-module-panel" role="dialog" aria-modal="true" aria-labelledby="marcModuleTitle"><div class="marc-module-head"><div><span class="marc-module-kicker">'+m.short+' · ESPACIO DE TRABAJO</span><h2 id="marcModuleTitle">'+m.name+'</h2><p>'+m.desc+'</p></div><button type="button" class="marc-module-close" id="marcModuleClose" aria-label="Cerrar módulos">×</button></div><div class="marc-module-grid">'+modules().map(moduleCard).join("")+'</div><div class="marc-module-session"><button type="button" id="marcImmersiveLogout" class="marc-session-exit">↪ Cerrar sesión</button></div></section>';
+    el.innerHTML='<section class="marc-module-panel" role="dialog" aria-modal="true" aria-labelledby="marcModuleTitle"><div class="marc-module-head"><div><span class="marc-module-kicker">'+m.short+' · ESPACIO DE TRABAJO</span><h2 id="marcModuleTitle">'+m.name+'</h2><p>'+m.desc+'</p></div><button type="button" class="marc-module-close" id="marcModuleClose" aria-label="Cerrar módulos">×</button></div><div class="marc-module-groups">'+groupedModulesMarkup()+'</div><div class="marc-module-session"><button type="button" id="marcImmersiveLogout" class="marc-session-exit">↪ Cerrar sesión</button></div></section>';
   }
   function openModules(){buildOverlay();$("#marcModuleOverlay")?.classList.add("open")}
   function closeModules(){$("#marcModuleOverlay")?.classList.remove("open")}
@@ -103,7 +132,7 @@
     const old=shell.querySelector(".marc-home-launcher");if(old)old.remove();
     const box=document.createElement("section");box.className="marc-home-launcher";
     const m=meta[ecosystem()];
-    box.innerHTML='<div class="marc-home-launcher-head"><div><span class="marc-module-kicker">'+m.short+' · M.A.R.C.</span><h2>'+ (ecosystem()==="mixed"?"Centro premium de herramientas":"Herramientas de "+(ecosystem()==="business"?"tienda":"trabajo técnico")) +'</h2><p>'+m.desc+'</p></div></div><div class="marc-home-launcher-grid">'+modules().map(moduleCard).join("")+'</div>';
+    box.innerHTML='<div class="marc-home-launcher-head"><div><span class="marc-module-kicker">'+m.short+' · M.A.R.C.</span><h2>'+ (ecosystem()==="mixed"?"Centro premium de herramientas":"Herramientas de "+(ecosystem()==="business"?"tienda":"trabajo técnico")) +'</h2><p>'+m.desc+'</p></div></div><div class="marc-home-launcher-groups">'+groupedModulesMarkup()+'</div>';
     shell.insertBefore(box,shell.firstChild);
     box.addEventListener("click",e=>{const b=e.target.closest("[data-marc-module]");if(b)clickView(b.dataset.marcModule)});
     homeLauncherReady=true;

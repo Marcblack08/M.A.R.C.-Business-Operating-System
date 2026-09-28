@@ -878,33 +878,22 @@ async function moduleLoad(type){
   const box=$("#moduleRows"); if(!box||!st.u?.id)return;
   try{
     let rows=[];
-    if(type==="sales"){
-      const r=await S.from("marc_sales").select("*").eq("user_id",st.u.id).order("created_at",{ascending:false}).limit(50);
-      if(!r.error)rows=r.data||[];
-    }else if(type==="purchases"){
-      const r=await S.from("marc_purchases").select("*").eq("user_id",st.u.id).order("created_at",{ascending:false}).limit(50);
-      if(!r.error)rows=r.data||[];
+    if(type==="purchases"){
+      const r=await S.from("marc_purchases").select("*").eq("user_id",st.u.id).order("created_at",{ascending:false}).limit(100);
+      if(r.error)throw r.error; rows=r.data||[];
     }else if(type==="receivables"){
-      const r=await S.from("marc_receivables").select("*").eq("user_id",st.u.id).order("due_at",{ascending:true}).limit(50);
-      if(!r.error)rows=r.data||[];
-    }else if(type==="assets"){
-      const r=await S.from("marc_assets").select("*").eq("user_id",st.u.id).order("created_at",{ascending:false}).limit(50);
-      if(!r.error)rows=r.data||[];
-    }else if(type==="maintenance"){
-      const r=await S.from("marc_maintenance_occurrences").select("*,marc_maintenance_plans(title,service_type)").eq("user_id",st.u.id).order("scheduled_at",{ascending:true}).limit(50);
-      if(!r.error)rows=r.data||[];
-    }else if(type==="contracts"){
-      const r=await S.from("marc_contracts").select("*").eq("user_id",st.u.id).order("ends_at",{ascending:true}).limit(50);
-      if(!r.error)rows=r.data||[];
+      const r=await S.from("marc_receivables").select("*").eq("user_id",st.u.id).order("due_at",{ascending:true}).limit(100);
+      if(r.error)throw r.error; rows=r.data||[];
     }else return;
-    if(!rows.length)return;
-    box.innerHTML=rows.map((r,i)=>{
-      const label=r.title||r.name||r.description||r.number||("Registro "+(i+1));
-      const amount=r.total??r.amount??r.balance??r.price;
-      const stt=String(r.status||"ACTIVO").toUpperCase();
-      return '<div class="module-row" data-status="'+esc(stt)+'"><div><b>'+esc(label)+'</b><small>'+esc(r.customer_name||r.client_name||r.supplier_name||r.notes||"Registro operativo")+'</small></div><span>'+esc(stt)+'</span>'+(amount!=null?'<strong>'+money(amount)+'</strong>':"")+'</div>';
-    }).join("");
-  }catch(e){console.warn("[M.A.R.C. moduleLoad]",type,e)}
+    if(!rows.length){box.innerHTML='<div class="module-empty"><b>No hay registros todavía</b><small>Usa “Nueva operación” para comenzar.</small></div>';return}
+    if(type==="purchases"){
+      box.innerHTML=rows.map(r=>'<div class="module-row" data-status="'+esc(String(r.status||"").toUpperCase())+'"><div><b>'+esc(r.reference||r.number||"Compra")+'</b><small>'+esc(r.supplier_name||r.notes||"Sin proveedor")+'</small></div><span>'+esc(r.status||"REGISTRADA")+'</span><strong>'+money(r.total||0)+'</strong><button class="secondary" type="button" data-purchase-edit="'+r.id+'">Editar</button></div>').join("");
+      box.querySelectorAll("[data-purchase-edit]").forEach(b=>b.onclick=()=>purchaseModal(rows.find(x=>x.id===b.dataset.purchaseEdit)));
+    }else{
+      box.innerHTML=rows.map(r=>'<div class="module-row" data-status="'+esc(String(r.status||"").toUpperCase())+'"><div><b>'+esc(r.customer_name||r.client_name||"Crédito")+'</b><small>'+esc(r.reference||r.notes||"Sin referencia")+'</small></div><span>'+esc(r.status||"PENDIENTE")+'</span><strong>'+money(r.balance??r.amount??0)+'</strong><button class="secondary" type="button" data-receivable-edit="'+r.id+'">Editar</button></div>').join("");
+      box.querySelectorAll("[data-receivable-edit]").forEach(b=>b.onclick=()=>receivableModal(rows.find(x=>x.id===b.dataset.receivableEdit)));
+    }
+  }catch(e){box.innerHTML='<div class="module-empty"><b>No se pudo cargar este módulo</b><small>'+esc(e.message||"Error de datos")+'</small></div>}
 }
 function moduleCreateModal(type){
   if(type==="purchases")return purchaseModal();

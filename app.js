@@ -4240,5 +4240,4 @@ window.closeChat=closeChat;
 window.toast=toast;
 Object.defineProperty(window,"st",{configurable:true,get:()=>st});
 
-wire()})();
-window.addEventListener("DOMContentLoaded",()=>{const el=document.getElementById("cashStaffLogin");if(el&&typeof window.MARC?.signInCashStaff==="function")el.onclick=window.MARC.signInCashStaff;});
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",wire,{once:true});else wire();})();

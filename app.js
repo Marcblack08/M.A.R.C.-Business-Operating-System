@@ -4205,6 +4205,25 @@ function wire(){
     if(b){b.type="submit";b.disabled=false;b.style.pointerEvents="auto";}
     if(g){g.type="button";g.onclick=signInGoogle;g.disabled=false;g.style.pointerEvents="auto";}
   });
+  const recoverBrowserSession=async()=>{
+    try{
+      // Después del retorno OAuth, el cliente puede terminar de persistir la
+      // sesión ligeramente después de que el documento vuelva a cargarse.
+      // Recuperamos explícitamente la sesión para que el acceso no dependa
+      // únicamente del evento INITIAL_SESSION/SIGNED_IN.
+      const current=await S.auth.getSession();
+      const session=current?.data?.session;
+      if(session?.user){
+        sessionStorage.removeItem("marc_google_oauth_pending");
+        await handleAuthSession(session);
+        return true;
+      }
+    }catch(e){
+      console.error("[M.A.R.C. auth recovery]",e);
+    }
+    return false;
+  };
+
   bootAuth().catch(e=>{
     console.error("[M.A.R.C. auth error]",e);
     sessionStorage.removeItem("marc_google_oauth_pending");
@@ -4214,6 +4233,13 @@ function wire(){
       : (raw||"No se pudo completar el acceso. Inténtalo nuevamente.");
     msg(friendly,"error");
   });
+
+  // Última barrera para navegadores móviles/WebViews: si Supabase ya
+  // consiguió la sesión pero el evento ocurrió antes de terminar de montar
+  // la interfaz, la recuperamos al cargar y unos instantes después.
+  window.addEventListener("load",()=>{void recoverBrowserSession();},{once:true});
+  setTimeout(()=>{void recoverBrowserSession();},1800);
+  setTimeout(()=>{void recoverBrowserSession();},4500);
 
   // Puente de autenticación resistente: intercepta los controles de acceso
   // en fase capture para que ningún listener visual/genérico pueda bloquearlos.

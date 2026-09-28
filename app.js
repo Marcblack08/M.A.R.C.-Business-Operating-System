@@ -3879,12 +3879,14 @@ function marcQuickLauncher(){
       {icon:"💬",title:"Preguntar a M.A.R.C.",desc:"Abrir el asistente operativo",run:()=>openChat()}
     ]
   };
-  const actions=workspaceActions[currentEcosystem()]||workspaceActions.technician;
+  const getActions=()=>workspaceActions[currentEcosystem()]||workspaceActions.technician;
   const draw=(filter="")=>{
+    const actions=getActions();
     const q=String(filter||"").trim().toLowerCase();
     const list=actions.filter(a=>(a.title+" "+a.desc).toLowerCase().includes(q));
     grid.innerHTML=list.length?list.map(a=>"<button type=\"button\" class=\"marc-quick-item\" data-quick-index=\""+actions.indexOf(a)+"\"><span class=\"qi-icon\">"+a.icon+"</span><span><b>"+esc(a.title)+"</b><small>"+esc(a.desc)+"</small></span></button>").join(""):"<div class=\"marc-quick-empty\">No encontré una acción en este espacio de trabajo.</div>";
     grid.querySelectorAll("[data-quick-index]").forEach(b=>b.onclick=async()=>{
+      const actions=getActions();
       const action=actions[Number(b.dataset.quickIndex)];
       if(!action)return;
       closeQuick();

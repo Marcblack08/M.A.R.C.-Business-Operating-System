@@ -907,20 +907,26 @@ async function moduleLoad(type){
   }catch(e){console.warn("[M.A.R.C. moduleLoad]",type,e)}
 }
 function moduleCreateModal(type){
-  const labels={sales:"Nueva venta",purchases:"Nueva compra",receivables:"Nuevo crédito",assets:"Nuevo equipo",maintenance:"Nuevo mantenimiento",contracts:"Nuevo contrato"};
-  const close=modal('<div class="modal-head"><div><div class="eyebrow2">MÓDULO</div><h2>'+esc(labels[type]||"Nueva operación")+'</h2><p>Registra la operación y mantenla asociada a tu usuario.</p></div><button class="close" type="button">×</button></div>'+
-    '<form id="moduleForm"><label>Nombre / referencia<input name="title" required placeholder="Ej. Servicio o operación"></label><label>Descripción<textarea name="description" rows="3" placeholder="Detalles"></textarea></label><div class="form-grid"><label>Monto<input name="amount" type="number" min="0" step="0.01" value="0"></label><label>Estado<select name="status"><option>ACTIVO</option><option>PENDIENTE</option><option>COMPLETADO</option></select></label></div><div class="modal-actions"><button type="button" class="secondary module-cancel">Cancelar</button><button class="primary" type="submit">Guardar</button></div></form>');
-  $("#moduleForm .close").onclick=close;$("#moduleForm .module-cancel").onclick=close;
-  $("#moduleForm").onsubmit=async e=>{
-    e.preventDefault();const d=new FormData(e.currentTarget),title=String(d.get("title")||"").trim(),description=String(d.get("description")||"").trim(),amount=Number(d.get("amount")||0),status=String(d.get("status")||"ACTIVO");
-    if(!title)return;
-    const table={sales:"marc_sales",purchases:"marc_purchases",receivables:"marc_receivables",assets:"marc_assets",maintenance:"marc_maintenance",contracts:"marc_contracts"}[type];
-    if(!table){toast("Módulo no disponible","err");return}
-    const payload={user_id:st.u.id,title,description,status,amount};
-    const r=await S.from(table).insert(payload);
-    if(r.error){toast("La aplicación todavía no tiene la tabla de datos conectada.","err");return}
-    close();toast("Registro creado","ok");moduleLoad(type);
-  };
+  if(type==="purchases")return purchaseModal();
+  if(type==="receivables")return receivableModal();
+  const labels={sales:"Nueva venta",assets:"Nuevo equipo",maintenance:"Nuevo mantenimiento",contracts:"Nuevo contrato"};
+  const close=modal('<div class="modal-head"><div><div class="eyebrow2">MÓDULO</div><h2>'+esc(labels[type]||"Nueva operación")+'</h2><p>Usa el módulo especializado para completar todos los campos.</p></div><button class="close" id="moduleClose" type="button">×</button></div><div class="card" style="padding:16px"><p>Esta operación requiere datos específicos. Abre el módulo correspondiente para registrarla correctamente.</p><div class="modal-actions"><button id="moduleGo" class="primary">Abrir módulo</button></div></div>');
+  $("#moduleClose").onclick=close;
+  $("#moduleGo").onclick=()=>{close();view(type)};
+}
+async function purchaseModal(existing=null){
+  const editing=!!existing;
+  const close=modal('<div class="modal-head"><div><div class="eyebrow2">ABASTECIMIENTO</div><h2>'+(editing?"Editar compra":"Nueva compra")+'</h2><p>Registra una compra con proveedor, referencia, importe y estado.</p></div><button class="close" id="purchaseClose">×</button></div><form id="purchaseForm" class="form-grid"><label>Referencia / documento<input name="reference" required value="'+esc(existing?.reference||existing?.number||existing?.title||"")+'"></label><label>Proveedor<input name="supplier_name" value="'+esc(existing?.supplier_name||"")+'"></label><label>Fecha<input name="purchase_date" type="date" value="'+(existing?.purchase_date?String(existing.purchase_date).slice(0,10):new Date().toISOString().slice(0,10))+'"></label><label>Total<input name="total" type="number" min="0" step="0.01" value="'+Number(existing?.total||existing?.amount||0)+'"></label><label>Estado<select name="status"><option>REGISTRADA</option><option>PENDIENTE</option><option>RECIBIDA</option><option>CANCELADA</option></select></label><label style="grid-column:1/-1">Notas<textarea name="notes" rows="3">'+esc(existing?.notes||existing?.description||"")+'</textarea></label><div class="modal-actions" style="grid-column:1/-1"><button type="button" class="secondary" id="purchaseCancel">Cancelar</button><button class="primary">Guardar compra</button></div></form>');
+  $("#purchaseClose").onclick=close;$("#purchaseCancel").onclick=close;
+  $("#purchaseForm [name=status]").value=existing?.status||"REGISTRADA";
+  $("#purchaseForm").onsubmit=async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{const d=new FormData(e.currentTarget);const payload={user_id:st.u.id,reference:String(d.get("reference")||"").trim(),supplier_name:String(d.get("supplier_name")||"").trim()||null,purchase_date:d.get("purchase_date")||null,total:Number(d.get("total")||0),status:String(d.get("status")||"REGISTRADA"),notes:String(d.get("notes")||"").trim()||null,updated_at:new Date().toISOString()};const r=editing?await S.from("marc_purchases").update(payload).eq("id",existing.id).eq("user_id",st.u.id):await S.from("marc_purchases").insert(payload);if(r.error)throw r.error;close();toast(editing?"Compra actualizada":"Compra registrada","ok");moduleLoad("purchases")}catch(err){toast(err.message||"No se pudo guardar la compra.","err");b.disabled=false}};
+}
+async function receivableModal(existing=null){
+  const editing=!!existing;
+  const close=modal('<div class="modal-head"><div><div class="eyebrow2">COBRANZAS</div><h2>'+(editing?"Editar crédito":"Nuevo crédito")+'</h2><p>Registra cliente, saldo, vencimiento y estado.</p></div><button class="close" id="receivableClose">×</button></div><form id="receivableForm" class="form-grid"><label>Cliente<input name="customer_name" required value="'+esc(existing?.customer_name||existing?.client_name||"")+'"></label><label>Referencia<input name="reference" value="'+esc(existing?.reference||existing?.number||"")+'"></label><label>Monto<input name="amount" type="number" min="0" step="0.01" value="'+Number(existing?.amount||existing?.total||0)+'"></label><label>Saldo<input name="balance" type="number" min="0" step="0.01" value="'+Number(existing?.balance??existing?.amount??existing?.total??0)+'"></label><label>Vencimiento<input name="due_at" type="date" value="'+(existing?.due_at?String(existing.due_at).slice(0,10):"")+'"></label><label>Estado<select name="status"><option>PENDIENTE</option><option>PARCIAL</option><option>PAGADO</option><option>VENCIDO</option></select></label><label style="grid-column:1/-1">Notas<textarea name="notes" rows="3">'+esc(existing?.notes||"")+'</textarea></label><div class="modal-actions" style="grid-column:1/-1"><button type="button" class="secondary" id="receivableCancel">Cancelar</button><button class="primary">Guardar crédito</button></div></form>');
+  $("#receivableClose").onclick=close;$("#receivableCancel").onclick=close;
+  $("#receivableForm [name=status]").value=existing?.status||"PENDIENTE";
+  $("#receivableForm").onsubmit=async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{const d=new FormData(e.currentTarget);const amount=Number(d.get("amount")||0),balance=Math.min(amount,Math.max(0,Number(d.get("balance")||0)));const payload={user_id:st.u.id,customer_name:String(d.get("customer_name")||"").trim(),reference:String(d.get("reference")||"").trim()||null,amount,balance,due_at:d.get("due_at")||null,status:String(d.get("status")||"PENDIENTE"),notes:String(d.get("notes")||"").trim()||null,updated_at:new Date().toISOString()};const r=editing?await S.from("marc_receivables").update(payload).eq("id",existing.id).eq("user_id",st.u.id):await S.from("marc_receivables").insert(payload);if(r.error)throw r.error;close();toast(editing?"Crédito actualizado":"Crédito registrado","ok");moduleLoad("receivables")}catch(err){toast(err.message||"No se pudo guardar el crédito.","err");b.disabled=false}};
 }
 
 let __viewBusy=false;

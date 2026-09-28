@@ -1206,6 +1206,13 @@ async function serviceOrders(){
   $("#newServiceOrder").onclick=()=>serviceOrderModal();
   $("#serviceOrderRefresh").onclick=()=>serviceOrders();
   draw(rows);
+  c.querySelectorAll("[data-status-filter]").forEach(b=>b.onclick=()=>{
+    const status=b.dataset.statusFilter;
+    const q=($("#serviceOrderSearch").value||"").toLowerCase();
+    const filtered=rows.filter(r=>(r.status===status)&&[r.number,r.title,r.service_type,r.location,r.marc_clients?.name].some(v=>String(v||"").toLowerCase().includes(q)));
+    draw(filtered);
+    c.querySelectorAll("[data-status-filter]").forEach(x=>x.classList.toggle("active",x===b));
+  });
   $("#serviceOrderSearch").oninput=e=>{const q=e.target.value.toLowerCase();draw(rows.filter(r=>[r.number,r.title,r.service_type,r.location,r.marc_clients?.name].some(v=>String(v||"").toLowerCase().includes(q))))};
   $("#newServiceOrder").onclick=()=>serviceOrderModal();
   $("#serviceOrderRefresh").onclick=()=>serviceOrders();

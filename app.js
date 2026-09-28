@@ -1519,27 +1519,19 @@ async function technicianDashboard(){
   const pending=orders.filter(x=>["PENDIENTE","PROGRAMADA","EN_PROCESO"].includes(x.status)).length;
   const due=plans.filter(x=>x.next_due_at&&new Date(x.next_due_at)<=new Date(Date.now()+30*86400000)).length;
   const lowStock=stock.filter(x=>Number(x.stock)<=Number(x.min_stock)).length;
-  const apps=[
-    ["service_orders","🛠️","Órdenes de trabajo","Crea y controla tus trabajos.",pending+" activas"],
-    ["quotes","📋","Cotizaciones","Prepara presupuestos para tus clientes.","Nueva cotización"],
-    ["agenda","📅","Agenda","Visitas, instalaciones y citas.","Ver agenda"],
-    ["clients","👥","Clientes","Contactos, historial y pagos.",clientRows.length+" registrados"],
-    ["assets","🧰","Equipos y activos","Equipos instalados y garantías.","Abrir equipos"],
-    ["maintenance","🔧","Mantenimientos","Preventivos y correctivos.",due+" próximos"],
-    ["inventory","📦","Materiales","Repuestos, materiales y stock.",lowStock+" con stock bajo"],
-    ["contracts","📄","Contratos","Servicios recurrentes y renovaciones.","Gestionar contratos"],
-    ["finances","💰","Finanzas","Costos, ingresos y rentabilidad.","Ver finanzas"],
-    ["reports","📊","Reportes","Indicadores de tu operación.","Ver reportes"]
-  ];
-  const cards=apps.map((x,i)=>'<button class="tech-app-card tech-app-tone-'+(i%8)+'" data-tech-view="'+x[0]+'"><span class="tech-app-icon">'+x[1]+'</span><span class="tech-app-copy"><b>'+esc(x[2])+'</b><small>'+esc(x[3])+'</small></span><span class="tech-app-meta">'+esc(x[4])+'</span><span class="tech-app-arrow">↗</span></button>').join("");
-  c.innerHTML='<section class="tech-home">'+
-    '<div class="tech-home-hero"><div><div class="eyebrow2">ECOSISTEMA TÉCNICO</div><h1>¿Qué quieres hacer?</h1><p>Elige una aplicación y empieza a trabajar.</p></div><button id="newOTQuick" class="primary">＋ Nueva orden</button></div>'+
-    '<div class="tech-app-grid">'+cards+'</div>'+
-    '<section class="tech-home-footer"><div><b>Asistente M.A.R.C.</b><span>Dile qué necesitas hacer y te ayudará a encontrar la herramienta.</span></div><button id="techAskMarc" class="secondary">✦ Preguntar a M.A.R.C.</button></section>'+
+  c.innerHTML='<section class="tech-home tech-home-summary">'+
+    '<div class="tech-home-hero"><div><div class="eyebrow2">ECOSISTEMA TÉCNICO</div><h1>Centro de operaciones.</h1><p>Los módulos están organizados arriba por área. Aquí solo tienes el resumen de trabajo.</p></div><button id="newOTQuick" class="primary">＋ Nueva orden</button></div>'+
+    '<section class="tech-summary-grid">'+
+      '<article><span>ÓRDENES ACTIVAS</span><strong>'+pending+'</strong><small>Trabajos pendientes o en proceso</small><button data-tech-summary="service_orders">Abrir órdenes →</button></article>'+
+      '<article><span>MANTENIMIENTOS PRÓXIMOS</span><strong>'+due+'</strong><small>Programados dentro de 30 días</small><button data-tech-summary="maintenance">Ver mantenimientos →</button></article>'+
+      '<article><span>CLIENTES</span><strong>'+clientRows.length+'</strong><small>Clientes registrados</small><button data-tech-summary="clients">Abrir clientes →</button></article>'+
+      '<article><span>STOCK BAJO</span><strong>'+lowStock+'</strong><small>Materiales en nivel mínimo</small><button data-tech-summary="inventory">Revisar materiales →</button></article>'+
+    '</section>'+
+    '<section class="tech-home-footer"><div><b>Asistente M.A.R.C.</b><span>Usa Acceso rápido o pregúntame para ir directamente a una función.</span></div><button id="techAskMarc" class="secondary">✦ Preguntar a M.A.R.C.</button></section>'+
     '</section>';
   $("#newOTQuick").onclick=()=>serviceOrderModal();
   $("#techAskMarc").onclick=()=>openChat();
-  c.querySelectorAll("[data-tech-view]").forEach(b=>b.onclick=()=>view(b.dataset.techView));
+  c.querySelectorAll("[data-tech-summary]").forEach(b=>b.onclick=()=>view(b.dataset.techSummary));
 }
 async function assets(){
   const c=$("#content"); if(!c)return;

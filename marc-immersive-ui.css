@@ -999,3 +999,35 @@ html[data-ecosystem="mixed"] #app.marc-immersive .marc-module-group-head i{color
     max-height:39px!important;
   }
 }
+
+
+/* ===== PAID MODULES · GOLD CROWN / PLAN INDICATOR ===== */
+#app.marc-immersive .marc-module-card.paid-feature{
+  border:2px solid rgba(255,195,62,.82)!important;
+  box-shadow:0 0 0 1px rgba(255,204,75,.16),0 14px 34px rgba(0,0,0,.22),0 0 22px rgba(255,188,45,.10)!important;
+}
+#app.marc-immersive .marc-module-card.paid-feature:hover{
+  border-color:#ffd66a!important;
+  box-shadow:0 0 0 1px rgba(255,214,106,.24),0 20px 42px rgba(0,0,0,.30),0 0 28px rgba(255,190,48,.18)!important;
+}
+#app.marc-immersive .marc-module-card .mm-paid-badge{
+  position:absolute;
+  top:10px;
+  right:10px;
+  z-index:3;
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  padding:5px 8px;
+  border-radius:999px;
+  border:1px solid rgba(255,222,123,.72);
+  background:linear-gradient(145deg,#8c5a08,#d99b1f);
+  color:#fff8df;
+  font-size:7px;
+  font-weight:950;
+  letter-spacing:.08em;
+  box-shadow:0 4px 12px rgba(0,0,0,.22);
+}
+#app.marc-immersive .marc-module-card .mm-paid-badge::first-letter{
+  font-size:10px;
+}

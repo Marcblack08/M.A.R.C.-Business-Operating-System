@@ -2983,13 +2983,13 @@ async function saasAdmin(){
     const trial=rows.filter(r=>String(r.access_status||"").toLowerCase()==="trial").length;
     $("#saasMetrics").innerHTML='<article class="saas-metric blue"><b>'+rows.length+'</b><span>CUENTAS</span><small>Usuarios registrados</small></article><article class="saas-metric violet"><b>'+counts.coder+'</b><span>CODER / PRO</span><small>Profesionales</small></article><article class="saas-metric cyan"><b>'+counts.premium+'</b><span>PREMIUM</span><small>Empresas</small></article><article class="saas-metric amber"><b>'+trial+'</b><span>PRUEBAS</span><small>Acceso en trial</small></article>';
     $("#saasUsers").innerHTML=rows.map(r=>'<tr><td><b>'+esc(r.display_name||"Usuario")+'</b><small class="saas-email">'+esc(r.email||"")+'</small></td><td><span class="saas-plan-pill '+normalizePlan(r.plan)+'">'+esc(planLabel(r.plan))+'</span></td><td>'+esc(r.access_status||"—")+'</td><td>'+Number(r.quotes_this_month||0)+' cot. · '+Number(r.inventory_count||0)+' prod. · '+Number(r.clients_count||0)+' cli.</td><td>'+new Date(r.created_at).toLocaleDateString("es-PE")+'</td><td><button class="secondary saas-plan-edit" data-user="'+r.user_id+'" data-plan="'+normalizePlan(r.plan)+'">Cambiar plan</button></td></tr>').join("")||'<tr><td colspan="6" class="empty">No hay cuentas.</td></tr>';
-    $(".saas-plan-edit").forEach(b=>b.onclick=()=>saasChangePlan(b.dataset.user,b.dataset.plan));
+    $$(".saas-plan-edit").forEach(b=>b.onclick=()=>saasChangePlan(b.dataset.user,b.dataset.plan));
     const {data:req,error:reqError}=await S.from("marc_plan_requests").select("id,user_id,requested_plan,status,message,created_at,reviewed_at").eq("status","pending").order("created_at",{ascending:false}).limit(100);
     if(reqError)console.warn("[M.A.R.C. SaaS] No se pudieron cargar solicitudes.",reqError);
     const pending=Array.isArray(req)?req:[];
     $("#saasRequestCount").textContent=pending.length+" pendientes";
     $("#saasRequests").innerHTML=pending.map(x=>'<div class="saas-request-row"><div><b>'+esc(x.requested_plan==="premium"?"Premium / Enterprise":"Coder / Pro")+'</b><small>'+esc(x.message||"Solicitud de mejora de plan")+' · '+new Date(x.created_at).toLocaleString("es-PE")+'</small></div><button class="primary saas-request-open" data-request="'+esc(x.id)+'">Revisar</button></div>').join("")||'<div class="empty">No hay solicitudes pendientes.</div>';
-    $(".saas-request-open").forEach(b=>b.onclick=async()=>saasReviewPlanRequest(b.dataset.request,pending));
+    $$(".saas-request-open").forEach(b=>b.onclick=async()=>saasReviewPlanRequest(b.dataset.request,pending));
   };
   $("#saasRefresh").onclick=draw;
   await draw();

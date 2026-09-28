@@ -321,7 +321,8 @@ function ecosystemAllows(viewName){
     assets:["technician","mixed"],
     maintenance:["technician","mixed"],
     contracts:["technician","mixed"],
-    reports:["technician","business","mixed"]
+    reports:["technician","business","mixed"],
+    technical_reports:["technician","mixed"]
   };
   return !map[viewName]||map[viewName].includes(currentEcosystem());
 }
@@ -685,7 +686,7 @@ async function finances(){
   $("#finIncome").textContent=money(income);$("#finExpense").textContent=money(expense);$("#finResult").textContent=money(income-expense);
 }
 
-function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",suppliers:"Proveedores",quotes:"Cotizaciones",service_orders:"Órdenes de trabajo",settings:"Configuración",saas_admin:"Administración SaaS",cash:"Caja",agenda:"Agenda técnica",finances:"Finanzas",sales:"Ventas / POS",purchases:"Compras",receivables:"Créditos y cobros",assets:"Equipos y activos",maintenance:"Mantenimientos",contracts:"Contratos",reports:"Reportes"}[x]||"Inicio";$$(".sidebar nav button, #mobileNav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
+function title(x){$("#page").textContent={home:"Inicio",clients:"Clientes",inventory:"Inventario",suppliers:"Proveedores",quotes:"Cotizaciones",service_orders:"Órdenes de trabajo",settings:"Configuración",saas_admin:"Administración SaaS",cash:"Caja",agenda:"Agenda técnica",finances:"Finanzas",sales:"Ventas / POS",purchases:"Compras",receivables:"Créditos y cobros",assets:"Equipos y activos",maintenance:"Mantenimientos",contracts:"Contratos",reports:"Reportes",technical_reports:"Informes técnicos"}[x]||"Inicio";$$(".sidebar nav button, #mobileNav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x))}
 async function sales(){
   const c=$("#content"); if(!c)return;
   const [{data:products,error:pe},{data:salesRows,error:se},{data:clientsRows}]=await Promise.all([
@@ -754,6 +755,70 @@ function contractModal(existing=null){
   $("#contractClose").onclick=close;$("#contractCancel").onclick=close;$("#contractForm [name=status]").value=String(existing?.status||"ACTIVO").toUpperCase();
   $("#contractForm").onsubmit=async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{const d=new FormData(e.currentTarget),payload={user_id:st.u.id,title:String(d.get("title")||"").trim(),description:String(d.get("description")||"").trim()||null,status:String(d.get("status")||"ACTIVO"),amount:Number(d.get("amount")||0),starts_at:d.get("starts_at")||null,ends_at:d.get("ends_at")||null,periodicity:String(d.get("periodicity")||"").trim()||null,updated_at:new Date().toISOString()};if(!payload.title)throw new Error("Escribe el nombre del contrato.");const r=editing?await S.from("marc_contracts").update(payload).eq("id",existing.id).eq("user_id",st.u.id):await S.from("marc_contracts").insert(payload);if(r.error)throw r.error;close();toast(editing?"Contrato actualizado":"Contrato creado","ok");contracts()}catch(err){toast(err.message||"No se pudo guardar el contrato.","err");b.disabled=false}};
 }
+async function technicalReports(){
+  const c=$("#content");if(!c)return;
+  const {data,error}=await S.from("technical_reports").select("*,clientes:client_id(name)").eq("user_id",st.u.id).order("created_at",{ascending:false}).limit(200);
+  if(error)return toast(error.message||"No se pudieron cargar los informes técnicos.","err");
+  const rows=data||[],monthStart=new Date(new Date().getFullYear(),new Date().getMonth(),1);
+  const monthCount=rows.filter(r=>new Date(r.created_at)>=monthStart).length;
+  const plan=normalizePlan(st.planState?.code),limit=MARC_PLANS[plan]?.reports;
+  c.innerHTML='<section class="tech-reports-app">'+
+    '<div class="tech-reports-hero"><div><div class="eyebrow2">APLICACIÓN · DOCUMENTACIÓN</div><h1>Informes técnicos</h1><p>Documenta diagnósticos, instalaciones, mantenimientos, reparaciones y entregas.</p></div><button id="newTechnicalReport" class="primary">＋ Nuevo informe</button></div>'+
+    '<div class="tech-reports-stats"><article><b>'+rows.length+'</b><span>INFORMES</span><small>Historial disponible</small></article><article><b>'+monthCount+(limit===null?"":" / "+limit)+'</b><span>ESTE MES</span><small>'+(limit===null?"Sin límite":"Límite del plan Gratis")+'</small></article><article><b>'+rows.filter(r=>r.status==="FINALIZADO"||r.status==="ENTREGADO").length+'</b><span>FINALIZADOS</span><small>Listos para entregar</small></article><article><b>'+rows.filter(r=>r.status==="BORRADOR").length+'</b><span>BORRADORES</span><small>En preparación</small></article></div>'+
+    '<section class="tech-reports-browser"><div class="tech-reports-toolbar"><div class="tech-reports-search"><span>⌕</span><input id="technicalReportSearch" placeholder="Buscar informe, cliente, equipo o ubicación…"></div><button id="technicalReportRefresh" class="secondary">↻ Actualizar</button></div><div id="technicalReportCards" class="tech-report-cards"></div></section>'+
+    '</section>';
+  const draw=()=>{
+    const q=String($("#technicalReportSearch")?.value||"").trim().toLowerCase();
+    const list=rows.filter(r=>[r.number,r.title,r.report_type,r.status,r.location,r.equipment,r.problem,r.diagnosis,r.clientes?.name].some(v=>String(v||"").toLowerCase().includes(q)));
+    $("#technicalReportCards").innerHTML=list.map(r=>'<article class="tech-report-card"><div class="tech-report-card-head"><div><span class="tech-report-number">'+esc(r.number||"SIN NÚMERO")+'</span><span class="tech-report-status">'+esc(r.status||"BORRADOR")+'</span></div><b>'+esc(r.report_type||"DIAGNOSTICO")+'</b></div><h3>'+esc(r.title||"Informe técnico")+'</h3><p>👤 '+esc(r.clientes?.name||"Sin cliente")+'</p><small>📅 '+new Date(r.report_date||r.created_at).toLocaleDateString("es-PE")+(r.location?" · 📍 "+esc(r.location):"")+'</small><div class="tech-report-card-grid"><span><b>Equipo</b>'+esc(r.equipment||"—")+'</span><span><b>Estado</b>'+esc(r.status||"BORRADOR")+'</span></div><button class="secondary tech-report-open" data-id="'+esc(r.id)+'">Abrir informe →</button></article>').join("")||'<div class="tech-report-empty"><span>📄</span><b>No hay informes técnicos</b><small>Crea el primero y empieza a construir tu historial profesional.</small></div>';
+    $(".tech-report-open").forEach(b=>b.onclick=()=>technicalReportModal(rows.find(r=>r.id===b.dataset.id)));
+  };
+  $("#newTechnicalReport").onclick=()=>technicalReportModal();
+  $("#technicalReportRefresh").onclick=technicalReports;
+  $("#technicalReportSearch").oninput=draw;
+  draw();
+}
+function technicalReportModal(existing=null){
+  const editing=!!existing;
+  const close=modal('<div class="modal-head"><div><div class="eyebrow2">INFORME TÉCNICO</div><h2>'+(editing?"Editar informe":"Nuevo informe")+'</h2><p>Registra el servicio con lenguaje técnico y deja el historial asociado al cliente.</p></div><button class="close" id="technicalReportClose">×</button></div>'+
+    '<form id="technicalReportForm" class="form-grid">'+
+    '<label>Tipo<select name="report_type"><option>MANTENIMIENTO</option><option>DIAGNOSTICO</option><option>INSTALACION</option><option>INSPECCION</option><option>REPARACION</option><option>ENTREGA_CONFORMIDAD</option><option>OTRO</option></select></label>'+
+    '<label>Estado<select name="status"><option>BORRADOR</option><option>EN_REVISION</option><option>FINALIZADO</option><option>ENTREGADO</option><option>CANCELADO</option></select></label>'+
+    '<label style="grid-column:1/-1">Título<input name="title" required value="'+esc(existing?.title||"Informe técnico")+'" placeholder="Ej. Mantenimiento preventivo de CCTV"></label>'+
+    '<label>Cliente ID opcional<input name="client_id" value="'+esc(existing?.client_id||"")+'" placeholder="UUID del cliente"></label>'+
+    '<label>Fecha<input name="report_date" type="date" value="'+esc(existing?.report_date||new Date().toISOString().slice(0,10))+'"></label>'+
+    '<label>Técnico<input name="technician" value="'+esc(existing?.technician||"")+'" placeholder="Nombre del técnico"></label>'+
+    '<label>Ubicación<input name="location" value="'+esc(existing?.location||"")+'" placeholder="Dirección / instalación"></label>'+
+    '<label>Equipo<input name="equipment" value="'+esc(existing?.equipment||"")+'" placeholder="Equipo, modelo o sistema"></label>'+
+    '<label style="grid-column:1/-1">Problema / motivo<textarea name="problem" rows="3" placeholder="Qué reportó el cliente o qué se encontró…">'+esc(existing?.problem||"")+'</textarea></label>'+
+    '<label style="grid-column:1/-1">Diagnóstico<textarea name="diagnosis" rows="4" placeholder="Hallazgos y diagnóstico técnico…">'+esc(existing?.diagnosis||"")+'</textarea></label>'+
+    '<label style="grid-column:1/-1">Trabajo realizado<textarea name="work_performed" rows="4" placeholder="Trabajos, pruebas y procedimientos realizados…">'+esc(existing?.work_performed||"")+'</textarea></label>'+
+    '<label>Materiales<textarea name="materials" rows="3" placeholder="Materiales o repuestos utilizados…">'+esc(existing?.materials||"")+'</textarea></label>'+
+    '<label>Recomendaciones<textarea name="recommendations" rows="3" placeholder="Recomendaciones al cliente…">'+esc(existing?.recommendations||"")+'</textarea></label>'+
+    '<label style="grid-column:1/-1">Conclusiones / observaciones<textarea name="conclusions" rows="3" placeholder="Resultado final y observaciones…">'+esc(existing?.conclusions||"")+'</textarea></label>'+
+    '<div class="modal-actions" style="grid-column:1/-1"><button type="button" class="secondary" id="technicalReportCancel">Cancelar</button><button class="primary" id="technicalReportSave">Guardar informe</button></div></form>');
+  $("#technicalReportClose").onclick=close;$("#technicalReportCancel").onclick=close;
+  $("#technicalReportForm [name=report_type]").value=existing?.report_type||"DIAGNOSTICO";
+  $("#technicalReportForm [name=status]").value=existing?.status||"BORRADOR";
+  $("#technicalReportForm").onsubmit=async e=>{
+    e.preventDefault();
+    const b=$("#technicalReportSave");b.disabled=true;
+    try{
+      if(!editing && !(await requirePlan("Informes técnicos","reports")))return;
+      const d=new FormData(e.currentTarget);
+      const payload={user_id:st.u.id,report_type:String(d.get("report_type")||"DIAGNOSTICO"),status:String(d.get("status")||"BORRADOR"),title:String(d.get("title")||"Informe técnico").trim(),client_id:String(d.get("client_id")||"").trim()||null,report_date:d.get("report_date")||new Date().toISOString().slice(0,10),technician:String(d.get("technician")||"").trim()||null,location:String(d.get("location")||"").trim()||null,equipment:String(d.get("equipment")||"").trim()||null,problem:String(d.get("problem")||"").trim()||null,diagnosis:String(d.get("diagnosis")||"").trim()||null,work_performed:String(d.get("work_performed")||"").trim()||null,materials:String(d.get("materials")||"").trim()||null,recommendations:String(d.get("recommendations")||"").trim()||null,conclusions:String(d.get("conclusions")||"").trim()||null,updated_at:new Date().toISOString()};
+      if(!payload.title)throw new Error("Escribe un título para el informe.");
+      let result=editing?await S.from("technical_reports").update(payload).eq("id",existing.id).eq("user_id",st.u.id):await S.from("technical_reports").insert(payload);
+      if(result.error)throw result.error;
+      close();toast(editing?"Informe actualizado":"Informe técnico creado","ok");await technicalReports();
+    }catch(err){
+      const raw=String(err?.message||"");
+      if(raw.includes("MARC_PLAN_LIMIT_REPORTS")||raw.includes("TRIAL_QUOTE_LIMIT"))openUpgradeModal("El plan Gratis permite hasta 5 informes técnicos al mes.");
+      else if(raw.includes("foreign key")&&String(err?.details||"").includes("client_id"))toast("El ID del cliente no es válido.","err");
+      else toast(raw||"No se pudo guardar el informe.","err");
+    }finally{b.disabled=false}
+  };
+}
 function moduleHub(type){
   const c=$("#content"); if(!c)return;
   const ecosystem=currentEcosystem()||"technician";
@@ -764,10 +829,10 @@ function moduleHub(type){
     assets:{icon:"🧰",eyebrow:"CONTROL TÉCNICO",title:"Equipos y activos",desc:"Registra equipos instalados, números de serie, ubicación, garantía y estado.",tone:"technician",actions:[["clients","Ver clientes"],["service_orders","Crear orden de trabajo"],["maintenance","Programar mantenimiento"]],features:["Ficha técnica del equipo","Serie y ubicación","Fecha de instalación","Garantía y estado","Historial de intervenciones"]},
     maintenance:{icon:"🔧",eyebrow:"SERVICIO RECURRENTE",title:"Mantenimientos",desc:"Programa y controla mantenimientos preventivos y correctivos.",tone:"technician",actions:[["agenda","Abrir agenda"],["service_orders","Ver órdenes"],["assets","Ver equipos"]],features:["Preventivo y correctivo","Próxima fecha","Frecuencia","Historial por cliente y equipo","Costos y trabajos realizados"]},
     contracts:{icon:"📄",eyebrow:"SERVICIOS RECURRENTES",title:"Contratos",desc:"Administra contratos de mantenimiento, servicios periódicos y renovaciones.",tone:"technician",actions:[["clients","Ver clientes"],["maintenance","Ver mantenimientos"]],features:["Vigencia","Precio y periodicidad","Servicios incluidos","Visitas pendientes","Renovaciones"]},
-    reports:{icon:"📊",eyebrow:"INTELIGENCIA OPERATIVA",title:"Reportes",desc:"Consulta indicadores de ventas, trabajos, inventario, caja y rentabilidad.",tone:"mixed",actions:[["finances","Finanzas"],["cash","Caja"],["inventory","Inventario"]],features:["Ventas y rentabilidad","Órdenes de trabajo","Inventario","Caja","Exportación futura a Excel/PDF"]}
+    reports:{icon:"📊",eyebrow:"INTELIGENCIA OPERATIVA",title:"Reportes",desc:"Consulta indicadores de ventas, trabajos, inventario, caja y documentación técnica.",tone:"mixed",actions:[["technical_reports","Informes técnicos"],["finances","Finanzas"],["cash","Caja"],["inventory","Inventario"]],features:["Informes técnicos","Ventas y rentabilidad","Órdenes de trabajo","Inventario","Caja","Exportación a Excel/PDF"]}
   };
   const m=catalogs[type]||catalogs.reports;
-  const apps=type==="reports"?["sales","purchases","receivables","assets","maintenance","contracts"].filter(k=>ecosystemAllows(k)):[];
+  const apps=type==="reports"?["technical_reports","sales","purchases","receivables","assets","maintenance","contracts"].filter(k=>ecosystemAllows(k)):[];
   const quick=m.actions.map(a=>'<button class="module-action" data-module-action="'+a[0]+'"><b>'+esc(a[1])+'</b><span>→</span></button>').join("");
   c.innerHTML='<section class="module-hub '+m.tone+'" data-module="'+type+'">'+
     '<div class="module-hero"><div><div class="module-eyebrow">'+m.eyebrow+'</div><h1>'+m.icon+' '+m.title+'</h1><p>'+m.desc+'</p></div><span class="module-ecosystem">'+(ECOSYSTEMS[ecosystem]?.icon||"")+" "+(ECOSYSTEMS[ecosystem]?.label||"M.A.R.C.")+'</span></div>'+
@@ -849,7 +914,7 @@ async function view(x){
     $$(".sidebar nav button,.mobile-bottom-nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===x));
     if(x==="home")return currentEcosystem()==="technician"?technicianDashboard():home();if(x==="clients")return clients();if(x==="inventory")return inventory();
     if(x==="suppliers"){if(window.marcSupplierCenter)return window.marcSupplierCenter();return toast("No se pudo cargar el Centro de Proveedores. Recarga la aplicación.","err");}
-    if(x==="quotes")return quotes();if(x==="saas_admin")return saasAdmin();if(x==="service_orders")return serviceOrders();if(x==="agenda")return agenda();if(x==="finances")return finances();if(x==="cash")return cash();if(x==="assets")return assets();if(x==="contracts")return contracts();
+    if(x==="quotes")return quotes();if(x==="saas_admin")return saasAdmin();if(x==="service_orders")return serviceOrders();if(x==="agenda")return agenda();if(x==="finances")return finances();if(x==="cash")return cash();if(x==="assets")return assets();if(x==="contracts")return contracts();if(x==="technical_reports")return technicalReports();
     if(["sales","purchases","receivables","reports"].includes(x))return moduleHub(x);if(x==="maintenance")return maintenance();
     return settings();
   };

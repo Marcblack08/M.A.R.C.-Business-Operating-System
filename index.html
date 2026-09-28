@@ -84,7 +84,7 @@
   function installMarcGoogleEmergencyHandler(){
     if(window.__MARC_GOOGLE_EMERGENCY_HANDLER__)return;
     window.__MARC_GOOGLE_EMERGENCY_HANDLER__=true;
-    document.addEventListener("click",function(e){
+    document.addEventListener("click",async function(e){
       const button=e.target?.closest?.("#googleLogin");
       if(!button)return;
       e.preventDefault();
@@ -121,6 +121,7 @@
           return;
         }
         show("Controlador principal no disponible. Activando acceso Google de emergencia…");
+        sessionStorage.setItem("marc_google_oauth_pending","1");
         const client=window.supabase.createClient(cfg.supabaseUrl,cfg.supabasePublishableKey,{
           auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"implicit"}
         });

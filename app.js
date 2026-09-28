@@ -32,7 +32,7 @@
     },700);
   }
 });const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)],esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])),money=v=>new Intl.NumberFormat("es-PE",{style:"currency",currency:"PEN"}).format(Number(v||0)),toast=(t,c="")=>{const e=document.createElement("div");e.className="toast "+c;e.textContent=t;$("#toast").appendChild(e);setTimeout(()=>e.remove(),2600)},initials=n=>String(n||"M").split(/\s+/).slice(0,2).map(x=>x[0]?.toUpperCase()).join("");let authMode="login",recoveryMode=new URLSearchParams(location.search).get("recovery")==="1"||/type=recovery/i.test(location.hash);
-function msg(t,c=""){const e=$("#authMsg");e.textContent=t;e.className="msg "+c}
+function msg(t,c=""){const e=$("#authMsg");if(!e)return;e.textContent=t||"";e.className="msg "+c;e.style.display=t?"block":"none";e.style.visibility=t?"visible":"hidden";e.style.opacity=t?"1":"0";e.setAttribute("role",t?"alert":"status");if(t)e.scrollIntoView?.({block:"nearest",behavior:"smooth"});}
 const THEME_KEY="marc_theme";
 function applyTheme(theme,save=true){
   const t=["light","dark","color"].includes(theme)?theme:"light";
@@ -113,7 +113,7 @@ async function signInGoogle(e){e?.preventDefault?.();e?.stopPropagation?.();cons
   if(signup)signup.onclick=()=>mode("signup");
 }
 bindAuthControls();
-async function handleAuthSession(s){if(!s?.user)return;const id=s.user.id;if(authEnteredSessionId===id && st.u?.id===id && !$("#app").classList.contains("hidden"))return;authEnteredSessionId=id;try{await enter(s)}catch(e){authEnteredSessionId=null;throw e}}function resetUiToLogin(message="",type=""){st.authEpoch++;st.u=null;st.session=null;st.cid=null;try{applyCashierMode(false)}catch{}$("#app").classList.add("hidden");$("#auth").classList.remove("hidden");mode("login");if(message)msg(message,type)}
+async function handleAuthSession(s){if(!s?.user)return;const id=s.user.id;if(authEnteredSessionId===id && st.u?.id===id && !$("#app").classList.contains("hidden"))return;authEnteredSessionId=id;try{await enter(s)}catch(e){authEnteredSessionId=null;throw e}}function resetUiToLogin(message="",type=""){const pending=sessionStorage.getItem("marc_google_oauth_pending")==="1";let diagnostic="";try{const last=JSON.parse(sessionStorage.getItem("marc_auth_last_event")||"null");if(last?.event)diagnostic=" Evento recibido: "+last.event+"."; }catch{}if(!message&&pending){message="Google completó la autenticación, pero M.A.R.C. recibió la sesión como cerrada antes de entrar al sistema."+diagnostic+" El problema está en la recuperación de sesión del navegador, no en la cuenta de Google.";type="error";}st.authEpoch++;st.u=null;st.session=null;st.cid=null;try{applyCashierMode(false)}catch{}$("#app").classList.add("hidden");$("#auth").classList.remove("hidden");mode("login");if(message)msg(message,type)}
 async function ensure(){const u=st.u;if(!u)return;await S.from("marc_accounts").upsert({id:u.id,display_name:u.email?.split("@")[0]||"Usuario"},{onConflict:"id"});const {data:t}=await S.from("marc_trials").select("id").eq("user_id",u.id).maybeSingle();if(!t)await S.from("marc_trials").insert({user_id:u.id});const {data:c}=await S.from("marc_conversations").select("id").eq("user_id",u.id).eq("channel","WEB").order("updated_at",{ascending:false}).limit(1).maybeSingle();st.cid=c?.id||(await S.from("marc_conversations").insert({user_id:u.id,channel:"WEB",title:"Conversación principal"}).select("id").single()).data?.id}
 
 const MARC_PLANS={

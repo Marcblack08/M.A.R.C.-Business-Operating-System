@@ -137,7 +137,7 @@
         show("Controlador principal no disponible. Activando acceso Google de emergencia…");
         sessionStorage.setItem("marc_google_oauth_pending","1");
         const client=window.supabase.createClient(cfg.supabaseUrl,cfg.supabasePublishableKey,{
-          auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"pkce"}
+          auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"pkce",storageKey:"marc-business-auth-v1"}
         });
         const redirectUrl=new URL(String(cfg.appUrl||location.origin+"/"));
         redirectUrl.search="";

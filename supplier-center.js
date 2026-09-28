@@ -10,7 +10,7 @@
     if(window.MARC?.supabase)return window.MARC.supabase;
     if(client)return client;
     if(!window.MARC_CONFIG||!window.supabase?.createClient)return null;
-    client=window.supabase.createClient(window.MARC_CONFIG.supabaseUrl,window.MARC_CONFIG.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+    client=window.supabase.createClient(window.MARC_CONFIG.supabaseUrl,window.MARC_CONFIG.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"pkce",storage:window.MARC_AUTH_STORAGE||undefined}});
     return client;
   }
   const esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));

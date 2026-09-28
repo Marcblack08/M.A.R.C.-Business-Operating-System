@@ -4150,11 +4150,10 @@ function wire(){
     // el retorno OAuth y persiste la sesión antes de que la interfaz continúe.
     // No hacemos exchangeCodeForSession aquí para evitar consumir un code PKCE
     // que ya haya sido procesado por el cliente.
-    try{await S.auth.initialize()}catch(e){
-      const raw=String(e?.message||e||"");
-      console.error("[M.A.R.C. auth initialize]",e);
-      if(/oauth|pkce|code|verifier/i.test(raw))throw e;
-    }
+    // createClient() ya inicializa Supabase automáticamente. No llamamos
+    // initialize() manualmente aquí porque eso puede duplicar/racear la
+    // detección del retorno OAuth en una SPA.
+    console.info("[M.A.R.C. auth] Esperando la inicialización automática de Supabase.");
     const {search,hash}=authCallbackParams();
     const oauthPending=sessionStorage.getItem("marc_google_oauth_pending")==="1";
     const error=hash.get("error_description")||search.get("error_description")||hash.get("error")||search.get("error");

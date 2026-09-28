@@ -132,9 +132,22 @@
     const old=shell.querySelector(".marc-home-launcher");if(old)old.remove();
     const box=document.createElement("section");box.className="marc-home-launcher";
     const m=meta[ecosystem()];
-    box.innerHTML='<div class="marc-home-launcher-head"><div><span class="marc-module-kicker">'+m.short+' · M.A.R.C.</span><h2>'+ (ecosystem()==="mixed"?"Centro premium de herramientas":"Herramientas de "+(ecosystem()==="business"?"tienda":"trabajo técnico")) +'</h2><p>'+m.desc+'</p></div></div><div class="marc-home-launcher-groups">'+groupedModulesMarkup()+'</div>';
+    if(ecosystem()==="mixed"){
+      const premiumViews=["cash","sales","service_orders","inventory","clients","finances"];
+      const premium=modules().filter(x=>premiumViews.includes(x.view));
+      box.classList.add("marc-premium-launcher");
+      box.innerHTML='<div class="marc-premium-launcher-head"><div><span class="marc-module-kicker">M.A.R.C. · PREMIUM BUSINESS</span><h2>Command center.</h2><p>'+m.desc+' Elige una acción o abre el mapa completo de módulos.</p></div><button type="button" class="marc-premium-all" data-open-all-modules>Ver todos los módulos <span>↗</span></button></div><div class="marc-premium-grid">'+premium.map(moduleCard).join("")+'</div><div class="marc-premium-divider"><span>Flujo empresarial conectado</span><i></i><b>6 accesos directos</b></div>';
+      box.addEventListener("click",e=>{
+        const all=e.target.closest("[data-open-all-modules]");
+        if(all){e.preventDefault();openModules();return}
+        const b=e.target.closest("[data-marc-module]");
+        if(b)clickView(b.dataset.marcModule);
+      });
+    }else{
+      box.innerHTML='<div class="marc-home-launcher-head"><div><span class="marc-module-kicker">'+m.short+' · M.A.R.C.</span><h2>Herramientas de '+(ecosystem()==="business"?"tienda":"trabajo técnico")+'</h2><p>'+m.desc+'</p></div></div><div class="marc-home-launcher-groups">'+groupedModulesMarkup()+'</div>';
+      box.addEventListener("click",e=>{const b=e.target.closest("[data-marc-module]");if(b)clickView(b.dataset.marcModule)});
+    }
     shell.insertBefore(box,shell.firstChild);
-    box.addEventListener("click",e=>{const b=e.target.closest("[data-marc-module]");if(b)clickView(b.dataset.marcModule)});
     homeLauncherReady=true;
   }
   function sync(){

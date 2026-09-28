@@ -61,40 +61,28 @@ async function signInGoogle(e){
   const b=$("#googleLogin");
   if(!b){console.error("[M.A.R.C. Google login] No existe #googleLogin");return false}
   if(b.dataset.busy==="1")return false;
-  b.dataset.busy="1";
-  b.disabled=true;
-  b.setAttribute("aria-busy","true");
-  const label=b.querySelector("span:last-child");
-  if(label)label.textContent="Conectando…";
-  msg("Abriendo acceso con Google…");
+  b.dataset.busy="1";b.disabled=true;b.setAttribute("aria-busy","true");
+  const label=b.querySelector("span:last-child");if(label)label.textContent="Conectando…";
+  msg("Conectando con Google…");
   try{
     if(!window.supabase||!S?.auth)throw new Error("El servicio de autenticación todavía no terminó de cargar. Recarga la página e inténtalo nuevamente.");
     sessionStorage.setItem("marc_google_oauth_pending","1");
-    const redirectUrl=new URL(location.origin+location.pathname);
-    redirectUrl.search="";
-    redirectUrl.hash="";
+    const redirectUrl=new URL(location.href);redirectUrl.search="";redirectUrl.hash="";
     const redirectTo=redirectUrl.toString();
     console.info("[M.A.R.C. OAuth] iniciando Google:",redirectTo);
-    const result=await Promise.race([
-      S.auth.signInWithOAuth({provider:"google",options:{redirectTo,queryParams:{prompt:"select_account"}}}),
-      new Promise(resolve=>setTimeout(()=>resolve({timeout:true}),9000))
-    ]);
-    if(result?.timeout){
-      throw new Error("Google está tardando en responder. Comprueba tu conexión y vuelve a pulsar el botón.");
-    }
-    if(result?.error)throw result.error;
-    if(!result?.data?.url)throw new Error("Google no devolvió la URL de inicio de sesión.");
-    // signInWithOAuth normalmente navega solo en navegador; la navegación explícita
-    // garantiza el salto incluso en navegadores móviles/Workers donde no lo hace.
-    window.location.replace(result.data.url);
+    const {data,error}=await S.auth.signInWithOAuth({
+      provider:"google",
+      options:{redirectTo,queryParams:{prompt:"select_account"},skipBrowserRedirect:true}
+    });
+    if(error)throw error;
+    if(!data?.url)throw new Error("Google no devolvió la dirección de inicio de sesión. Verifica que el proveedor Google esté habilitado en Supabase.");
+    window.location.assign(data.url);
     return true;
   }catch(err){
     sessionStorage.removeItem("marc_google_oauth_pending");
     console.error("[M.A.R.C. Google login]",err);
-    msg(err?.message||"No se pudo iniciar sesión con Google.","error");
-    b.disabled=false;
-    b.dataset.busy="0";
-    b.removeAttribute("aria-busy");
+    msg(String(err?.message||"No se pudo iniciar sesión con Google. Inténtalo nuevamente."),"error");
+    b.disabled=false;b.dataset.busy="0";b.removeAttribute("aria-busy");
     if(label)label.textContent="Continuar con Google";
     return false;
   }
@@ -4171,11 +4159,12 @@ function wire(){
     // session does not depend on a PKCE verifier surviving navigation.
     // This prevents "PKCE code verifier not found" on worker/preview hosts.
     if(code){
-      const currentFromCode=await S.auth.getSession();
-      if(currentFromCode.data?.session){
+      const exchanged=await S.auth.exchangeCodeForSession(code);
+      if(exchanged.error)throw exchanged.error;
+      if(exchanged.data?.session){
         sessionStorage.removeItem("marc_google_oauth_pending");
         cleanAuthUrl();
-        await handleAuthSession(currentFromCode.data.session);
+        await handleAuthSession(exchanged.data.session);
         return;
       }
     }

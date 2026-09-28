@@ -2374,10 +2374,15 @@ async function inventoryPdfModal(){
         const detail=failedPages.map(x=>"P"+x.pageNumber+": "+x.error).join("\n");
         $("#pdfImportPreview").insertAdjacentHTML("afterbegin",'<div class="msg error pdf-page-warning"><b>Páginas no disponibles</b><br>'+esc(detail).replace(/\n/g,"<br>")+'</div>');
       }
-      status.className="msg ok";
-      status.textContent="Análisis terminado. Revisa exactamente qué productos serán procesados antes de importarlos.";
+      if(!failedPages.length){
+        status.className="msg ok";
+        status.textContent="Análisis terminado. Revisa exactamente qué productos serán procesados antes de importarlos.";
+      }else{
+        status.className="msg error";
+        status.textContent="Lectura terminada con advertencias. Revisa las páginas no disponibles y selecciona los productos que quieras usar.";
+      }
       $("#pdfProgressText").textContent="Lectura terminada · "+totalPages+" páginas";
-      $("#pdfProgressCount").textContent=detected.length+" productos detectados";
+      $("#pdfProgressCount").textContent=detected.length+" productos detectados"+(failedPages.length?" · "+failedPages.length+" páginas con error":"");
 
       // Consolidación global: un mismo producto puede aparecer en varias páginas del catálogo.
       // Conservamos el primer registro y completamos campos faltantes con datos posteriores.

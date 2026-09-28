@@ -924,6 +924,36 @@ function moduleCreateModal(type){
 }
 
 let __viewBusy=false;
+async function reports(){
+  const c=$("#content"); if(!c)return;
+  c.innerHTML='<div class="head"><div><div class="eyebrow2">ANÁLISIS DEL NEGOCIO</div><h1>Reportes.</h1><p>Resumen operativo con información real de M.A.R.C.</p></div><button id="reportsRefresh" class="secondary">↻ Actualizar</button></div><div id="reportsBody" class="reports-dashboard"><div class="empty-state">Cargando reportes…</div></div>';
+  const load=async()=>{
+    const [sales,quotes,cash,orders,inventory]=await Promise.all([
+      S.from("marc_sales").select("total,status,payment_method,created_at").eq("user_id",st.u.id).order("created_at",{ascending:false}).limit(1000),
+      S.from("marc_quotes").select("total,status,created_at").eq("user_id",st.u.id).is("deleted_at",null).order("created_at",{ascending:false}).limit(1000),
+      S.from("marc_cash_registers").select("id,status,opening_amount,closed_amount,opened_at,closed_at").eq("user_id",st.u.id).order("opened_at",{ascending:false}).limit(100),
+      S.from("marc_service_orders").select("revenue,profit,status,created_at").eq("user_id",st.u.id).order("created_at",{ascending:false}).limit(1000),
+      S.from("marc_inventory").select("name,stock,min_stock,price,active").eq("user_id",st.u.id).eq("active",true).order("name").limit(1000)
+    ]);
+    const err=sales.error||quotes.error||cash.error||orders.error||inventory.error;
+    if(err)return toast(err.message||"No se pudieron generar los reportes.","err");
+    const sr=sales.data||[],qr=quotes.data||[],cr=cash.data||[],orows=orders.data||[],iv=inventory.data||[];
+    const now=new Date(),monthStart=new Date(now.getFullYear(),now.getMonth(),1);
+    const monthSales=sr.filter(x=>new Date(x.created_at)>=monthStart);
+    const monthOrders=orows.filter(x=>new Date(x.created_at)>=monthStart);
+    const salesTotal=monthSales.reduce((n,x)=>n+Number(x.total||0),0);
+    const profit=monthOrders.reduce((n,x)=>n+Number(x.profit||0),0);
+    const quotesTotal=qr.filter(x=>new Date(x.created_at)>=monthStart&&!["RECHAZADA","ANULADA"].includes(String(x.status||"").toUpperCase())).reduce((n,x)=>n+Number(x.total||0),0);
+    const low=iv.filter(x=>Number(x.stock)<=Number(x.min_stock));
+    const mix={};monthSales.forEach(x=>{const k=String(x.payment_method||"OTRO").toUpperCase();mix[k]=(mix[k]||0)+Number(x.total||0)});
+    const fmt=v=>money(v);
+    const mixHtml=Object.entries(mix).sort((a,b)=>b[1]-a[1]).map(([k,v])=>'<div class="report-line"><span>'+esc(k)+'</span><b>'+fmt(v)+'</b></div>').join("")||'<div class="empty">Sin ventas este mes.</div>';
+    const lowHtml=low.slice(0,12).map(x=>'<div class="report-line"><span>'+esc(x.name)+'</span><b>'+Number(x.stock||0)+' u.</b></div>').join("")||'<div class="empty">No hay productos con stock bajo.</div>';
+    $("#reportsBody").innerHTML='<div class="stats-grid"><article class="stat-card"><small>Ventas del mes</small><strong>'+fmt(salesTotal)+'</strong><span>'+monthSales.length+' operaciones</span></article><article class="stat-card"><small>Rentabilidad OT</small><strong>'+fmt(profit)+'</strong><span>'+monthOrders.length+' órdenes este mes</span></article><article class="stat-card"><small>Cotizaciones activas</small><strong>'+fmt(quotesTotal)+'</strong><span>'+qr.filter(x=>["BORRADOR","ENVIADA","ACEPTADA"].includes(String(x.status||"").toUpperCase())).length+' propuestas</span></article><article class="stat-card"><small>Stock bajo</small><strong>'+low.length+'</strong><span>Productos a revisar</span></article></div><div class="dashboard-main-grid"><section class="dashboard-panel"><div class="panel-title-row"><div><div class="panel-eyebrow">COBROS</div><h3>Ventas por medio de pago</h3></div></div>'+mixHtml+'</section><section class="dashboard-panel"><div class="panel-title-row"><div><div class="panel-eyebrow">INVENTARIO</div><h3>Productos con stock bajo</h3></div></div>'+lowHtml+'</section></div><section class="card" style="margin-top:14px"><div class="card-head"><div><b>Resumen de caja</b><small>'+cr.filter(x=>x.status==="CLOSED").length+' cierres registrados</small></div></div><div class="report-line"><span>Cajas abiertas</span><b>'+cr.filter(x=>x.status==="OPEN").length+'</b></div><div class="report-line"><span>Cajas cerradas</span><b>'+cr.filter(x=>x.status==="CLOSED").length+'</b></div></section>';
+  };
+  $("#reportsRefresh").onclick=load;
+  await load();
+}
 async function view(x){
   const paidFeaturesByEcosystem={
     technician:{service_orders:"Órdenes de trabajo",agenda:"Agenda técnica",assets:"Equipos y activos",maintenance:"Mantenimientos",contracts:"Contratos",finances:"Rentabilidad"},
@@ -951,7 +981,7 @@ async function view(x){
     if(x==="home")return currentEcosystem()==="technician"?technicianDashboard():home();if(x==="clients")return clients();if(x==="inventory")return inventory();
     if(x==="suppliers"){if(window.marcSupplierCenter)return window.marcSupplierCenter();return toast("No se pudo cargar el Centro de Proveedores. Recarga la aplicación.","err");}
     if(x==="quotes")return quotes();if(x==="saas_admin")return saasAdmin();if(x==="service_orders")return serviceOrders();if(x==="agenda")return agenda();if(x==="finances")return finances();if(x==="cash")return cash();if(x==="sales")return sales();if(x==="assets")return assets();if(x==="contracts")return contracts();if(x==="maintenance")return maintenance();if(x==="technical_reports")return technicalReports();
-    if(["purchases","receivables","reports"].includes(x))return moduleHub(x);
+    if(["purchases","receivables"].includes(x))return moduleHub(x);if(x==="reports")return reports();
     return settings();
   };
   __viewBusy=true;

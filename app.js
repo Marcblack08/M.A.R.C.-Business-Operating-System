@@ -504,6 +504,8 @@ async function trial(){
     if(daysEl)daysEl.textContent="MASTER";
     if(bar)bar.style.width="100%";
     if(usageEl)usageEl.textContent="Acceso total · SIN LÍMITES";
+    refreshPlanSidebar();
+    if($("#saasAdminNav"))$("#saasAdminNav").hidden=false;
     return;
   }
   const end=state.trialEndsAt?new Date(state.trialEndsAt).getTime():0;
@@ -517,6 +519,8 @@ async function trial(){
   }
   const p=MARC_PLANS[state.code]||MARC_PLANS.free;
   if(usageEl)usageEl.textContent=(p.quotes===null?"∞":usage.quotes+"/"+p.quotes)+" cotizaciones · "+(p.inventory===null?"∞":usage.inventory+"/"+p.inventory)+" productos";
+  refreshPlanSidebar();
+  if($("#saasAdminNav"))$("#saasAdminNav").hidden=!isMasterPlan();
 }
 async function chatLoad(){const box=$("#messages");box.innerHTML="";const {data}=await S.from("marc_messages").select("role,content").eq("conversation_id",st.cid).order("created_at",{ascending:true}).limit(60);if(!data?.length)addBubble("a","Hola. Soy M.A.R.C. Dime qué quieres hacer.");else data.forEach(x=>addBubble(x.role==="USER"?"u":"a",x.content))}
 function applyCashierMode(isCashier){

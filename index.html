@@ -102,19 +102,42 @@
       };
       show("Diagnóstico: clic recibido. Verificando el módulo de autenticación…");
       const api=window.MARC?.signInGoogle;
-      if(typeof api!=="function"){
-        show("ERROR CRÍTICO: app.js no terminó de cargar el módulo de Google. El botón funciona, pero el controlador de autenticación no está disponible.","error");
-        return;
-      }
       try{
-        const result=api(e);
-        if(result&&typeof result.catch==="function"){
-          result.catch(err=>{
-            show("ERROR EN GOOGLE: "+String(err?.message||err||"Error desconocido."),"error");
-          });
+        if(typeof api==="function"){
+          const result=api(e);
+          if(result&&typeof result.catch==="function"){
+            result.catch(err=>{
+              show("ERROR EN GOOGLE: "+String(err?.message||err||"Error desconocido."),"error");
+            });
+          }
+          return;
         }
+
+        // Fallback independiente: si app.js no terminó de exponer su API,
+        // iniciar OAuth directamente con el cliente Supabase del navegador.
+        const cfg=window.MARC_CONFIG;
+        if(!window.supabase?.createClient||!cfg?.supabaseUrl||!cfg?.supabasePublishableKey){
+          show("ERROR CRÍTICO: el módulo de autenticación y la configuración de Supabase no están disponibles.","error");
+          return;
+        }
+        show("Controlador principal no disponible. Activando acceso Google de emergencia…");
+        const client=window.supabase.createClient(cfg.supabaseUrl,cfg.supabasePublishableKey,{
+          auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"implicit"}
+        });
+        const redirectUrl=new URL(location.href);
+        redirectUrl.search="";
+        redirectUrl.hash="";
+        const result=await client.auth.signInWithOAuth({
+          provider:"google",
+          options:{
+            redirectTo:redirectUrl.toString(),
+            queryParams:{prompt:"select_account"}
+          }
+        });
+        if(result?.error)throw result.error;
+        show("Redirigiendo a Google…");
       }catch(err){
-        show("ERROR CRÍTICO EN GOOGLE: "+String(err?.message||err||"Error desconocido."),"error");
+        show("ERROR EN GOOGLE: "+String(err?.message||err||"Error desconocido."),"error");
       }
     },true);
   }

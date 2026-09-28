@@ -925,6 +925,14 @@ function moduleCreateModal(type){
 
 let __viewBusy=false;
 async function view(x){
+  const paidTechnicalFeatures={assets:"Equipos y activos",maintenance:"Mantenimientos"};
+  if(paidTechnicalFeatures[x] && !isMasterPlan()){
+    const plan=await getPlanState(true);
+    if(normalizePlan(plan.code)==="free"){
+      openUpgradeModal("Esta función pertenece al plan de pago: "+paidTechnicalFeatures[x]+".");
+      return;
+    }
+  }
   if(!ecosystemAllows(x)&&x!=="home"){
     toast("Esta sección pertenece a otro ecosistema.","err");
     return view("home");

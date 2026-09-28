@@ -4425,3 +4425,88 @@ html[data-ecosystem="mixed"] #app.marc-immersive .mixed-bottom-grid{gap:12px!imp
   html[data-ecosystem="mixed"] .mixed-executive-strip>div:first-child{grid-column:1/-1}
   html[data-ecosystem="mixed"] .mixed-executive-strip>div{min-height:62px!important;padding:11px!important}
 }
+
+
+/* ===== TECHNICIAN HOME LAYOUT FIX — MOBILE / DESKTOP ===== */
+#app.marc-immersive .tech-home-shell{
+  display:block!important;
+  width:100%!important;
+  max-width:1200px!important;
+  margin:0 auto!important;
+  padding-bottom:28px!important;
+}
+#app.marc-immersive .tech-home-shell > .marc-home-launcher{
+  display:block!important;
+  width:100%!important;
+  box-sizing:border-box!important;
+  margin:0 0 18px!important;
+}
+#app.marc-immersive .tech-home-shell > .tech-home-hero{
+  display:flex!important;
+  width:100%!important;
+  box-sizing:border-box!important;
+}
+#app.marc-immersive .tech-home-shell > .tech-summary-grid{
+  display:grid!important;
+  width:100%!important;
+  box-sizing:border-box!important;
+}
+#app.marc-immersive .tech-home-shell > .tech-home-footer{
+  display:flex!important;
+  width:100%!important;
+  box-sizing:border-box!important;
+}
+@media(max-width:900px){
+  #app.marc-immersive .tech-home-shell{
+    max-width:none!important;
+  }
+}
+@media(max-width:620px){
+  #app.marc-immersive .tech-home-shell{
+    display:block!important;
+    width:100%!important;
+    margin:0!important;
+    padding-bottom:14px!important;
+  }
+  #app.marc-immersive .tech-home-shell > .marc-home-launcher{
+    margin:0 0 12px!important;
+    padding:14px!important;
+    border-radius:18px!important;
+  }
+  #app.marc-immersive .tech-home-shell > .tech-home-hero{
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:stretch!important;
+    gap:12px!important;
+    padding:18px!important;
+    border-radius:18px!important;
+  }
+  #app.marc-immersive .tech-home-shell > .tech-home-hero h1{
+    font-size:25px!important;
+  }
+  #app.marc-immersive .tech-home-shell > .tech-home-hero p{
+    font-size:9px!important;
+  }
+  #app.marc-immersive .tech-home-shell > .tech-home-hero .primary{
+    width:100%!important;
+  }
+  #app.marc-immersive .tech-home-shell > .tech-summary-grid{
+    grid-template-columns:1fr 1fr!important;
+    gap:8px!important;
+  }
+  #app.marc-immersive .tech-home-shell > .tech-summary-grid article{
+    min-height:125px!important;
+    padding:14px!important;
+  }
+  #app.marc-immersive .tech-home-shell > .tech-home-footer{
+    flex-direction:column!important;
+    align-items:stretch!important;
+    gap:10px!important;
+    padding:14px!important;
+  }
+}
+@media(max-width:390px){
+  #app.marc-immersive .tech-home-shell > .tech-summary-grid{
+    grid-template-columns:1fr!important;
+  }
+}

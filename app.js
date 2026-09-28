@@ -1,4 +1,4 @@
-(()=>{const C=window.MARC_CONFIG,S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"pkce",skipAutoInitialize:true}});const st={u:null,session:null,view:"home",cid:null,authEpoch:0};let authListenerSession=null,authTimer=null,authEnteredSessionId=null;S.auth.onAuthStateChange((ev,s)=>{
+(()=>{const C=window.MARC_CONFIG,MARC_AUTH_STORAGE_KEY="marc-business-auth-v1",S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"pkce",skipAutoInitialize:true,storageKey:MARC_AUTH_STORAGE_KEY}});const st={u:null,session:null,view:"home",cid:null,authEpoch:0};let authListenerSession=null,authTimer=null,authEnteredSessionId=null;S.auth.onAuthStateChange((ev,s)=>{
   authListenerSession=s||null;
   console.info("[M.A.R.C. auth]",ev,!!s,s?.user?.id||"");
   try{
@@ -4130,7 +4130,7 @@ function wire(){
     try{localStorage.removeItem(ECOSYSTEM_KEY)}catch{}
     try{sessionStorage.removeItem("marc_google_oauth_pending")}catch{}
     resetUiToLogin();
-    await S.auth.signOut();
+    await S.auth.signOut({scope:"local"});
   };
   const planBox=$(".trial"); if(planBox){planBox.style.cursor="pointer";planBox.title="Ver planes y capacidades";planBox.onclick=()=>openUpgradeModal();}
   $("#askTop").onclick=openChat;

@@ -546,7 +546,7 @@ async function enter(s){
     showFallback();
   }
 }
-async function submit(e){e.preventDefault();try{$("#authSubmit").disabled=true;msg("Procesando…");const email=$("#email").value.trim(),p=$("#password").value;if(authMode==="reset"){const cooldownKey="marc_password_reset_cooldown";const until=Number(localStorage.getItem(cooldownKey)||0);if(until>Date.now())throw new Error("Supabase ha limitado temporalmente el envío de correos de recuperación. Espera hasta que se restablezca el límite y vuelve a intentarlo.");const {error}=await S.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname+"?recovery=1"});if(error){if(authRateLimitMessage(error))localStorage.setItem(cooldownKey,String(Date.now()+60*60*1000));throw error}localStorage.removeItem(cooldownKey);msg("Revisa tu correo. El enlace te llevará a crear una nueva contraseña.","ok");return}if(authMode==="update"){if(!p||p.length<6)throw new Error("La nueva contraseña debe tener al menos 6 caracteres.");if(p!==$("#confirm").value)throw new Error("Las contraseñas no coinciden.");const {error}=await S.auth.updateUser({password:p});if(error)throw error;recoveryMode=false;history.replaceState({},document.title,location.pathname);await S.auth.signOut();resetUiToLogin("Contraseña actualizada. Ahora inicia sesión con tu nueva clave.","ok");return}if(authMode==="signup"){if(!p||p.length<6)throw new Error("La contraseña debe tener al menos 6 caracteres.");if(p!==$("#confirm").value)throw new Error("Las contraseñas no coinciden.");const rr=await fetch("/api/auth/signup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password:p})});const jj=await rr.json().catch(()=>({}));if(!rr.ok)throw new Error(jj.error||"No se pudo crear la cuenta.");const {error:loginError}=await S.auth.signInWithPassword({email,password:p});if(loginError)throw loginError;return}else{const {error}=await S.auth.signInWithPassword({email,password:p});if(error)throw error}}catch(e){const raw=String(e?.message||"");if(authRateLimitMessage(e))msg("Límite de correo de recuperación alcanzado. Supabase bloqueó temporalmente nuevos envíos. No sigas pulsando el botón; espera y vuelve a intentarlo más tarde.","error");else msg(raw||"No se pudo completar.","error")}finally{$("#authSubmit").disabled=false}}
+async function submit(e){e?.preventDefault();e?.stopPropagation();const button=$("#authSubmit");try{if(button)button.disabled=true;msg("Procesando…");const email=$("#email").value.trim(),p=$("#password").value;if(authMode==="reset"){const cooldownKey="marc_password_reset_cooldown";const until=Number(localStorage.getItem(cooldownKey)||0);if(until>Date.now())throw new Error("Supabase ha limitado temporalmente el envío de correos de recuperación. Espera hasta que se restablezca el límite y vuelve a intentarlo.");const {error}=await S.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname+"?recovery=1"});if(error){if(authRateLimitMessage(error))localStorage.setItem(cooldownKey,String(Date.now()+60*60*1000));throw error}localStorage.removeItem(cooldownKey);msg("Revisa tu correo. El enlace te llevará a crear una nueva contraseña.","ok");return}if(authMode==="update"){if(!p||p.length<6)throw new Error("La nueva contraseña debe tener al menos 6 caracteres.");if(p!==$("#confirm").value)throw new Error("Las contraseñas no coinciden.");const {error}=await S.auth.updateUser({password:p});if(error)throw error;recoveryMode=false;history.replaceState({},document.title,location.pathname);await S.auth.signOut();resetUiToLogin("Contraseña actualizada. Ahora inicia sesión con tu nueva clave.","ok");return}if(authMode==="signup"){if(!p||p.length<6)throw new Error("La contraseña debe tener al menos 6 caracteres.");if(p!==$("#confirm").value)throw new Error("Las contraseñas no coinciden.");const rr=await fetch("/api/auth/signup",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password:p})});const jj=await rr.json().catch(()=>({}));if(!rr.ok)throw new Error(jj.error||"No se pudo crear la cuenta.");const {error:loginError}=await S.auth.signInWithPassword({email,password:p});if(loginError)throw loginError;return}else{const {error}=await S.auth.signInWithPassword({email,password:p});if(error)throw error}}catch(e){const raw=String(e?.message||"");if(authRateLimitMessage(e))msg("Límite de correo de recuperación alcanzado. Supabase bloqueó temporalmente nuevos envíos. No sigas pulsando el botón; espera y vuelve a intentarlo más tarde.","error");else msg(raw||"No se pudo completar.","error")}finally{$("#authSubmit").disabled=false}}
 async function trial(){
   const state=await getPlanState(true);
   const usage=await getPlanUsage(true);
@@ -3723,8 +3723,10 @@ function wire(){
   const authThemeToggle=$("#authThemeToggle");
   if(authThemeToggle)authThemeToggle.onclick=toggleTheme;
   mode("login");
-  if($("#googleLogin")){ $("#googleLogin").type="button"; $("#googleLogin").onclick=signInGoogle; }
-  $("#authForm").onsubmit=submit;
+  const authForm=$("#authForm"),authSubmit=$("#authSubmit"),googleLogin=$("#googleLogin");
+  if(googleLogin){ googleLogin.type="button"; googleLogin.onclick=signInGoogle; googleLogin.style.pointerEvents="auto"; }
+  if(authForm){ authForm.onsubmit=submit; authForm.style.pointerEvents="auto"; }
+  if(authSubmit){ authSubmit.type="submit"; authSubmit.disabled=false; authSubmit.style.pointerEvents="auto"; authSubmit.onclick=e=>{e.stopPropagation();}; }
   $("#passwordToggle").onclick=()=>{const i=$("#password"),b=$("#passwordToggle");if(!i)return;i.type=i.type==="password"?"text":"password";b.textContent=i.type==="password"?"◉":"◎"};
   $("#signupMode").onclick=()=>{mode(authMode==="signup"?"login":"signup");$("#signupMode").textContent=authMode==="signup"?"Volver a iniciar sesión":"Crear cuenta";$("#authForm")?.reset()};
   $("#forgotPassword").onclick=()=>{mode("reset");$("#signupMode").textContent="Volver a iniciar sesión"};
@@ -3793,6 +3795,12 @@ function wire(){
     msg("");
   };
 
+  queueMicrotask(()=>{
+    const f=$("#authForm"),b=$("#authSubmit"),g=$("#googleLogin");
+    if(f){f.onsubmit=submit;f.style.pointerEvents="auto";}
+    if(b){b.type="submit";b.disabled=false;b.style.pointerEvents="auto";}
+    if(g){g.type="button";g.onclick=signInGoogle;g.disabled=false;g.style.pointerEvents="auto";}
+  });
   bootAuth().catch(e=>{
     console.error("[M.A.R.C. auth error]",e);
     sessionStorage.removeItem("marc_google_oauth_pending");

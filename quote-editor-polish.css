@@ -549,3 +549,7 @@
   background:#172a3e!important;
   color:#fff!important;
 }
+
+/* MASTER direct-edit indicator */
+.quote-master-badge{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:8px 12px;border:1px solid #f0c96b;border-radius:12px;background:#fff8df;color:#8a5a00!important;font-size:9px;font-weight:900;letter-spacing:.06em;white-space:nowrap}
+@media(max-width:780px){.quote-master-badge{width:100%;min-height:42px}.quotes-hero-actions{display:flex;flex-wrap:wrap;gap:8px}}

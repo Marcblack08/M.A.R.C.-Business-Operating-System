@@ -3830,23 +3830,60 @@ function describeAuthFailure(search,hash){
 function marcQuickLauncher(){
   const overlay=$("#marcQuickOverlay"),grid=$("#marcQuickGrid"),search=$("#marcQuickSearch");
   if(!overlay||!grid)return;
-  const actions=[
-    {icon:"⌂",title:"Inicio",desc:"Resumen general del negocio",run:()=>view("home")},
-    {icon:"◉",title:"Nuevo cliente",desc:"Crear una ficha de cliente",run:()=>marcQuickView("clients","#new")},
-    {icon:"▣",title:"Nuevo producto",desc:"Agregar producto al inventario",run:()=>marcQuickView("inventory","#new")},
-    {icon:"▤",title:"Nueva cotización",desc:"Crear una propuesta para un cliente",run:()=>marcQuickView("quotes","#new")},
-    {icon:"✦",title:"Cotización con IA",desc:"Crear una cotización guiada",run:()=>marcQuickView("quotes","#aiNew")},
-    {icon:"🛒",title:"Nueva venta",desc:"Abrir el POS y cobrar",run:()=>marcQuickView("cash","#cashSaleQuick")},
-    {icon:"＋",title:"Abrir caja",desc:"Iniciar un turno de caja",run:()=>marcQuickView("cash","#openCashTop")},
-    {icon:"−",title:"Registrar gasto",desc:"Registrar una salida de caja",run:()=>marcQuickView("cash","#cashExpense")},
-    {icon:"⚙",title:"Configuración",desc:"Empresa, logo y datos comerciales",run:()=>view("settings")},
-    {icon:"⌕",title:"Buscar en inventario",desc:"Entrar directo al buscador",run:()=>marcQuickView("inventory","#search")},
-    {icon:"💬",title:"Preguntar a M.A.R.C.",desc:"Abrir el asistente operativo",run:()=>openChat()}
-  ];
+  const workspaceActions={
+    technician:[
+      {icon:"⌂",title:"Inicio técnico",desc:"Centro de operaciones técnicas",run:()=>view("home")},
+      {icon:"🛠",title:"Nueva orden de trabajo",desc:"Crear una OT y controlar su rentabilidad",run:()=>marcQuickView("service_orders","#new")},
+      {icon:"📅",title:"Abrir agenda técnica",desc:"Visitas, servicios y mantenimientos",run:()=>view("agenda")},
+      {icon:"◉",title:"Nuevo cliente",desc:"Crear una ficha de cliente técnico",run:()=>marcQuickView("clients","#new")},
+      {icon:"🧰",title:"Nuevo equipo / activo",desc:"Registrar equipo, garantía y ubicación",run:()=>marcQuickView("assets","#new")},
+      {icon:"🔧",title:"Mantenimiento",desc:"Gestionar mantenimientos preventivos y correctivos",run:()=>view("maintenance")},
+      {icon:"📦",title:"Nuevo material",desc:"Agregar repuesto o material técnico",run:()=>marcQuickView("inventory","#new")},
+      {icon:"🧾",title:"Nueva cotización técnica",desc:"Crear presupuesto para un servicio",run:()=>marcQuickView("quotes","#new")},
+      {icon:"💰",title:"Rentabilidad",desc:"Revisar ingresos, costos y margen",run:()=>view("finances")},
+      {icon:"📊",title:"Reportes técnicos",desc:"Indicadores de operación y servicios",run:()=>view("reports")},
+      {icon:"⚙",title:"Configuración",desc:"Empresa, documentos y parámetros",run:()=>view("settings")},
+      {icon:"💬",title:"Preguntar a M.A.R.C.",desc:"Abrir el asistente operativo",run:()=>openChat()}
+    ],
+    business:[
+      {icon:"⌂",title:"Inicio comercial",desc:"Centro de ventas y operación de tienda",run:()=>view("home")},
+      {icon:"🛒",title:"Nueva venta",desc:"Abrir el POS y cobrar",run:()=>marcQuickView("cash","#cashSaleQuick")},
+      {icon:"＋",title:"Abrir caja",desc:"Iniciar un turno de caja",run:()=>marcQuickView("cash","#openCashTop")},
+      {icon:"−",title:"Registrar gasto",desc:"Registrar una salida de caja",run:()=>marcQuickView("cash","#cashExpense")},
+      {icon:"▣",title:"Nuevo producto",desc:"Agregar producto al inventario",run:()=>marcQuickView("inventory","#new")},
+      {icon:"◉",title:"Nuevo cliente",desc:"Crear una ficha comercial",run:()=>marcQuickView("clients","#new")},
+      {icon:"▤",title:"Nueva cotización",desc:"Crear una propuesta comercial",run:()=>marcQuickView("quotes","#new")},
+      {icon:"🏭",title:"Proveedores",desc:"Gestionar abastecimiento y compras",run:()=>view("suppliers")},
+      {icon:"📥",title:"Compras",desc:"Registrar entradas y costos",run:()=>view("purchases")},
+      {icon:"💳",title:"Créditos y cobros",desc:"Controlar cuentas por cobrar",run:()=>view("receivables")},
+      {icon:"📊",title:"Reportes comerciales",desc:"Ventas, caja y operación",run:()=>view("reports")},
+      {icon:"⚙",title:"Configuración",desc:"Empresa, logo y datos comerciales",run:()=>view("settings")},
+      {icon:"💬",title:"Preguntar a M.A.R.C.",desc:"Abrir el asistente operativo",run:()=>openChat()}
+    ],
+    mixed:[
+      {icon:"⌂",title:"Inicio Business",desc:"Centro ejecutivo de comercio y servicios",run:()=>view("home")},
+      {icon:"🛒",title:"Nueva venta",desc:"Vender y cobrar productos",run:()=>marcQuickView("cash","#cashSaleQuick")},
+      {icon:"🛠",title:"Nueva orden de trabajo",desc:"Crear un servicio técnico",run:()=>marcQuickView("service_orders","#new")},
+      {icon:"＋",title:"Abrir caja",desc:"Iniciar un turno de caja",run:()=>marcQuickView("cash","#openCashTop")},
+      {icon:"📦",title:"Nuevo producto / material",desc:"Registrar inventario para ventas o servicios",run:()=>marcQuickView("inventory","#new")},
+      {icon:"◉",title:"Nuevo cliente",desc:"Crear una ficha comercial y técnica",run:()=>marcQuickView("clients","#new")},
+      {icon:"🧾",title:"Nueva cotización",desc:"Cotizar una venta o un servicio",run:()=>marcQuickView("quotes","#new")},
+      {icon:"📅",title:"Agenda",desc:"Visitas, servicios y compromisos",run:()=>view("agenda")},
+      {icon:"🧰",title:"Equipos y activos",desc:"Activos vinculados a clientes",run:()=>view("assets")},
+      {icon:"🔧",title:"Mantenimiento",desc:"Preventivo y correctivo",run:()=>view("maintenance")},
+      {icon:"🏭",title:"Proveedores y compras",desc:"Abastecimiento y costos",run:()=>view("suppliers")},
+      {icon:"💳",title:"Créditos y cobros",desc:"Cuentas por cobrar",run:()=>view("receivables")},
+      {icon:"💰",title:"Finanzas",desc:"Resultado global del negocio",run:()=>view("finances")},
+      {icon:"📊",title:"Centro ejecutivo",desc:"KPIs y análisis integrados",run:()=>view("reports")},
+      {icon:"⚙",title:"Configuración",desc:"Empresa y sistema",run:()=>view("settings")},
+      {icon:"💬",title:"Preguntar a M.A.R.C.",desc:"Abrir el asistente operativo",run:()=>openChat()}
+    ]
+  };
+  const actions=workspaceActions[currentEcosystem()]||workspaceActions.technician;
   const draw=(filter="")=>{
     const q=String(filter||"").trim().toLowerCase();
     const list=actions.filter(a=>(a.title+" "+a.desc).toLowerCase().includes(q));
-    grid.innerHTML=list.length?list.map(a=>"<button type=\"button\" class=\"marc-quick-item\" data-quick-index=\""+actions.indexOf(a)+"\"><span class=\"qi-icon\">"+a.icon+"</span><span><b>"+esc(a.title)+"</b><small>"+esc(a.desc)+"</small></span></button>").join(""):"<div class=\"marc-quick-empty\">No encontré una acción con ese nombre.</div>";
+    grid.innerHTML=list.length?list.map(a=>"<button type=\"button\" class=\"marc-quick-item\" data-quick-index=\""+actions.indexOf(a)+"\"><span class=\"qi-icon\">"+a.icon+"</span><span><b>"+esc(a.title)+"</b><small>"+esc(a.desc)+"</small></span></button>").join(""):"<div class=\"marc-quick-empty\">No encontré una acción en este espacio de trabajo.</div>";
     grid.querySelectorAll("[data-quick-index]").forEach(b=>b.onclick=async()=>{
       const action=actions[Number(b.dataset.quickIndex)];
       if(!action)return;

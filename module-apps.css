@@ -322,3 +322,50 @@
 .marc-boot-actions{display:flex;gap:8px;margin-top:9px}
 @keyframes marcBootPulse{0%,100%{transform:scale(1);opacity:.85}50%{transform:scale(1.05);opacity:1}}
 @media(max-width:430px){.marc-app-loading{min-height:58vh}.marc-boot-actions{width:100%;flex-direction:column}.marc-boot-actions button{width:100%}}
+
+
+/* SaaS · planes y administración MASTER */
+.marc-plan-modal{max-width:980px}
+.marc-plan-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:8px}
+.marc-plan-card{border-radius:20px;padding:18px;border:1px solid rgba(140,180,210,.18);background:rgba(255,255,255,.055);display:flex;flex-direction:column;gap:8px}
+.marc-plan-card>span{font-size:8px;font-weight:950;letter-spacing:.14em}
+.marc-plan-card>b{font-size:16px;color:#fff}
+.marc-plan-card>small{min-height:42px;color:#9bb0c3;font-size:9px;line-height:1.5}
+.marc-plan-card.free{border-top:3px solid #4c91c9}
+.marc-plan-card.coder{border-top:3px solid #8a6cf0}
+.marc-plan-card.premium{border-top:3px solid #16bfa9}
+.marc-plan-card button{margin-top:auto}
+.marc-plan-note{margin-top:13px;padding:11px 13px;border-radius:13px;background:rgba(255,255,255,.045);color:#8ea6ba;font-size:8px;line-height:1.5}
+.saas-admin{max-width:1180px;margin:0 auto;padding-bottom:30px}
+.saas-admin-hero{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:8px 2px 18px}
+.saas-admin-hero h1{margin:5px 0;color:#fff;font-size:30px;letter-spacing:-.035em}
+.saas-admin-hero p{margin:0;color:#9eb4c8;font-size:10px}
+.saas-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
+.saas-metric{min-height:112px;border-radius:20px;padding:17px;color:#fff;box-shadow:0 12px 28px rgba(20,55,90,.16)}
+.saas-metric b{display:block;font-size:29px;line-height:1}
+.saas-metric span{display:block;margin-top:12px;font-size:9px;font-weight:950;letter-spacing:.09em}
+.saas-metric small{display:block;margin-top:4px;font-size:7px;color:rgba(255,255,255,.78)}
+.saas-metric.blue{background:linear-gradient(145deg,#087fe5,#24a6f5)}
+.saas-metric.violet{background:linear-gradient(145deg,#7357e8,#9b73f4)}
+.saas-metric.cyan{background:linear-gradient(145deg,#00a99d,#16c7b5)}
+.saas-metric.amber{background:linear-gradient(145deg,#e77c25,#f2a13c)}
+.saas-admin-panel{background:rgba(255,255,255,.055);border:1px solid rgba(151,188,215,.15);border-radius:20px;padding:14px;overflow:hidden}
+.saas-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.saas-panel-head>div>span{display:block;color:#54b9f6;font-size:7px;font-weight:950;letter-spacing:.14em}
+.saas-panel-head h2{margin:5px 0 0;color:#fff;font-size:18px}
+.saas-live{padding:6px 9px;border-radius:999px;background:rgba(22,191,169,.12);color:#45d4bf;font-size:7px;font-weight:950}
+.saas-user-scroll{overflow:auto}
+.saas-user-scroll table{min-width:760px}
+.saas-email{display:block;color:#8399ab;font-size:7px;margin-top:3px}
+.saas-plan-pill{display:inline-block;padding:5px 8px;border-radius:999px;font-size:7px;font-weight:950}
+.saas-plan-pill.free{background:#eaf3fa;color:#3378a8}
+.saas-plan-pill.coder{background:#eeeafd;color:#6953b6}
+.saas-plan-pill.premium{background:#e5f8f3;color:#16856f}
+.saas-plan-pill.master{background:#fff0d9;color:#a96a16}
+.saas-change-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
+.saas-change-option{border:1px solid #dbe5ed;background:#fff;border-radius:15px;padding:13px;text-align:left;display:flex;flex-direction:column;gap:5px}
+.saas-change-option b{font-size:11px;color:#182b3e}
+.saas-change-option small{font-size:7px;color:#71869a;line-height:1.45}
+.saas-change-option.active{outline:2px solid #1688db}
+@media(max-width:800px){.marc-plan-grid,.saas-metrics{grid-template-columns:1fr 1fr}.saas-admin-hero{align-items:flex-start}.saas-admin-hero h1{font-size:26px}}
+@media(max-width:520px){.marc-plan-grid,.saas-metrics,.saas-change-grid{grid-template-columns:1fr}.marc-plan-card>small{min-height:0}.saas-admin-hero{display:block}.saas-admin-hero .primary{width:100%;margin-top:12px}}

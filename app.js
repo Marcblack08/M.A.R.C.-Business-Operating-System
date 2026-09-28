@@ -2553,8 +2553,19 @@ async function inventoryPdfModal(){
         (fieldConflictCount?'<div class="msg error">⚠️ '+fieldConflictCount+' producto(s) tienen diferencias de SKU, nombre, marca, modelo o categoría. Revísalas en “conflictos de datos”.</div>':'')+
         (priceConflictCount?'<div class="msg error">⚠️ '+priceConflictCount+' producto(s) aparecen con precios diferentes en distintas páginas. M.A.R.C. conserva el primer precio detectado y los marca para revisión.</div>':'')+
         (missingPriceCount?'<div class="msg error">⚠️ '+missingPriceCount+' producto(s) no tienen precio detectado. Puedes importarlos y completar el precio después.</div>':'')+
+        '<div class="pdf-selection-banner '+(pdfImportLimit!==null&&listItems.length>pdfImportLimit?'limited':'')+'">'+
+          '<div><strong id="pdfSelectionCount">'+pdfSelectionSummary()+'</strong><small>'+(
+            pdfImportLimit!==null&&listItems.length>pdfImportLimit
+              ? "M.A.R.C. detectó "+listItems.length+" productos únicos. Puedes revisar todos, pero tu plan permite importar hasta "+pdfImportLimit+"."
+              : "Todos los productos detectados están disponibles para importar con tu plan."
+          )+'</small></div>'+
+          '<div class="pdf-selection-actions">'+
+            '<button type="button" class="secondary" id="pdfSelectFirst">Seleccionar '+(pdfImportLimit||listItems.length)+'</button>'+
+            '<button type="button" class="secondary" id="pdfSelectNone">Limpiar</button>'+
+          '</div>'+
+        '</div>'+
         '<label class="pdf-photo-option"><input type="checkbox" id="keepPdfProductPhotos" checked> Conservar la foto del producto desde el PDF cuando la página contenga imágenes</label>'+
-        '<div class="pdf-product-list">'+
+        '<div class="pdf-product-list pdf-product-select-list">'+
           listItems.map((x,i)=>{
             const price=x.price!=null&&!Number.isNaN(Number(x.price))?'S/ '+Number(x.price).toFixed(2):'Precio no detectado';
             const code=String(x.sku||'').trim()||'Sin SKU';
@@ -2563,7 +2574,10 @@ async function inventoryPdfModal(){
             const source=pages.length>1?'Páginas '+pages.join(", "):'Página '+pages[0];
             const photo=x.pdf_y!=null&&x.pdf_x!=null&&x.pdf_width!=null?'📷 Foto PDF':'Sin zona de foto';
             const dup=x._duplicateCount?' · '+x._duplicateCount+' duplicado(s)':'';
-            return '<div class="pdf-product-row"><div><b>'+(i+1)+'.</b> '+esc(x.name)+'</div><small>'+esc(source)+' · '+esc(code)+(model&&model!==code?' · '+esc(model):'')+' · '+esc(price)+' · '+photo+esc(dup)+'</small></div>';
+            return '<label class="pdf-product-row pdf-product-select-row">'+
+              '<input type="checkbox" data-pdf-select-index="'+i+'" '+(selectedPdfIndexes.has(i)?'checked':'')+'>'+
+              '<span class="pdf-product-select-main"><span><b>'+(i+1)+'.</b> '+esc(x.name)+'</span><small>'+esc(source)+' · '+esc(code)+(model&&model!==code?' · '+esc(model):'')+' · '+esc(price)+' · '+photo+esc(dup)+'</small></span>'+
+            '</label>';
           }).join("")+
         '</div>'+
         (duplicateGroups.length?'<div class="pdf-duplicates"><strong>Duplicados consolidados</strong>'+duplicateDetail+'</div>':'');
@@ -2584,17 +2598,41 @@ async function inventoryPdfModal(){
           if(product)product.price=Number(input.dataset.pdfPrice);
         });
       });
+      preview.querySelectorAll("input[data-pdf-select-index]").forEach(function(input){
+        input.addEventListener("change",function(){
+          const idx=Number(input.dataset.pdfSelectIndex);
+          if(input.checked){
+            if(pdfImportLimit!==null && selectedPdfIndexes.size>=pdfImportLimit){
+              input.checked=false;
+              toast("Tu plan "+planLabel(pdfPlan.code)+" permite seleccionar hasta "+pdfImportLimit+" productos.","err");
+              return;
+            }
+            selectedPdfIndexes.add(idx);
+          }else{
+            selectedPdfIndexes.delete(idx);
+          }
+          renderPdfSelectionControls();
+        });
+      });
+      $("#pdfSelectFirst")?.addEventListener("click",function(){
+        selectedPdfIndexes=new Set(listItems.slice(0,pdfImportLimit===null?listItems.length:pdfImportLimit).map((_,i)=>i));
+        renderPdfSelectionControls();
+      });
+      $("#pdfSelectNone")?.addEventListener("click",function(){
+        selectedPdfIndexes=new Set();
+        renderPdfSelectionControls();
+      });
+      renderPdfSelectionControls();
 
       btn.type="button";
-      btn.disabled=false;
-      btn.textContent="Importar "+listItems.length+" productos";
       btn.dataset.ready="1";
+      renderPdfSelectionControls();
 
       async function attachPdfProductPhotos(){
         const keep=$("#keepPdfProductPhotos")?.checked;
         if(!keep)return {attached:0,skipped:0};
         const byPage={};
-        listItems.forEach(function(item){
+        selectedPdfItems().forEach(function(item){
           if(!item.page_number||item.pdf_y==null)return;
           (byPage[item.page_number]||(byPage[item.page_number]=[])).push(item);
         });

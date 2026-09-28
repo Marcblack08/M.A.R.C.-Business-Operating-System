@@ -1542,7 +1542,7 @@ async function technicianDashboard(){
   const pending=orders.filter(x=>["PENDIENTE","PROGRAMADA","EN_PROCESO"].includes(x.status)).length;
   const due=plans.filter(x=>x.next_due_at&&new Date(x.next_due_at)<=new Date(Date.now()+30*86400000)).length;
   const lowStock=stock.filter(x=>Number(x.stock)<=Number(x.min_stock)).length;
-  c.innerHTML='<section class="tech-home tech-home-summary">'+
+  c.innerHTML='<section class="tech-home tech-home-shell">'+
     '<div class="tech-home-hero"><div><div class="eyebrow2">ECOSISTEMA TÉCNICO</div><h1>Centro de operaciones.</h1><p>Los módulos están organizados arriba por área. Aquí solo tienes el resumen de trabajo.</p></div><button id="newOTQuick" class="primary">＋ Nueva orden</button></div>'+
     '<section class="tech-summary-grid">'+
       '<article><span>ÓRDENES ACTIVAS</span><strong>'+pending+'</strong><small>Trabajos pendientes o en proceso</small><button data-tech-summary="service_orders">Abrir órdenes →</button></article>'+

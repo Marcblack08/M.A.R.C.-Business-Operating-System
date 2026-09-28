@@ -1,4 +1,4 @@
-(()=>{const C=window.MARC_CONFIG,S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"implicit"}});const st={u:null,session:null,view:"home",cid:null,authEpoch:0};let authListenerSession=null,authTimer=null,authEnteredSessionId=null;S.auth.onAuthStateChange((ev,s)=>{
+(()=>{const C=window.MARC_CONFIG,AUTH_STORAGE=window.MARC_AUTH_STORAGE||undefined,S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"pkce",storage:AUTH_STORAGE}});const st={u:null,session:null,view:"home",cid:null,authEpoch:0};let authListenerSession=null,authTimer=null,authEnteredSessionId=null;S.auth.onAuthStateChange((ev,s)=>{
   authListenerSession=s||null;
   console.info("[M.A.R.C. auth]",ev,!!s,s?.user?.id||"");
   try{
@@ -4146,14 +4146,14 @@ function wire(){
   $$(".chips button").forEach(b=>b.onclick=()=>{$("#chatInput").value=b.dataset.q;$("#chatInput").focus()});
 
   const bootAuth=async()=>{
-    // Google en esta SPA usa el flujo implicit: Supabase procesa automáticamente
+    // Google en esta SPA usa PKCE: Supabase procesa automáticamente
     // el retorno OAuth y persiste la sesión antes de que la interfaz continúe.
     // No hacemos exchangeCodeForSession aquí para evitar consumir un code PKCE
     // que ya haya sido procesado por el cliente.
     // createClient() ya inicializa Supabase automáticamente. No llamamos
     // initialize() manualmente aquí porque eso puede duplicar/racear la
     // detección del retorno OAuth en una SPA.
-    console.info("[M.A.R.C. auth] Esperando la inicialización automática de Supabase.");
+    console.info("[M.A.R.C. auth] Esperando la inicialización automática de Supabase.",{storage:AUTH_STORAGE?"custom":"default",flow:"pkce"});
     const {search,hash}=authCallbackParams();
     const oauthPending=sessionStorage.getItem("marc_google_oauth_pending")==="1";
     const oauthDiagnostics={

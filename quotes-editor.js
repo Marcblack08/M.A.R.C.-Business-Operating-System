@@ -17,15 +17,16 @@
     let clients=[], inventory=[], loadedItems=[];
     try{
       const [cr,ir]=await Promise.all([
-        Q.from("marc_clients").select("id,name,document_number,phone").eq("user_id",st.u.id).order("name"),
-        Q.from("marc_inventory").select("id,name,sku,brand,model,unit,price,cost,stock,active").eq("user_id",st.u.id).eq("active",true).order("name")
+        Q.from("marc_clients").select("id,name,document_number,phone").order("name"),
+        Q.from("marc_inventory").select("id,name,sku,brand,model,unit,price,cost,stock,active").eq("active",true).order("name")
       ]);
       if(cr.error)throw cr.error;
       if(ir.error)throw ir.error;
       clients=cr.data||[];
       inventory=ir.data||[];
       if(existing?.id){
-        const r=await Q.from("marc_quote_items").select("id,inventory_id,item_type,name,description,quantity,unit,unit_price,cost,line_total,material_provider,transport_cost,labor_cost,other_cost").eq("user_id",st.u.id).eq("quote_id",existing.id).order("created_at");
+        const itemQuery=Q.from("marc_quote_items").select("id,inventory_id,item_type,name,description,quantity,unit,unit_price,cost,line_total,material_provider,transport_cost,labor_cost,other_cost").eq("quote_id",existing.id).order("created_at");
+        const r=await itemQuery;
         if(r.error)throw r.error;
         loadedItems=r.data||[];
       }
@@ -170,7 +171,8 @@
         if(clean.some(x=>x.quantity<=0))throw new Error("Todas las cantidades deben ser mayores que 0.");
         if(clean.some(x=>x.item_type==="PRODUCTO"&&!x.inventory_id))throw new Error("Selecciona un producto en cada partida de tipo Producto.");
         if(clean.some(x=>x.item_type==="TRABAJO"&&(!x.name||x.unit_price<=0)))throw new Error("Cada trabajo necesita nombre y precio mayor que 0.");
-        const {data,error}=await Q.rpc("marc_save_quote",{
+        const rpcName=existing?.id && (typeof window.isMasterAccount==="function" ? window.isMasterAccount() : String(st.u?.email||"").trim().toLowerCase()==="joachinbeltranmarcdonald50@gmail.com") ? "marc_master_update_quote" : "marc_save_quote";
+        const {data,error}=await Q.rpc(rpcName,{
           p_quote_id:existing?.id||null,
           p_client_id:$("#qeClient").value||null,
           p_title:$("#qeTitle").value.trim()||"Cotización",
@@ -211,7 +213,8 @@
       let existing=null;
       if(id){
         const st=getState();
-        const r=await Q.from("marc_quotes").select("*,marc_clients(name)").eq("id",id).eq("user_id",st.u.id).maybeSingle();
+        const quoteQuery=Q.from("marc_quotes").select("*,marc_clients(name)").eq("id",id);
+        const r=await quoteQuery.maybeSingle();
         if(r.error)throw r.error;
         existing=r.data||null;
         if(!existing)throw new Error("Cotización no encontrada.");

@@ -1056,6 +1056,18 @@ async function googleGetSubscription(env,purchaseToken){
   if(!r.ok)throw Object.assign(new Error(data?.error?.message||"Google Play rechazó la verificación de la suscripción."),{status:r.status===404?404:502,details:data});
   return data;
 }
+
+async function googleAcknowledgeSubscription(env,productId,purchaseToken){
+  const packageName=String(env.GOOGLE_PLAY_PACKAGE_NAME||"").trim();
+  if(!packageName||!productId||!purchaseToken)throw Object.assign(new Error("Datos insuficientes para confirmar la compra de Google Play."),{status:400});
+  const accessToken=await googleAccessToken(env);
+  const url="https://androidpublisher.googleapis.com/androidpublisher/v3/applications/"+encodeURIComponent(packageName)+"/purchases/subscriptions/"+encodeURIComponent(productId)+"/tokens/"+encodeURIComponent(purchaseToken)+":acknowledge";
+  const r=await fetch(url,{method:"POST",headers:{Authorization:"Bearer "+accessToken,"content-type":"application/json"},body:"{}"});
+  const raw=await r.text();
+  let data=null;try{data=raw?JSON.parse(raw):null}catch{data=raw}
+  if(!r.ok&&r.status!==409)throw Object.assign(new Error(data?.error?.message||"Google Play no pudo confirmar la compra."),{status:502,details:data});
+  return {ok:true,alreadyAcknowledged:r.status===409};
+}
 function googleSubscriptionProjection(data){
   const item=data?.lineItems?.[0]||{};
   return {productId:String(item.productId||""),expiryTime:item.expiryTime||null,orderId:item.latestSuccessfulOrderId||data?.latestOrderId||null,autoRenewing:item.autoRenewingPlan?.autoRenewEnabled===true,subscriptionState:String(data?.subscriptionState||""),acknowledgementState:String(data?.acknowledgementState||"")};
@@ -1163,6 +1175,22 @@ async function googleVerifySubscription(request,env){
   if(!hasAccess)return json({error:"SUBSCRIPTION_NOT_ACTIVE",message:"La suscripción no está activa.",state:p.subscriptionState,expiryTime:p.expiryTime},402,corsHeaders(request,env));
   const secret=env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY;
   if(!secret)throw Object.assign(new Error("El Worker no tiene clave privilegiada de Supabase para activar suscripciones."),{status:503});
+
+  const tokenOwners=await sb(env,secret,"marc_subscriptions?select=id,user_id&provider=eq.google_play&purchase_token=eq."+encodeURIComponent(purchaseToken)+"&limit=1").catch(()=>[]);
+  const tokenOwner=tokenOwners?.[0]||null;
+  if(tokenOwner&&String(tokenOwner.user_id)!==String(user.id)){
+    return json({error:"PURCHASE_TOKEN_ALREADY_LINKED",message:"Esta compra de Google Play ya está vinculada a otra cuenta M.A.R.C."},409,corsHeaders(request,env));
+  }
+  if(p?.linkedPurchaseToken&&!tokenOwner){
+    const linked=await sb(env,secret,"marc_subscriptions?select=id,user_id&provider=eq.google_play&purchase_token=eq."+encodeURIComponent(p.linkedPurchaseToken)+"&limit=1").catch(()=>[]);
+    const linkedOwner=linked?.[0]||null;
+    if(linkedOwner&&String(linkedOwner.user_id)!==String(user.id)){
+      return json({error:"LINKED_PURCHASE_TOKEN_ALREADY_LINKED",message:"La compra anterior está vinculada a otra cuenta M.A.R.C."},409,corsHeaders(request,env));
+    }
+  }
+  if(p.acknowledgementState==="ACKNOWLEDGEMENT_STATE_PENDING"){
+    await googleAcknowledgeSubscription(env,p.productId,purchaseToken);
+  }
   const payload={plan,status:p.subscriptionState==="SUBSCRIPTION_STATE_IN_GRACE_PERIOD"?"grace":"active",provider:"google_play",provider_subscription_id:p.productId,provider_product_id:p.productId,purchase_token:purchaseToken,order_id:p.orderId,auto_renewing:p.autoRenewing,acknowledgement_state:p.acknowledgementState,subscription_state:p.subscriptionState,current_period_start:data?.startTime||new Date().toISOString(),current_period_end:p.expiryTime,last_verified_at:new Date().toISOString(),raw_provider_data:data};
   let rows=await sb(env,secret,"marc_subscriptions?user_id=eq."+encodeURIComponent(user.id),{method:"PATCH",body:payload});
   if(!rows?.length)rows=await sb(env,secret,"marc_subscriptions",{method:"POST",body:{user_id:user.id,...payload}});

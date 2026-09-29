@@ -1175,7 +1175,7 @@ async function entitlement(env,token,userId){
   if(roles?.[0])return {kind:"master",role:"MASTER",plan:"master",remaining:null};
   const [trial,sub]=await Promise.all([
     sb(env,token,"marc_trials?select=status,started_at,ends_at&user_id=eq."+encodeURIComponent(userId)+"&limit=1"),
-    sb(env,token,"marc_subscriptions?select=plan,status,current_period_end&user_id=eq."+encodeURIComponent(userId)+"&status=eq.active&order=current_period_end.desc&limit=1")
+    sb(env,token,"marc_subscriptions?select=plan,status,current_period_end&user_id=eq."+encodeURIComponent(userId)+"&status=in.(active,grace)&current_period_end=gt."+encodeURIComponent(new Date().toISOString())+"&order=current_period_end.desc&limit=1")
   ]);
   if(sub?.[0])return {kind:"paid",plan:sub[0].plan};
   const t=trial?.[0];

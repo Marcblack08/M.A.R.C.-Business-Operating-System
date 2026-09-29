@@ -109,7 +109,25 @@
   },1500);
 })();
 </script>
-<script src="./app.js?v=20260929-google20"></script>
+<script>
+(function(){
+  function hideStaleAuthDiagnostic(){
+    const e=document.getElementById("authMsg");
+    if(!e)return;
+    const t=String(e.textContent||"").toLowerCase();
+    if(t.includes("current is not defined")||t.includes("error real de google oauth")){
+      e.textContent="";
+      e.style.display="none";
+      e.style.visibility="hidden";
+      e.style.opacity="0";
+      e.removeAttribute("role");
+    }
+  }
+  hideStaleAuthDiagnostic();
+  new MutationObserver(hideStaleAuthDiagnostic).observe(document.documentElement,{subtree:true,childList:true,characterData:true,attributes:true});
+})();
+</script>
+<script src="./app.js?v=20260929-google21"></script>
 <script src="./graphic-lab.js?v=20260922-02"></script>
 <script src="./supplier-center.js?v=20260921-11"></script>
 <script src="./notifications.js?v=20260921-01"></script>

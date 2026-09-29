@@ -1,4 +1,4 @@
-(()=>{const C=window.MARC_CONFIG,MARC_AUTH_STORAGE_KEY="marc-business-auth-v1",MARC_AUTH_STORAGE=window.MARC_AUTH_STORAGE||undefined,S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false,flowType:"pkce",storageKey:MARC_AUTH_STORAGE_KEY,storage:MARC_AUTH_STORAGE}});const st={u:null,session:null,view:"home",cid:null,authEpoch:0};let authListenerSession=null,authTimer=null,authEnteredSessionId=null,authMode="login",recoveryMode=new URLSearchParams(location.search).get("recovery")==="1"||/type=recovery/i.test(location.hash);S.auth.onAuthStateChange((ev,s)=>{
+(()=>{const C=window.MARC_CONFIG,S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"implicit"}});const st={u:null,session:null,view:"home",cid:null,authEpoch:0};let authListenerSession=null,authTimer=null,authEnteredSessionId=null,authMode="login",recoveryMode=new URLSearchParams(location.search).get("recovery")==="1"||/type=recovery/i.test(location.hash);S.auth.onAuthStateChange((ev,s)=>{
   authListenerSession=s||null;
   console.info("[M.A.R.C. auth]",ev,!!s,s?.user?.id||"");
   try{
@@ -4200,17 +4200,7 @@ function wire(){
     const initialized=await S.auth.initialize();
     if(initialized?.error)throw initialized.error;
 
-    // En OAuth PKCE hacemos el intercambio de forma explícita. Esto evita que
-    // navegadores móviles/WebViews pierdan el code antes de que nuestra
-    // interfaz termine de inicializarse.
-    const oauthCode=search.get("code");
-    if(oauthCode){
-      const exchanged=await S.auth.exchangeCodeForSession(oauthCode);
-      if(exchanged?.error)throw exchanged.error;
-      console.info("[M.A.R.C. OAuth] Código PKCE intercambiado correctamente.");
-    }
-
-    const current=await S.auth.getSession();
+    // M.A.R.C. es una SPA estática (HTML/JS + Worker), no SSR.\n    // Usamos OAuth implícito en el navegador para evitar depender de un\n    // code_verifier almacenado durante el salto a Google.\n    const current=await S.auth.getSession();
     if(current.error)throw current.error;
     if(current.data?.session?.user){
        if(recoveryMode){sessionStorage.removeItem("marc_google_oauth_pending");mode("update");msg("Crea una nueva contraseña para tu cuenta.","ok");cleanAuthUrl();return;}

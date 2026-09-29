@@ -248,7 +248,7 @@ function openUpgradeModal(feature=""){
         '<article class="marc-plan-card premium '+(current==="premium"?"current":"")+'"><span>PREMIUM / ENTERPRISE</span><b>Empresa</b><small>Multiusuario · cuadrillas · portal cliente · automatización · API · auditoría y almacenamiento empresarial.</small><button class="primary" data-plan="premium">'+(current==="premium"?"Plan actual":"Quiero Premium")+'</button></article>'+
       '</div>'+
       '<div class="marc-plan-features"><b>Incluido por nivel</b><span>Firma digital: Coder y Premium</span><span>Fotos ilimitadas en OT: Coder y Premium</span><span>Portal, multiusuario y API: Premium</span></div>'+
-      '<div class="marc-plan-note">La contratación automática se conectará al proveedor de pagos cuando definamos la pasarela. Mientras tanto, las activaciones de pago las controla M.A.R.C. MASTER.</div>'+
+      '<div class="marc-plan-note"><b>Google Play</b><br>Las suscripciones de M.A.R.C. se prepararán para Google Play. La activación final se hará únicamente después de que Google confirme la compra en el backend.</div>'+
     '</div>'
   );
   $("#planClose").onclick=close;
@@ -278,6 +278,25 @@ function openPlanCenter(){
   $("#planCenterClose").onclick=close;
   $("#planCenterUpgrade").onclick=()=>{close();openUpgradeModal()};
   return close;
+}
+async function verifyGooglePlayPurchase(purchaseToken){
+  const token=String(purchaseToken||"").trim();
+  if(!token||!st.u)return false;
+  try{
+    const {data:sessionData}=await S.auth.getSession();
+    const accessToken=sessionData?.session?.access_token;
+    if(!accessToken)throw new Error("Sesión no disponible.");
+    const r=await fetch((window.MARC_CONFIG?.apiBase||"")+"/api/billing/google/verify",{method:"POST",headers:{Authorization:"Bearer "+accessToken,"content-type":"application/json"},body:JSON.stringify({purchaseToken:token})});
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(data?.message||data?.error||"No se pudo verificar la suscripción.");
+    await getPlanState(true);
+    await refreshPlanUI(true);
+    toast("Suscripción Google Play verificada · "+planLabel(data.plan),"ok");
+    return data;
+  }catch(e){
+    toast(String(e?.message||"No se pudo verificar Google Play."),"err");
+    return false;
+  }
 }
 async function requestPlanUpgrade(plan,message=""){
   const target=normalizePlan(plan);

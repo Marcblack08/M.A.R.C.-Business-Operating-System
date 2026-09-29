@@ -86,6 +86,29 @@
   };
 })();
 </script>
+<script>
+(function(){
+  function showBootError(kind,error){
+    try{
+      var box=document.getElementById("authMsg");
+      if(!box)return;
+      var detail=String(error&&error.message||error||"Error desconocido");
+      box.textContent="M.A.R.C. detectó un fallo de inicio ("+kind+"): "+detail;
+      box.className="msg error";
+      box.style.display="block";
+      box.style.visibility="visible";
+      box.style.opacity="1";
+      console.error("[M.A.R.C. boot]",kind,error);
+    }catch(_){}
+  }
+  window.addEventListener("error",function(e){showBootError("JavaScript",e.error||e.message);});
+  window.addEventListener("unhandledrejection",function(e){showBootError("Promesa",e.reason);});
+  setTimeout(function(){
+    if(!window.supabase)showBootError("Supabase","La librería de autenticación no se cargó.");
+    else if(!window.MARC)showBootError("Aplicación","app.js no terminó de inicializarse.");
+  },1500);
+})();
+</script>
 <script src="./app.js?v=20260928-google16"></script>
 <script src="./graphic-lab.js?v=20260922-02"></script>
 <script src="./supplier-center.js?v=20260921-11"></script>

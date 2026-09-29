@@ -11,7 +11,8 @@
   }catch{}
   if(s?.user){
     clearTimeout(authTimer);
-    authTimer=setTimeout(()=>handleAuthSession(s),0);
+    if(recoveryMode)authTimer=setTimeout(()=>{mode("update");msg("Crea una nueva contraseña para tu cuenta.","ok")},0);
+    else authTimer=setTimeout(()=>handleAuthSession(s),0);
   }else if(ev==="SIGNED_OUT"){
     // Mientras un OAuth está pendiente, un SIGNED_OUT temprano no representa
     // necesariamente un cierre real. El callback todavía puede estar creando
@@ -83,7 +84,7 @@ async function signInCashStaff(e){
   if(b)b.disabled=true;
   try{
     const ownerSession=(await S.auth.getSession()).data?.session;
-    if(ownerSession)sessionStorage.setItem("marc_cash_owner_session",JSON.stringify(ownerSession));
+    if(ownerSession)cashOwnerSession=ownerSession;
     const {error}=await S.auth.signInWithPassword({email:username+"@cash.marc.pe",password});
     if(error)throw error;
   }catch(err){
@@ -3906,9 +3907,8 @@ async function cash(){
     const ok=confirm("¿Salir de esta caja?");
     if(!ok)return;
     try{
-      const raw=sessionStorage.getItem("marc_cash_owner_session");
-      const owner=raw?JSON.parse(raw):null;
-      sessionStorage.removeItem("marc_cash_owner_session");
+      const owner=cashOwnerSession;
+       cashOwnerSession=null;
       if(owner?.access_token&&owner?.refresh_token){
         const restored=await S.auth.setSession({access_token:owner.access_token,refresh_token:owner.refresh_token});
         if(restored.error)throw restored.error;

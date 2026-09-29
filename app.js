@@ -4260,12 +4260,14 @@ function wire(){
 
   bootAuth().catch(e=>{
     console.error("[M.A.R.C. auth error]",e);
-    sessionStorage.removeItem("marc_google_oauth_pending");
-    const raw=String(e?.message||"");
-    const friendly=/pkce|code verifier|verifier not found|oauth/i.test(raw)
-      ? "No se pudo completar el acceso con Google. Vuelve a pulsar «Continuar con Google» e inténtalo nuevamente."
-      : (raw||"No se pudo completar el acceso. Inténtalo nuevamente.");
-    msg(friendly,"error");
+    const raw=String(e?.message||e||"Error desconocido");
+    const code=e?.code?String(e.code):"";
+    const status=e?.status?String(e.status):"";
+    const detail=[raw,code?("Código: "+code):"",status?("HTTP: "+status):""].filter(Boolean).join(" · ");
+    // Conservamos el estado pendiente para que el diagnóstico de retorno
+    // OAuth no se pierda al volver a la pantalla de login.
+    msg("Error real de Google OAuth: "+detail,"error");
+    try{sessionStorage.setItem("marc_google_oauth_last_error",detail)}catch{}
   });
 
   // Última barrera para navegadores móviles/WebViews: si Supabase ya

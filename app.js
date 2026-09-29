@@ -2386,7 +2386,7 @@ async function inventoryPdfModal(){
       live.innerHTML='<div class="pdf-live-title">Productos detectados hasta ahora</div><div id="pdfLiveRows"></div>';
       const liveRows=$("#pdfLiveRows");
 
-      const CONCURRENCY=4;
+      const CONCURRENCY=6;
       for(let batchStart=1;batchStart<=totalPages;batchStart+=CONCURRENCY){
         const batch=[];
         for(let p=0;p<CONCURRENCY&&batchStart+p<=totalPages;p++)batch.push(batchStart+p);
@@ -2404,18 +2404,23 @@ async function inventoryPdfModal(){
             return {pageNumber,items:local.rows,mode:"LECTURA DIRECTA"};
           }
 
-          // Solo los PDFs sin tabla de texto utilizan Gemini.
+          // Si el PDF contiene texto, reutilizamos la lectura ya obtenida.
+          // Evitamos una segunda llamada getTextContent() y, sobre todo,
+          // evitamos renderizar la página a imagen: enviar imágenes a Gemini
+          // es mucho más lento en móviles.
           const pendingForPage=await ensurePendingId();
-          const text=local.text||await extractPdfPageText(page);
+          const text=local.text||"";
           let image="";
-          let viewport=page.getViewport({scale:1.25});
-          if(viewport.width>1600)viewport=page.getViewport({scale:1.25*(1600/viewport.width)});
-          const canvas=document.createElement("canvas");
-          const ctx=canvas.getContext("2d",{alpha:false});
-          canvas.width=Math.ceil(viewport.width);
-          canvas.height=Math.ceil(viewport.height);
-          await page.render({canvasContext:ctx,viewport}).promise;
-          image=canvas.toDataURL("image/jpeg",0.72);
+          if(text.length<120){
+            let viewport=page.getViewport({scale:1.15});
+            if(viewport.width>1400)viewport=page.getViewport({scale:1.15*(1400/viewport.width)});
+            const canvas=document.createElement("canvas");
+            const ctx=canvas.getContext("2d",{alpha:false});
+            canvas.width=Math.ceil(viewport.width);
+            canvas.height=Math.ceil(viewport.height);
+            await page.render({canvasContext:ctx,viewport}).promise;
+            image=canvas.toDataURL("image/jpeg",0.62);
+          }
 
           let analyzed=null,lastError=null;
           for(let retry=0;retry<2;retry++){

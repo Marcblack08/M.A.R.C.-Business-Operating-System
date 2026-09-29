@@ -187,11 +187,20 @@ async function getPlanState(force=false){
     return st.planState;
   }
   try{
-    const [accountRes,subRes,rpcRes]=await Promise.all([
+    // El acceso MASTER debe depender también del rol real en Supabase,
+    // no solamente de un correo fijo. Esto permite que la cuenta maestra
+    // conserve acceso a todas las funciones de pago aunque cambie el correo.
+    const [roleRes,accountRes,subRes,rpcRes]=await Promise.all([
+      S.from("marc_user_roles").select("role,active").eq("user_id",st.u.id).eq("active",true),
       S.from("marc_accounts").select("plan,access_status,trial_ends_at").eq("id",st.u.id).maybeSingle(),
       S.from("marc_subscriptions").select("plan,status,current_period_end,updated_at").eq("user_id",st.u.id).order("updated_at",{ascending:false}).limit(1).maybeSingle(),
       S.rpc("marc_effective_plan",{p_user:st.u.id})
     ]);
+    const isMasterRole=(roleRes.data||[]).some(r=>String(r?.role||"").trim().toUpperCase()==="MASTER");
+    if(isMasterRole){
+      st.planState={code:"master",status:"active",trialEndsAt:null,source:"master-role",updatedAt:Date.now()};
+      return st.planState;
+    }
     const account=accountRes.data||{};
     const sub=subRes.data||{};
     const rpcPlan=normalizePlan(rpcRes.data);

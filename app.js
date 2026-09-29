@@ -74,8 +74,11 @@ function mode(m){
   const passwordLabel=$("#password")?.closest("label");
   passwordLabel?.classList.toggle("hidden",m==="reset");
   $("#password").required=m!=="reset";
-  $("#confirmWrap")?.classList.toggle("hidden",!(m==="signup"||m==="update"));
-  if($("#confirm"))$("#confirm").required=m==="signup"||m==="update";
+  const confirmWrap=$("#confirmWrap");
+  const showConfirm=m==="signup"||m==="update";
+  confirmWrap?.classList.toggle("hidden",!showConfirm);
+  if(confirmWrap)confirmWrap.style.display=showConfirm?"":"none";
+  if($("#confirm"))$("#confirm").required=showConfirm;
   $("#authSubmit").textContent=m==="signup"?"Crear cuenta":m==="update"?"Guardar nueva contraseña":m==="reset"?"Enviar enlace de recuperación":"Iniciar sesión";
   msg("");
 }
@@ -4248,15 +4251,23 @@ function wire(){
     return false;
   };
 
-  bootAuth().catch(e=>{
+  bootAuth().catch(async e=>{
     console.error("[M.A.R.C. auth error]",e);
+    try{
+      const recovered=await S.auth.getSession();
+      if(recovered?.data?.session?.user){
+        sessionStorage.removeItem("marc_google_oauth_pending");
+        await handleAuthSession(recovered.data.session);
+        return;
+      }
+    }catch(recoveryError){
+      console.error("[M.A.R.C. auth recovery after error]",recoveryError);
+    }
     const raw=String(e?.message||e||"Error desconocido");
     const code=e?.code?String(e.code):"";
     const status=e?.status?String(e.status):"";
     const detail=[raw,code?("Código: "+code):"",status?("HTTP: "+status):""].filter(Boolean).join(" · ");
-    // Conservamos el estado pendiente para que el diagnóstico de retorno
-    // OAuth no se pierda al volver a la pantalla de login.
-    msg("Error real de Google OAuth: "+detail,"error");
+    msg("No se pudo completar el inicio de sesión: "+detail,"error");
     try{sessionStorage.setItem("marc_google_oauth_last_error",detail)}catch{}
   });
 

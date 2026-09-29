@@ -2937,10 +2937,10 @@ async function inventoryPdfPageAnalyze(request,env){
   let text="";
   let mode="TEXT";
   if(pageText.length>=120){
-    text=await geminiGenerateText(env,pageText,prompt,{maxTokens:3200});
+    text=await geminiGenerateText(env,pageText,prompt,{maxTokens:1800});
   }else{
     mode="IMAGE";
-    const out=await geminiGenerateImage(env,image,prompt,{maxTokens:3200});
+    const out=await geminiGenerateImage(env,image,prompt,{maxTokens:1800});
     text=out?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("")||"";
   }
 

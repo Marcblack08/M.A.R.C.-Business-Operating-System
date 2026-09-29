@@ -1,4 +1,4 @@
-(()=>{const C=window.MARC_CONFIG,MARC_AUTH_STORAGE_KEY="marc-business-auth-v1",S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"pkce",skipAutoInitialize:true,storageKey:MARC_AUTH_STORAGE_KEY}});const st={u:null,session:null,view:"home",cid:null,authEpoch:0};let authListenerSession=null,authTimer=null,authEnteredSessionId=null;S.auth.onAuthStateChange((ev,s)=>{
+(()=>{const C=window.MARC_CONFIG,MARC_AUTH_STORAGE_KEY="marc-business-auth-v1",MARC_AUTH_STORAGE=window.MARC_AUTH_STORAGE||undefined,S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"pkce",skipAutoInitialize:true,storageKey:MARC_AUTH_STORAGE_KEY,storage:MARC_AUTH_STORAGE}});const st={u:null,session:null,view:"home",cid:null,authEpoch:0};let authListenerSession=null,authTimer=null,authEnteredSessionId=null;S.auth.onAuthStateChange((ev,s)=>{
   authListenerSession=s||null;
   console.info("[M.A.R.C. auth]",ev,!!s,s?.user?.id||"");
   try{
@@ -65,7 +65,20 @@ function initTheme(){
   applyTheme(preferred,false);
 }
 function authRateLimitMessage(e){const raw=String(e?.message||"").toLowerCase();return raw.includes("rate limit")||raw.includes("too many")||raw.includes("over_email_send_rate_limit")}
-function mode(m){authMode=m;const title=m==="login"?"Inicia sesión en M.A.R.C.":m==="signup"?"Crea tu cuenta en M.A.R.C.":"Recupera tu contraseña";const sub=m==="login"?"Accede con Google o con tu correo y contraseña.":m==="signup"?"Crea tu cuenta para comenzar.":"Te enviaremos un enlace para crear una nueva contraseña.";if($("#authTitle"))$("#authTitle").textContent=title;if($("#authSub"))$("#authSub").textContent=sub;$("#password")?.closest("label")?.classList.toggle("hidden",m==="reset");$("#password").required=m!=="reset";$("#confirmWrap")?.classList.toggle("hidden",m!=="signup");$("#authSubmit").textContent=m==="signup"?"Crear cuenta":m==="reset"?"Enviar enlace de recuperación":"Iniciar sesión";msg("")}
+function mode(m){
+  authMode=m;
+  const title=m==="login"?"Inicia sesión en M.A.R.C.":m==="signup"?"Crea tu cuenta en M.A.R.C.":m==="update"?"Crea una nueva contraseña":"Recupera tu contraseña";
+  const sub=m==="login"?"Accede con Google o con tu correo y contraseña.":m==="signup"?"Crea tu cuenta para comenzar.":m==="update"?"La recuperación fue verificada. Define una nueva contraseña segura.":"Te enviaremos un enlace para crear una nueva contraseña.";
+  if($("#authTitle"))$("#authTitle").textContent=title;
+  if($("#authSub"))$("#authSub").textContent=sub;
+  const passwordLabel=$("#password")?.closest("label");
+  passwordLabel?.classList.toggle("hidden",m==="reset");
+  $("#password").required=m!=="reset";
+  $("#confirmWrap")?.classList.toggle("hidden",!(m==="signup"||m==="update"));
+  if($("#confirm"))$("#confirm").required=m==="signup"||m==="update";
+  $("#authSubmit").textContent=m==="signup"?"Crear cuenta":m==="update"?"Guardar nueva contraseña":m==="reset"?"Enviar enlace de recuperación":"Iniciar sesión";
+  msg("");
+}
 function showCashStaffLogin(show=true){
   const panel=$("#cashStaffPanel");
   if(!panel)return;

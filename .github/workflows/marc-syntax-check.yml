@@ -1,0 +1,22 @@
+name: M.A.R.C. Syntax Check
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - name: Check app.js
+        run: node --check app.js
+      - name: Check worker.js
+        run: node --check functions/worker.js

@@ -1011,7 +1011,6 @@ async function reports(){
 
     const qr=quotes.data||[],iv=inventory.data||[],cl=clients.data||[];
     const sr=sales?.data||[],cr=cash?.data||[];
-    const commerceReport=canReadCommerceReports;
     const now=new Date(),monthStart=new Date(now.getFullYear(),now.getMonth(),1);
     const monthSales=sr.filter(x=>new Date(x.created_at)>=monthStart);
     const quotesActive=qr.filter(x=>["BORRADOR","ENVIADA","ACEPTADA"].includes(String(x.status||"").toUpperCase()));

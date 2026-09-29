@@ -1,4 +1,4 @@
-(()=>{const C=window.MARC_CONFIG,MARC_AUTH_STORAGE_KEY="marc-business-auth-v1",MARC_AUTH_STORAGE=window.MARC_AUTH_STORAGE||undefined,S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"pkce",skipAutoInitialize:true,storageKey:MARC_AUTH_STORAGE_KEY,storage:MARC_AUTH_STORAGE}});const st={u:null,session:null,view:"home",cid:null,authEpoch:0};let authListenerSession=null,authTimer=null,authEnteredSessionId=null,authMode="login",recoveryMode=new URLSearchParams(location.search).get("recovery")==="1"||/type=recovery/i.test(location.hash);S.auth.onAuthStateChange((ev,s)=>{
+(()=>{const C=window.MARC_CONFIG,MARC_AUTH_STORAGE_KEY="marc-business-auth-v1",MARC_AUTH_STORAGE=window.MARC_AUTH_STORAGE||undefined,S=window.supabase.createClient(C.supabaseUrl,C.supabasePublishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"pkce",storageKey:MARC_AUTH_STORAGE_KEY,storage:MARC_AUTH_STORAGE}});const st={u:null,session:null,view:"home",cid:null,authEpoch:0};let authListenerSession=null,authTimer=null,authEnteredSessionId=null,authMode="login",recoveryMode=new URLSearchParams(location.search).get("recovery")==="1"||/type=recovery/i.test(location.hash);S.auth.onAuthStateChange((ev,s)=>{
   authListenerSession=s||null;
   console.info("[M.A.R.C. auth]",ev,!!s,s?.user?.id||"");
   try{
@@ -10,6 +10,7 @@
     }));
   }catch{}
   if(s?.user){
+    try{sessionStorage.removeItem("marc_google_oauth_pending")}catch{}
     clearTimeout(authTimer);
     if(recoveryMode)authTimer=setTimeout(()=>{mode("update");msg("Crea una nueva contraseña para tu cuenta.","ok")},0);
     else authTimer=setTimeout(()=>handleAuthSession(s),0);

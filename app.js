@@ -1573,21 +1573,30 @@ async function agenda(){
 }
 async function maintenance(){
  const c=$("#content"); if(!c)return;
- const [p,o,a,cl]=await Promise.all([
-  S.from("marc_maintenance_plans").select("*,marc_clients(name),marc_assets(name,brand,model,serial_number)").eq("user_id",st.u.id).order("next_due_at",{ascending:true}).limit(300),
+ // Mantenimiento no debe desaparecer completo porque un problema puntual
+ // de Activos impida cargar los planes e historial. Cargamos cada fuente
+ // por separado y hacemos el vínculo con activos en memoria.
+ const [p,o,cl]=await Promise.all([
+  S.from("marc_maintenance_plans").select("*,marc_clients(name)").eq("user_id",st.u.id).order("next_due_at",{ascending:true}).limit(300),
   S.from("marc_maintenance_occurrences").select("*,marc_maintenance_plans(title,service_type),marc_service_orders(order_number,status,revenue,profit)").eq("user_id",st.u.id).order("scheduled_at",{ascending:true}).limit(300),
-  S.from("marc_assets").select("id,name,brand,model,serial_number,status,next_service_at").eq("user_id",st.u.id).neq("status","RETIRADO").order("name").limit(500),
   S.from("marc_clients").select("id,name").eq("user_id",st.u.id).order("name").limit(500)
  ]);
- if(p.error||o.error||a.error||cl.error)return toast((p.error||o.error||a.error||cl.error).message,"err");
- const plans=p.data||[], occurrences=o.data||[], assetsRows=a.data||[], clientsRows=cl.data||[], now=Date.now(), soon=now+30*86400000;
+ if(p.error||o.error||cl.error)return toast((p.error||o.error||cl.error).message,"err");
+ let assetsRows=[],assetsError=null;
+ try{
+   const a=await S.from("marc_assets").select("id,name,brand,model,serial_number,status,next_service_at").eq("user_id",st.u.id).neq("status","RETIRADO").order("name").limit(500);
+   assetsRows=a.data||[]; assetsError=a.error||null;
+ }catch(err){assetsError=err}
+ const assetMap=new Map((assetsRows||[]).map(x=>[x.id,x]));
+ const plans=(p.data||[]).map(x=>({...x,marc_assets:assetMap.get(x.asset_id)||null}));
+ const occurrences=o.data||[], clientsRows=cl.data||[], now=Date.now(), soon=now+30*86400000;
  const due=plans.filter(x=>x.active!==false&&x.next_due_at&&new Date(x.next_due_at).getTime()<=soon);
  const overdue=plans.filter(x=>x.active!==false&&x.next_due_at&&new Date(x.next_due_at).getTime()<now);
  const active=plans.filter(x=>x.active!==false);
  const completed=occurrences.filter(x=>x.status==="COMPLETADA");
  const fmt=d=>d?new Date(d).toLocaleString("es-PE",{dateStyle:"medium",timeStyle:"short"}):"—";
  const status=x=>x.next_due_at?(new Date(x.next_due_at).getTime()<now?"VENCIDO":new Date(x.next_due_at).getTime()<=soon?"PRÓXIMO":"PROGRAMADO"):"SIN FECHA";
- const rows=plans.slice(0,80).map(x=>'<article class="maintenance-card '+(status(x)==="VENCIDO"?"is-overdue":"")+'"><div class="maintenance-card-top"><div><b>'+esc(x.title)+'</b><span>'+esc(x.service_type||"Mantenimiento")+'</span></div><strong>'+esc(status(x))+'</strong></div><p>'+esc(x.marc_clients?.name||"Sin cliente")+' · '+esc(x.marc_assets?[x.marc_assets.name,x.marc_assets.brand,x.marc_assets.model].filter(Boolean).join(" · "):"Sin equipo vinculado")+'</p><small>Próximo: '+esc(fmt(x.next_due_at))+(x.technician?" · "+esc(x.technician):"")+'</small><div class="maintenance-card-actions"><button class="secondary" data-maint-edit="'+x.id+'">Editar</button><button class="primary" data-maint-run="'+x.id+'">Registrar mantenimiento</button></div></article>').join("")||'<div class="empty">No hay planes de mantenimiento.</div>';
+ const rows=plans.slice(0,80).map(x=>'<article class="maintenance-card '+(status(x)==="VENCIDO"?"is-overdue":"")+'"><div class="maintenance-card-top"><div><b>'+esc(x.title)+'</b><span>'+esc(x.service_type||"Mantenimiento")+'</span></div><strong>'+esc(status(x))+'</strong></div><p>'+esc(x.marc_clients?.name||"Sin cliente")+' · '+esc(x.marc_assets?[x.marc_assets.name,x.marc_assets.brand,x.marc_assets.model].filter(Boolean).join(" · "):"Equipo no disponible")+(assetsError&&!x.marc_assets?' <small>(Activos temporalmente no disponibles)</small>':"")+'</p><small>Próximo: '+esc(fmt(x.next_due_at))+(x.technician?" · "+esc(x.technician):"")+'</small><div class="maintenance-card-actions"><button class="secondary" data-maint-edit="'+x.id+'">Editar</button><button class="primary" data-maint-run="'+x.id+'">Registrar mantenimiento</button></div></article>').join("")||'<div class="empty">No hay planes de mantenimiento.</div>';
  const hist=occurrences.slice(0,60).map(x=>'<tr><td>'+esc(fmt(x.scheduled_at))+'</td><td>'+esc(x.marc_maintenance_plans?.title||"Mantenimiento")+'</td><td><span class="status-pill">'+esc(x.status)+'</span></td><td>'+esc(x.marc_service_orders?.order_number||"—")+'</td></tr>').join("")||'<tr><td colspan="4" class="empty">Sin historial todavía.</td></tr>';
  c.innerHTML='<div class="head"><div><div class="eyebrow2">CONTROL TÉCNICO</div><h1>Mantenimientos.</h1><p>Programa, ejecuta y deja trazabilidad de cada mantenimiento por cliente y equipo.</p></div><div class="head-actions"><button id="maintenanceNew" class="primary">＋ Nuevo mantenimiento</button><button id="maintenanceAgenda" class="secondary">Abrir agenda</button></div></div>'+
  '<section class="client-summary"><div><span>PLANES ACTIVOS</span><strong>'+active.length+'</strong><small>Programas recurrentes</small></div><div><span>VENCIDOS</span><strong class="'+(overdue.length?"out":"ok")+'">'+overdue.length+'</strong><small>Requieren atención</small></div><div><span>PRÓXIMOS 30 DÍAS</span><strong>'+due.length+'</strong><small>Visitas programadas</small></div><div><span>REALIZADOS</span><strong>'+completed.length+'</strong><small>Ocurrencias registradas</small></div></section>'+

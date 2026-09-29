@@ -1060,6 +1060,94 @@ function googleSubscriptionProjection(data){
   const item=data?.lineItems?.[0]||{};
   return {productId:String(item.productId||""),expiryTime:item.expiryTime||null,orderId:item.latestSuccessfulOrderId||data?.latestOrderId||null,autoRenewing:item.autoRenewingPlan?.autoRenewEnabled===true,subscriptionState:String(data?.subscriptionState||""),acknowledgementState:String(data?.acknowledgementState||"")};
 }
+
+const GOOGLE_RT_DN_TYPES={
+  1:"SUBSCRIPTION_RECOVERED",2:"SUBSCRIPTION_RENEWED",3:"SUBSCRIPTION_CANCELED",
+  4:"SUBSCRIPTION_PURCHASED",5:"SUBSCRIPTION_ON_HOLD",6:"SUBSCRIPTION_IN_GRACE_PERIOD",
+  7:"SUBSCRIPTION_RESTARTED",8:"SUBSCRIPTION_PRICE_CHANGE_CONFIRMED",9:"SUBSCRIPTION_DEFERRED",
+  10:"SUBSCRIPTION_PAUSED",11:"SUBSCRIPTION_PAUSE_SCHEDULE_CHANGED",12:"SUBSCRIPTION_REVOKED",
+  13:"SUBSCRIPTION_EXPIRED",17:"SUBSCRIPTION_ITEMS_CHANGED",18:"SUBSCRIPTION_CANCELLATION_SCHEDULED",
+  19:"SUBSCRIPTION_PRICE_CHANGE_UPDATED",20:"SUBSCRIPTION_PENDING_PURCHASE_CANCELED",
+  22:"SUBSCRIPTION_PRICE_STEP_UP_CONSENT_UPDATED"
+};
+function decodeGoogleRtdnData(value){
+  const raw=String(value||"");
+  if(!raw)return null;
+  try{
+    const bytes=Uint8Array.from(atob(raw.replace(/-/g,"+").replace(/_/g,"/")),c=>c.charCodeAt(0));
+    return JSON.parse(new TextDecoder().decode(bytes));
+  }catch{}
+  try{return JSON.parse(raw)}catch{}
+  return null;
+}
+async function googleRtdn(request,env){
+  if(request.method!=="POST")return json({error:"Método no permitido"},405,corsHeaders(request,env));
+  const expectedSecret=String(env.GOOGLE_PLAY_RTDN_SECRET||"").trim();
+  if(expectedSecret){
+    const supplied=String(new URL(request.url).searchParams.get("token")||request.headers.get("x-google-rtdn-secret")||"").trim();
+    if(!supplied||supplied!==expectedSecret)return json({error:"No autorizado"},401,corsHeaders(request,env));
+  }
+  const envelope=await request.json().catch(()=>null);
+  const message=envelope?.message||{};
+  const notificationId=String(message?.messageId||"").trim();
+  const event=decodeGoogleRtdnData(message?.data);
+  if(!event?.packageName)return json({ok:true,ignored:true,reason:"INVALID_NOTIFICATION"},200,corsHeaders(request,env));
+  const packageName=String(env.GOOGLE_PLAY_PACKAGE_NAME||"").trim();
+  if(!packageName||event.packageName!==packageName)return json({ok:true,ignored:true,reason:"PACKAGE_MISMATCH"},200,corsHeaders(request,env));
+
+  const subNote=event.subscriptionNotification;
+  if(!subNote?.purchaseToken)return json({ok:true,ignored:true,reason:"NOT_SUBSCRIPTION"},200,corsHeaders(request,env));
+  const purchaseToken=String(subNote.purchaseToken).trim();
+  const type=Number(subNote.notificationType||0);
+  const eventType=GOOGLE_RT_DN_TYPES[type]||("GOOGLE_RTDN_"+type);
+  const secret=env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY;
+  if(!secret)throw Object.assign(new Error("Falta la clave privilegiada de Supabase."),{status:503});
+
+  if(notificationId){
+    const existing=await sb(env,secret,"marc_subscription_events?select=id&provider=eq.google_play&event_id=eq."+encodeURIComponent(notificationId)+"&limit=1").catch(()=>[]);
+    if(existing?.length)return json({ok:true,duplicate:true,eventId:notificationId},200,corsHeaders(request,env));
+  }
+
+  const existingSubs=await sb(env,secret,"marc_subscriptions?select=id,user_id,plan,status&provider=eq.google_play&purchase_token=eq."+encodeURIComponent(purchaseToken)+"&limit=1").catch(()=>[]);
+  const subscription=existingSubs?.[0]||null;
+
+  if(!subscription){
+    if(notificationId){
+      await sb(env,secret,"marc_subscription_events",{method:"POST",body:{
+        subscription_id:null,provider:"google_play",event_id:notificationId,event_type:eventType,
+        purchase_token:purchaseToken,payload:{packageName:event.packageName,eventTimeMillis:event.eventTimeMillis,notificationType:type}
+      }}).catch(()=>{});
+    }
+    return json({ok:true,ignored:true,reason:"SUBSCRIPTION_NOT_LINKED",eventType},200,corsHeaders(request,env));
+  }
+
+  const data=await googleGetSubscription(env,purchaseToken);
+  const p=googleSubscriptionProjection(data);
+  const plan=googlePlanFromProduct(p.productId,env)||normalizeGooglePlan(subscription.plan);
+  const expiryMs=p.expiryTime?new Date(p.expiryTime).getTime():0;
+  const accessStates=new Set(["SUBSCRIPTION_STATE_ACTIVE","SUBSCRIPTION_STATE_IN_GRACE_PERIOD","SUBSCRIPTION_STATE_CANCELED","SUBSCRIPTION_STATE_PAUSED"]);
+  const hasAccess=accessStates.has(p.subscriptionState)&&expiryMs>Date.now();
+  const status=p.subscriptionState==="SUBSCRIPTION_STATE_IN_GRACE_PERIOD"?"grace":hasAccess?"active":"inactive";
+
+  await sb(env,secret,"marc_subscriptions?id=eq."+encodeURIComponent(subscription.id),{method:"PATCH",body:{
+    plan,status,provider:"google_play",provider_subscription_id:p.productId,provider_product_id:p.productId,
+    purchase_token:purchaseToken,order_id:p.orderId,auto_renewing:p.autoRenewing,
+    acknowledgement_state:p.acknowledgementState,subscription_state:p.subscriptionState,
+    current_period_start:data?.startTime||null,current_period_end:p.expiryTime,last_verified_at:new Date().toISOString(),
+    raw_provider_data:data
+  }});
+
+  if(notificationId){
+    await sb(env,secret,"marc_subscription_events",{method:"POST",body:{
+      user_id:subscription.user_id,subscription_id:subscription.id,provider:"google_play",
+      event_id:notificationId,event_type:eventType,purchase_token:purchaseToken,
+      payload:{packageName:event.packageName,eventTimeMillis:event.eventTimeMillis,notificationType:type,
+        productId:p.productId,subscriptionState:p.subscriptionState,expiryTime:p.expiryTime,orderId:p.orderId}
+    }}).catch(()=>{});
+  }
+  return json({ok:true,eventType,subscriptionState:p.subscriptionState,status,expiryTime:p.expiryTime},200,corsHeaders(request,env));
+}
+
 async function googleVerifySubscription(request,env){
   if(request.method!=="POST")return json({error:"Método no permitido"},405,corsHeaders(request,env));
   const {token,user}=await authUser(request,env);
@@ -1070,7 +1158,8 @@ async function googleVerifySubscription(request,env){
   const p=googleSubscriptionProjection(data);
   const plan=googlePlanFromProduct(p.productId,env);
   if(!plan)return json({error:"PRODUCT_NOT_CONFIGURED",message:"El producto de Google Play no está asociado a un plan M.A.R.C.",productId:p.productId},422,corsHeaders(request,env));
-  const hasAccess=new Set(["SUBSCRIPTION_STATE_ACTIVE","SUBSCRIPTION_STATE_IN_GRACE_PERIOD"]).has(p.subscriptionState)&&p.expiryTime&&new Date(p.expiryTime).getTime()>Date.now();
+  const accessStates=new Set(["SUBSCRIPTION_STATE_ACTIVE","SUBSCRIPTION_STATE_IN_GRACE_PERIOD","SUBSCRIPTION_STATE_CANCELED","SUBSCRIPTION_STATE_PAUSED"]);
+  const hasAccess=accessStates.has(p.subscriptionState)&&p.expiryTime&&new Date(p.expiryTime).getTime()>Date.now();
   if(!hasAccess)return json({error:"SUBSCRIPTION_NOT_ACTIVE",message:"La suscripción no está activa.",state:p.subscriptionState,expiryTime:p.expiryTime},402,corsHeaders(request,env));
   const secret=env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY;
   if(!secret)throw Object.assign(new Error("El Worker no tiene clave privilegiada de Supabase para activar suscripciones."),{status:503});
@@ -3933,6 +4022,9 @@ export default{
         const rows=await sb(env,token,"marc_reminders?select=id,title,body,due_at,status,channel,created_at,sent_at&user_id=eq."+encodeURIComponent(user.id)+"&order=due_at.desc&limit=50");
         return json({notifications:rows||[]},200,headers);
       }catch(err){return json({error:safeClientError(err,"No se pudieron cargar las notificaciones")},err?.status||500,headers)}
+    }
+    if(url.pathname==="/api/billing/google/rtdn"){
+      try{return await googleRtdn(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo procesar la notificación de Google Play.")},err?.status||500,corsHeaders(request,env))}
     }
     if(url.pathname==="/api/billing/google/verify"){
       try{return await googleVerifySubscription(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo verificar la suscripción de Google Play.")},err?.status||500,headers)}

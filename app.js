@@ -206,7 +206,7 @@ async function getPlanState(force=false){
     const rpcPlan=normalizePlan(rpcRes.data);
     const subStatus=String(sub.status||"").toLowerCase();
     let code=rpcPlan;
-    if(subStatus==="active"||subStatus==="trial")code=normalizePlan(sub.plan);
+    if(["active","grace"].includes(subStatus))code=normalizePlan(sub.plan);
     else if(account.plan)code=normalizePlan(account.plan);
     st.planState={
       code,

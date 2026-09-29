@@ -112,23 +112,30 @@ async function signInGoogle(e){e?.preventDefault?.();e?.stopPropagation?.();cons
     planLauncher.setAttribute("role","button");
     planLauncher.setAttribute("tabindex","0");
     planLauncher.title="Ver mi plan y capacidades";
-    planLauncher.addEventListener("click",()=>openPlanCenter());
+    planLauncher.addEventListener("click",()=>openPlanCenter(),{once:false});
     planLauncher.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();openPlanCenter()}});
   }
   const google=$("#googleLogin");
-  if(google){ google.type="button"; google.onclick=signInGoogle; }
+  if(google){
+    google.type="button";
+    google.addEventListener("click",signInGoogle);
+  }
   const form=$("#authForm");
-  if(form)form.onsubmit=submit;
+  if(form)form.addEventListener("submit",submit);
   const toggle=$("#passwordToggle");
-  if(toggle)toggle.onclick=()=>{
+  if(toggle)toggle.addEventListener("click",()=>{
     const p=$("#password"); if(!p)return;
     p.type=p.type==="password"?"text":"password";
     toggle.setAttribute("aria-label",p.type==="password"?"Mostrar contraseña":"Ocultar contraseña");
-  };
+  });
   const forgot=$("#forgotPassword");
-  if(forgot)forgot.onclick=()=>mode("reset");
+  if(forgot)forgot.addEventListener("click",()=>mode("reset"));
   const signup=$("#signupMode");
-  if(signup)signup.onclick=()=>mode("signup");
+  if(signup)signup.addEventListener("click",()=>{
+    mode(authMode==="signup"?"login":"signup");
+    signup.textContent=authMode==="signup"?"Volver a iniciar sesión":"Crear cuenta";
+    $("#authForm")?.reset();
+  });
 }
 bindAuthControls();
 async function handleAuthSession(s){if(!s?.user)return;const id=s.user.id;if(authEnteredSessionId===id && st.u?.id===id && !$("#app").classList.contains("hidden"))return;authEnteredSessionId=id;try{await enter(s)}catch(e){authEnteredSessionId=null;throw e}}function resetUiToLogin(message="",type=""){const pending=sessionStorage.getItem("marc_google_oauth_pending")==="1";let diagnostic="";try{const last=JSON.parse(sessionStorage.getItem("marc_auth_last_event")||"null");if(last?.event)diagnostic=" Evento recibido: "+last.event+"."; }catch{}if(!message&&pending){message="Google completó la autenticación, pero M.A.R.C. recibió la sesión como cerrada antes de entrar al sistema."+diagnostic+" El problema está en la recuperación de sesión del navegador, no en la cuenta de Google.";type="error";}st.authEpoch++;st.u=null;st.session=null;st.cid=null;try{applyCashierMode(false)}catch{}$("#app").classList.add("hidden");$("#auth").classList.remove("hidden");mode("login");if(message)msg(message,type)}
@@ -4130,13 +4137,6 @@ function wire(){
   const authThemeToggle=$("#authThemeToggle");
   if(authThemeToggle)authThemeToggle.onclick=toggleTheme;
   mode("login");
-  const authForm=$("#authForm"),authSubmit=$("#authSubmit"),googleLogin=$("#googleLogin");
-  if(googleLogin){ googleLogin.type="button"; googleLogin.onclick=signInGoogle; googleLogin.style.pointerEvents="auto"; }
-  if(authForm){ authForm.onsubmit=submit; authForm.style.pointerEvents="auto"; }
-  if(authSubmit){ authSubmit.type="submit"; authSubmit.disabled=false; authSubmit.style.pointerEvents="auto"; authSubmit.onclick=e=>{e.stopPropagation();}; }
-  $("#passwordToggle").onclick=()=>{const i=$("#password"),b=$("#passwordToggle");if(!i)return;i.type=i.type==="password"?"text":"password";b.textContent=i.type==="password"?"◉":"◎"};
-  $("#signupMode").onclick=()=>{mode(authMode==="signup"?"login":"signup");$("#signupMode").textContent=authMode==="signup"?"Volver a iniciar sesión":"Crear cuenta";$("#authForm")?.reset()};
-  $("#forgotPassword").onclick=()=>{mode("reset");$("#signupMode").textContent="Volver a iniciar sesión"};
   $("#logout").onclick=async()=>{
     // Limpiar solo la preferencia local de ecosistema al salir.
     // La configuración persistida de cada cuenta permanece intacta.
@@ -4220,12 +4220,6 @@ function wire(){
       );
     }
   };
-  queueMicrotask(()=>{
-    const f=$("#authForm"),b=$("#authSubmit"),g=$("#googleLogin");
-    if(f){f.onsubmit=submit;f.style.pointerEvents="auto";}
-    if(b){b.type="submit";b.disabled=false;b.style.pointerEvents="auto";}
-    if(g){g.type="button";g.onclick=signInGoogle;g.disabled=false;g.style.pointerEvents="auto";}
-  });
   const recoverBrowserSession=async()=>{
     try{
       // Después del retorno OAuth, el cliente puede terminar de persistir la
@@ -4261,23 +4255,6 @@ function wire(){
   window.addEventListener("load",()=>{void recoverBrowserSession();},{once:true});
   setTimeout(()=>{void recoverBrowserSession();},1800);
   setTimeout(()=>{void recoverBrowserSession();},4500);
-
-  // Puente de autenticación resistente: intercepta los controles de acceso
-  // en fase capture para que ningún listener visual/genérico pueda bloquearlos.
-  // También evita depender exclusivamente de onclick/onsubmit asignados por módulos.
-  document.addEventListener("click",e=>{
-    const google=e.target?.closest?.("#googleLogin");
-    const login=e.target?.closest?.("#authSubmit");
-    if(!google&&!login)return;
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    if(google){
-      void signInGoogle(e);
-      return;
-    }
-    const form=$("#authForm");
-    if(form)void submit(e);
-  },{capture:true});
 
   window.MARC=window.MARC||{};
   window.MARC.signInGoogle=signInGoogle;

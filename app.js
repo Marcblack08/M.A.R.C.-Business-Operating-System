@@ -297,6 +297,7 @@ async function verifyGooglePlayPurchase(purchaseToken){
     toast(String(e?.message||"No se pudo verificar Google Play."),"err");
     return false;
   }
+window.MARC=window.MARC||{};window.MARC.verifyGooglePlayPurchase=verifyGooglePlayPurchase;
 }
 async function requestPlanUpgrade(plan,message=""){
   const target=normalizePlan(plan);

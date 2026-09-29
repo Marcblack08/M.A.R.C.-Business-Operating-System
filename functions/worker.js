@@ -4057,6 +4057,34 @@ export default{
         return json({notifications:rows||[]},200,headers);
       }catch(err){return json({error:safeClientError(err,"No se pudieron cargar las notificaciones")},err?.status||500,headers)}
     }
+    if(url.pathname==="/api/billing/google/status"){
+      if(request.method!=="GET")return json({error:"Método no permitido"},405,headers);
+      try{
+        const {user}=await authUser(request,env);
+        const configured=Boolean(
+          String(env.GOOGLE_PLAY_PACKAGE_NAME||"").trim() &&
+          String(env.GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL||"").trim() &&
+          String(env.GOOGLE_PLAY_PRIVATE_KEY||"").trim()
+        );
+        const rtdnConfigured=Boolean(String(env.GOOGLE_PLAY_RTDN_SECRET||"").trim());
+        return json({
+          ok:true,
+          authenticated:true,
+          configured,
+          rtdnConfigured,
+          packageName:String(env.GOOGLE_PLAY_PACKAGE_NAME||"").trim()||null,
+          products:{
+            coder_monthly:"marc_coder_monthly",
+            coder_yearly:"marc_coder_yearly",
+            premium_monthly:"marc_premium_monthly",
+            premium_yearly:"marc_premium_yearly"
+          },
+          accountId:user.id
+        },200,headers);
+      }catch(err){
+        return json({error:safeClientError(err,"No se pudo consultar el estado de Google Play.")},err?.status||500,headers);
+      }
+    }
     if(url.pathname==="/api/billing/google/rtdn"){
       try{return await googleRtdn(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo procesar la notificación de Google Play.")},err?.status||500,corsHeaders(request,env))}
     }

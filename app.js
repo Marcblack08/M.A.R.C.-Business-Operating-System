@@ -915,7 +915,7 @@ async function moduleLoad(type){
       box.innerHTML=rows.map(r=>'<div class="module-row" data-status="'+esc(String(r.status||"").toUpperCase())+'"><div><b>'+esc(r.customer_name||r.client_name||"Crédito")+'</b><small>'+esc(r.reference||r.notes||"Sin referencia")+'</small></div><span>'+esc(r.status||"PENDIENTE")+'</span><strong>'+money(r.balance??r.amount??0)+'</strong><button class="secondary" type="button" data-receivable-edit="'+r.id+'">Editar</button></div>').join("");
       box.querySelectorAll("[data-receivable-edit]").forEach(b=>b.onclick=()=>receivableModal(rows.find(x=>x.id===b.dataset.receivableEdit)));
     }
-  }catch(e){box.innerHTML='<div class="module-empty"><b>No se pudo cargar este módulo</b><small>'+esc(e.message||"Error de datos")+'</small></div>}
+  }catch(e){box.innerHTML='<div class="module-empty"><b>No se pudo cargar este módulo</b><small>'+esc(e.message||"Error de datos")+'</small></div>'}
 }
 function moduleCreateModal(type){
   if(type==="purchases")return purchaseModal();

@@ -1,1 +1,1 @@
-window.MARC_CONFIG={supabaseUrl:"https://hmnzzknuiejchypalpig.supabase.co",supabasePublishableKey:"sb_publishable_mhRoYMQTWrmYpuclqzQ1MA_6TMtGikq",apiBase:"",appUrl:"https://m-a-r-c--business-operating-system.marcjjbeltran08.workers.dev/"};
+window.MARC_CONFIG={supabaseUrl:"https://hmnzzknuiejchypalpig.supabase.co",supabasePublishableKey:"sb_publishable_mhRoYMQTWrmYpuclqzQ1MA_6TMtGikq",apiBase:"",appUrl:(location.origin+location.pathname).replace(/\\/[^\\/]*$/,"/")};

@@ -4194,24 +4194,26 @@ function wire(){
     const current=await S.auth.getSession();
     if(current.error)throw current.error;
     if(current.data?.session?.user){
-      sessionStorage.removeItem("marc_google_oauth_pending");
-      cleanAuthUrl();
-      if(oauthPending)msg("Acceso con Google confirmado. Abriendo M.A.R.C.…");
-      await handleAuthSession(current.data.session);
-      return;
-    }
+       if(recoveryMode){sessionStorage.removeItem("marc_google_oauth_pending");mode("update");msg("Crea una nueva contraseña para tu cuenta.","ok");cleanAuthUrl();return;}
+       sessionStorage.removeItem("marc_google_oauth_pending");
+       cleanAuthUrl();
+       if(oauthPending)msg("Acceso con Google confirmado. Abriendo M.A.R.C.…");
+       await handleAuthSession(current.data.session);
+       return;
+     }
 
     if(oauthPending){
       await new Promise(r=>setTimeout(r,1200));
       const retry=await S.auth.getSession();
       if(retry.error)throw retry.error;
       if(retry.data?.session?.user){
-        sessionStorage.removeItem("marc_google_oauth_pending");
-        cleanAuthUrl();
-        msg("Sesión de Google recuperada. Abriendo M.A.R.C.…");
-        await handleAuthSession(retry.data.session);
-        return;
-      }
+         if(recoveryMode){mode("update");msg("Crea una nueva contraseña para tu cuenta.","ok");cleanAuthUrl();return;}
+         sessionStorage.removeItem("marc_google_oauth_pending");
+         cleanAuthUrl();
+         msg("Sesión de Google recuperada. Abriendo M.A.R.C.…");
+         await handleAuthSession(retry.data.session);
+         return;
+       }
       msg(
         "Google terminó la autenticación, pero M.A.R.C. no pudo recuperar la sesión en este navegador. El callback llegó correctamente; no volveremos a ocultar este diagnóstico.",
         "error"

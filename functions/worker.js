@@ -1070,7 +1070,7 @@ async function googleAcknowledgeSubscription(env,productId,purchaseToken){
 }
 function googleSubscriptionProjection(data){
   const item=data?.lineItems?.[0]||{};
-  return {productId:String(item.productId||""),expiryTime:item.expiryTime||null,orderId:item.latestSuccessfulOrderId||data?.latestOrderId||null,autoRenewing:item.autoRenewingPlan?.autoRenewEnabled===true,subscriptionState:String(data?.subscriptionState||""),acknowledgementState:String(data?.acknowledgementState||"")};
+  return {productId:String(item.productId||""),expiryTime:item.expiryTime||null,orderId:item.latestSuccessfulOrderId||data?.latestOrderId||null,autoRenewing:item.autoRenewingPlan?.autoRenewEnabled===true,subscriptionState:String(data?.subscriptionState||""),acknowledgementState:String(data?.acknowledgementState||""),linkedPurchaseToken:String(data?.linkedPurchaseToken||"")||null};
 }
 
 const GOOGLE_RT_DN_TYPES={
@@ -1140,6 +1140,10 @@ async function googleRtdn(request,env){
   const accessStates=new Set(["SUBSCRIPTION_STATE_ACTIVE","SUBSCRIPTION_STATE_IN_GRACE_PERIOD","SUBSCRIPTION_STATE_CANCELED","SUBSCRIPTION_STATE_PAUSED"]);
   const hasAccess=accessStates.has(p.subscriptionState)&&expiryMs>Date.now();
   const status=p.subscriptionState==="SUBSCRIPTION_STATE_IN_GRACE_PERIOD"?"grace":hasAccess?"active":"inactive";
+
+  if(p.acknowledgementState==="ACKNOWLEDGEMENT_STATE_PENDING"&&p.productId){
+    await googleAcknowledgeSubscription(env,p.productId,purchaseToken).catch(()=>{});
+  }
 
   await sb(env,secret,"marc_subscriptions?id=eq."+encodeURIComponent(subscription.id),{method:"PATCH",body:{
     plan,status,provider:"google_play",provider_subscription_id:p.productId,provider_product_id:p.productId,

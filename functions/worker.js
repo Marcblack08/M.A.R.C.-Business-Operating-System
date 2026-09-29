@@ -1003,6 +1003,84 @@ async function finalReply(env,message,planData,userName=""){
   return out?.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("")||"Listo.";
 }
 
+function googleB64Url(input){
+  const bytes=typeof input==="string"?new TextEncoder().encode(input):input;
+  let binary="";
+  for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));
+  return btoa(binary).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+}
+function googlePemToDer(pem){
+  const clean=String(pem||"").replace(/-----BEGIN PRIVATE KEY-----/g,"").replace(/-----END PRIVATE KEY-----/g,"").replace(/\s+/g,"");
+  const binary=atob(clean);
+  const out=new Uint8Array(binary.length);
+  for(let i=0;i<binary.length;i++)out[i]=binary.charCodeAt(i);
+  return out;
+}
+async function googleAccessToken(env){
+  const email=String(env.GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL||"").trim();
+  const privateKey=String(env.GOOGLE_PLAY_PRIVATE_KEY||"").replace(/\\n/g,"\n").trim();
+  if(!email||!privateKey)throw Object.assign(new Error("Google Play no está configurado en el Worker. Faltan GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL o GOOGLE_PLAY_PRIVATE_KEY."),{status:503});
+  const now=Math.floor(Date.now()/1000);
+  const header=googleB64Url(JSON.stringify({alg:"RS256",typ:"JWT"}));
+  const claim=googleB64Url(JSON.stringify({iss:email,scope:"https://www.googleapis.com/auth/androidpublisher",aud:"https://oauth2.googleapis.com/token",iat:now,exp:now+3600}));
+  const key=await crypto.subtle.importKey("pkcs8",googlePemToDer(privateKey),{name:"RSASSA-PKCS1-v1_5",hash:"SHA-256"},false,["sign"]);
+  const signature=await crypto.subtle.sign("RSASSA-PKCS1-v1_5",key,new TextEncoder().encode(header+"."+claim));
+  const assertion=header+"."+claim+"."+googleB64Url(new Uint8Array(signature));
+  const r=await fetch("https://oauth2.googleapis.com/token",{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},body:new URLSearchParams({grant_type:"urn:ietf:params:oauth:grant-type:jwt-bearer",assertion}).toString()});
+  const data=await r.json().catch(()=>null);
+  if(!r.ok||!data?.access_token)throw Object.assign(new Error(data?.error_description||"No se pudo autenticar M.A.R.C. con Google Play."),{status:502,details:data});
+  return data.access_token;
+}
+function googlePlanFromProduct(productId,env){
+  const configured=String(env.GOOGLE_PLAY_PRODUCT_MAP||"").trim();
+  if(configured){
+    try{
+      const map=JSON.parse(configured);
+      const value=map?.[productId];
+      if(value)return normalizeGooglePlan(value);
+    }catch{}
+  }
+  const map={"marc_coder_monthly":"coder","marc_coder_yearly":"coder","marc_premium_monthly":"premium","marc_premium_yearly":"premium"};
+  return map[productId]||null;
+}
+function normalizeGooglePlan(value){
+  const p=String(value||"").trim().toLowerCase();
+  return p==="pro"?"coder":p==="enterprise"?"premium":["coder","premium"].includes(p)?p:null;
+}
+async function googleGetSubscription(env,purchaseToken){
+  const packageName=String(env.GOOGLE_PLAY_PACKAGE_NAME||"").trim();
+  if(!packageName)throw Object.assign(new Error("Google Play no está configurado en el Worker. Falta GOOGLE_PLAY_PACKAGE_NAME."),{status:503});
+  const accessToken=await googleAccessToken(env);
+  const r=await fetch("https://androidpublisher.googleapis.com/androidpublisher/v3/applications/"+encodeURIComponent(packageName)+"/purchases/subscriptionsv2/tokens/"+encodeURIComponent(purchaseToken),{headers:{Authorization:"Bearer "+accessToken}});
+  const data=await r.json().catch(()=>null);
+  if(!r.ok)throw Object.assign(new Error(data?.error?.message||"Google Play rechazó la verificación de la suscripción."),{status:r.status===404?404:502,details:data});
+  return data;
+}
+function googleSubscriptionProjection(data){
+  const item=data?.lineItems?.[0]||{};
+  return {productId:String(item.productId||""),expiryTime:item.expiryTime||null,orderId:item.latestSuccessfulOrderId||data?.latestOrderId||null,autoRenewing:item.autoRenewingPlan?.autoRenewEnabled===true,subscriptionState:String(data?.subscriptionState||""),acknowledgementState:String(data?.acknowledgementState||"")};
+}
+async function googleVerifySubscription(request,env){
+  if(request.method!=="POST")return json({error:"Método no permitido"},405,corsHeaders(request,env));
+  const {token,user}=await authUser(request,env);
+  const body=await request.json().catch(()=>({}));
+  const purchaseToken=String(body?.purchaseToken||"").trim();
+  if(!purchaseToken||purchaseToken.length>4096)return json({error:"purchaseToken inválido."},400,corsHeaders(request,env));
+  const data=await googleGetSubscription(env,purchaseToken);
+  const p=googleSubscriptionProjection(data);
+  const plan=googlePlanFromProduct(p.productId,env);
+  if(!plan)return json({error:"PRODUCT_NOT_CONFIGURED",message:"El producto de Google Play no está asociado a un plan M.A.R.C.",productId:p.productId},422,corsHeaders(request,env));
+  const hasAccess=new Set(["SUBSCRIPTION_STATE_ACTIVE","SUBSCRIPTION_STATE_IN_GRACE_PERIOD"]).has(p.subscriptionState)&&p.expiryTime&&new Date(p.expiryTime).getTime()>Date.now();
+  if(!hasAccess)return json({error:"SUBSCRIPTION_NOT_ACTIVE",message:"La suscripción no está activa.",state:p.subscriptionState,expiryTime:p.expiryTime},402,corsHeaders(request,env));
+  const secret=env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY;
+  if(!secret)throw Object.assign(new Error("El Worker no tiene clave privilegiada de Supabase para activar suscripciones."),{status:503});
+  const payload={plan,status:p.subscriptionState==="SUBSCRIPTION_STATE_IN_GRACE_PERIOD"?"grace":"active",provider:"google_play",provider_subscription_id:p.productId,provider_product_id:p.productId,purchase_token:purchaseToken,order_id:p.orderId,auto_renewing:p.autoRenewing,acknowledgement_state:p.acknowledgementState,subscription_state:p.subscriptionState,current_period_start:data?.startTime||new Date().toISOString(),current_period_end:p.expiryTime,last_verified_at:new Date().toISOString(),raw_provider_data:data};
+  let rows=await sb(env,secret,"marc_subscriptions?user_id=eq."+encodeURIComponent(user.id),{method:"PATCH",body:payload});
+  if(!rows?.length)rows=await sb(env,secret,"marc_subscriptions",{method:"POST",body:{user_id:user.id,...payload}});
+  await sb(env,secret,"marc_subscription_events",{method:"POST",body:{user_id:user.id,subscription_id:rows?.[0]?.id||null,provider:"google_play",event_type:"SUBSCRIPTION_VERIFIED",purchase_token:purchaseToken,payload:{productId:p.productId,subscriptionState:p.subscriptionState,expiryTime:p.expiryTime,orderId:p.orderId}}}).catch(()=>{});
+  return json({ok:true,plan,status:payload.status,expiryTime:p.expiryTime,productId:p.productId,orderId:p.orderId},200,corsHeaders(request,env));
+}
+
 async function entitlement(env,token,userId){
   const roles=await sb(env,token,"marc_user_roles?select=role,active&user_id=eq."+encodeURIComponent(userId)+"&role=eq.MASTER&active=eq.true&limit=1");
   if(roles?.[0])return {kind:"master",role:"MASTER",plan:"master",remaining:null};
@@ -3855,6 +3933,9 @@ export default{
         const rows=await sb(env,token,"marc_reminders?select=id,title,body,due_at,status,channel,created_at,sent_at&user_id=eq."+encodeURIComponent(user.id)+"&order=due_at.desc&limit=50");
         return json({notifications:rows||[]},200,headers);
       }catch(err){return json({error:safeClientError(err,"No se pudieron cargar las notificaciones")},err?.status||500,headers)}
+    }
+    if(url.pathname==="/api/billing/google/verify"){
+      try{return await googleVerifySubscription(request,env)}catch(err){return json({error:safeClientError(err,"No se pudo verificar la suscripción de Google Play.")},err?.status||500,headers)}
     }
     if(url.pathname==="/api/chat"){
       if(request.method!=="POST")return json({error:"Método no permitido"},405,headers);

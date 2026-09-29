@@ -1192,10 +1192,12 @@ async function googleVerifySubscription(request,env){
       return json({error:"LINKED_PURCHASE_TOKEN_ALREADY_LINKED",message:"La compra anterior está vinculada a otra cuenta M.A.R.C."},409,corsHeaders(request,env));
     }
   }
-  if(p.acknowledgementState==="ACKNOWLEDGEMENT_STATE_PENDING"){
+  let acknowledgementState=p.acknowledgementState;
+  if(acknowledgementState==="ACKNOWLEDGEMENT_STATE_PENDING"){
     await googleAcknowledgeSubscription(env,p.productId,purchaseToken);
+    acknowledgementState="ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED";
   }
-  const payload={plan,status:p.subscriptionState==="SUBSCRIPTION_STATE_IN_GRACE_PERIOD"?"grace":"active",provider:"google_play",provider_subscription_id:p.productId,provider_product_id:p.productId,purchase_token:purchaseToken,order_id:p.orderId,auto_renewing:p.autoRenewing,acknowledgement_state:p.acknowledgementState,subscription_state:p.subscriptionState,current_period_start:data?.startTime||new Date().toISOString(),current_period_end:p.expiryTime,last_verified_at:new Date().toISOString(),raw_provider_data:data};
+  const payload={plan,status:p.subscriptionState==="SUBSCRIPTION_STATE_IN_GRACE_PERIOD"?"grace":"active",provider:"google_play",provider_subscription_id:p.productId,provider_product_id:p.productId,purchase_token:purchaseToken,order_id:p.orderId,auto_renewing:p.autoRenewing,acknowledgement_state:acknowledgementState,subscription_state:p.subscriptionState,current_period_start:data?.startTime||new Date().toISOString(),current_period_end:p.expiryTime,last_verified_at:new Date().toISOString(),raw_provider_data:data};
   let rows=await sb(env,secret,"marc_subscriptions?user_id=eq."+encodeURIComponent(user.id),{method:"PATCH",body:payload});
   if(!rows?.length)rows=await sb(env,secret,"marc_subscriptions",{method:"POST",body:{user_id:user.id,...payload}});
   await sb(env,secret,"marc_subscription_events",{method:"POST",body:{user_id:user.id,subscription_id:rows?.[0]?.id||null,provider:"google_play",event_type:"SUBSCRIPTION_VERIFIED",purchase_token:purchaseToken,payload:{productId:p.productId,subscriptionState:p.subscriptionState,expiryTime:p.expiryTime,orderId:p.orderId}}}).catch(()=>{});

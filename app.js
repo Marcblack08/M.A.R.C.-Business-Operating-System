@@ -526,15 +526,18 @@ async function ensureEcosystem(){
   // La cuenta MASTER trabaja siempre desde Mixto al iniciar sesión.
   // Desde el distintivo superior puede cambiar entre Técnico, Tienda y Mixto
   // sin cerrar sesión ni perder contexto.
-  if(isMasterAccount()){
-    applyEcosystemUI("mixed");
-    return true;
-  }
-
   const profile=st.u?.user_metadata||{};
   const configured=profile.marc_ecosystem_configured===true;
   const fromProfile=normalizeEcosystem(profile.marc_ecosystem);
   const saved=fromProfile||normalizeEcosystem(safeStorageGet(ECOSYSTEM_KEY));
+
+  // MASTER también debe respetar el ecosistema que está probando. Antes se
+  // forzaba siempre a Mixto, lo que hacía que una prueba del plan gratuito
+  // Técnico terminara consultando módulos comerciales como Caja.
+  if(isMasterAccount()){
+    applyEcosystemUI(saved||"technician");
+    return true;
+  }
 
   // Las cuentas normales conservan su espacio configurado. Si nunca se
   // configuraron, mostramos el selector inicial.
@@ -983,23 +986,32 @@ async function reports(){
     ];
 
     const hasCommerce=eco==="business"||eco==="mixed";
-    if(hasCommerce){
+    const planCode=normalizePlan(st.planState?.code);
+    const canReadCommerceReports=hasCommerce&&(isMasterPlan()||planCode!=="free");
+    if(canReadCommerceReports){
       requests.push(
         S.from("marc_sales").select("total,status,payment_method,created_at").eq("user_id",st.u.id).order("created_at",{ascending:false}).limit(1000),
-        S.from("marc_cash_registers").select("id,status,opening_amount,closed_amount,opened_at,closed_at").eq("user_id",st.u.id).order("opened_at",{ascending:false}).limit(100)
+        S.from("marc_cash_registers").select("id,status,opening_amount,closing_amount,opened_at,closed_at").eq("user_id",st.u.id).order("opened_at",{ascending:false}).limit(100)
       );
     }
 
     const results=await Promise.all(requests);
     const quotes=results[0],inventory=results[1],clients=results[2];
-    const sales=hasCommerce?results[3]:null;
-    const cash=hasCommerce?results[4]:null;
+    const sales=canReadCommerceReports?results[3]:null;
+    const cash=canReadCommerceReports?results[4]:null;
 
     const err=[quotes,inventory,clients,sales,cash].find(r=>r?.error);
-    if(err)return toast(err.error?.message||"No se pudieron generar los reportes.","err");
+    if(err){
+      const message=err.error?.message||"No se pudieron generar los reportes.";
+      const body=$("#reportsBody");
+      if(body)body.innerHTML='<section class="card report-error-state"><div class="panel-eyebrow">DIAGNÓSTICO</div><h3>No se pudieron cargar los reportes</h3><p>'+esc(message)+'</p><button id="reportsRetryError" class="secondary">↻ Reintentar</button></section>';
+      $("#reportsRetryError")?.addEventListener("click",load);
+      return toast(message,"err");
+    }
 
     const qr=quotes.data||[],iv=inventory.data||[],cl=clients.data||[];
     const sr=sales?.data||[],cr=cash?.data||[];
+    const commerceReport=canReadCommerceReports;
     const now=new Date(),monthStart=new Date(now.getFullYear(),now.getMonth(),1);
     const monthSales=sr.filter(x=>new Date(x.created_at)>=monthStart);
     const quotesActive=qr.filter(x=>["BORRADOR","ENVIADA","ACEPTADA"].includes(String(x.status||"").toUpperCase()));

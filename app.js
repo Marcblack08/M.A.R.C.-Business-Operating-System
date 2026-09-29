@@ -136,7 +136,16 @@ async function signInGoogle(e){e?.preventDefault?.();e?.stopPropagation?.();cons
     $("#authForm")?.reset();
   });
 }
-bindAuthControls();
+// Exponer el núcleo antes de registrar controles DOM. Si un control visual
+// falla, el diagnóstico de arranque sigue pudiendo identificar el punto exacto.
+window.MARC=window.MARC||{};
+Object.assign(window.MARC,{view,openChat,closeChat,toast,supabase:S,signInCashStaff});
+try{
+  bindAuthControls();
+}catch(err){
+  console.error("[M.A.R.C. boot] Error registrando controles de autenticación:",err);
+  msg("Error de inicialización de controles: "+String(err?.message||err),"error");
+}
 async function handleAuthSession(s){if(!s?.user)return;const id=s.user.id;if(authEnteredSessionId===id && st.u?.id===id && !$("#app").classList.contains("hidden"))return;authEnteredSessionId=id;try{await enter(s)}catch(e){authEnteredSessionId=null;throw e}}function resetUiToLogin(message="",type=""){const pending=sessionStorage.getItem("marc_google_oauth_pending")==="1";let diagnostic="";try{const last=JSON.parse(sessionStorage.getItem("marc_auth_last_event")||"null");if(last?.event)diagnostic=" Evento recibido: "+last.event+"."; }catch{}if(!message&&pending){message="Google completó la autenticación, pero M.A.R.C. recibió la sesión como cerrada antes de entrar al sistema."+diagnostic+" El problema está en la recuperación de sesión del navegador, no en la cuenta de Google.";type="error";}st.authEpoch++;st.u=null;st.session=null;st.cid=null;try{applyCashierMode(false)}catch{}$("#app").classList.add("hidden");$("#auth").classList.remove("hidden");mode("login");if(message)msg(message,type)}
 async function ensure(){const u=st.u;if(!u)return;await S.from("marc_accounts").upsert({id:u.id,display_name:u.email?.split("@")[0]||"Usuario"},{onConflict:"id"});const {data:t}=await S.from("marc_trials").select("id").eq("user_id",u.id).maybeSingle();if(!t)await S.from("marc_trials").insert({user_id:u.id});const {data:c}=await S.from("marc_conversations").select("id").eq("user_id",u.id).eq("channel","WEB").order("updated_at",{ascending:false}).limit(1).maybeSingle();st.cid=c?.id||(await S.from("marc_conversations").insert({user_id:u.id,channel:"WEB",title:"Conversación principal"}).select("id").single()).data?.id}
 
@@ -4260,9 +4269,8 @@ function wire(){
   window.MARC.submitLogin=submit;
 }
 // API pública mínima para módulos auxiliares (proveedores, notificaciones y herramientas visuales).
-// Mantiene el núcleo encapsulado y evita que cada módulo dependa de variables internas sueltas.
+// La API ya fue expuesta antes de wire(); aquí solo se completan referencias globales.
 window.MARC=window.MARC||{};
-Object.assign(window.MARC,{view,openChat,closeChat,toast,supabase:S,signInCashStaff});
 window.view=view;
 window.openChat=openChat;
 window.closeChat=closeChat;

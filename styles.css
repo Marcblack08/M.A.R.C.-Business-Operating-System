@@ -4603,3 +4603,117 @@ html[data-ecosystem="mixed"] #app.marc-immersive .mixed-bottom-grid{gap:12px!imp
     max-height:44vh;
   }
 }
+
+
+/* ===== TECHNICIAN MODULE MENU — MOBILE READABILITY FIX ===== */
+.marc-module-panel,
+.marc-module-panel *{box-sizing:border-box}
+
+html[data-ecosystem="technician"] .marc-module-panel{
+  color:#f4f8fc!important;
+  background:linear-gradient(160deg,#071a2d 0%,#08253b 52%,#061522 100%)!important;
+}
+
+html[data-ecosystem="technician"] .marc-module-head h2{
+  color:#ffffff!important;
+}
+html[data-ecosystem="technician"] .marc-module-head p{
+  color:#9db6c8!important;
+}
+html[data-ecosystem="technician"] .marc-module-kicker{
+  color:#61d8ff!important;
+}
+html[data-ecosystem="technician"] .marc-module-close{
+  color:#ffffff!important;
+  background:rgba(255,255,255,.08)!important;
+  border:1px solid rgba(255,255,255,.16)!important;
+}
+
+/* Never inherit the dark overlay's text color into the light module cards. */
+.marc-module-card,
+html[data-ecosystem="technician"] .marc-module-card{
+  color:#102335!important;
+  background:#f8fbfd!important;
+  border:1px solid rgba(255,255,255,.58)!important;
+  box-shadow:0 8px 22px rgba(0,0,0,.16)!important;
+}
+.marc-module-card b,
+html[data-ecosystem="technician"] .marc-module-card b{
+  display:block!important;
+  color:#102335!important;
+  font-size:11px!important;
+  font-weight:900!important;
+  line-height:1.15!important;
+  text-shadow:none!important;
+}
+.marc-module-card small,
+html[data-ecosystem="technician"] .marc-module-card small{
+  display:block!important;
+  color:#5d7182!important;
+  font-size:8px!important;
+  font-weight:600!important;
+  line-height:1.35!important;
+  text-shadow:none!important;
+}
+html[data-ecosystem="technician"] .marc-module-card .mm-icon{
+  flex:0 0 auto!important;
+}
+.marc-module-group-head{
+  display:flex!important;
+  align-items:baseline!important;
+  gap:6px!important;
+  min-width:0!important;
+  margin:0 2px 8px!important;
+}
+.marc-module-group-head b{
+  color:#ffffff!important;
+  font-size:12px!important;
+  font-weight:900!important;
+  line-height:1.2!important;
+}
+.marc-module-group-head i{
+  margin-left:auto!important;
+  color:#86a9bd!important;
+  font-size:8px!important;
+  font-style:normal!important;
+  white-space:nowrap!important;
+}
+.marc-module-group-head span{
+  width:5px!important;
+  height:16px!important;
+  flex:0 0 5px!important;
+  border-radius:999px!important;
+  background:#38c8f2!important;
+}
+.marc-module-grid{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:9px!important;
+}
+.marc-module-group{
+  margin-bottom:16px!important;
+}
+@media(max-width:620px){
+  .marc-module-panel{
+    width:min(100%,520px)!important;
+    max-height:calc(100dvh - 18px)!important;
+    overflow:auto!important;
+    padding:16px!important;
+  }
+  .marc-module-head{
+    position:sticky!important;
+    top:-16px!important;
+    z-index:5!important;
+    padding:4px 0 12px!important;
+    background:linear-gradient(180deg,#071a2d 88%,transparent)!important;
+  }
+  .marc-module-grid{gap:8px!important}
+  .marc-module-card{
+    min-height:108px!important;
+    padding:11px!important;
+    border-radius:16px!important;
+  }
+  .marc-module-card b{font-size:10px!important}
+  .marc-module-card small{font-size:7.5px!important}
+  .marc-module-group-head b{font-size:11px!important}
+}

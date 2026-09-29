@@ -985,9 +985,9 @@ async function reports(){
       S.from("marc_clients").select("id,name").eq("user_id",st.u.id).order("name").limit(1000)
     ];
 
-    const hasCommerce=eco==="business"||eco==="mixed";
+    const commerceReport=eco==="business"||eco==="mixed";
     const planCode=normalizePlan(st.planState?.code);
-    const canReadCommerceReports=hasCommerce&&(isMasterPlan()||planCode!=="free");
+    const canReadCommerceReports=commerceReport&&(isMasterPlan()||planCode!=="free");
     if(canReadCommerceReports){
       requests.push(
         S.from("marc_sales").select("total,status,payment_method,created_at").eq("user_id",st.u.id).order("created_at",{ascending:false}).limit(1000),
@@ -1025,7 +1025,7 @@ async function reports(){
     const lowHtml=low.slice(0,12).map(x=>'<div class="report-line"><span>'+esc(x.name)+'</span><b>'+Number(x.stock||0)+' u.</b></div>').join("")||'<div class="empty">No hay materiales con stock bajo.</div>';
 
     let stats;
-    if(hasCommerce){
+    if(commerceReport){
       stats='<div class="stats-grid">'+
         '<article class="stat-card"><small>Ventas del mes</small><strong>'+fmt(salesTotal)+'</strong><span>'+monthSales.length+' operaciones</span></article>'+
         '<article class="stat-card"><small>Cotizaciones activas</small><strong>'+fmt(quotesTotal)+'</strong><span>'+quotesActive.length+' propuestas</span></article>'+
@@ -1043,10 +1043,10 @@ async function reports(){
 
     const sections=
       '<div class="dashboard-main-grid">'+
-        (hasCommerce?'<section class="dashboard-panel"><div class="panel-title-row"><div><div class="panel-eyebrow">COBROS</div><h3>Ventas por medio de pago</h3></div></div>'+mixHtml+'</section>': '<section class="dashboard-panel"><div class="panel-title-row"><div><div class="panel-eyebrow">OPERACIÓN TÉCNICA</div><h3>Estado del inventario</h3></div></div>'+lowHtml+'</section>')+
+        (commerceReport?'<section class="dashboard-panel"><div class="panel-title-row"><div><div class="panel-eyebrow">COBROS</div><h3>Ventas por medio de pago</h3></div></div>'+mixHtml+'</section>': '<section class="dashboard-panel"><div class="panel-title-row"><div><div class="panel-eyebrow">OPERACIÓN TÉCNICA</div><h3>Estado del inventario</h3></div></div>'+lowHtml+'</section>')+
         '<section class="dashboard-panel"><div class="panel-title-row"><div><div class="panel-eyebrow">MATERIALES</div><h3>Stock bajo</h3></div></div>'+lowHtml+'</section>'+
       '</div>'+
-      (hasCommerce?'<section class="card" style="margin-top:14px"><div class="card-head"><div><b>Resumen de caja</b><small>'+cr.filter(x=>x.status==="CLOSED").length+' cierres registrados</small></div></div><div class="report-line"><span>Cajas abiertas</span><b>'+cr.filter(x=>x.status==="OPEN").length+'</b></div><div class="report-line"><span>Cajas cerradas</span><b>'+cr.filter(x=>x.status==="CLOSED").length+'</b></div></section>':'<section class="card" style="margin-top:14px"><div class="card-head"><div><b>Resumen técnico disponible</b><small>El plan gratuito muestra únicamente datos permitidos para este ecosistema.</small></div></div><div class="report-line"><span>Cotizaciones</span><b>'+qr.length+'</b></div><div class="report-line"><span>Clientes</span><b>'+cl.length+'</b></div><div class="report-line"><span>Materiales activos</span><b>'+iv.length+'</b></div></section>');
+      (commerceReport?'<section class="card" style="margin-top:14px"><div class="card-head"><div><b>Resumen de caja</b><small>'+cr.filter(x=>x.status==="CLOSED").length+' cierres registrados</small></div></div><div class="report-line"><span>Cajas abiertas</span><b>'+cr.filter(x=>x.status==="OPEN").length+'</b></div><div class="report-line"><span>Cajas cerradas</span><b>'+cr.filter(x=>x.status==="CLOSED").length+'</b></div></section>':'<section class="card" style="margin-top:14px"><div class="card-head"><div><b>Resumen técnico disponible</b><small>El plan gratuito muestra únicamente datos permitidos para este ecosistema.</small></div></div><div class="report-line"><span>Cotizaciones</span><b>'+qr.length+'</b></div><div class="report-line"><span>Clientes</span><b>'+cl.length+'</b></div><div class="report-line"><span>Materiales activos</span><b>'+iv.length+'</b></div></section>');
 
     $("#reportsBody").innerHTML=stats+sections;
   };

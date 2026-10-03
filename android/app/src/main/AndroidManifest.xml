@@ -7,6 +7,7 @@
         android:allowBackup="true"
         android:label="M.A.R.C."
         android:supportsRtl="true"
+        android:usesCleartextTraffic="false"
         android:theme="@style/Theme.MARC">
         <activity
             android:name=".MainActivity"
